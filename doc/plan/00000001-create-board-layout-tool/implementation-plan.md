@@ -118,7 +118,23 @@ separate 2×2 lakes (B–C, F–G, J–K); each side has exactly 48 home squares
 
 ### Step 2 — Piece catalog & army inventory (ruleset v1.1)
 
-Status: pending
+Status: committed
+
+Notes: Implemented `src/rules/primary/v1_1/pieces.ts` (pure TypeScript, no
+React) with `PieceTypeId`, `RankCode`, `PositionBlockSymbol`,
+`PieceCatalogEntry`, `PIECE_TYPES`, `PIECE_CATALOG`, `pieceCatalogEntries`,
+`ARMY_SIZE`, and `freshInventory`. Tower and Flag are modeled with
+`rankCode: null` (the table's "—") rather than a literal shared string,
+since two pieces both lacking a rank isn't the same as sharing one; the
+"distinct rank code" test therefore checks distinctness only among the ten
+pieces that do carry a rank code (1-9 and Assassin's `"special"`), plus a
+separate assertion that Tower and Flag are exactly the two unranked types.
+Position-block symbols (all 12) are asserted fully distinct, matching the
+plan's table. Unit tests in `pieces.test.ts` cover per-type quantities
+against the ruleset table, the 48 total, symbol/rank-code distinctness,
+non-empty display names, and `freshInventory` returning a fresh full-48
+inventory each call. `npm run typecheck`, `npm run lint`, `npm run
+format:check`, and `npm test` all pass. No other deviations from the plan.
 
 Implement, in the same version-scoped domain directory, the catalog of the 12
 piece types with their rank code, position-block symbol, and per-side quantity
