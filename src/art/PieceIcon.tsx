@@ -68,9 +68,11 @@ export interface PieceIconProps {
  * Renders one piece's symbol, colored for the given side, with the piece's
  * one-character rank code (the position-block symbol: `1`-`9`, `A`, `T`, `F`)
  * pinned in the top-left corner as a quick rank reminder. The corner numeral
- * is separate overlay markup (per `.local/ctf-tile-prototype.md`), not part of
- * the `<symbol>`, so it is drawn here alongside the `<use>`; `currentColor`
- * makes it track the side color set on the svg.
+ * is separate overlay markup, not part of the `<symbol>`, so it is drawn here
+ * alongside the `<use>`; `currentColor` makes it track the side color set on
+ * the svg. Size/font (18px Times New Roman) match the tuned `class="badge"`
+ * text in the prototype sample sheet `.local/ctf-tile-prototype.svg` — note
+ * the sibling `.md` quotes stale values (32px/Georgia).
  */
 export function PieceIcon({ type, side, className }: PieceIconProps) {
   const symbolId = SYMBOL_ID_BY_PIECE_TYPE[type];
@@ -86,8 +88,8 @@ export function PieceIcon({ type, side, className }: PieceIconProps) {
       <text
         x={15}
         y={17}
-        fontSize={32}
-        fontFamily="Georgia, serif"
+        fontSize={18}
+        fontFamily="Times New Roman, serif"
         fontWeight={700}
         textAnchor="end"
         fill="currentColor"
