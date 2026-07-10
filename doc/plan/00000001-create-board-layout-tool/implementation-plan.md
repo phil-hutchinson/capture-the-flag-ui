@@ -428,7 +428,43 @@ greying look right.
 
 ### Step 8 — Piece tray, inventory & click-to-place — Gate B
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/Tray.tsx` + `src/board/Tray.css` — a `Tray` component
+rendering one row per piece type (in `pieceCatalogEntries()` order) as a
+native `<button>`: real `PieceIcon` (colored for the active side), display
+name, and a live remaining-count badge sourced from `PlacementState.
+remaining`. Clicking a type with `count > 0` selects it (`aria-pressed`,
+highlighted via `tray__item--selected`); clicking the already-selected type
+deselects it; a type at zero remaining is shown (so its full-army count
+stays visible) but `disabled` so it cannot be selected. Extended
+`src/board/Board.tsx` (Step 7's board) with two new optional props:
+`placement` (a `PlacementState` — when given, each home square renders its
+placed piece, if any, via `PieceIcon`) and `onSquareClick` (wired only onto
+`band === "home"` cells, since buffer/lake-row cells are already
+non-interactive per Step 7's CSS `pointer-events: none`; this keeps illegal
+squares structurally non-clickable rather than validated after the fact).
+Added a small `board-square__piece-icon` CSS rule (`Board.css`) sizing the
+placed-piece icon to fill the square, mirroring the existing lake-icon rule.
+Wired it together in `src/App.tsx`: local `useState` for a single active
+player's `PlacementState` (`emptyPlacement("white")`, matching Step 7's
+hardcoded White-only shell — the two-player session model is Step 10's
+scope) and the currently-selected `PieceTypeId | null`. `handleSquareClick`
+ignores clicks with no type selected and clicks on already-occupied squares
+(interacting with a placed piece — move/swap/return-to-tray — is Step 9's
+scope, not this step's), otherwise calls Step 3's `place` and auto-clears
+the selection once that type's remaining count hits zero. Added a
+`.app__layout` flex row (`App.css`) to lay the board and tray side by side.
+`npm run typecheck`, `npm run lint`, `npm test` (64 tests, unchanged — this
+step added no new pure-logic tests since it is pure React wiring over
+already-unit-tested domain operations, consistent with the plan's "all
+React/UI behavior is verified through the manual gates" constraint), `npm
+run build`, and `npm run format:check` all pass (the two pre-existing
+markdown warnings on this story's own `story.md`/`implementation-plan.md`
+predate this step, per Steps 4-7's notes). Confirmed `npm run dev` serves
+the app at HTTP 200. No deviations from the plan; Gate B itself remains for
+the owner to confirm manually (real icons/counts against the ruleset in
+practice, click-to-select then click-to-place, lake/buffer squares inert).
 
 Add the piece tray/inventory panel showing every piece type with the real icon
 (Step 6, in the active player's side color) and a live remaining count driven by

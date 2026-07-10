@@ -10,3 +10,11 @@
   font-size: 1.75rem;
   margin: 0;
 }
+
+.app__layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  align-items: flex-start;
+  justify-content: center;
+}
