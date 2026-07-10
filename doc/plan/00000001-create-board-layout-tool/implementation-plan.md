@@ -570,7 +570,64 @@ counts).
 
 ### Step 10 — Completion, confirm-as-hand-off & auto-fill — Gate D
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/placementSession.ts` (pure TypeScript, no React): a
+`PlacementSession` holding both sides' own `PlacementState` (Step 3) plus
+`active: Side | null` (White first, then Black, `null` once both have
+confirmed - there is nobody left to hand off to). `newSession()` builds the
+starting session; `activePlacement`/`updateActivePlacement` read/write only
+the active side's own placement (throwing if the session is already
+complete); `confirmActive` is the hand-off itself - it requires the active
+side's placement to be `isComplete` (Step 3), then advances `active` to the
+other side (White -> Black) or to `null` (Black -> nobody, i.e. session
+complete), without ever touching either side's stored `PlacementState`
+directly (the next side's board is simply whatever `PlacementState` it
+already had - untouched-and-empty the first time it becomes active). Added
+`src/board/placementSession.test.ts` (9 tests) covering: a fresh session
+starts White-active with both boards empty; `activePlacement`/
+`updateActivePlacement` only ever touch the active side and throw once the
+session is complete; `confirmActive` rejects an incomplete army, hands off
+White -> Black leaving Black's board provably empty and White's completed
+`PlacementState` untouched (`toBe` identity check), completes the session
+(`active` becomes `null`) once Black also confirms, and throws if confirmed
+again afterward. Added `src/board/PlacementStatus.tsx` + `.css`: a new
+session-level action bar (distinct from Step 9's per-selection
+`PlacementControls`) showing the active side's player-facing color name
+("Red"/"Blue" - the internal White/Black labels never appear in player-facing
+text), a live "N / 48 placed" readout (`progress`), an "Auto-fill" button
+(calls Step 4's `autoFill`), and a "Confirm" button disabled until
+`isComplete`. Rewired `src/App.tsx` off the Step 8/9 single hardcoded
+`ACTIVE_SIDE`/local `PlacementState` onto the new session: a `PlacementSession`
+`useState` replaces the bare `PlacementState` one, every existing
+place/move/swap/return/clear handler is routed through
+`updateActivePlacement` so it only ever mutates the active side's own layout,
+and two new handlers - `handleAutoFill` and `handleConfirm` - call `autoFill`
+and `confirmActive` respectively; both also reset the local click-selection
+state, since a selection from one player's board must never carry over to the
+next player's (this is the "zero trace" requirement from the gate). When
+`session.active` is `null` (both confirmed), `App` renders a minimal
+placeholder ("Both players have placed their armies. Setup is complete.")
+instead of the board/tray - a deliberate stub, not the real neutral end
+state: Step 11 owns building the actual "both armies ready" screen and the
+inspectable serialized artifact on top of this session, per its own scope in
+this plan. `npm run typecheck`, `npm run lint`, `npm test` (73 tests,
+repo-wide - 9 new), and `npm run build` all pass; `npm run format:check`
+passes for every file touched this step (the two pre-existing markdown
+warnings on this story's own `story.md`/`implementation-plan.md` predate this
+step, per Steps 4-9's notes). Confirmed `npm run dev` serves the app at HTTP
+200. One wording deviation from the plan's literal text: player-facing copy
+says "Red's turn to place their army" rather than using the word "move" -
+CLAUDE.md's "move" vocabulary rule specifically concerns the ply/move
+distinction from Phase 2 movement, which does not apply during placement (a
+literal "Red's move" would misleadingly suggest a Phase 2 piece move); "turn"
+is a plain, non-technical English word suited to describing hot-seat
+hand-off and was used instead. No other deviations from the plan. Gate D
+itself remains for the owner to confirm manually (Confirm disabled until
+full with an accurate progress count; auto-fill fills only empty home
+squares, never lakes, respecting counts; and confirming as White hands off to
+Black's empty board, flipped to Black's perspective, with zero trace of
+White's pieces).
 
 Introduce a minimal session model holding both players' placement states and
 whose turn it is (White first, then Black). Add to the UI: a placement-progress

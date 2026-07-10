@@ -3,26 +3,41 @@ import { APP_NAME } from "./appInfo.ts";
 import { PieceSpriteDefs } from "./art/PieceIcon.tsx";
 import { Board } from "./board/Board.tsx";
 import { PlacementControls } from "./board/PlacementControls.tsx";
+import { PlacementStatus } from "./board/PlacementStatus.tsx";
+import {
+  activePlacement,
+  confirmActive,
+  newSession,
+  updateActivePlacement,
+  type PlacementSession,
+} from "./board/placementSession.ts";
 import { Tray } from "./board/Tray.tsx";
 import { squareKey, type Square } from "./rules/primary/v1_1/board.ts";
 import {
+  autoFill,
   clear,
-  emptyPlacement,
+  isComplete,
   move,
   pieceAt,
   place,
   placedCount,
+  progress,
   returnToTray,
   swap,
-  type PlacementState,
 } from "./rules/primary/v1_1/placement.ts";
 import type { PieceTypeId } from "./rules/primary/v1_1/pieces.ts";
 import "./App.css";
 
-// Step 8/9: a single active player's placement loop only (White). The
-// two-player hand-off and session model (Steps 10-11) build on top of this.
-const ACTIVE_SIDE = "white";
-
+// Step 10 drives the whole app from a two-player `PlacementSession`
+// (src/board/placementSession.ts) rather than a single hardcoded active
+// side: `session.active` says whose turn it is, and every placement
+// operation below is routed through `updateActivePlacement` so it only ever
+// touches the active player's own layout. Confirming (`handleConfirm`) is
+// the hand-off - it stores the active player's layout and advances
+// `session.active` to the other side, whose board starts empty - and also
+// resets the local click-selection below, since a selection from one
+// player's board should never carry over to the next player's.
+//
 // Step 9's click grammar for interacting with an in-progress layout, layered
 // on top of Step 8's tray-select-then-place loop. There are two mutually
 // exclusive selection tracks - selecting one always clears the other:
@@ -56,10 +71,27 @@ type Selection =
   | null;
 
 export function App() {
-  const [placement, setPlacement] = useState<PlacementState>(() =>
-    emptyPlacement(ACTIVE_SIDE),
-  );
+  const [session, setSession] = useState<PlacementSession>(() => newSession());
   const [selection, setSelection] = useState<Selection>(null);
+
+  if (session.active === null) {
+    // Both players have confirmed. Step 11 builds the actual neutral
+    // "both armies ready" end state and the inspectable game-state artifact
+    // on top of this; this is a minimal placeholder so the hand-off flow
+    // this step adds has somewhere to land instead of dead-ending.
+    return (
+      <main className="app">
+        <PieceSpriteDefs />
+        <h1 className="app__title">{APP_NAME}</h1>
+        <p className="app__complete-notice">
+          Both players have placed their armies. Setup is complete.
+        </p>
+      </main>
+    );
+  }
+
+  const activeSide = session.active;
+  const placement = activePlacement(session);
 
   function handleSelectType(type: PieceTypeId) {
     setSelection((current) =>
@@ -78,7 +110,11 @@ export function App() {
           setSelection(null);
           return;
         }
-        setPlacement((current) => swap(current, selection.square, square));
+        setSession((current) =>
+          updateActivePlacement(current, (state) =>
+            swap(state, selection.square, square),
+          ),
+        );
         setSelection(null);
         return;
       }
@@ -88,13 +124,17 @@ export function App() {
 
     if (selection?.kind === "trayType") {
       const next = place(placement, square, selection.type);
-      setPlacement(next);
+      setSession((current) => updateActivePlacement(current, () => next));
       setSelection(next.remaining[selection.type] <= 0 ? null : selection);
       return;
     }
 
     if (selection?.kind === "boardSquare") {
-      setPlacement((current) => move(current, selection.square, square));
+      setSession((current) =>
+        updateActivePlacement(current, (state) =>
+          move(state, selection.square, square),
+        ),
+      );
       setSelection(null);
     }
   }
@@ -103,12 +143,30 @@ export function App() {
     if (selection?.kind !== "boardSquare") {
       return;
     }
-    setPlacement((current) => returnToTray(current, selection.square));
+    setSession((current) =>
+      updateActivePlacement(current, (state) =>
+        returnToTray(state, selection.square),
+      ),
+    );
     setSelection(null);
   }
 
   function handleClearBoard() {
-    setPlacement((current) => clear(current));
+    setSession((current) =>
+      updateActivePlacement(current, (state) => clear(state)),
+    );
+    setSelection(null);
+  }
+
+  function handleAutoFill() {
+    setSession((current) =>
+      updateActivePlacement(current, (state) => autoFill(state)),
+    );
+    setSelection(null);
+  }
+
+  function handleConfirm() {
+    setSession((current) => confirmActive(current));
     setSelection(null);
   }
 
@@ -125,16 +183,23 @@ export function App() {
     <main className="app">
       <PieceSpriteDefs />
       <h1 className="app__title">{APP_NAME}</h1>
+      <PlacementStatus
+        side={activeSide}
+        progress={progress(placement)}
+        canConfirm={isComplete(placement)}
+        onAutoFill={handleAutoFill}
+        onConfirm={handleConfirm}
+      />
       <div className="app__layout">
         <div className="app__board-column">
           <Board
-            activeSide={ACTIVE_SIDE}
+            activeSide={activeSide}
             placement={placement}
             onSquareClick={handleSquareClick}
             selectedSquare={selectedSquare}
           />
           <PlacementControls
-            side={ACTIVE_SIDE}
+            side={activeSide}
             selectedPieceType={selectedPieceType}
             onReturnToTray={handleReturnToTray}
             onCancelSelection={() => setSelection(null)}
@@ -143,7 +208,7 @@ export function App() {
           />
         </div>
         <Tray
-          side={ACTIVE_SIDE}
+          side={activeSide}
           remaining={placement.remaining}
           selectedType={selectedTrayType}
           onSelect={handleSelectType}

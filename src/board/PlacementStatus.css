@@ -1,0 +1,40 @@
+/* Placement status bar: turn, progress, auto-fill, confirm (Step 10). */
+
+.placement-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+}
+
+.placement-status__side {
+  font-weight: bold;
+}
+
+.placement-status__progress {
+  font-variant-numeric: tabular-nums;
+}
+
+.placement-status button {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.placement-status button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.placement-status__confirm {
+  font-weight: bold;
+}
