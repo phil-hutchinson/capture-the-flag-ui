@@ -296,7 +296,42 @@ renders to the exact expected block. Run `npm test`.
 
 ### Step 6 — Piece sprite sheet (re-tokenized glyphs pulled into the repo)
 
-Status: pending
+Status: committed
+
+Notes: Added `src/art/pieceSprites.svg` — a `<defs>`-only sprite sheet
+carrying the 12 piece `<symbol>`s plus `p-lake` from
+`.local/ctf-tile-prototype.svg`, unchanged in shape. Re-tokenized only the
+four cutout colors (Champion's blade fuller, Knight's eye + mouth circle and
+line, Infantry's shield cross-lines, Tower's doorway) from literal
+`#e8dfc8` to `var(--parchment)`; left `currentColor` (already used for every
+side-varying fill/stroke) and the two fixed accents (Marshal's gold boss
+`#a67c2e`, lake wave strokes `#3f7b8a`) untouched. Side-color tokenization
+(`var(--side-a)`/`var(--side-b)`) is applied by the consumer, not baked into
+the defs: added `src/art/PieceIcon.tsx` with `PieceSpriteDefs` (mounts the
+sheet's raw markup into the DOM once, via a Vite `?raw` import, for later
+steps to render near the app root) and `PieceIcon` (draws one piece's
+`<use>`, with `color` set to `var(--side-a)` for white / `var(--side-b)` for
+black), plus an exported `LAKE_SYMBOL_ID` constant for Step 7's direct
+terrain use. Did not wire `PieceSpriteDefs` into `App.tsx` — mounting it is
+tied to replacing the welcome shell, which is Step 7's scope, not this
+step's; `PieceIcon` is otherwise complete and ready for Steps 7-8 to consume.
+Updated the `src/index.css` header comment to describe the cutouts as
+referencing `--parchment` directly rather than being coupled to a frozen
+literal. Added `src/art/pieceSprites.test.ts` (5 tests) asserting: all 13
+symbol ids are present; no literal `#a13d2b`/`#33526b`; no literal
+`#e8dfc8`; the four cutout occurrences (1 in Champion, 2 in Knight, 1 in
+Infantry, 1 in Tower) reference `var(--parchment)`; and the two fixed
+accents remain literal. One deviation from the plan's literal verification
+wording: used a Vite `?raw` import of the `.svg` (typed by `vite/client`,
+already referenced in `src/vite-env.d.ts`) to read the sprite source in the
+test, rather than `node:fs`, since `@types/node` is not an existing
+dependency and this repo's toolchain doesn't otherwise need Node's type
+declarations; `?raw` imports work identically under vitest's `node` test
+environment since the transform is asset-level, not DOM-dependent. `npm run
+typecheck`, `npm run lint`, and `npm test` all pass (59 tests total,
+repo-wide); `npm run format:check` passes for all files touched (the two
+pre-existing markdown warnings on this story's own `story.md`/
+`implementation-plan.md` predate this step, per Steps 4-5's notes).
 
 Bring the prototype glyphs from `.local/ctf-tile-prototype.svg` into the repo as
 a reusable SVG symbol sheet plus a small React `PieceIcon` component that renders

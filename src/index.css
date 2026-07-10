@@ -1,7 +1,9 @@
-/* The parchment background (#e8dfc8) is deliberate: the prototype piece icons
-   (see .local/ctf-tile-prototype.md) contain cutout details painted in this
-   exact color, so keeping it as the app background lets them drop in
-   unchanged. Re-evaluate together if either changes. */
+/* The piece icons (src/art/pieceSprites.svg, adapted from the prototype at
+   .local/ctf-tile-prototype.md) contain cutout details - Champion's blade
+   fuller, Knight's eye + mouth, Infantry's shield cross-lines, Tower's
+   doorway - that reference this --parchment variable directly, so they
+   always show the real board background through the icon. Changing this
+   value re-colors those cutouts automatically; no icon edits needed. */
 :root {
   --parchment: #e8dfc8;
   --ink: #2b2118;
