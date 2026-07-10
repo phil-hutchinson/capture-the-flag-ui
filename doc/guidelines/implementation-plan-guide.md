@@ -9,9 +9,38 @@ Each plan is a numbered list of steps. For each step, provide:
 
 - **What to implement** — a high-level description of the change (no code)
 - **Why it comes here** — how it depends on prior steps and what later steps depend on it
-- **How to verify** — how to confirm this step is working before moving on
+- **How to verify** — how to confirm this step is working before moving on,
+  labeled **automated** or **manual** (see below)
+- **Status** — the step's pipeline state (see below)
 
 ## Rules
+
+### Write every step for a cold reader
+
+The plan is not just documentation — it is the working context for whoever
+(or whatever) implements each step. Assume the implementer of step N has read
+nothing but `story.md`, this plan, and the step itself: no memory of the
+story discussion, no context from implementing earlier steps beyond what
+their Notes record. Anything a step needs — which module to touch, what
+convention to follow, what decision was made and why — must be stated in the
+plan, not implied.
+
+### Track step status in the plan
+
+Each step carries a `Status:` line, which the implementation process updates
+as work progresses:
+
+- `pending` — not started (every step starts here)
+- `implemented` — done and self-checked, not yet committed
+- `blocked` — attempted but failing; the notes say why
+- `committed` — verified and committed
+
+When a step is implemented, a brief `Notes:` line is added under it: one or
+two sentences on what was done, plus any deviation from the plan and the
+reason. Deviations must be recorded — the peer review checks for undocumented
+ones. Together, the statuses and notes make the plan the single source of
+truth for how far the story has progressed, so work can resume from a fresh
+session with no other context.
 
 ### Build bottom-up — no forward dependencies
 
@@ -44,6 +73,12 @@ Choose the verification method in this priority order:
 Each step's verification description should be concrete enough that the developer
 knows exactly what to run and what a passing result looks like.
 
+Label each step's verification explicitly as **automated** (runnable
+unattended — automated tests and improvised scripts both count) or **manual**
+(a person must run the app and observe behavior). The label matters to the
+implementation process: manual verifications are where it pauses for the
+owner; automated ones run without a pause.
+
 ### Include a README check
 
 Every plan must include a step (typically the last) that verifies `README.md` is
@@ -56,6 +91,8 @@ reviews the current branch diff and updates `README.md` if warranted.
 
 ```
 ### Step N — <short title>
+
+Status: pending
 
 Implement <what>.
 

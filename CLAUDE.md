@@ -62,15 +62,26 @@ Note: please do not make references to products with trademarked names.
 
 ## Implementation Strategy
 
-The **`implementation-plan.md`** will contain one or more steps, each with a
-testing strategy. Progress through steps one at a time, pausing after each one
-to receive confirmation from the developer that the step has been implemented
-correctly and that there are no issues. In the case that the testing is manual,
-you may provide the developer with a reminder of what needs to be tested and
-how this can be done. Always check for files that have not been committed
-before beginning a new step: if there are files that have not been committed,
-**stop** and verify whether the developer wants to commit the existing files
+Stories are implemented through the `/implement-story` pipeline
+(`.claude/commands/implement-story.md`): an orchestrator in the main session
+dispatches fresh-context agents (`.claude/agents/`) for the expensive phases —
+creating the implementation plan, implementing each step, peer-reviewing, and
+processing the review. The **`implementation-plan.md`** contains one or more
+steps, each with a verification strategy, and doubles as the pipeline's state:
+agents record per-step Status and Notes there, so the process is resumable
+from a fresh session.
+
+Steps are implemented one at a time, each verified (typecheck, lint, tests,
+plus the step's own verification) and committed before the next begins. The
+process pauses for the owner only at defined gates: plan approval, manual
+verification steps, escalations (a step failing repeatedly), and final
+sign-off after peer review — not after every step. Always check for files
+that have not been committed before beginning a step: if there are
+uncommitted files, **stop** and verify whether the owner wants to commit them
 before continuing.
+
+Stories should be orchestrated from a session running an opus-class (or
+stronger) model; the agents set their own models.
 
 ## Creation of Implementation Plans
 
