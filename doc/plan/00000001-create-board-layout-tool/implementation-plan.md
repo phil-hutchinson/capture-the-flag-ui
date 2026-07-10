@@ -544,6 +544,15 @@ made in the course of implementing this step, documented above and in
 `App.tsx`'s header comment. Gate C itself remains for the owner to confirm
 manually (move, swap, return-to-tray, and clear-all each behave correctly).
 
+Gate C fix (owner feedback): selecting a placed piece opened a jarring empty
+gap beside the board and reflowed/shrank the centered layout, because
+`.app__board-column` had no width and grew to fit the wide selection-controls
+row. Pinned `.app__board-column` to `width: min-content` (the board's own
+fixed width) so the controls wrap within the board's width instead of
+widening the column, and added `min-width: 0` to `.placement-controls__label`
+so its text wraps rather than forcing the row wide. Owner confirmed the gap is
+gone. No functional change.
+
 Wire the remaining placement operations from Step 3 into the UI: move a placed
 piece to another empty home square, swap two placed pieces, return a placed piece
 to the tray, and a clear-all-board action that returns every placed piece to the

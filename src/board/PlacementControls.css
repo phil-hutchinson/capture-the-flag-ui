@@ -23,6 +23,9 @@
 
 .placement-controls__label {
   flex: 1 1 auto;
+  /* Allow the label to wrap within the (board-width) column rather than
+     forcing the row wider than the board. */
+  min-width: 0;
 }
 
 .placement-controls__hint {
