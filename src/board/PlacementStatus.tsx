@@ -46,7 +46,11 @@ export function PlacementStatus({
       <span className="placement-status__progress">
         {progress.placed} / {progress.total} placed
       </span>
-      <button type="button" onClick={onAutoFill}>
+      <button
+        type="button"
+        onClick={onAutoFill}
+        disabled={progress.placed >= progress.total}
+      >
         Auto-fill
       </button>
       <button

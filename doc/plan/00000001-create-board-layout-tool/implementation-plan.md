@@ -629,6 +629,12 @@ squares, never lakes, respecting counts; and confirming as White hands off to
 Black's empty board, flipped to Black's perspective, with zero trace of
 White's pieces).
 
+Gate D fix (owner feedback): the Auto-fill button is now disabled once the
+army is fully placed (`progress.placed >= progress.total`), since there are no
+empty squares left for it to fill. Purely a `disabled` guard in
+`PlacementStatus.tsx` using the already-passed `progress` prop; no wiring
+change.
+
 Introduce a minimal session model holding both players' placement states and
 whose turn it is (White first, then Black). Add to the UI: a placement-progress
 readout (e.g. "42 / 48 placed"); a **Confirm** action that stays disabled until
