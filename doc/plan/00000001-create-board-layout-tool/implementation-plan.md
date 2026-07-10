@@ -244,7 +244,35 @@ squares get filled; with a fixed seed the result is reproducible. Run
 
 ### Step 5 — Versioned initial game-state serialization
 
-Status: pending
+Status: committed
+
+Notes: Added `src/rules/primary/v1_1/gameState.ts` (pure TypeScript, no
+React) with `RULESET_TAG` (`"PRIMARY:1.1"`), the `PlacedPiece`/`BoardState`/
+`InitialGameState` types, `buildInitialGameState(white, black)` (combines two
+completed `PlacementState`s into a single plain, JSON-serializable board
+keyed by `squareKey` in White's absolute frame; throws if either state is
+the wrong side or incomplete - both are structural invariants by the point
+this is called, matching Step 3's own error-vs-no-op precedent), and
+`renderPositionBlock(gameState)` (renders any `InitialGameState.board`,
+complete or not, to the 12x12 position-block text form). `InitialGameState`
+is intentionally the *only* new artifact type - no separate "record file"
+model was introduced, since the step explicitly must anticipate the replay
+record format without implementing it; the `ruleset` tag and board shape are
+the anticipation point. Added `gameState.test.ts` (8 tests) covering: the
+artifact carries `PRIMARY:1.1`; a full JSON round-trip (`JSON.parse(JSON.
+stringify(...))`) of two auto-filled armies reproduces both armies exactly,
+square-by-square, with no square outside the 96 home squares populated;
+wrong-side and incomplete-army inputs are rejected; per-type counts in the
+artifact match the catalog; a hand-constructed sparse four-piece placement
+(not a full army, so the expected 12-line block could be verified by
+inspection) renders to an exact expected position-block string covering a
+White piece, a Black piece, empty squares, and both lake rows; the block is
+always 12 lines of 12 three-char cells; and lake squares render `XXX`
+regardless of nearby placements. `npm run typecheck`, `npm run lint`, and
+`npm test` all pass (54 tests total, repo-wide); `npm run format:check`
+passes for both files touched (the two pre-existing markdown warnings on
+this story's own `story.md`/`implementation-plan.md` predate this step, per
+Step 4's notes). No deviations from the plan.
 
 Implement serialization of a completed setup (two completed placement states,
 one per player) into a versioned initial game-state artifact tagged
