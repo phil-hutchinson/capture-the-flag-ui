@@ -152,7 +152,31 @@ rank code and symbol. Run `npm test`.
 
 ### Step 3 — Placement state model & core operations
 
-Status: pending
+Status: committed
+
+Notes: Implemented `src/rules/primary/v1_1/placement.ts` (pure TypeScript, no
+React) with a `PlacementState` (`side` + `placements: ReadonlyMap<string,
+PieceTypeId>` keyed by `squareKey` + derived `remaining: Inventory`),
+`emptyPlacement`, `pieceAt`, and the five operations `place`/`move`/`swap`/
+`returnToTray`/`clear`, plus derived queries `remainingCount`, `placedCount`,
+`progress` (`{ placed, total }`), and `isComplete`. All five operations
+reuse `isHomeSquareFor` from Step 1's board model to structurally reject any
+square outside the state's own side's home zone (lake, buffer, or the
+opponent's zone), and reject other invariant violations (occupied/empty
+squares, zero-remaining placement) by throwing an `Error` rather than
+silently no-op'ing — a deliberate, documented choice since the plan's wording
+("must reject") was open to interpretation and the UI (Steps 7+) will only
+ever offer legal squares as interactive targets, making these true
+programming-invariant violations rather than recoverable user errors. Unit
+tests in `placement.test.ts` (20 tests) cover every required case: place
+decrements remaining/occupies the square and rejects non-home/occupied/
+zero-remaining squares; move/swap preserve remaining counts and reject
+empty/occupied/non-home squares; returnToTray increments remaining and
+rejects empty/non-home squares; clear empties the board and restores the
+full 48-count inventory; isComplete is true only at 48/48; progress reports
+placed/48 accurately as pieces are placed. `npm run typecheck`, `npm run
+lint`, `npm run format:check`, and `npm test` all pass (41 tests total,
+repo-wide). No other deviations from the plan.
 
 Implement a pure placement-state model for one player: a mapping of that
 player's home squares → placed piece type (or empty), plus a derived
