@@ -1,0 +1,62 @@
+{
+  "name": "capture-the-flag-ui",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+  // Persist Claude Code auth/settings/history across container rebuilds.
+  // CLAUDE_CONFIG_DIR keeps the .claude.json state file (onboarding, account
+  // metadata) inside the mounted dir too — by default it sits at ~/.claude.json,
+  // outside the volume, and is lost on rebuild.
+  "mounts": [
+    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume"
+  ],
+  "containerEnv": {
+    // Nothing personal here: containerEnv becomes `docker run -e`, which
+    // overrides --env-file, so entries added here would clobber
+    // devcontainer.env values of the same name.
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude"
+  },
+  // Personal, machine-local environment (e.g. TZ=America/Vancouver) goes in
+  // .devcontainer/devcontainer.env — gitignored, KEY=VALUE lines, applied
+  // container-wide. devcontainer.env.example is the template to rename.
+  "runArgs": ["--env-file", ".devcontainer/devcontainer.env"],
+  // Docker fails on a missing --env-file, so ensure it exists before the
+  // container starts. Runs on the host: `touch` covers sh, `type NUL >>`
+  // covers cmd (Windows). touch must come first — cmd's "not recognized"
+  // complaint goes to the console, but dash prints the type failure to
+  // stdout, which the >> would otherwise capture into the env file.
+  "initializeCommand": "cd .devcontainer && (touch devcontainer.env || type NUL >> devcontainer.env)",
+  // 1) Repair ownership on volumes created before the image pre-created the
+  //    directory (Docker makes bare mount points root-owned).
+  // 2) Install the project's node dependencies. The first-ever install
+  //    generates package-lock.json (commit it); once the lockfile is
+  //    committed, `npm install` respects it and rebuilds are reproducible.
+  "postCreateCommand": "sudo chown -R node:node /home/node/.claude && npm install",
+  // The Vite dev server (vite.config.ts sets server.host so it listens
+  // beyond localhost inside the container).
+  "forwardPorts": [5173],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite dev server"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "vitest.explorer"
+      ],
+      "settings": {
+        // Use the project's own prettier/eslint from node_modules so
+        // the editor and the npm scripts agree.
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true,
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  }
+}

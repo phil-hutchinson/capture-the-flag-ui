@@ -1,0 +1,22 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.eslintcache
+.env
+
+# Personal container environment (see devcontainer.json runArgs)
+.devcontainer/devcontainer.env
+
+# Personal Claude Code settings (e.g. command permission approvals);
+# shared commands in .claude/commands/ stay tracked
+.claude/settings.local.json
+
+.DS_Store
+Thumbs.db
+
+.idea/
+.vscode/
+
+# Local scratchpad: design notes, plans, and other machine-local material
+.local/

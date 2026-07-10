@@ -1,0 +1,8 @@
+# Build output
+dist/
+
+# Machine-local scratchpad
+.local/
+
+# Generated lockfile
+package-lock.json
