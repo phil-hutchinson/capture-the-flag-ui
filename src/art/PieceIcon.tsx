@@ -10,7 +10,10 @@
 // Terrain (the p-lake symbol) is not a piece type, so it is not drawn by
 // PieceIcon; consumers reference it directly via `LAKE_SYMBOL_ID`.
 
-import type { PieceTypeId } from "../rules/primary/v1_1/pieces.ts";
+import {
+  PIECE_CATALOG,
+  type PieceTypeId,
+} from "../rules/primary/v1_1/pieces.ts";
 import type { Side } from "../rules/primary/v1_1/board.ts";
 import pieceSpriteSheet from "./pieceSprites.svg?raw";
 
@@ -61,7 +64,14 @@ export interface PieceIconProps {
   readonly className?: string;
 }
 
-/** Renders one piece's symbol, colored for the given side. */
+/**
+ * Renders one piece's symbol, colored for the given side, with the piece's
+ * one-character rank code (the position-block symbol: `1`-`9`, `A`, `T`, `F`)
+ * pinned in the top-left corner as a quick rank reminder. The corner numeral
+ * is separate overlay markup (per `.local/ctf-tile-prototype.md`), not part of
+ * the `<symbol>`, so it is drawn here alongside the `<use>`; `currentColor`
+ * makes it track the side color set on the svg.
+ */
 export function PieceIcon({ type, side, className }: PieceIconProps) {
   const symbolId = SYMBOL_ID_BY_PIECE_TYPE[type];
   return (
@@ -73,6 +83,17 @@ export function PieceIcon({ type, side, className }: PieceIconProps) {
       aria-hidden="true"
     >
       <use href={`#${symbolId}`} />
+      <text
+        x={15}
+        y={17}
+        fontSize={32}
+        fontFamily="Georgia, serif"
+        fontWeight={700}
+        textAnchor="end"
+        fill="currentColor"
+      >
+        {PIECE_CATALOG[type].symbol}
+      </text>
     </svg>
   );
 }

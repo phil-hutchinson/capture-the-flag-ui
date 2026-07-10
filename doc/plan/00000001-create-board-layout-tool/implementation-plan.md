@@ -466,6 +466,19 @@ the app at HTTP 200. No deviations from the plan; Gate B itself remains for
 the owner to confirm manually (real icons/counts against the ruleset in
 practice, click-to-select then click-to-place, lake/buffer squares inert).
 
+Gate B refinement (owner feedback): the piece icons were missing the top-left
+corner rank code the prototype shows. Added it to `PieceIcon`
+(`src/art/PieceIcon.tsx`) as a `<text>` overlay drawn alongside the `<use>`
+(`x=15 y=17`, `font-size=32`, Georgia 700, `text-anchor="end"`,
+`fill="currentColor"` so it tracks the side color), rendering
+`PIECE_CATALOG[type].symbol` (the position-block symbol `1`-`9`/`A`/`T`/`F`,
+which equals the prototype's "corner code"). This corner numeral is
+deliberately separate overlay markup, not part of the `<symbol>`, per
+`.local/ctf-tile-prototype.md`; Step 6's sprite sheet correctly did not carry
+it. It is not automatically tested (SVG render, verified under Gate B). Since
+every `PieceIcon` flows through this component, the badge appears on both the
+tray and the placed board pieces.
+
 Add the piece tray/inventory panel showing every piece type with the real icon
 (Step 6, in the active player's side color) and a live remaining count driven by
 the placement-state model (Step 3). Implement the primary interaction:
