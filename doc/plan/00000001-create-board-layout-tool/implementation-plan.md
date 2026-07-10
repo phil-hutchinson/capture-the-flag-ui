@@ -502,7 +502,47 @@ count; clicking a lake/buffer square does nothing.
 
 ### Step 9 — Interacting with placed pieces — Gate C
 
-Status: pending
+Status: committed
+
+Notes: Wired `move`/`swap`/`returnToTray`/`clear` (Step 3) into the UI. Click
+grammar (documented in a header comment in `src/App.tsx`): selection is one
+of two mutually-exclusive tracks - a tray type (`trayType`, Step 8, unchanged)
+or an already-placed piece picked up from the board (`boardSquare`, new this
+step) - selecting one always clears the other. Clicking an *occupied* home
+square always acts on the board-selection track regardless of any pending
+tray selection: nothing selected yet -> selects that square; the same square
+already selected -> deselects it; a *different* square already selected ->
+swaps the two pieces and clears the selection. Clicking an *empty* home
+square: a tray type selected -> places it (unchanged); a board square
+selected -> moves that piece there and clears the selection; nothing
+selected -> no-op. Return-to-tray and clear-all have no natural
+second-square-click expression (empty-square-click already means "move
+here" and occupied-square-click already means "swap"), so they are explicit
+buttons in a new `src/board/PlacementControls.tsx` (+ `.css`) panel rendered
+below the board: while a board piece is selected it shows the selected
+piece's icon/name plus "Return to tray" / "Cancel" buttons; a "Clear board"
+button (disabled once the board is empty, via `placedCount`) is always
+present. Extended `src/board/Board.tsx` with an optional `selectedSquare`
+prop, highlighting that square (new `.board-square--selected` rule in
+`Board.css`, an inset `box-shadow` matching the tray's existing selected
+style) so the player can see which placed piece is picked up; `Board.tsx`
+itself stays unaware of the click grammar, only rendering whichever square
+is passed in. `src/App.tsx` now owns a `Selection` union
+(`{kind:"trayType",...} | {kind:"boardSquare",...} | null`) instead of the
+Step 8 bare `PieceTypeId | null`, and derives `Tray`'s `selectedType` /
+`Board`'s `selectedSquare` / `PlacementControls`' `selectedPieceType` from
+it. `npm run typecheck`, `npm run lint`, `npm test` (64 tests, unchanged -
+this step is pure React wiring over already-unit-tested Step 3 operations,
+same rationale as Step 8), `npm run build`, and `npm run format:check` all
+pass (the two pre-existing markdown warnings on this story's own
+`story.md`/`implementation-plan.md` predate this step, per Steps 4-8's
+notes); confirmed `npm run dev` serves the app at HTTP 200. No deviations
+from the plan's requirements; the click grammar itself (which specific
+clicks map to which of the four operations, and using explicit buttons for
+return-to-tray/clear-all rather than a click sequence) is a design choice
+made in the course of implementing this step, documented above and in
+`App.tsx`'s header comment. Gate C itself remains for the owner to confirm
+manually (move, swap, return-to-tray, and clear-all each behave correctly).
 
 Wire the remaining placement operations from Step 3 into the UI: move a placed
 piece to another empty home square, swap two placed pieces, return a placed piece

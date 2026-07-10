@@ -18,3 +18,8 @@
   align-items: flex-start;
   justify-content: center;
 }
+
+.app__board-column {
+  display: flex;
+  flex-direction: column;
+}

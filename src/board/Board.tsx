@@ -1,12 +1,13 @@
 // Board renderer, from the active player's own perspective (story 00000001,
 // Step 7 geometry/terrain; Step 8 adds placed-piece rendering and
-// click-to-place). Draws the active player's 4 home rows plus a greyed,
-// non-interactive reminder of the buffer row and the full nearest lake row.
-// The buffer/lake-row bands are never clickable (see Board.css's
-// `pointer-events: none`); only home-band squares call back via
-// `onSquareClick`. Interacting with an already-placed piece (move, swap,
-// return to tray) is Step 9's scope - this step only places onto empty
-// squares (App.tsx enforces that by ignoring clicks on occupied squares).
+// click-to-place; Step 9 adds the `selectedSquare` highlight used while
+// interacting with an already-placed piece). Draws the active player's 4
+// home rows plus a greyed, non-interactive reminder of the buffer row and
+// the full nearest lake row. The buffer/lake-row bands are never clickable
+// (see Board.css's `pointer-events: none`); only home-band squares call back
+// via `onSquareClick`. This component itself is unaware of the click
+// grammar (move/swap/select/place) - App.tsx owns that - it only renders
+// whichever square is passed in as `selectedSquare` with a highlight.
 
 import { PieceIcon, LAKE_SYMBOL_ID } from "../art/PieceIcon.tsx";
 import {
@@ -33,12 +34,24 @@ export interface BoardProps {
   readonly placement?: PlacementState;
   /** Called when an interactive (home-band) square is clicked. */
   readonly onSquareClick?: (square: Square) => void;
+  /**
+   * The square currently selected for interaction (Step 9's board-selection
+   * track), if any. Drawn with a highlight so the player can see which
+   * placed piece a click will move, swap, or return to the tray.
+   */
+  readonly selectedSquare?: Square;
 }
 
 /** Board grid, cropped and oriented to one player's own view. */
-export function Board({ activeSide, placement, onSquareClick }: BoardProps) {
+export function Board({
+  activeSide,
+  placement,
+  onSquareClick,
+  selectedSquare,
+}: BoardProps) {
   const rows = visibleRows(activeSide);
   const columns = visibleColumns(activeSide);
+  const selectedKey = selectedSquare ? squareKey(selectedSquare) : undefined;
 
   return (
     <div className="board" data-active-side={activeSide}>
@@ -53,6 +66,9 @@ export function Board({ activeSide, placement, onSquareClick }: BoardProps) {
               band={band}
               side={activeSide}
               pieceType={pieceType}
+              selected={
+                selectedKey !== undefined && squareKey(square) === selectedKey
+              }
               onClick={
                 band === "home" && onSquareClick
                   ? () => onSquareClick(square)
@@ -71,6 +87,7 @@ interface BoardSquareCellProps {
   readonly band: RowBand;
   readonly side: Side;
   readonly pieceType?: PieceTypeId;
+  readonly selected?: boolean;
   readonly onClick?: () => void;
 }
 
@@ -79,12 +96,16 @@ function BoardSquareCell({
   band,
   side,
   pieceType,
+  selected,
   onClick,
 }: BoardSquareCellProps) {
   const lake = isLake(square);
   const classNames = ["board-square", `board-square--${band}`];
   if (lake) {
     classNames.push("board-square--lake");
+  }
+  if (selected) {
+    classNames.push("board-square--selected");
   }
 
   return (
