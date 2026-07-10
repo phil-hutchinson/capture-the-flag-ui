@@ -52,7 +52,7 @@ games stay replayable forever.
 
 1. **Board rendering from the active player's perspective.** The active player
    sees their own 4 home rows at the bottom, interactive. Above them, the
-   neutral buffer row and a sliver of the first lake row are shown **greyed and
+   neutral buffer row and the full nearest lake row are shown **greyed and
    non-interactive**, purely as a visual reminder of where the lakes are. The
    board is oriented/flipped so each player sees their own home zone in front of
    them.
@@ -129,8 +129,8 @@ and confirm behavior that automated tests cannot fully judge. All five are
 hard gates.
 
 - **Gate A — Board geometry & terrain.** From a player's perspective: 4
-  interactive home rows plus the greyed, non-interactive buffer row and first
-  lake sliver. Lakes match `O L L O O L L O O L L O` (three 2×2 lakes).
+  interactive home rows plus the greyed, non-interactive buffer row and full
+  nearest lake row. Lakes match `O L L O O L L O O L L O` (three 2×2 lakes).
   Orientation and greying look right.
 - **Gate B — Tray, inventory & initial placement.** Every piece type shows with
   the correct count, rendered with the real icons on the board background.

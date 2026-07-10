@@ -92,7 +92,7 @@ React) with `Column`/`Row`/`Square`/`Region`/`Side` types, `squareKey`,
 non-lake "O" squares on rows 6-7 are classified as `buffer` (the plan's four
 categories don't name a fifth bucket for them, and they behave like the
 neutral rows 5/8: non-home, non-lake), matching the Step 7 plan text that
-groups the buffer row and lake-row sliver together as one greyed
+groups the buffer row and the near lake row together as one greyed
 non-interactive band. Unit tests in `board.test.ts` cover the required
 assertions (12 lake squares forming three 2x2 lakes at B-C/F-G/J-K, 48 home
 squares per side, rows 5/8 buffer, White home rows 1-4, Black home rows
@@ -361,12 +361,54 @@ variable. (Visual correctness of the icons is confirmed later under Gate B.) Run
 
 ### Step 7 — Board renderer from the active player's perspective — Gate A
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/boardView.ts` (pure TypeScript, no React) exposing
+`visibleRows(side)` and `visibleColumns(side)`, which map the domain board
+model onto one player's cropped screen view: for White (un-rotated, i.e. the
+absolute frame from `rules.md` §4.4) the visible rows top-to-bottom are `[6
+(lake-row), 5 (buffer), 4, 3, 2, 1 (home, back rank last)]` and columns
+run `A...L`; for Black (180° rotation, both axes reversed) rows are `[7
+(lake-row), 8 (buffer), 9, 10, 11, 12 (home, back rank last)]` and
+columns run `L...A`. Added `src/board/Board.tsx` (`Board` component, prop
+`activeSide: Side`) and `src/board/Board.css`, which render a CSS grid sized
+by a single `--square` custom property: all six visible rows (the full near
+lake row, the buffer row, and the four home rows) are full-square tracks
+(`grid-template-rows: repeat(6, var(--square))`), so the near lake row shows
+in full rather than as a clipped sliver — updated per the owner's Gate A
+feedback that a full lake row reads better than the earlier half-row sliver.
+Lake squares (via `isLake` from Step 1's board model) additionally draw the
+`p-lake` sprite (`LAKE_SYMBOL_ID` from Step 6); the buffer and lake-row rows
+share a greyed, `pointer-events: none` style, while home-row cells get a plain
+parchment/interactive look (`cursor: pointer`) though no click handler is
+wired yet (that is Step 8's scope). Replaced the welcome shell:
+`src/App.tsx` now mounts `PieceSpriteDefs` once near the root and renders
+`<Board activeSide="white" />` under a small title (`src/App.css`, new);
+removed the now-unused `.welcome` rules from `src/index.css`. Added
+`src/board/boardView.test.ts` (5 unit tests, pure logic, no jsdom — asserts
+the row/column orders above and that neither side's view includes the
+opponent's home rows), consistent with earlier steps' pattern of unit-testing
+pure domain/view logic. `npm run typecheck`, `npm run lint`, `npm test` (64
+tests, repo-wide), and `npm run build` all pass; `npm run format:check`
+passes for every file touched this step (the two pre-existing markdown
+warnings on this story's own `story.md`/`implementation-plan.md` predate
+this step, per Steps 4-6's notes). Verified `npm run dev` serves the app at
+HTTP 200 with the new module graph loading correctly. Gate A was confirmed by
+the owner in the running app after the near lake row was changed from a 0.32×
+clipped sliver to the full nearest lake row (6 full rows) per owner feedback
+that the full row reads better; the story and this plan were adjusted to
+match. One
+minor deviation from the plan's literal wording: added the `boardView.test.ts`
+unit tests, which the plan did not explicitly request for this step (its
+verification section is manual-only) — done because the row/column mapping
+is pure, non-React logic exactly like earlier steps' domain code, and the
+plan's "no new test infrastructure" constraint is about jsdom/component
+testing, not about withholding plain vitest tests from pure logic.
 
 Replace the welcome shell with a board renderer that draws the 12×12 grid for the
 **active player** (start with White as the active player for this step). Render
 the active player's 4 home rows as an interactive zone at the bottom; above them,
-render the neutral buffer row and a **sliver of the nearest lake row** in a greyed,
+render the neutral buffer row and the **full nearest lake row** in a greyed,
 non-interactive style as a visual reminder of the lakes; do not render the
 opponent's zone. Orient/flip the board so the active player's home zone is in
 front of them (a 180° rotation of the absolute frame for Black; White is
@@ -380,7 +422,7 @@ fully checkable now.
 
 Verification (manual — Gate A): Run `npm run dev` and confirm from the active
 (White) player's view: 4 interactive-looking home rows at the bottom; the greyed,
-non-interactive buffer row and a sliver of the first lake row above them; lake
+non-interactive buffer row and the full nearest lake row above them; lake
 squares match `O L L O O L L O O L L O` forming three 2×2 lakes; orientation and
 greying look right.
 
