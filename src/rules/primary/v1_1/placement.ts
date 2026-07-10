@@ -18,10 +18,17 @@
 // This module builds on the board geometry (Step 1) and the piece catalog /
 // fresh-army inventory (Step 2); it has no further dependencies.
 
-import { isHomeSquareFor, squareKey, type Side, type Square } from "./board.ts";
+import {
+  homeSquares,
+  isHomeSquareFor,
+  squareKey,
+  type Side,
+  type Square,
+} from "./board.ts";
 import {
   ARMY_SIZE,
   freshInventory,
+  PIECE_TYPES,
   type Inventory,
   type PieceTypeId,
 } from "./pieces.ts";
@@ -207,4 +214,59 @@ export function progress(state: PlacementState): PlacementProgress {
 /** True only once every one of the 48 home squares holds a placed piece. */
 export function isComplete(state: PlacementState): boolean {
   return placedCount(state) === ARMY_SIZE;
+}
+
+/**
+ * A source of numbers in `[0, 1)`, matching the shape of `Math.random`.
+ * Injectable so `autoFill` is deterministic under test (pass a seeded
+ * generator) while defaulting to real randomness in the UI.
+ */
+export type RandomSource = () => number;
+
+/** Fisher-Yates shuffle using `random` as the source of randomness. */
+function shuffle<T>(items: readonly T[], random: RandomSource): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/**
+ * Fills every one of `state`'s currently-empty home squares with a randomly
+ * chosen remaining piece type, leaving already-placed pieces untouched.
+ * Never touches lakes, buffers, or the opponent's zone (only ever operates on
+ * `state.side`'s own home squares), and always respects remaining counts -
+ * every remaining piece is placed exactly once. Because the number of
+ * remaining pieces always equals the number of empty home squares (a
+ * `PlacementState` invariant), starting from a complete-army inventory this
+ * always fully completes the board.
+ *
+ * `random` defaults to `Math.random` (real randomness for the UI); pass a
+ * seeded `RandomSource` for deterministic, reproducible results in tests.
+ */
+export function autoFill(
+  state: PlacementState,
+  random: RandomSource = Math.random,
+): PlacementState {
+  const emptySquares = homeSquares(state.side).filter(
+    (square) => pieceAt(state, square) === undefined,
+  );
+
+  const piecesToPlace: PieceTypeId[] = [];
+  for (const id of PIECE_TYPES) {
+    for (let i = 0; i < state.remaining[id]; i += 1) {
+      piecesToPlace.push(id);
+    }
+  }
+
+  const shuffledSquares = shuffle(emptySquares, random);
+  const shuffledPieces = shuffle(piecesToPlace, random);
+
+  let result = state;
+  for (let i = 0; i < shuffledSquares.length; i += 1) {
+    result = place(result, shuffledSquares[i], shuffledPieces[i]);
+  }
+  return result;
 }

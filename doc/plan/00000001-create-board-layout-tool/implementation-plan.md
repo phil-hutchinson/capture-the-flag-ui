@@ -202,7 +202,28 @@ home squares are filled; progress reports placed/48 correctly. Run `npm test`.
 
 ### Step 4 — Auto-fill / randomize
 
-Status: pending
+Status: committed
+
+Notes: Added `autoFill(state, random = Math.random)` to
+`src/rules/primary/v1_1/placement.ts`, plus an exported `RandomSource` type
+(`() => number`, matching `Math.random`'s shape). It collects the side's
+currently-empty home squares and the remaining pieces (expanded to one entry
+per remaining unit), Fisher-Yates-shuffles both lists with the injected
+`random` source, then places them 1:1 via the existing `place` operation (so
+it inherits `place`'s own-home-square/occupied/remaining-count checks rather
+than duplicating them). Defaults to `Math.random` so the UI (Step 10) gets
+fresh randomness on each click with no extra wiring, while tests inject a
+seeded generator for determinism. Added 5 unit tests to
+`placement.test.ts` (using a small seeded LCG test helper, not a
+dependency) covering: empty-board auto-fill yields a complete, count-correct
+army; no piece ever lands on a lake/buffer square; already-placed pieces are
+left untouched and only empty squares are filled; a fixed seed reproduces the
+identical layout; and Black's auto-fill doesn't touch White's squares. `npm
+run typecheck`, `npm run lint`, and `npm test` all pass (46 tests total,
+repo-wide); `npm run format:check` also passes for both files touched (two
+pre-existing markdown formatting warnings in this story's own `story.md` and
+`implementation-plan.md` predate this step and are unrelated to it). No
+deviations from the plan.
 
 Implement an auto-fill operation on the placement-state model that fills **only
 the currently-empty** home squares using the remaining pieces, never touching

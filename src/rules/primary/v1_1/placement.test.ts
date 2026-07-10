@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { homeSquares, type Square } from "./board.ts";
+import { homeSquares, isHomeSquareFor, type Square } from "./board.ts";
 import { ARMY_SIZE, pieceCatalogEntries, type PieceTypeId } from "./pieces.ts";
 import {
+  autoFill,
   clear,
   emptyPlacement,
   isComplete,
@@ -14,6 +15,7 @@ import {
   returnToTray,
   swap,
   type PlacementState,
+  type RandomSource,
 } from "./placement.ts";
 
 const WHITE_HOME: readonly Square[] = homeSquares("white");
@@ -224,6 +226,84 @@ describe("progress and isComplete", () => {
     expect(pieceAt(state, BLACK_HOME[0])).toBe("knight");
     for (const square of WHITE_HOME) {
       expect(pieceAt(state, square)).toBeUndefined();
+    }
+  });
+});
+
+/**
+ * A tiny seeded linear-congruential generator, used only so autoFill tests
+ * can assert reproducibility with a fixed seed without depending on
+ * `Math.random`.
+ */
+function seededRandom(seed: number): RandomSource {
+  let state = seed;
+  return () => {
+    state = (state * 1103515245 + 12345) & 0x7fffffff;
+    return state / 0x7fffffff;
+  };
+}
+
+describe("autoFill", () => {
+  it("from an empty board, fills every square with a count-correct army", () => {
+    const state = emptyPlacement("white");
+    const filled = autoFill(state, seededRandom(1));
+
+    expect(isComplete(filled)).toBe(true);
+    for (const entry of pieceCatalogEntries()) {
+      expect(remainingCount(filled, entry.id)).toBe(0);
+    }
+
+    const counts = new Map<PieceTypeId, number>();
+    for (const square of WHITE_HOME) {
+      const type = pieceAt(filled, square);
+      expect(type).toBeDefined();
+      expect(isHomeSquareFor(square, "white")).toBe(true);
+      if (type !== undefined) {
+        counts.set(type, (counts.get(type) ?? 0) + 1);
+      }
+    }
+    for (const entry of pieceCatalogEntries()) {
+      expect(counts.get(entry.id)).toBe(entry.quantityPerSide);
+    }
+  });
+
+  it("never places on a lake or buffer square", () => {
+    const filled = autoFill(emptyPlacement("white"), seededRandom(2));
+    for (const square of NON_HOME_SQUARES) {
+      expect(pieceAt(filled, square)).toBeUndefined();
+    }
+  });
+
+  it("leaves already-placed pieces untouched and fills only empty squares", () => {
+    let state = emptyPlacement("white");
+    state = place(state, WHITE_HOME[0], "flag");
+    state = place(state, WHITE_HOME[1], "lordMarshal");
+
+    const filled = autoFill(state, seededRandom(3));
+
+    expect(pieceAt(filled, WHITE_HOME[0])).toBe("flag");
+    expect(pieceAt(filled, WHITE_HOME[1])).toBe("lordMarshal");
+    expect(isComplete(filled)).toBe(true);
+    for (const entry of pieceCatalogEntries()) {
+      expect(remainingCount(filled, entry.id)).toBe(0);
+    }
+  });
+
+  it("is reproducible with a fixed seed", () => {
+    const state = emptyPlacement("white");
+    const first = autoFill(state, seededRandom(42));
+    const second = autoFill(state, seededRandom(42));
+
+    for (const square of WHITE_HOME) {
+      expect(pieceAt(first, square)).toBe(pieceAt(second, square));
+    }
+  });
+
+  it("tracks each side's own home squares independently", () => {
+    const filled = autoFill(emptyPlacement("black"), seededRandom(4));
+    expect(isComplete(filled)).toBe(true);
+    for (const square of WHITE_HOME) {
+      expect(pieceAt(filled, square)).toBeUndefined();
     }
   });
 });
