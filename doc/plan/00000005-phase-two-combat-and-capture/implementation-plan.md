@@ -470,7 +470,46 @@ target still throws.
 
 ## Step 5 — Session layer: offer attacks, distinguish them, carry the outcome
 
-Status: pending
+Status: committed
+
+Notes: Extended `src/board/playSession.ts`: `isOwnMovablePiece` now also
+checks `legalAttacks`; `actionableSquares`/`activatableSquares` union in
+`legalAttacks(play.board, selection)` alongside `legalDestinations`; added a
+new exported `attackTargets(session)` accessor returning `legalAttacks` for
+the current selection (`[]` when nothing is selected); `activateSquare`
+matches a target against destinations _or_ attacks and, either way, applies
+it via `applyMove` (unwrapping `{ state, outcome }`), flips the side, and
+clears the selection; `PlaySession` gained a `lastOutcome: PlyOutcome | null`
+field (`null` from `startSession`), overwritten with the ply's `PlyOutcome`
+whenever `activateSquare` applies a move or an attack, and left unchanged on
+every other transition (select/deselect/switch-selection/no-op). Updated the
+existing "stuck" test, whose old fixture (a lone piece boxed in by enemies)
+no longer represents "stuck" now that a boxed-in piece can attack every
+adjacent enemy — replaced it with friendly Towers on all four sides so the
+piece truly has neither a legal move nor a legal attack, matching the step's
+own verification bullet ("a side with neither move nor attack yields an
+empty actionable set without throwing"). Added new describe blocks to
+`src/board/playSession.test.ts` covering: a piece with only an attack
+selectable; attack targets present in `actionableSquares`/
+`activatableSquares` and isolated by `attackTargets`, distinct from move
+targets; `attackTargets` empty with nothing selected; friendly-occupied and
+Flag squares never offered as attack targets (Flag case also confirms the
+piece's plain-move destinations remain unaffected); activating an attack
+target applying the attack, flipping the side, clearing the selection, and
+recording the exact resolved `CombatOutcome` on `lastOutcome` (both an
+attacker-wins and a mutual-loss case); a plain move recording a `{ kind:
+"move", ... }` outcome; and a mixed move-then-attack sequence confirming
+turns still strictly alternate and both plies' outcomes are captured
+correctly. One deviation from the plan's literal wording: the plan describes
+`lastOutcome` as carrying "the most-recent resolved `CombatOutcome`", but its
+own type is only meaningful for attacks (`{ kind: "move", piece, square }`
+plain moves have no attacker/defender to report) — used Step 4's
+already-defined `PlyOutcome` union instead (`CombatOutcome` tagged with `kind:
+"attack"`, or the plain-move variant), which is what `applyMove` already
+returns and is exactly what Step 6's announcement needs to discriminate an
+attack from a plain move without re-deriving it from the move-count diff.
+`npm run typecheck`, `npm run lint`, `npm test` (209 tests, 14 files),
+`npm run format:check`, and `npm run build` all pass.
 
 Extend `src/board/playSession.ts` (pure, no React) so the turn/selection state
 machine offers **attacks alongside moves**, keeps them **distinguishable**, and
