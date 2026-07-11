@@ -728,7 +728,15 @@ a Halberdier wins normally** (rank 3 over rank 5).
 
 ## Step 9 — Skirmisher rush, Assassin, Sapper & Tower (Gate C)
 
-Status: pending
+Status: committed
+
+Notes: Verification-only — no code changes needed. Gate C passed on manual
+testing (owner, 2026-07-11): Skirmisher rush attack up to 3 squares along a
+clear line (stopped short by a piece or lake); Assassin wins every attack it
+makes (including vs another Assassin) and falls to every attack against it,
+and is destroyed attacking a Tower; Sapper destroys a Tower and advances while
+any other attacker on a Tower is removed with the Tower standing. The rule
+layer from Steps 1/3 was correct end-to-end; no polish required.
 
 The rule logic for the Skirmisher rush attack (Step 3), the Assassin (Step 1:
 wins any attack including Assassin-vs-Assassin, loses when attacked, destroyed
