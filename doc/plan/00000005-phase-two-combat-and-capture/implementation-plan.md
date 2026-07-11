@@ -261,7 +261,22 @@ fields are populated correctly, with `archerSupport` always `false`.
 
 ## Step 2 — Archer defensive support (combat resolution override)
 
-Status: pending
+Status: committed
+
+Notes: Extended `resolveCombat` in `src/rules/primary/v1_1/combat.ts` with an
+`archerSupportFires` helper and a `squareBeyond` geometry helper (computing the
+trigger square from the attacker's unit direction of travel, mirroring
+`movement.ts`'s own `step` pattern rather than importing it, consistent with
+Step 1's precedent). When the base result is `attackerWins`, support flips the
+result to `mutualLoss` and sets `archerSupport: true`; the supporting Archer is
+never removed. Added 11 cases to `combat.test.ts` (28 total) covering every
+scenario in the step's verification: ordinary 1-square, charge (distance 2),
+and rush (distance 3) support geometry; a supported Tower trading with a
+Sapper; an attacking Assassin not immune; and five "does not fire" cases
+(off-line Archer, off-board trigger square, lake trigger square, Archer of the
+attacker's own side, and base results that were already attacker-loses or
+mutual). No deviations from the plan. `npm run typecheck`, `npm run lint`, and
+`npm test` all pass (178 tests, 14 files).
 
 Extend `src/rules/primary/v1_1/combat.ts` so `resolveCombat` applies the
 **Archer defensive support** override on top of Step 1's base result. Support

@@ -5,15 +5,23 @@
 // Attacking is moving a piece onto an enemy-occupied square (movement.ts's
 // `legalAttacks`, story 00000005 Step 3, decides *which* squares qualify).
 // This module resolves what happens once an attack is chosen: the rank
-// table, equal-rank mutual loss, and every non-Archer special case (Knight
-// charge, Assassin, Sapper vs. Tower, Halberdier anti-charge). Archer
-// defensive support is layered on top in Step 2.
+// table, equal-rank mutual loss, every non-Archer special case (Knight
+// charge, Assassin, Sapper vs. Tower, Halberdier anti-charge), and the
+// Archer's defensive-support override, which can flip an "attacker wins"
+// base result into mutual loss.
 //
 // This module is pure rule logic - no React - and builds only on the board
 // geometry (board.ts), the piece catalog (pieces.ts), and `BoardState`
 // (gameState.ts); it has no further dependencies.
 
-import { COLUMNS, squareKey, type Column, type Square } from "./board.ts";
+import {
+  COLUMNS,
+  isLake,
+  squareKey,
+  type Column,
+  type Row,
+  type Square,
+} from "./board.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
 import { PIECE_CATALOG } from "./pieces.ts";
 
@@ -22,10 +30,10 @@ export type CombatResult = "attackerWins" | "attackerLoses" | "mutualLoss";
 
 /**
  * A fully resolved encounter: which pieces fought, where, what happened, and
- * whether Archer support (Step 2) changed the outcome. Carries enough for the
- * UI announcement (story 00000005 Step 6) and for story 00000006's game-end
- * detection (flag capture, the inactivity/progress counters) to consume
- * without a rewrite.
+ * whether Archer defensive support changed the outcome. Carries enough for
+ * the UI announcement (story 00000005 Step 6) and for story 00000006's
+ * game-end detection (flag capture, the inactivity/progress counters) to
+ * consume without a rewrite.
  */
 export interface CombatOutcome {
   /** Which of the three outcomes occurred. */
@@ -38,7 +46,8 @@ export interface CombatOutcome {
   readonly square: Square;
   /** True when the defender fell (attacker wins or mutual loss). */
   readonly capture: boolean;
-  /** True when Archer defensive support fired (Step 2; always `false` here). */
+  /** True when Archer defensive support fired, flipping an attacker-wins
+   * base result into mutual loss (see `resolveCombat`). */
   readonly archerSupport: boolean;
 }
 
@@ -117,12 +126,72 @@ function baseResult(
 }
 
 /**
+ * The square one step beyond `defenderSquare`, continuing in the direction
+ * `dc`/`dr` (the attacker's unit direction of travel) - the Archer support
+ * trigger square. Returns `null` if that square is off-board.
+ */
+function squareBeyond(
+  defenderSquare: Square,
+  dc: number,
+  dr: number,
+): Square | null {
+  const columnIndex = COLUMN_INDEX[defenderSquare.column] + dc;
+  const row = defenderSquare.row + dr;
+  if (columnIndex < 0 || columnIndex >= COLUMNS.length) {
+    return null;
+  }
+  if (row < 1 || row > 12) {
+    return null;
+  }
+  return { column: COLUMNS[columnIndex], row: row as Row };
+}
+
+/**
+ * True if Archer defensive support fires for `defender` (on `to`) against
+ * `attacker` (moving from `from`), per rules.md §4.3: a friendly piece
+ * adjacent to an Archer loses a defensive combat, and the Archer stands
+ * directly opposite the attacker - one square beyond the defender,
+ * continuing the attacker's exact straight-line direction of travel (the
+ * same geometry for a 1-square attack, a 2-3 square charge, or a rush).
+ * Does not fire if that trigger square is off-board, a lake, or does not
+ * hold an Archer belonging to the defender's side. Evaluated purely from
+ * the defender's side, so it never fires for a piece that is itself
+ * attacking (a bystander effect, not an Archer combat buff).
+ */
+function archerSupportFires(
+  board: BoardState,
+  from: Square,
+  to: Square,
+  defender: PlacedPiece,
+): boolean {
+  const dc = Math.sign(COLUMN_INDEX[to.column] - COLUMN_INDEX[from.column]);
+  const dr = Math.sign(to.row - from.row);
+  const triggerSquare = squareBeyond(to, dc, dr);
+  if (triggerSquare === null || isLake(triggerSquare)) {
+    return false;
+  }
+  const occupant = board[squareKey(triggerSquare)];
+  return (
+    occupant !== undefined &&
+    occupant.side === defender.side &&
+    occupant.pieceType === "archer"
+  );
+}
+
+/**
  * Resolves the encounter for the piece on `from` attacking the enemy piece
  * on `to`, per rules.md §4.3. Infers whether the attack is a Knight's
  * **charge** from the geometry (attacker is a Knight and the straight-line
  * distance from `from` to `to` is >= 2) - callers never pass a charge flag.
- * Implements the full ruleset-1.1 rank table and every special case *except*
- * Archer defensive support, which Step 2 layers on top.
+ * Implements the full ruleset-1.1 rank table, every non-Archer special case,
+ * and the Archer's defensive-support override: when the base result is
+ * **attacker wins**, a friendly Archer standing one square beyond the
+ * defender on the attacker's exact line of travel flips the result to
+ * **mutual loss** (the attacker also falls; the supporting Archer is a
+ * bystander and is not removed). Support extends to a supported Tower
+ * (which then trades with the Sapper demolishing it) and does not make an
+ * attacking Assassin immune - both follow automatically, since each starts
+ * as an attacker-wins base result that support flips to mutual.
  *
  * A legal attack always has a piece on both `from` and `to` (see
  * `legalAttacks`, Step 3); this is a programming-invariant function like
@@ -146,7 +215,10 @@ export function resolveCombat(
     );
   }
 
-  const result = baseResult(attacker, defender, from, to);
+  const base = baseResult(attacker, defender, from, to);
+  const archerSupport =
+    base === "attackerWins" && archerSupportFires(board, from, to, defender);
+  const result = archerSupport ? "mutualLoss" : base;
 
   return {
     result,
@@ -154,6 +226,6 @@ export function resolveCombat(
     defender,
     square: to,
     capture: result !== "attackerLoses",
-    archerSupport: false,
+    archerSupport,
   };
 }

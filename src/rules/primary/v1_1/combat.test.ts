@@ -191,3 +191,133 @@ describe("resolveCombat (ruleset PRIMARY:1.1, base rank table & non-Archer speci
     expect(outcome.capture).toBe(false);
   });
 });
+
+const C4: Square = { column: "C", row: 4 };
+const C5: Square = { column: "C", row: 5 }; // one step beyond, C6, is a lake square
+const D3: Square = { column: "D", row: 3 };
+const D4: Square = { column: "D", row: 4 };
+const D11: Square = { column: "D", row: 11 };
+const D12: Square = { column: "D", row: 12 };
+
+describe("resolveCombat (ruleset PRIMARY:1.1, Archer defensive support)", () => {
+  it("flips an ordinary 1-square attacker-wins result to mutual loss when a friendly Archer stands directly behind the defender", () => {
+    const state = board([
+      ["D5", "white", "champion"], // rank 2
+      ["D6", "black", "infantry"], // rank 4, would lose outright
+      ["D7", "black", "archer"], // one square beyond D6 on the attack line
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("mutualLoss");
+    expect(outcome.capture).toBe(true);
+    expect(outcome.archerSupport).toBe(true);
+  });
+
+  it("flips a Knight charge (distance 2) attacker-wins result to mutual loss with the same trigger-square geometry", () => {
+    const state = board([
+      ["D4", "white", "knight"], // rank 3
+      ["D6", "black", "halberdier"], // rank 5, would lose outright
+      ["D7", "black", "archer"], // one square beyond D6, continuing the charge's direction of travel
+    ]);
+    const outcome = resolveCombat(state, D4, D6);
+    expect(outcome.result).toBe("mutualLoss");
+    expect(outcome.archerSupport).toBe(true);
+  });
+
+  it("flips a Skirmisher rush (distance 3) attacker-wins result to mutual loss with the same trigger-square geometry", () => {
+    const state = board([
+      ["D3", "white", "skirmisher"], // rank 7
+      ["D6", "black", "sapper"], // rank 9, would lose outright
+      ["D7", "black", "archer"], // one square beyond D6, continuing the rush's direction of travel
+    ]);
+    const outcome = resolveCombat(state, D3, D6);
+    expect(outcome.result).toBe("mutualLoss");
+    expect(outcome.archerSupport).toBe(true);
+  });
+
+  it("extends support to a supported Tower, trading it with the Sapper demolishing it", () => {
+    const state = board([
+      ["D5", "white", "sapper"],
+      ["D6", "black", "tower"],
+      ["D7", "black", "archer"],
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("mutualLoss");
+    expect(outcome.capture).toBe(true);
+    expect(outcome.archerSupport).toBe(true);
+  });
+
+  it("does not make an attacking Assassin immune to support (mutual loss, the Assassin also falls)", () => {
+    const state = board([
+      ["D5", "white", "assassin"],
+      ["D6", "black", "infantry"],
+      ["D7", "black", "archer"],
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("mutualLoss");
+    expect(outcome.archerSupport).toBe(true);
+  });
+
+  it("does not fire when the friendly Archer is adjacent to the defender but off the attack line", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["D6", "black", "infantry"],
+      ["C6", "black", "archer"], // adjacent to the defender, but not on the D5->D6 line
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.archerSupport).toBe(false);
+  });
+
+  it("does not fire when the trigger square is off-board", () => {
+    const state = board([
+      ["D11", "white", "champion"],
+      ["D12", "black", "infantry"], // the board's last row - one step further doesn't exist
+    ]);
+    const outcome = resolveCombat(state, D11, D12);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.archerSupport).toBe(false);
+  });
+
+  it("does not fire when the trigger square is a lake", () => {
+    const state = board([
+      ["C4", "white", "champion"],
+      ["C5", "black", "infantry"], // one step beyond, C6, is a lake square
+    ]);
+    const outcome = resolveCombat(state, C4, C5);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.archerSupport).toBe(false);
+  });
+
+  it("does not fire when the piece on the trigger square is an Archer of the attacker's side", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["D6", "black", "infantry"],
+      ["D7", "white", "archer"], // the attacker's own Archer, not the defender's
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.archerSupport).toBe(false);
+  });
+
+  it("does not evaluate support when the base result is already attacker-loses", () => {
+    const state = board([
+      ["D5", "white", "infantry"], // rank 4
+      ["D6", "black", "champion"], // rank 2, wins outright
+      ["D7", "black", "archer"], // present, but support only helps a losing defense
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerLoses");
+    expect(outcome.archerSupport).toBe(false);
+  });
+
+  it("does not evaluate support when the base result is already mutual loss", () => {
+    const state = board([
+      ["D5", "white", "infantry"],
+      ["D6", "black", "infantry"], // equal rank, mutual loss regardless
+      ["D7", "black", "archer"],
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("mutualLoss");
+    expect(outcome.archerSupport).toBe(false);
+  });
+});
