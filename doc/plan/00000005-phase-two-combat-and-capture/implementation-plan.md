@@ -859,7 +859,22 @@ remains sufficient for future replay.
 
 ## Step 13 — README accuracy check
 
-Status: pending
+Status: committed
+
+Notes: Updated the "Move your pieces on the battlefield" bullet (renamed to
+"Move, attack, and capture on the battlefield") to state that moving a piece
+onto an enemy piece attacks it and the fight resolves immediately, with the
+losing piece (or both, on an even match) leaving the board, and moved the
+"coming next" caveat to winning, losing, and drawing. Updated the Status
+blockquote similarly: play now includes moving, attacking, and capturing, with
+winning/losing/drawing still being built. No mention of a visible combat log
+or outcome banner was added, consistent with the owner's accepted decision
+that the outcome is conveyed to sighted players only through the board change
+(screen-reader users get the live-region announcement separately). No other
+README statements needed changes (setup, replay, AI opponent, rules link, and
+development sections were already accurate and unaffected by this story). No
+deviations from the plan. `npm run typecheck`, `npm run lint`, `npm test` (214
+tests, 14 files), and `npm run format:check` all pass.
 
 Review `README.md` against this story's changes and update it if warranted (the
 `/update-readme` command automates this against the branch diff). After
