@@ -175,6 +175,41 @@ describe("activateSquare - moving", () => {
   });
 });
 
+describe("activateSquare - switching selection", () => {
+  it("activating a different own movable piece switches the selection to it", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["H5", "white", "infantry"],
+      ]),
+    );
+    const selectedD5 = activateSquare(session, sq("D", 5));
+    expect(selectedD5.selection).toEqual(sq("D", 5));
+
+    const switchedToH5 = activateSquare(selectedD5, sq("H", 5));
+    expect(switchedToH5.selection).toEqual(sq("H", 5));
+    expect(switchedToH5.play).toBe(selectedD5.play);
+    // Actionable squares now reflect H5's destinations, not D5's.
+    expect(sortedKeys(actionableSquares(switchedToH5))).toEqual(
+      ["G5", "H4", "H6", "I5"].sort(),
+    );
+  });
+
+  it("activating an immobile own piece (Tower) while a piece is selected is still a no-op", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["H5", "white", "tower"],
+      ]),
+    );
+    const selectedD5 = activateSquare(session, sq("D", 5));
+    const next = activateSquare(selectedD5, sq("H", 5));
+
+    expect(next).toEqual(selectedD5);
+    expect(next.selection).toEqual(sq("D", 5));
+  });
+});
+
 describe("activateSquare - turn alternation across a sequence", () => {
   it("strictly alternates sides across several moves", () => {
     const initial = initialGameState([

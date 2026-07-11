@@ -531,9 +531,42 @@ move"** (Red, the first player, moves first).
 
 ## Step 8 — Movement, turn alternation, and perspective flip
 
-Status: pending
+Status: committed
 
-Notes:
+Notes: Reviewed the end-to-end wiring landed in Step 7 line by line
+(`App.tsx` → `activateSquare` (`playSession.ts`) → `applyMove`/`legalDestinations`
+(`play.ts`/`movement.ts`) → `PlayBoard.tsx` re-rendering via `fullBoardRows(session.play.sideToMove)`)
+and confirmed it is already complete and correct: selecting an own movable
+piece surfaces exactly its `legalDestinations` as actionable; activating a
+destination calls `applyMove`, which flips `sideToMove` and appends the move
+record; the next render reads the new `sideToMove` and `fullBoardRows`
+re-orients the board so the new active player's home rank is nearest them.
+Confirmed via `movement.ts`/`movement.test.ts` (already committed in Step 1)
+that occupied squares are never returned as destinations, no diagonal is
+possible, Skirmisher rays stop at the first lake/occupied square without
+including the blocker, and Tower/Flag return no destinations - so Gate C's
+rule-level behaviors are enforced structurally, not by new code here.
+Confirmed the "stuck" case (`playSession.test.ts`'s boxed-in fixture)
+already yields an empty actionable set with no crash and no special UI, per
+the accepted rough edge. The only change made: **CSS-only polish** to
+`PlayBoard.css` - added a faint background fill to the `--selected`
+(ink-tinted) and `--actionable` (amber-tinted) square modifiers, in addition
+to the existing inset box-shadow borders, so the "piece picked up" and
+"square you can currently act on" states are unambiguous and easy to spot at
+a glance across the full 12x12 board (previously border-only, which was
+already technically distinct by color but harder to notice at a glance on a
+larger board than Phase 1's cropped view). No other code changes; no new
+rule logic; no second interaction path. Ran `npm run typecheck`, `npm run
+lint`, `npm test` (134 tests), `npm run format:check`, and `npm run build` -
+all pass. Gates B and C themselves are manual and were not run here - see
+the owner's manual verification. Deviation: none from the plan's intent -
+the plan explicitly anticipated this step could be "small... CSS polish
+only" if the Step 7 wiring proved correct, which is what happened here.
+
+Owner-approved during Gate B/C: activating a different own movable piece
+now switches the selection rather than being a no-op; covered by new
+`playSession.test.ts` cases. `npm run typecheck`, `npm run lint`,
+`npm test` (136 tests), and `npm run format:check` all still pass.
 
 With the Phase-2 board and state machine wired in Step 7, this step is where the
 full move interaction is exercised and, if needed, completed: selecting a piece

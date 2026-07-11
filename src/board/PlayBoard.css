@@ -34,14 +34,22 @@
 }
 
 .play-board__square--selected {
-  /* The piece currently picked up, awaiting a destination. */
+  /* The piece currently picked up, awaiting a destination. A dark ink ring
+     plus a faint ink-tinted fill, deliberately distinct from the amber
+     "actionable" treatment below so the picked-up piece never reads as just
+     another actionable square. */
   box-shadow: inset 0 0 0 3px var(--ink);
+  background: rgba(43, 33, 24, 0.14);
 }
 
 .play-board__square--actionable {
   /* An own movable piece (nothing selected) or a legal destination for the
-     selected piece - the squares playSession.ts currently offers. */
+     selected piece - the squares playSession.ts currently offers. The fill
+     (in addition to the border) makes actionable squares easy to spot at a
+     glance across the full 12x12 board, whether they hold a piece to pick up
+     or are an empty square to move to. */
   box-shadow: inset 0 0 0 3px var(--focus-ring);
+  background: rgba(255, 183, 3, 0.22);
 }
 
 .play-board__lake-icon,

@@ -11,11 +11,14 @@
 // (clicked, or Enter/Space on the focused cell) - it never calls `applyMove`
 // directly and never decides for itself whether a square is legal. That
 // keeps illegal moves structurally unrepresentable, mirroring the placement
-// flow: `actionableSquares` tells the UI exactly which cells may be
-// activated for an effect (own movable pieces when nothing is selected, the
-// selected piece's legal destinations once one is), and any other
-// activation - an opponent's piece, an immobile own piece, a lake, an empty
-// non-destination square - is a no-op.
+// flow: `actionableSquares` tells the UI exactly which cells are highlighted
+// as legal for the current selection state (own movable pieces when nothing
+// is selected, the selected piece's legal destinations once one is).
+// `activateSquare` additionally accepts activating any *other* own movable
+// piece while one is already selected - even though it is not itself in
+// `actionableSquares` - by switching the selection to it rather than moving.
+// Any other activation - an opponent's piece, an immobile own piece, a lake,
+// an empty non-destination square - is a no-op.
 //
 // Passing is never an operation: there is no "skip turn" here. If the side
 // to move has no legal move at all, `actionableSquares` simply returns an
@@ -104,6 +107,10 @@ export function actionableSquares(session: PlaySession): Square[] {
  * - A piece is selected and `square` is one of its legal destinations:
  *   applies the move (flips the side to move, appends the move record) and
  *   clears the selection.
+ * - A piece is selected and `square` is a *different* own movable piece:
+ *   switches the selection to that piece (does not move, does not
+ *   deselect) - `actionableSquares` then reflects the newly selected
+ *   piece's own legal destinations.
  * - Anything else - an opponent's piece, an immobile own piece, a lake, an
  *   empty non-destination square, or (with nothing selected) any square that
  *   is not one of the side-to-move's own movable pieces - is a no-op: the
@@ -122,6 +129,9 @@ export function activateSquare(
     const destinations = legalDestinations(play.board, selection);
     if (destinations.some((d) => squareKey(d) === squareKey(square))) {
       return { play: applyMove(play, selection, square), selection: null };
+    }
+    if (isOwnMovablePiece(play.board, play.sideToMove, square)) {
+      return { play, selection: square };
     }
     return session;
   }
