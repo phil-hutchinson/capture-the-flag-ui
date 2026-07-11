@@ -612,7 +612,40 @@ and that plain-move / selection / deselection wording is unchanged.
 
 ## Step 7 — Board & app wiring: attack targets shown, activated, and announced
 
-Status: pending
+Status: committed
+
+Notes: Extended `src/board/PlayBoard.tsx`: imported Step 5's `attackTargets`,
+derived an `attackKeys` set from it, and split the selected piece's
+`highlightedKeys` into attack targets (`attackKeys`) vs. plain-move
+destinations (`highlightedKeys` minus `attackKeys`) so the two never overlap.
+`PlayBoardCell` gained an `attack` prop rendering a new
+`play-board__square--attack` class (checked before `--destination` in the
+selected/attack/destination precedence chain) alongside the unchanged
+`--selected`/`--destination`; added that class to `PlayBoard.css` with a
+red-tinted background (`rgb(161 61 43 / 22%)`, matching `--side-a`'s hex) plus
+a solid `var(--side-a)` inset border, so an attack target is visually
+distinct from both a plain-move destination (amber fill, no border) and the
+keyboard-focus ring (amber border, from `AccessibleGrid.css`). `squareLabel`
+gained an `attack` parameter: when true it renders `"{square}, attack {color}
+{piece}"` (e.g. `"C4, attack Blue Skirmisher"`) instead of the plain occupied
+label; plain move targets (empty squares) and non-target cells are
+unaffected. Confirmed (read-only, no edit needed) that `src/App.tsx`'s
+`handlePlayActivate` already routes every activation through
+`activateSquare` then `describeActivation` without change, and that
+`GameRecord` continues to render `playSession.play` unchanged. No deviations
+from the plan. Automated checks only, per the step's manual-gate
+instruction: `npm run typecheck`, `npm run lint`, `npm test` (214 tests, 14
+files), `npm run format:check`, and `npm run build` all pass. Gate A itself
+(manual) was not run by this step, per instruction.
+
+Owner decision (Gate A, 2026-07-11): the combat outcome is communicated
+**only** through the visually-hidden `aria-live` region (screen-reader
+announcement), not through any on-screen visible text; for sighted players the
+outcome is conveyed by the board change alone. The owner reviewed in-scope
+item 4 ("Combat outcome presented to both players... not just inferable from
+the changed board") and **accepted this as sufficient for this story** — no
+visible outcome banner is required. This is a deliberate, accepted scope call,
+not an oversight; peer review should treat it as settled rather than a finding.
 
 Wire the full visible feature. In `src/board/PlayBoard.tsx` (+ `PlayBoard.css`),
 using the session's attack-subset accessor from Step 5:
