@@ -123,9 +123,12 @@ export function App() {
     }
 
     if (selection?.kind === "trayType") {
-      const next = place(placement, square, selection.type);
-      setSession((current) => updateActivePlacement(current, () => next));
-      setSelection(next.remaining[selection.type] <= 0 ? null : selection);
+      const type = selection.type;
+      setSession((current) =>
+        updateActivePlacement(current, (state) => place(state, square, type)),
+      );
+      // Keep the type selected for rapid repeat-placement until it runs out.
+      setSelection(placement.remaining[type] <= 1 ? null : selection);
       return;
     }
 

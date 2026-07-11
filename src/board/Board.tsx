@@ -115,7 +115,6 @@ function BoardSquareCell({
           <svg
             viewBox="0 0 64 64"
             className="board-square__lake-icon"
-            role="img"
             aria-hidden="true"
           >
             <use href={`#${LAKE_SYMBOL_ID}`} />

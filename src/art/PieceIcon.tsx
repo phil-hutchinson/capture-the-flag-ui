@@ -81,7 +81,6 @@ export function PieceIcon({ type, side, className }: PieceIconProps) {
       viewBox="0 0 64 64"
       className={className}
       style={{ color: sideColor(side) }}
-      role="img"
       aria-hidden="true"
     >
       <use href={`#${symbolId}`} />

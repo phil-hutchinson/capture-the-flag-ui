@@ -45,7 +45,11 @@ export function SessionComplete({ white, black }: SessionCompleteProps) {
   const json = useMemo(() => JSON.stringify(gameState, null, 2), [gameState]);
 
   useEffect(() => {
-    console.log("Initial game state:", gameState);
+    // Developer inspection path (the <details> dump covers production). Gated
+    // to dev builds so the artifact isn't logged in a shipped app.
+    if (import.meta.env.DEV) {
+      console.log("Initial game state:", gameState);
+    }
   }, [gameState]);
 
   return (
