@@ -555,7 +555,32 @@ without throwing.
 
 ## Step 6 — Combat announcement wording
 
-Status: pending
+Status: committed
+
+Notes: Extended `describeActivation` in `src/board/playAnnouncement.ts` with a
+new `describeAttack` helper that reads the just-applied ply's `PlyOutcome`
+(now available as `after.lastOutcome`, carried since Step 5) whenever
+`moveApplied` is true and `outcome.kind === "attack"`, falling through to the
+unchanged plain-move wording otherwise (selection/deselection paths were not
+touched). Combatants are read off `outcome.attacker`/`outcome.defender`
+directly (via a new `describePiece(piece: PlacedPiece)` helper) rather than
+by looking them up on the board, since a fallen piece — or, on an
+attacker-wins result, the attacker's origin square — can no longer be found
+there after the ply. Chosen wording per outcome: attacker wins — "{Attacker}
+attacked {Defender} at {square}: {Defender} falls, {Attacker} advances.
+{NextToMove} to move."; attacker loses — "{Attacker} attacked {Defender} at
+{square} and falls; {Defender} holds. {NextToMove} to move."; mutual loss —
+"{Attacker} attacked {Defender} at {square}: both fall. {NextToMove} to
+move." Archer support (only possible on a mutual-loss result, per
+`resolveCombat`) appends a short trailing clause, " Archer support turns the
+attack back.", before the whose-turn sentence, per the plan's "optionally
+mention... without overloading the sentence." Added five cases to
+`playAnnouncement.test.ts` (13 total): the three outcomes (each naming both
+combatants by color + piece name and stating who fell), one exercising the
+Archer-support clause, and one confirming a Blue attack correctly hands the
+turn back to Red. No deviations from the plan. `npm run typecheck`,
+`npm run lint`, `npm test` (214 tests, 14 files), and `npm run format:check`
+all pass.
 
 Extend `src/board/playAnnouncement.ts` (pure, no React) so
 `describeActivation(before, after, square)` announces **combat outcomes** in

@@ -131,6 +131,89 @@ describe("describeActivation - moving", () => {
   });
 });
 
+describe("describeActivation - combat outcomes", () => {
+  it("announces an attacker-wins result: who fought, who fell, whose turn", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["D4", "black", "militia"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+    const resolved = activateSquare(selected, sq("D", 4));
+
+    expect(describeActivation(selected, resolved, sq("D", 4))).toBe(
+      "Red Infantry attacked Blue Militia at D4: Blue Militia falls, Red Infantry advances. Blue to move.",
+    );
+  });
+
+  it("announces an attacker-loses result: who fought, who fell, whose turn", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "militia"],
+        ["D4", "black", "infantry"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+    const resolved = activateSquare(selected, sq("D", 4));
+
+    expect(describeActivation(selected, resolved, sq("D", 4))).toBe(
+      "Red Militia attacked Blue Infantry at D4 and falls; Blue Infantry holds. Blue to move.",
+    );
+  });
+
+  it("announces a mutual-loss result: who fought, both fell, whose turn", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["D4", "black", "infantry"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+    const resolved = activateSquare(selected, sq("D", 4));
+
+    expect(describeActivation(selected, resolved, sq("D", 4))).toBe(
+      "Red Infantry attacked Blue Infantry at D4: both fall. Blue to move.",
+    );
+  });
+
+  it("mentions Archer support when it flips the result to mutual loss", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "lordMarshal"],
+        ["D4", "black", "halberdier"],
+        ["D3", "black", "archer"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+    const resolved = activateSquare(selected, sq("D", 4));
+
+    expect(describeActivation(selected, resolved, sq("D", 4))).toBe(
+      "Red Lord Marshal attacked Blue Halberdier at D4: both fall. Archer support turns the attack back. Blue to move.",
+    );
+  });
+
+  it("announces a Black attack handing the turn back to Red", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["D9", "black", "militia"],
+        ["D10", "white", "halberdier"],
+      ]),
+    );
+    const afterWhite = activateSquare(
+      activateSquare(session, sq("D", 5)),
+      sq("D", 4),
+    );
+    const selected = activateSquare(afterWhite, sq("D", 9));
+    const resolved = activateSquare(selected, sq("D", 10));
+
+    expect(describeActivation(selected, resolved, sq("D", 10))).toBe(
+      "Blue Militia attacked Red Halberdier at D10 and falls; Red Halberdier holds. Red to move.",
+    );
+  });
+});
+
 describe("describeActivation - deselecting", () => {
   it("announces the piece being deselected", () => {
     const session = startSession(
