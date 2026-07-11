@@ -73,8 +73,8 @@ player-facing surfaces refer to the sides by color (red / blue) and use the word
    - Skirmisher moves of up to 3 squares in a straight line;
    - Towers and the Flag cannot move;
    - moves are blocked by lakes and by any piece in the path; no diagonals.
-   Illegal destinations are prevented structurally (not validated after the
-   fact), mirroring how Phase 1 made illegal squares non-interactive.
+     Illegal destinations are prevented structurally (not validated after the
+     fact), mirroring how Phase 1 made illegal squares non-interactive.
 5. **Accessible movement from the start.** Movement is operable by keyboard and
    perceivable by screen reader as it is built — not retrofitted later. Selecting
    a piece, seeing/hearing its legal destinations, moving it, and the turn
@@ -96,8 +96,7 @@ player-facing surfaces refer to the sides by color (red / blue) and use the word
   top of that foundation rather than forking it.
 - **Empty-square moves only.** Because attacks are out of scope, a square
   occupied by _any_ piece (friendly or enemy) is not a legal destination in this
-  story. Attacking an adjacent enemy — and the Knight charge — arrive in story
-  00000005.
+  story. Attacking an adjacent enemy — and the Knight charge — arrive in story 00000005.
 - **Not throwaway.** The move-recording model must be designed so combat
   (00000005), game-end (00000006), and eventual replay slot on top of it rather
   than forcing a rewrite.

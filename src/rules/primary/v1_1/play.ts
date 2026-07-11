@@ -149,7 +149,9 @@ export function renderGameRecord(state: PlayState): string {
     );
   }
 
-  return [`[Ruleset "${state.ruleset}"]`, positionBlock, rounds.join("\n")].join(
-    "\n\n",
-  );
+  return [
+    `[Ruleset "${state.ruleset}"]`,
+    positionBlock,
+    rounds.join("\n"),
+  ].join("\n\n");
 }

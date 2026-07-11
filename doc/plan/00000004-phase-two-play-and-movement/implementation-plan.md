@@ -36,7 +36,7 @@ repo already targets, `RULESET_TAG = "PRIMARY:1.1"`):**
   orthogonally**, with no movement quirk (confirmed: only the Skirmisher's range
   and the Knight/Tower/Flag exceptions above alter baseline movement).
 - **Empty-square moves only in this story.** Because attacks are out of scope, a
-  square occupied by *any* piece (friendly or enemy) is not a legal destination.
+  square occupied by _any_ piece (friendly or enemy) is not a legal destination.
 - **Move notation** (§4.4): a move is written as its **source square immediately
   followed by its destination square, no separator** — e.g. `A2A3`. Square names
   use the **absolute White frame**: columns A–L left-to-right, rows 1–12 where row
@@ -229,7 +229,7 @@ Status: committed
 Notes: Confirmed the "Record file format" against the companion repository's
 live `doc/ruleset/technical-notes.md` (fetched via raw.githubusercontent.com):
 header tags use PGN `[Name "value"]` syntax, the position block is always the
-*starting* position, and the move sequence is `N. WhiteMove BlackMove` rounds
+_starting_ position, and the move sequence is `N. WhiteMove BlackMove` rounds
 numbered from 1 with a trailing White-only round when the game ends on
 White's move — exactly as the plan describes. Deviation: `PlayState` (Step 2)
 did not retain the starting board needed for the position block, so extended
@@ -243,7 +243,7 @@ board while `board` diverges) rather than rewriting Step 2's tests. Added
 "PRIMARY:1.1"]`, then `renderPositionBlock` of `state.initialBoard`, then the
 round-grouped move sequence, each section separated by a blank line. Added a
 `describe("renderGameRecord", ...)` block to `play.test.ts` covering the
-Ruleset tag, the opening-position block (verified it does *not* equal the
+Ruleset tag, the opening-position block (verified it does _not_ equal the
 current board's block after moves), and round numbering including the
 trailing White-only round. No other deviations.
 
@@ -251,7 +251,7 @@ Add a function (in `play.ts`, or a small sibling it imports) that renders a
 `PlayState` into an inspectable, developer-facing text form that **anticipates the
 recorded-game replay file format** without implementing replay. The format, per
 the companion repository's `doc/ruleset/technical-notes.md` "Record file format",
-has: the `Ruleset` tag (`PRIMARY:1.1`); the **position block** for the *starting*
+has: the `Ruleset` tag (`PRIMARY:1.1`); the **position block** for the _starting_
 board (reuse `renderPositionBlock` from `gameState.ts`, feeding it the opening
 board); and a **move sequence** grouped into rounds numbered from 1, each round
 `N. <whiteMove> <blackMove>` (a final round with only White's move shows just that

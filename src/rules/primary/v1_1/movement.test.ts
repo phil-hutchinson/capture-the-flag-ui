@@ -131,9 +131,7 @@ describe("legalDestinations (ruleset PRIMARY:1.1, empty-square moves only)", () 
       ["J5", "black", "militia"], // blocker at distance 2 to the right
     ]);
     const destinations = legalDestinations(state, { column: "H", row: 5 });
-    const rightward = destinations.filter(
-      (s) => s.row === 5 && s.column > "H",
-    );
+    const rightward = destinations.filter((s) => s.row === 5 && s.column > "H");
     expect(sortedKeys(rightward)).toEqual(["I5"]);
     expect(rightward.some((s) => s.column === "J" || s.column === "K")).toBe(
       false,

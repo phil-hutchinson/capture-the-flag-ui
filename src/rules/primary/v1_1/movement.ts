@@ -38,11 +38,7 @@ const COLUMN_INDEX: Readonly<Record<Column, number>> = Object.fromEntries(
 ) as Record<Column, number>;
 
 /** The square one step from `square` in direction `dc`/`dr`, or `null` if off-board. */
-function step(
-  square: Square,
-  dc: number,
-  dr: number,
-): Square | null {
+function step(square: Square, dc: number, dr: number): Square | null {
   const columnIndex = COLUMN_INDEX[square.column] + dc;
   const row = (square.row + dr) as Row;
   if (columnIndex < 0 || columnIndex >= COLUMNS.length) {
@@ -82,10 +78,7 @@ function isImmobile(pieceType: string): boolean {
  * blocking square is never itself a destination). Never diagonal, never
  * off-board.
  */
-export function legalDestinations(
-  board: BoardState,
-  origin: Square,
-): Square[] {
+export function legalDestinations(board: BoardState, origin: Square): Square[] {
   const occupant = board[squareKey(origin)];
   if (occupant === undefined || isImmobile(occupant.pieceType)) {
     return [];
