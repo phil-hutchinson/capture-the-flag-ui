@@ -1,0 +1,59 @@
+/* Board grid geometry (story 00000001, Step 7).
+
+   The board is drawn from the active player's own perspective: 4 interactive
+   home rows at the bottom, a greyed non-interactive buffer row above them,
+   and the full nearest lake row above that (a visual reminder that the lakes
+   continue off-screen). Square size is driven by --square so the grid scales
+   as one. */
+
+.board {
+  --square: clamp(28px, 6vmin, 64px);
+  display: grid;
+  grid-template-columns: repeat(12, var(--square));
+  /* 6 full-square rows: the near lake row, the buffer row, and 4 home rows. */
+  grid-template-rows: repeat(6, var(--square));
+  border: 2px solid var(--ink);
+  background: var(--parchment);
+}
+
+.board-square {
+  position: relative;
+  overflow: hidden;
+}
+
+.board-square__inner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+.board-square--home {
+  background: var(--parchment);
+  border: 1px solid rgba(43, 33, 24, 0.2);
+  cursor: pointer;
+}
+
+.board-square--selected {
+  /* The square currently picked up for move/swap/return-to-tray (Step 9). */
+  box-shadow: inset 0 0 0 3px var(--ink);
+}
+
+.board-square--buffer,
+.board-square--lake-row {
+  /* Greyed, non-interactive: a visual reminder only, nothing to click. */
+  background: #b7b0a0;
+  filter: grayscale(70%);
+  pointer-events: none;
+}
+
+.board-square__lake-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.board-square__piece-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

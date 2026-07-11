@@ -1,0 +1,110 @@
+<!--
+  Piece + terrain sprite sheet for Capture the Flag.
+
+  Source: .local/ctf-tile-prototype.svg (gitignored prototype; see
+  .local/ctf-tile-prototype.md for renderer notes). This file carries over the
+  12 piece <symbol>s and the p-lake terrain <symbol> unchanged in shape,
+  re-tokenized per the themeability constraint (story 00000001):
+
+  - Side colors already use `currentColor` inside each symbol; the side (red
+    Side A / blue Side B) is applied by the consumer via `color` on the
+    element that draws the symbol (see PieceIcon.tsx), never a literal here.
+  - The four "cutout" details that show the board background through the icon
+    (Champion's blade fuller, Knight's eye + mouth, Infantry's shield
+    cross-lines, Tower's doorway) reference `var(--parchment)` (src/index.css)
+    instead of the prototype's literal parchment hex, so they always track
+    the real board background color.
+  - Deliberately fixed accents stay literal: the Marshal's boss (gold) and
+    the lake's wave strokes.
+
+  This file holds only the reusable <defs> - no sample/demo grid. Mount it
+  once (e.g. via a component that inlines this markup) so `<use href="#...">`
+  elsewhere in the document can reference these symbols by id.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <symbol id="p-marshal" viewBox="0 0 64 64">
+      <g transform="translate(0,6)">
+        <!-- Sword, tip to the top-right -->
+        <g transform="rotate(45 32 32)">
+          <path d="M32,7 L35,14 L35,38 L29,38 L29,14 Z" fill="currentColor"/>
+          <line x1="27" y1="38" x2="37" y2="38" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+          <line x1="32" y1="38" x2="32" y2="47" stroke="currentColor" stroke-width="2.4"/>
+          <circle cx="32" cy="49" r="2.2" fill="currentColor"/>
+        </g>
+        <!-- Axe, head to the top-left -->
+        <g transform="rotate(-45 32 32)">
+          <line x1="32" y1="8" x2="32" y2="50" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          <path d="M33,6 Q29,8 24,3 Q14,13 24,23 Q29,18 33,20 Z" fill="currentColor"/>
+        </g>
+        <circle cx="32" cy="32" r="3" fill="#a67c2e"/>
+      </g>
+    </symbol>
+    <symbol id="p-champion" viewBox="0 0 64 64">
+      <path d="M32,10 L35.5,17 L34.5,40 L29.5,40 L28.5,17 Z" fill="currentColor"/>
+      <line x1="32" y1="18" x2="32" y2="36" stroke="var(--parchment)" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M22,42.5 Q32,39.5 42,42.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      <line x1="32" y1="42" x2="32" y2="50" stroke="currentColor" stroke-width="2.2"/>
+      <circle cx="32" cy="52.5" r="2.4" fill="currentColor"/>
+    </symbol>
+    <symbol id="p-knight" viewBox="0 0 64 64">
+      <path d="M14,50 L13,33 L19,24 L26,20 L50,26 L51,31 L46,33 L34,30 L30,38 L22,44 Z" fill="currentColor"/>
+      <path d="M19,24 L23,13 L27,22 Z" fill="currentColor"/>
+      <circle cx="32" cy="26" r="1.8" fill="var(--parchment)"/>
+      <line x1="44" y1="34" x2="49" y2="32" stroke="var(--parchment)" stroke-width="1.3" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="p-infantry" viewBox="0 0 64 64">
+      <path d="M32,13 L47,19 L47,35 C47,46 40,52 32,55 C24,52 17,46 17,35 L17,19 Z" fill="currentColor"/>
+      <path d="M32,18 L32,50 M20,32 L44,32" stroke="var(--parchment)" stroke-width="2" fill="none"/>
+    </symbol>
+    <symbol id="p-halberdier" viewBox="0 0 64 64">
+      <line x1="32" y1="52" x2="32" y2="14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      <path d="M32,17 L47,21 L47,31 L32,27 Z" fill="currentColor"/>
+      <path d="M28,14 L32,6 L36,14 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="p-militia" viewBox="0 0 64 64">
+      <line x1="32" y1="52" x2="32" y2="22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      <line x1="22" y1="22" x2="42" y2="22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <line x1="24" y1="22" x2="24" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <line x1="32" y1="22" x2="32" y2="8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <line x1="40" y1="22" x2="40" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="p-skirmisher" viewBox="0 0 64 64">
+      <line x1="8" y1="56" x2="18" y2="46" stroke="currentColor" stroke-width="2" stroke-dasharray="3.5 4" stroke-linecap="round" opacity="0.55"/>
+      <line x1="18" y1="46" x2="42" y2="22" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M50,14 L40,18 L46,24 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="p-archer" viewBox="0 0 64 64">
+      <path d="M22,16 Q35,32 22,48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      <line x1="22" y1="16" x2="22" y2="48" stroke="currentColor" stroke-width="1.4"/>
+      <line x1="16" y1="32" x2="47" y2="32" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M47,32 L40,28 L40,36 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="p-sapper" viewBox="0 0 64 64">
+      <line x1="32" y1="52" x2="32" y2="24" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      <path d="M22,24 L22,19 C22,13 26,9 32,9 C38,9 42,13 42,19 L42,24 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="p-assassin" viewBox="0 0 64 64">
+      <path d="M20,35 A12,12 0 1 1 44,35 Z" fill="currentColor"/>
+      <path d="M18,35 L46,35 L52,54 L12,54 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="p-tower" viewBox="0 0 64 64">
+      <rect x="17" y="26" width="30" height="26" fill="currentColor"/>
+      <rect x="17" y="20" width="6" height="6" fill="currentColor"/>
+      <rect x="25" y="20" width="6" height="6" fill="currentColor"/>
+      <rect x="33" y="20" width="6" height="6" fill="currentColor"/>
+      <rect x="41" y="20" width="6" height="6" fill="currentColor"/>
+      <rect x="28" y="40" width="8" height="12" fill="var(--parchment)"/>
+    </symbol>
+    <symbol id="p-flag" viewBox="0 0 64 64">
+      <line x1="24" y1="53" x2="24" y2="12" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M24,14 L47,20 L24,26 Z" fill="currentColor"/>
+      <circle cx="24" cy="12" r="2" fill="currentColor"/>
+    </symbol>
+    <symbol id="p-lake" viewBox="0 0 64 64">
+      <path d="M10,24 q6,-7 12,0 q6,7 12,0 q6,-7 12,0 q6,7 12,0" fill="none" stroke="#3f7b8a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10,34 q6,-7 12,0 q6,7 12,0 q6,-7 12,0 q6,7 12,0" fill="none" stroke="#3f7b8a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10,44 q6,-7 12,0 q6,7 12,0 q6,-7 12,0 q6,7 12,0" fill="none" stroke="#3f7b8a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>

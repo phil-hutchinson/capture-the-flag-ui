@@ -1,0 +1,31 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2rem 1rem;
+}
+
+.app__title {
+  font-size: 1.75rem;
+  margin: 0;
+}
+
+.app__layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.app__board-column {
+  display: flex;
+  flex-direction: column;
+  /* Pin the column to the board's own width. Without this the column grows to
+     fit the controls panel below it, opening an empty gap beside the
+     fixed-width board and reflowing the centered layout (which reads as the
+     board shrinking) whenever a piece is selected. The controls wrap within
+     this width instead. */
+  width: min-content;
+}
