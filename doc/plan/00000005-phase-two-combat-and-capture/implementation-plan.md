@@ -795,7 +795,15 @@ only).
 
 ## Step 11 — Accessible combat (Gate E)
 
-Status: pending
+Status: committed
+
+Notes: Verification-only — no code changes needed. Gate E passed on manual
+testing (owner, 2026-07-11): a full attack is operable by keyboard alone
+through the existing accessible grid; attack destinations are announced as
+attacks (distinct from plain moves) via the extended cell labels; combat
+outcomes are announced through the live region; focus stays visible and
+untrapped through resolution. Accessibility was built into Steps 5-7; no
+polish required.
 
 Accessibility is built into Steps 5–7 (attacks flow through the same accessible
 grid as movement — there is no separate mouse-only attack path; attack targets
