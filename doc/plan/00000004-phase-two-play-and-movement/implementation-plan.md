@@ -120,9 +120,20 @@ manual gates.** Do not add a component-testing stack for this story.
 
 ## Step 1 — Movement rule logic: legal empty-square destinations
 
-Status: pending
+Status: committed
 
-Notes:
+Notes: Added `src/rules/primary/v1_1/movement.ts` exporting `legalDestinations(board, origin)`
+(baseline pieces: 1 orthogonal square each direction; Skirmisher: up to 3 in a
+clear straight line, stopped by the first lake/occupied square without
+including it as a destination; Tower/Flag: none; Knight moves like baseline
+per this story's scope) and `hasAnyLegalMove(board, side)`. Added colocated
+`movement.test.ts` covering every case in the verification list (baseline
+orthogonal empties, corner/edge pruning, adjacent-lake exclusion,
+friendly/enemy occupied exclusion, Tower/Flag immobility, empty-origin,
+no-diagonal, Skirmisher full 3-square reach, lake cutoff, piece cutoff at
+distances 1/2/3) plus two light sanity tests for `hasAnyLegalMove`'s
+true/false cases (not the "stuck" scenario, which per the plan is
+intentionally untested). No deviations from the plan.
 
 Add a new versioned module `src/rules/primary/v1_1/movement.ts` (pure, no React)
 that, given a `BoardState` (from `gameState.ts`) and an origin `Square`, computes
