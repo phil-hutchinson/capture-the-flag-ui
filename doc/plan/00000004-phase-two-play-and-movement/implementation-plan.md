@@ -383,9 +383,30 @@ when implemented.)
 
 ## Step 6 — Phase 2 interaction and turn state machine
 
-Status: pending
+Status: committed
 
-Notes:
+Notes: Added `src/board/playSession.ts` exporting `PlaySession` (`{ play:
+PlayState, selection: Square | null }`), `startSession(initial)`,
+`actionableSquares(session)`, and `activateSquare(session, square)`, matching
+`placementSession.ts`'s pure/immutable style. `actionableSquares` returns the
+side-to-move's own pieces that currently have at least one legal destination
+(nothing selected) or the selected piece's `legalDestinations` (something
+selected) — an "own movable piece" is defined as having
+`legalDestinations(...).length > 0`, not merely a non-immobile piece type,
+so a boxed-in piece is never offered and the "stuck" case naturally yields
+an empty actionable set without any special-case code.
+`activateSquare` implements exactly the four cases from the plan: reactivating
+the selected square deselects it; activating one of its legal destinations
+applies the move via `applyMove` and clears the selection; activating one of
+the side-to-move's own movable pieces (nothing selected) selects it; anything
+else (opponent piece, immobile own piece, lake, non-destination empty square,
+or a second own piece while one is already selected — not called out
+separately by the plan, so treated as "anything else") is a no-op, returning
+the input session unchanged. Added colocated `playSession.test.ts` (11 tests)
+covering every case in the verification list, including a "stuck" fixture
+(one White piece boxed in by four Black pieces, no other White piece on the
+board) confirming an empty actionable set without throwing. No deviations
+from the plan.
 
 Add a pure module (e.g. `src/board/playSession.ts`, no React) that owns the
 Phase-2 turn-and-selection state machine, sitting between the rule layer (Steps
