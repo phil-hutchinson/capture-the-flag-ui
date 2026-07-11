@@ -188,16 +188,23 @@ export function legalAttacks(board: BoardState, origin: Square): Square[] {
 }
 
 /**
- * True if `side` has at least one legal move somewhere on `board` (any of
- * its own pieces has at least one legal destination). Used only to fail
- * quietly for the accepted "stuck with no legal move" case (see story
- * 00000004's Grounding facts) - not surfaced in any UI or tested for its own
- * sake in this story; the real handling arrives in story 00000006.
+ * True if `side` has at least one legal **non-attack** move somewhere on
+ * `board` (any of its own pieces has at least one legal `legalDestinations`
+ * empty-square destination). Deliberately considers only plain moves, not
+ * attacks - a piece that can only attack is not "stuck" for this check's
+ * purpose, so it must not be folded into a broader "has any legal action"
+ * check. Used only to fail quietly for the accepted "stuck with no legal
+ * move" case (see story 00000004's Grounding facts) - not surfaced in any UI
+ * or tested for its own sake in this story.
  *
  * @remarks Intentionally has no production caller yet - retained as
- * ready-for-use API that story 00000006 will consume.
+ * ready-for-use API. An attack-aware "has any legal action" check (folding
+ * in `legalAttacks`) is story 00000006's concern, not this function's.
  */
-export function hasAnyLegalMove(board: BoardState, side: Side): boolean {
+export function hasAnyLegalNonAttackMove(
+  board: BoardState,
+  side: Side,
+): boolean {
   for (const square of allSquares()) {
     const placed = board[squareKey(square)];
     if (placed === undefined || placed.side !== side) {

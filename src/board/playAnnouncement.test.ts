@@ -45,7 +45,26 @@ describe("describeActivation - selecting a piece", () => {
   });
 
   it("uses singular wording for exactly one available move", () => {
-    // Boxed in on three sides, one empty neighbor: exactly one destination.
+    // Boxed in by friendly pieces on three sides (never attack targets), one
+    // empty neighbor: exactly one plain move and no attacks.
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["C5", "white", "militia"],
+        ["D4", "white", "militia"],
+        ["D6", "white", "militia"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+
+    expect(describeActivation(session, selected, sq("D", 5))).toBe(
+      "Red Infantry selected, 1 move available.",
+    );
+  });
+
+  it("combines plain-move destinations and attack targets into a single count", () => {
+    // Boxed in by enemies on three sides, one empty neighbor: 1 plain move
+    // plus 3 attack targets = 4 moves available.
     const session = startSession(
       initialGameState([
         ["D5", "white", "infantry"],
@@ -57,7 +76,26 @@ describe("describeActivation - selecting a piece", () => {
     const selected = activateSquare(session, sq("D", 5));
 
     expect(describeActivation(session, selected, sq("D", 5))).toBe(
-      "Red Infantry selected, 1 move available.",
+      "Red Infantry selected, 4 moves available.",
+    );
+  });
+
+  it("announces a non-zero count for a piece that can only attack", () => {
+    // Surrounded on all four sides by enemies: no plain-move destinations,
+    // but 4 legal attack targets, so the count must not read "0 moves".
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["C5", "black", "militia"],
+        ["E5", "black", "militia"],
+        ["D4", "black", "militia"],
+        ["D6", "black", "militia"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+
+    expect(describeActivation(session, selected, sq("D", 5))).toBe(
+      "Red Infantry selected, 4 moves available.",
     );
   });
 

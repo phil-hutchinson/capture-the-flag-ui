@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Square } from "./board.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
 import {
-  hasAnyLegalMove,
+  hasAnyLegalNonAttackMove,
   legalAttacks,
   legalDestinations,
 } from "./movement.ts";
@@ -169,15 +169,15 @@ describe("legalDestinations (ruleset PRIMARY:1.1, empty-square moves only)", () 
   });
 });
 
-describe("hasAnyLegalMove", () => {
+describe("hasAnyLegalNonAttackMove", () => {
   it("is true when at least one of the side's pieces has a legal destination", () => {
     const state = board([["D5", "white", "infantry"]]);
-    expect(hasAnyLegalMove(state, "white")).toBe(true);
+    expect(hasAnyLegalNonAttackMove(state, "white")).toBe(true);
   });
 
   it("is false for a side with no pieces on the board", () => {
     const state = board([["D5", "black", "infantry"]]);
-    expect(hasAnyLegalMove(state, "white")).toBe(false);
+    expect(hasAnyLegalNonAttackMove(state, "white")).toBe(false);
   });
 });
 

@@ -40,7 +40,10 @@ import {
   type Square,
 } from "../rules/primary/v1_1/board.ts";
 import type { PlacedPiece } from "../rules/primary/v1_1/gameState.ts";
-import { legalDestinations } from "../rules/primary/v1_1/movement.ts";
+import {
+  legalAttacks,
+  legalDestinations,
+} from "../rules/primary/v1_1/movement.ts";
 import { PIECE_CATALOG } from "../rules/primary/v1_1/pieces.ts";
 import type { PlyOutcome } from "../rules/primary/v1_1/play.ts";
 import type { PlaySession } from "./playSession.ts";
@@ -137,7 +140,12 @@ export function describeActivation(
       squareKey(before.selection) !== squareKey(after.selection));
   if (selectionChanged && after.selection !== null) {
     const description = pieceDescription(after, after.selection);
-    const count = legalDestinations(after.play.board, after.selection).length;
+    // An attack is a kind of move in player-facing wording (per the rules'
+    // use of "move"), so the count combines plain-move destinations and
+    // attack targets into the single number a player hears.
+    const count =
+      legalDestinations(after.play.board, after.selection).length +
+      legalAttacks(after.play.board, after.selection).length;
     const moveWord = count === 1 ? "move" : "moves";
     return `${description} selected, ${count} ${moveWord} available.`;
   }
