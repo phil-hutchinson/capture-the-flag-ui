@@ -675,7 +675,29 @@ available and false for a truly boxed-in side.
 
 ## Step 5 — `Result` and `ResultReason` in the game record
 
-Status: pending
+Status: committed
+
+Notes: `renderGameRecord` in `src/rules/primary/v1_1/play.ts` now writes
+`Result` and `ResultReason` header tags ahead of the existing `Ruleset` tag
+and position block: `[Result "*"]` with no `ResultReason` tag while
+`state.result.kind === "ongoing"`; otherwise `[Result "1-0"/"0-1"/"1/2-1/2"]`
+(via a new private `renderResultValue(winner)` mapping White/Black to the PGN
+values) followed by `[ResultReason "..."]` (via a new private
+`renderResultReasonValue(reason)` switch mapping the six `GameEndReason`
+identifiers to the technical-notes strings plus the owner-fixed
+`"Agreement"`). Nothing else about the render changed: the position block
+still renders `initialBoard`, and the move sequence is untouched. Extended
+`play.test.ts` with a new "renderGameRecord - Result/ResultReason" describe
+block covering every case in the step's verification list (ongoing, White
+flag-capture win, Black win, no-progress draw via a `progressCounter`
+override fixture matching the precedent set in Step 3's tests, an agreed
+draw via `agreeDraw` asserting no move is added, and a check that `Ruleset`/
+position block/move rounds remain present alongside the result tags). No
+deviations from the plan. `npm run typecheck`, `npm run lint`, and `npm test`
+all pass (282 tests, 16 files); ran `npx prettier --write` on the two
+touched files to satisfy `npm run format:check` (the two pre-existing
+`story.md`/`implementation-plan.md` markdown warnings are unrelated and
+untouched).
 
 Extend `renderGameRecord` in `src/rules/primary/v1_1/play.ts` to emit the record
 file format's result header tags alongside the existing `Ruleset` tag, in PGN

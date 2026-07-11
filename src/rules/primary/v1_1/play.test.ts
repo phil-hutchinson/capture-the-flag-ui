@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BoardState, InitialGameState, PlacedPiece } from "./gameState.ts";
 import { renderPositionBlock, RULESET_TAG } from "./gameState.ts";
+import { PROGRESS_LIMIT } from "./outcome.ts";
 import type { PieceTypeId } from "./pieces.ts";
 import {
   agreeDraw,
@@ -702,5 +703,138 @@ describe("renderGameRecord", () => {
     expect(record).toContain("1. D5D4 D9D10");
     expect(record).toContain("2. C5C4");
     expect(record).not.toMatch(/2\. C5C4 \S/);
+  });
+});
+
+describe("renderGameRecord - Result/ResultReason (§6 record file format)", () => {
+  it('writes [Result "*"] and no ResultReason tag while the game is ongoing', () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D9", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
+    ]);
+    const state = startPlay(initial);
+
+    const record = renderGameRecord(state);
+
+    expect(record).toContain('[Result "*"]');
+    expect(record).not.toContain("ResultReason");
+  });
+
+  it('writes [Result "1-0"] and [ResultReason "Flag Captured"] for a White (Red) flag-capture win', () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D6", "black", "flag"],
+      ["A1", "white", "flag"],
+    ]);
+    const state = startPlay(initial);
+    const { state: finished } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 6 },
+    );
+
+    const record = renderGameRecord(finished);
+
+    expect(record).toContain('[Result "1-0"]');
+    expect(record).toContain('[ResultReason "Flag Captured"]');
+  });
+
+  it('writes [Result "0-1"] for a Black (Blue) win', () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D9", "black", "infantry"],
+      ["D8", "white", "flag"],
+      ["L12", "black", "flag"],
+    ]);
+    let state: PlayState = startPlay(initial);
+    state = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    ).state;
+    const { state: finished } = applyMove(
+      state,
+      { column: "D", row: 9 },
+      { column: "D", row: 8 },
+    );
+    expect(finished.result).toMatchObject({ kind: "win", winner: "black" });
+
+    const record = renderGameRecord(finished);
+
+    expect(record).toContain('[Result "0-1"]');
+    expect(record).toContain('[ResultReason "Flag Captured"]');
+  });
+
+  it('writes [Result "1/2-1/2"] and [ResultReason "No Progress"] for a no-progress draw', () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D9", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
+    ]);
+    let state: PlayState = startPlay(initial);
+    state = { ...state, progressCounter: PROGRESS_LIMIT - 1 };
+
+    const { state: finished } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    );
+    expect(finished.result).toMatchObject({
+      kind: "draw",
+      reason: "noProgress",
+    });
+
+    const record = renderGameRecord(finished);
+
+    expect(record).toContain('[Result "1/2-1/2"]');
+    expect(record).toContain('[ResultReason "No Progress"]');
+  });
+
+  it('writes [Result "1/2-1/2"] and [ResultReason "Agreement"] for an agreed draw, adding no move to the sequence', () => {
+    const initial = initialGameState([
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
+      ["D5", "white", "infantry"],
+      ["D9", "black", "militia"],
+    ]);
+    let state: PlayState = startPlay(initial);
+    state = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    ).state;
+    const movesBefore = state.moves;
+
+    const drawn = agreeDraw(state);
+    const record = renderGameRecord(drawn);
+
+    expect(record).toContain('[Result "1/2-1/2"]');
+    expect(record).toContain('[ResultReason "Agreement"]');
+    expect(drawn.moves).toBe(movesBefore);
+    expect(record).toContain("1. D5D4");
+    expect(record).not.toMatch(/D5D4[^\s]/);
+  });
+
+  it("still contains the Ruleset tag, position block, and plain-form move rounds alongside the result tags", () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D6", "black", "flag"],
+      ["A1", "white", "flag"],
+    ]);
+    const state = startPlay(initial);
+    const { state: finished } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 6 },
+    );
+
+    const record = renderGameRecord(finished);
+
+    expect(record).toContain(`[Ruleset "${RULESET_TAG}"]`);
+    expect(record).toContain(renderPositionBlock(initial));
+    expect(record).toContain("1. D5D6");
   });
 });

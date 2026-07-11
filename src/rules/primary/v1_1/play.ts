@@ -40,7 +40,11 @@ import {
   type PlacedPiece,
 } from "./gameState.ts";
 import { legalAttacks, legalDestinations } from "./movement.ts";
-import { computeOutcome, type GameOutcome } from "./outcome.ts";
+import {
+  computeOutcome,
+  type GameEndReason,
+  type GameOutcome,
+} from "./outcome.ts";
 
 /** The side that moves first, per rules.md §4.1 (White/Red moves first). */
 const FIRST_SIDE: Side = "white";
@@ -291,12 +295,60 @@ export function agreeDraw(state: PlayState): PlayState {
 }
 
 /**
+ * Maps a finished game's winner (`Side`, or `undefined` for a draw) to the
+ * record file format's PGN `Result` value: `1-0` for White (Red), `0-1` for
+ * Black (Blue), `1/2-1/2` for a draw. Note the record uses White/Black, not
+ * the UI's Red/Blue.
+ */
+function renderResultValue(winner: Side | undefined): string {
+  if (winner === "white") {
+    return "1-0";
+  }
+  if (winner === "black") {
+    return "0-1";
+  }
+  return "1/2-1/2";
+}
+
+/**
+ * Maps a `GameEndReason` (outcome.ts's stable identifier) to the record file
+ * format's `ResultReason` free text. The first five strings are the
+ * companion repository's technical-notes examples verbatim; `"Agreement"` is
+ * not in those notes - it is the owner's fixed choice (2026-07-11) for a
+ * draw by agreement, to be raised upstream so both codebases agree.
+ */
+function renderResultReasonValue(reason: GameEndReason): string {
+  switch (reason) {
+    case "flagCapture":
+      return "Flag Captured";
+    case "unbreachableFlag":
+      return "Unbreachable Flag";
+    case "noLegalMove":
+      return "No Legal Move";
+    case "inactivity":
+      return "Inactivity";
+    case "noProgress":
+      return "No Progress";
+    case "agreement":
+      return "Agreement";
+  }
+}
+
+/**
  * Renders `state` as an inspectable, developer-facing text form that
  * anticipates the companion repository's recorded-game replay file format
  * (`doc/ruleset/technical-notes.md`, "Record file format") without
- * implementing replay itself. It carries the three load-bearing pieces of
- * that format:
+ * implementing replay itself. It carries the load-bearing pieces of that
+ * format:
  *
+ * - the **`Result`** header tag, always written, in the record format's PGN
+ *   values: `1-0` when White (Red) has won, `0-1` when Black (Blue) has won,
+ *   `1/2-1/2` for a draw, `*` while the game is still ongoing;
+ * - the **`ResultReason`** header tag, free text describing *why* the game
+ *   ended (see `renderResultReasonValue`) - written **only once the game has
+ *   ended**; while `state.result.kind === "ongoing"` this tag is **omitted
+ *   entirely** (owner's decision, 2026-07-11), so an ongoing record carries
+ *   `[Result "*"]` and no `ResultReason` tag at all;
  * - the `Ruleset` header tag, in the same `[Name "value"]` syntax the record
  *   file format uses for header tags;
  * - the **position block** for the *starting* position play began from
@@ -307,11 +359,13 @@ export function agreeDraw(state: PlayState): PlayState {
  *   that trailing round with only the White move) - in the plain `A2A3`
  *   form, with no separators and no combat-resolution markers even for an
  *   attack (rules.md §4.4 - an attack's result always follows automatically
- *   from the position and the rules).
+ *   from the position and the rules), and with **no** entry of any kind for
+ *   a draw offer, decline, or agreement (an agreed draw appears only in the
+ *   `Result`/`ResultReason` tags above).
  *
  * This is deliberately not a full record file (no `Event`/`Site`/`Date`/etc.
- * roster tags, no `Result`): it is the minimum a future replay story can
- * build on, kept as a plain string.
+ * roster tags): it is the minimum a future replay story can build on, kept
+ * as a plain string.
  */
 export function renderGameRecord(state: PlayState): string {
   const positionBlock = renderPositionBlock({
@@ -331,7 +385,20 @@ export function renderGameRecord(state: PlayState): string {
     );
   }
 
-  const sections = [`[Ruleset "${state.ruleset}"]`, positionBlock];
+  const headerTags: string[] = [];
+  if (state.result.kind === "ongoing") {
+    headerTags.push('[Result "*"]');
+  } else {
+    const winner =
+      state.result.kind === "win" ? state.result.winner : undefined;
+    headerTags.push(`[Result "${renderResultValue(winner)}"]`);
+    headerTags.push(
+      `[ResultReason "${renderResultReasonValue(state.result.reason)}"]`,
+    );
+  }
+  headerTags.push(`[Ruleset "${state.ruleset}"]`);
+
+  const sections = [headerTags.join("\n"), positionBlock];
   // Omit the move-sequence section entirely before any move is made, so the
   // record doesn't end with a trailing empty section.
   if (rounds.length > 0) {
