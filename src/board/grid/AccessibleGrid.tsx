@@ -21,7 +21,7 @@
 // project's Vitest environment is `node` only (no jsdom / component-testing
 // library), so only the pure navigation math (gridNavigation.test.ts) is
 // automated here; see
-// doc/plan/future-technical-stories/automated-accessibility-and-dom-testing.md
+// doc/plan/proposed-stories/automated-accessibility-and-dom-testing.md
 // for the deferred automated-coverage story.
 
 import {

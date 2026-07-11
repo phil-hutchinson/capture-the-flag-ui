@@ -714,13 +714,13 @@ legal destinations**, the **move** when made, and **whose turn it is**.
 
 ## Step 10 — Surface the evolving move record (Gate E)
 
-Status: implemented
+Status: committed
 
 Notes: Added `src/board/GameRecord.tsx` (+ colocated `GameRecord.css`),
 mirroring `SessionComplete.tsx`'s pattern: a collapsed `<details>`
 disclosure ("Developer: inspect game record") showing the `Ruleset` tag and
 the full record text from Step 3's `renderGameRecord(play)` (position block
-of the *starting* board plus the round-grouped `A2A3` move sequence), and a
+of the _starting_ board plus the round-grouped `A2A3` move sequence), and a
 `console.log` gated to `import.meta.env.DEV` via a `useEffect` keyed on the
 memoized record string, so it re-logs each time the record actually
 changes. Wired into `App.tsx`'s Phase-2 branch: `<GameRecord play={playSession.play} />`
@@ -729,8 +729,13 @@ updates) on every move via the same `playSession` state that already drives
 the board and turn indicator. `npm run typecheck`, `npm run lint`, `npm
 test` (150 tests, all still passing — no new automated tests, per the
 plan's manual-only verification for this step), `npm run format:check`, and
-`npm run build` all pass. Gate E itself is manual and was not run here —
-see the owner's manual verification. No deviations from the plan.
+`npm run build` all pass. No deviations from the plan.
+
+Gate E result (owner-run manual verification): PASSED. In Phase 2, the
+"Developer: inspect game record" disclosure shows the `Ruleset "PRIMARY:1.1"`
+tag, the starting position block, and the played moves in `A2A3` form grouped
+into numbered rounds, updating live after each move — matching the moves
+actually played.
 
 Surface the evolving Phase-2 game state as an inspectable, developer-facing
 artifact in the Phase-2 UI, reusing Step 3's render. Mirror the Phase-1 pattern
@@ -752,9 +757,21 @@ sequence of moves, and open the developer artifact. Confirm it is inspectable an
 
 ## Step 11 — README accuracy check
 
-Status: pending
+Status: committed
 
-Notes:
+Notes: Updated `README.md` to match the now-shipped Phase-2 movement. The
+"What you can do" list's battle bullet was `_(coming next)_` and described
+combat ("move and clash until one side captures the other's flag"); replaced
+it with "Move your pieces on the battlefield" — once both armies are revealed,
+players take turns moving pieces in full view, one move each turn — and moved
+the `_(coming next)_` marker onto the parts still missing (attacks, capturing,
+winning). Correspondingly updated the Status note from "you can now set up a
+game by placing both armies / the battle phase itself is still being built" to
+say players can also take turns moving pieces on the revealed board, with
+attacks and winning still to come. Left the intro paragraph (an aspirational
+description of the whole game) and the setup bullet as-is, both still accurate.
+Ran `npm run typecheck`, `npm run lint`, `npm test` (150 tests, all passing),
+and `npm run format:check` — all pass. No deviations from the plan.
 
 Review `README.md` against this story's changes and update it if warranted (the
 `/update-readme` command automates this against the branch diff). The current
@@ -773,11 +790,26 @@ updated to match).
 
 ---
 
-## Step 12 — Record the automated accessibility/DOM test stack as a future technical story
+## Step 12 — Record the automated accessibility/DOM test stack as a proposed story
 
-Status: pending
+Status: committed
 
-Notes:
+Notes: Created the proposed-story stub at
+`doc/plan/proposed-stories/automated-accessibility-and-dom-testing.md` stating,
+for a cold reader, the motivation (the reusable accessible grid's ARIA /
+keyboard / screen-reader behavior is verified only manually, with no automated
+regression coverage), the proposed scope (add a jsdom + component-testing-
+library DOM environment and test roving-tabindex invariants, arrow navigation
+and edge clamping, Enter/Space activation, and live-region content), the
+dependency/constraints (a tooling/dev-dependency decision that must follow the
+repository dependency policy), and the story-00000002 relationship (it will
+adopt the same grid, so this coverage benefits it too). **Owner decision
+(this session):** the folder is `doc/plan/proposed-stories/` rather than
+`future-technical-stories/`, so proposed stories of any kind (not only
+technical ones) can live there and "proposed" better names a story in that
+state; the one committed reference to the old path (a comment in
+`src/board/grid/AccessibleGrid.tsx`) was updated to match. Ran `npm run
+typecheck`, `npm run lint`, and `npm test` (150 tests, all passing) — all pass.
 
 **Owner decision captured here so it survives a fresh session:** for story
 00000004 we deliberately do **not** add a DOM/component test stack — the repo's
@@ -787,9 +819,9 @@ screen-reader behavior is covered only by the manual Gate D (Step 9). This step
 does not change that decision; it **documents the deferred work** as a proposed
 future technical story so it is not lost.
 
-Create a short, non-numbered future-story stub at
-`doc/plan/future-technical-stories/automated-accessibility-and-dom-testing.md`
-(create the `future-technical-stories/` directory). It is a planning note, not a
+Create a short, non-numbered proposed-story stub at
+`doc/plan/proposed-stories/automated-accessibility-and-dom-testing.md`
+(create the `proposed-stories/` directory). It is a planning note, not a
 numbered story (story numbers come from GitHub and are chosen by the owner), and
 must state, for a cold reader:
 
