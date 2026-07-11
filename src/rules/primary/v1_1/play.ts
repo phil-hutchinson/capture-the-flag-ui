@@ -49,9 +49,11 @@ const FIRST_SIDE: Side = "white";
  * *starting* board (the revealed position play began from - kept alongside
  * the current board so the record render, below, can always reproduce the
  * record file format's position block, which is always the *starting*
- * position, never the current one), the current board, whose turn it is, and
+ * position, never the current one), the current board, whose turn it is,
  * every move made so far, in order, as `A2A3` coordinate strings (absolute
- * White frame - see board.ts).
+ * White frame - see board.ts), and the two pieces of §6.4/§6.5 rule state
+ * this story adds: each side's personal inactivity counter and the single
+ * shared no-progress counter (see `applyMove` for how they evolve).
  */
 export interface PlayState {
   readonly ruleset: string;
@@ -59,13 +61,16 @@ export interface PlayState {
   readonly board: BoardState;
   readonly sideToMove: Side;
   readonly moves: readonly string[];
+  readonly inactivityCounters: Readonly<Record<Side, number>>;
+  readonly progressCounter: number;
 }
 
 /**
  * The opening `PlayState` for `initial` (story 00000001's completed-placement
  * artifact): the same board (as both the starting and current board), White
- * (Red) to move first, no moves made yet, and the ruleset carried over
- * unchanged.
+ * (Red) to move first, no moves made yet, the ruleset carried over
+ * unchanged, and both inactivity counters and the progress counter starting
+ * at 0 (rules.md §6.4/§6.5).
  */
 export function startPlay(initial: InitialGameState): PlayState {
   return {
@@ -74,6 +79,8 @@ export function startPlay(initial: InitialGameState): PlayState {
     board: initial.board,
     sideToMove: FIRST_SIDE,
     moves: [],
+    inactivityCounters: { white: 0, black: 0 },
+    progressCounter: 0,
   };
 }
 
@@ -172,12 +179,49 @@ export function applyMove(
     outcome = { kind: "move", piece, square: to };
   }
 
+  const mover = state.sideToMove;
+  const opponent = OTHER_SIDE[mover];
+  let moverInactivity = state.inactivityCounters[mover];
+  let opponentInactivity = state.inactivityCounters[opponent];
+  let progressCounter = state.progressCounter;
+
+  if (outcome.kind === "attack") {
+    // Any attack - whatever its result - resets the mover's own inactivity
+    // counter (rules.md §6.4).
+    moverInactivity = 0;
+    // A sacrificial attack - the mover's own attacker falls, complete
+    // (`attackerLoses`) or partial (`mutualLoss`) - also resets the
+    // opponent's counter; a clean win (`attackerWins`) does not.
+    if (outcome.result === "attackerLoses" || outcome.result === "mutualLoss") {
+      opponentInactivity = 0;
+    }
+    // `capture` is true for exactly the two results that remove a
+    // defending piece (attackerWins, mutualLoss - rules.md §6.5); a
+    // complete sacrifice (`attackerLoses`) captures nothing and raises
+    // progress just like a plain move.
+    progressCounter = outcome.capture ? 0 : progressCounter + 1;
+  } else {
+    // A plain move: no attack, so it can never be sacrificial or capture
+    // anything - it raises both the mover's inactivity counter and the
+    // shared progress counter by 1.
+    moverInactivity += 1;
+    progressCounter += 1;
+  }
+
+  const inactivityCounters: Record<Side, number> = {
+    ...state.inactivityCounters,
+    [mover]: moverInactivity,
+    [opponent]: opponentInactivity,
+  };
+
   return {
     state: {
       ...state,
       board,
       sideToMove: OTHER_SIDE[state.sideToMove],
       moves: [...state.moves, fromKey + toKey],
+      inactivityCounters,
+      progressCounter,
     },
     outcome,
   };

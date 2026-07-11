@@ -294,6 +294,171 @@ describe("applyMove", () => {
   });
 });
 
+describe("applyMove counters (§6.4/§6.5)", () => {
+  it("starts a fresh game with all three counters at 0", () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D9", "black", "militia"],
+    ]);
+    const state = startPlay(initial);
+
+    expect(state.inactivityCounters).toEqual({ white: 0, black: 0 });
+    expect(state.progressCounter).toBe(0);
+  });
+
+  it("a plain move raises only the mover's inactivity counter and progress, leaving the opponent's untouched", () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D9", "black", "militia"],
+    ]);
+    const state = startPlay(initial);
+
+    const { state: next } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    );
+
+    expect(next.inactivityCounters).toEqual({ white: 1, black: 0 });
+    expect(next.progressCounter).toBe(1);
+  });
+
+  it("a winning attack zeroes the mover's inactivity counter and progress, leaving the opponent's inactivity counter unchanged", () => {
+    const initial = initialGameState([
+      ["D5", "white", "champion"], // rank 2
+      ["D4", "black", "militia"], // rank 6
+    ]);
+    let state: PlayState = startPlay(initial);
+    // Build up some counter state first so the reset is observable.
+    state = {
+      ...state,
+      inactivityCounters: { white: 3, black: 5 },
+      progressCounter: 7,
+    };
+
+    const { state: next, outcome } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    );
+
+    expect(outcome).toMatchObject({ result: "attackerWins" });
+    expect(next.inactivityCounters).toEqual({ white: 0, black: 5 });
+    expect(next.progressCounter).toBe(0);
+  });
+
+  it("a complete sacrifice (attacker loses) zeroes both inactivity counters but raises progress by 1", () => {
+    const initial = initialGameState([
+      ["D5", "white", "militia"], // rank 6
+      ["D4", "black", "champion"], // rank 2
+    ]);
+    let state: PlayState = startPlay(initial);
+    state = {
+      ...state,
+      inactivityCounters: { white: 3, black: 5 },
+      progressCounter: 7,
+    };
+
+    const { state: next, outcome } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    );
+
+    expect(outcome).toMatchObject({ result: "attackerLoses", capture: false });
+    expect(next.inactivityCounters).toEqual({ white: 0, black: 0 });
+    expect(next.progressCounter).toBe(8);
+  });
+
+  it("a mutual loss zeroes both inactivity counters and progress", () => {
+    const initial = initialGameState([
+      ["D5", "white", "militia"],
+      ["D4", "black", "militia"],
+    ]);
+    let state: PlayState = startPlay(initial);
+    state = {
+      ...state,
+      inactivityCounters: { white: 3, black: 5 },
+      progressCounter: 7,
+    };
+
+    const { state: next, outcome } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    );
+
+    expect(outcome).toMatchObject({ result: "mutualLoss", capture: true });
+    expect(next.inactivityCounters).toEqual({ white: 0, black: 0 });
+    expect(next.progressCounter).toBe(0);
+  });
+
+  it("treats a Sapper destroying a Tower as a capture (progress resets)", () => {
+    const initial = initialGameState([
+      ["D5", "white", "sapper"],
+      ["D4", "black", "tower"],
+    ]);
+    let state: PlayState = startPlay(initial);
+    state = { ...state, progressCounter: 7 };
+
+    const { state: next, outcome } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    );
+
+    expect(outcome).toMatchObject({ result: "attackerWins", capture: true });
+    expect(next.progressCounter).toBe(0);
+  });
+
+  it("accumulates each side's own inactivity counter independently while progress counts every ply, across alternating plain moves", () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D9", "black", "militia"],
+    ]);
+    let state: PlayState = startPlay(initial);
+
+    state = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    ).state;
+    expect(state.inactivityCounters).toEqual({ white: 1, black: 0 });
+    expect(state.progressCounter).toBe(1);
+
+    state = applyMove(
+      state,
+      { column: "D", row: 9 },
+      { column: "D", row: 10 },
+    ).state;
+    expect(state.inactivityCounters).toEqual({ white: 1, black: 1 });
+    expect(state.progressCounter).toBe(2);
+
+    state = applyMove(
+      state,
+      { column: "D", row: 4 },
+      { column: "C", row: 4 },
+    ).state;
+    expect(state.inactivityCounters).toEqual({ white: 2, black: 1 });
+    expect(state.progressCounter).toBe(3);
+  });
+
+  it("does not mutate the input state's counters", () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D9", "black", "militia"],
+    ]);
+    const state = startPlay(initial);
+    const originalCounters = state.inactivityCounters;
+
+    applyMove(state, { column: "D", row: 5 }, { column: "D", row: 4 });
+
+    expect(state.inactivityCounters).toBe(originalCounters);
+    expect(state.inactivityCounters).toEqual({ white: 0, black: 0 });
+    expect(state.progressCounter).toBe(0);
+  });
+});
+
 describe("renderGameRecord", () => {
   it("contains the Ruleset tag and the opening position's block", () => {
     const initial = initialGameState([

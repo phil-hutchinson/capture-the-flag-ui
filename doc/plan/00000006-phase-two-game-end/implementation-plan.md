@@ -468,7 +468,33 @@ non-Flag defenders are unchanged.
 
 ## Step 3 — The inactivity and progress counters in the play state
 
-Status: pending
+Status: committed
+
+Notes: `PlayState` gained `inactivityCounters: Readonly<Record<Side, number>>`
+and `progressCounter: number`; `startPlay` initializes both to
+`{ white: 0, black: 0 }` / `0`. `applyMove` computes the mover/opponent
+inactivity and the shared progress counter from the already-computed
+`PlyOutcome` exactly per §6.4/§6.5: an attack always zeroes the mover's own
+counter; a sacrificial attack (`attackerLoses` or `mutualLoss`) also zeroes
+the opponent's; progress resets on `outcome.capture` (true for
+`attackerWins`/`mutualLoss`) and otherwise increments by 1 for both a plain
+move and a complete sacrifice. Everything else about `applyMove`
+(immutability, side flip, move-string append, illegal-move throw, returned
+shape) is unchanged. Extended `src/rules/primary/v1_1/play.test.ts` with a
+new "applyMove counters (§6.4/§6.5)" describe block covering every case the
+step's verification lists: fresh-game zero counters, a plain move raising
+only the mover's inactivity and progress, a winning attack zeroing the
+mover's inactivity and progress while leaving the opponent's inactivity
+untouched, a complete sacrifice zeroing both inactivity counters while
+raising progress by 1, a mutual loss zeroing both inactivity counters and
+progress, a Sapper-destroys-Tower capture resetting progress, an alternating
+plain-move sequence accumulating each side's counter independently while
+progress counts every ply, and non-mutation of the input state's counters.
+No deviations from the plan. `npm run typecheck`, `npm run lint`, and
+`npm test` all pass (250 tests, 15 files); ran `npx prettier --write` on
+`play.ts` to satisfy `npm run format:check` (the two pre-existing warnings
+on `story.md`/`implementation-plan.md` are unrelated markdown-formatting
+findings, not caused by this step, and left untouched).
 
 Extend `src/rules/primary/v1_1/play.ts` so `PlayState` carries the two pieces of
 §6.4/§6.5 rule state and `applyMove` evolves them from what the ply actually
