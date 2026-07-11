@@ -11,16 +11,19 @@ install, no account, no server.
 
 ## What you can do
 
-- **Play against a friend** on the same device, including the secret placement
-  phase.
+- **Set up a game with a friend** on the same device — take turns secretly
+  placing your 48-piece army on your side of the board, then hand off. When
+  both armies are placed, the game is ready for battle.
+- **Fight the battle** — move and clash until one side captures the other's
+  flag. _(coming next)_
 - **Replay finished games** from their game log files — step through a past
   battle move by move. _(coming soon)_
 - **Play against the computer** — an AI opponent trained by the companion
   [capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
   project. _(planned, once the AI engine is trained)_
 
-> **Status:** early days — the project scaffolding is in place and the game
-> itself is being built. Nothing playable yet.
+> **Status:** early days — you can now set up a game by placing both armies.
+> The battle phase itself is still being built.
 
 ## The rules
 

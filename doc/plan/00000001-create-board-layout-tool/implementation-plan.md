@@ -20,20 +20,20 @@ here so every step's implementer has them without re-fetching.
 - **Per-type piece counts** (per side; total 48). Source: `rules.md` §2.2
   (v1.1), unchanged since v1.0 per the changelog:
 
-  | Rank code | Piece | Qty | Position-block symbol |
-  |---|---|---|---|
-  | 1 | Lord Marshal | 1 | `1` |
-  | 2 | Champion | 2 | `2` |
-  | 3 | Knight | 4 | `3` |
-  | 4 | Infantry | 4 | `4` |
-  | 5 | Halberdier | 6 | `5` |
-  | 6 | Militia | 6 | `6` |
-  | 7 | Skirmisher | 6 | `7` |
-  | 8 | Archer | 3 | `8` |
-  | 9 | Sapper | 8 | `9` |
-  | Special | Assassin | 1 | `A` |
-  | — | Tower | 6 | `T` |
-  | — | Flag | 1 | `F` |
+  | Rank code | Piece        | Qty | Position-block symbol |
+  | --------- | ------------ | --- | --------------------- |
+  | 1         | Lord Marshal | 1   | `1`                   |
+  | 2         | Champion     | 2   | `2`                   |
+  | 3         | Knight       | 4   | `3`                   |
+  | 4         | Infantry     | 4   | `4`                   |
+  | 5         | Halberdier   | 6   | `5`                   |
+  | 6         | Militia      | 6   | `6`                   |
+  | 7         | Skirmisher   | 6   | `7`                   |
+  | 8         | Archer       | 3   | `8`                   |
+  | 9         | Sapper       | 8   | `9`                   |
+  | Special   | Assassin     | 1   | `A`                   |
+  | —         | Tower        | 6   | `T`                   |
+  | —         | Flag         | 1   | `F`                   |
 
   Sum = 48. **Do not alter these counts without re-checking the ruleset.**
 
@@ -255,7 +255,7 @@ the wrong side or incomplete - both are structural invariants by the point
 this is called, matching Step 3's own error-vs-no-op precedent), and
 `renderPositionBlock(gameState)` (renders any `InitialGameState.board`,
 complete or not, to the 12x12 position-block text form). `InitialGameState`
-is intentionally the *only* new artifact type - no separate "record file"
+is intentionally the _only_ new artifact type - no separate "record file"
 model was introduced, since the step explicitly must anticipate the replay
 record format without implementing it; the `ruleset` tag and board shape are
 the anticipation point. Added `gameState.test.ts` (8 tests) covering: the
@@ -339,6 +339,7 @@ one symbol by piece type and side. Copy the 12 piece `<symbol>`s and the `p-lake
 terrain symbol (13 symbols total); **do not create new glyphs**. Re-tokenize the
 literal colors per the story's themeability constraint and
 `.local/ctf-tile-prototype.md`:
+
 - Side color: each `<use>`'s `color` is driven by `var(--side-a)` (red / White)
   or `var(--side-b)` (blue / Black); glyph interiors already use `currentColor`.
 - The four `#e8dfc8` **cutout** colors (Champion blade fuller, Knight eye+mouth,
@@ -347,8 +348,8 @@ literal colors per the story's themeability constraint and
   color rather than a frozen literal.
 - Leave the deliberately-fixed accents literal: the Marshal boss gold
   (`#a67c2e`) and the lake wave stroke (`#3f7b8a`).
-Update the note in `src/index.css` (which currently says parchment is coupled to
-the cutouts) to reflect that the cutouts now reference the variable.
+  Update the note in `src/index.css` (which currently says parchment is coupled to
+  the cutouts) to reflect that the cutouts now reference the variable.
 
 Why it comes here: the board renderer (Step 7) and tray (Step 8) both render
 these icons. Depends on nothing in earlier steps but must precede the UI steps.
@@ -508,11 +509,11 @@ Notes: Wired `move`/`swap`/`returnToTray`/`clear` (Step 3) into the UI. Click
 grammar (documented in a header comment in `src/App.tsx`): selection is one
 of two mutually-exclusive tracks - a tray type (`trayType`, Step 8, unchanged)
 or an already-placed piece picked up from the board (`boardSquare`, new this
-step) - selecting one always clears the other. Clicking an *occupied* home
+step) - selecting one always clears the other. Clicking an _occupied_ home
 square always acts on the board-selection track regardless of any pending
 tray selection: nothing selected yet -> selects that square; the same square
-already selected -> deselects it; a *different* square already selected ->
-swaps the two pieces and clears the selection. Clicking an *empty* home
+already selected -> deselects it; a _different_ square already selected ->
+swaps the two pieces and clears the selection. Clicking an _empty_ home
 square: a tray type selected -> places it (unchanged); a board square
 selected -> moves that piece there and clears the selection; nothing
 selected -> no-op. Return-to-tray and clear-all have no natural
@@ -615,8 +616,7 @@ this plan. `npm run typecheck`, `npm run lint`, `npm test` (73 tests,
 repo-wide - 9 new), and `npm run build` all pass; `npm run format:check`
 passes for every file touched this step (the two pre-existing markdown
 warnings on this story's own `story.md`/`implementation-plan.md` predate this
-step, per Steps 4-9's notes). Confirmed `npm run dev` serves the app at HTTP
-200. One wording deviation from the plan's literal text: player-facing copy
+step, per Steps 4-9's notes). Confirmed `npm run dev` serves the app at HTTP 200. One wording deviation from the plan's literal text: player-facing copy
 says "Red's turn to place their army" rather than using the word "move" -
 CLAUDE.md's "move" vocabulary rule specifically concerns the ply/move
 distinction from Phase 2 movement, which does not apply during placement (a
@@ -642,7 +642,7 @@ the active player's army is complete (`isComplete`); an **auto-fill/randomize**
 button that calls Step 4 to fill only the remaining empty home squares. On
 Confirm, the active player's layout is stored in the session and the app
 immediately presents the **next** player with an **empty** board from that
-player's own (flipped) perspective — the confirm *is* the hand-off; no separate
+player's own (flipped) perspective — the confirm _is_ the hand-off; no separate
 privacy interstitial. Player-facing text refers to sides by color and uses
 "move," not "ply."
 
@@ -709,7 +709,24 @@ A–D need not be re-tested here.)
 
 ### Step 12 — README accuracy check
 
-Status: pending
+Status: committed
+
+Notes: Updated `README.md` via the `/update-readme` review. The "What you can
+do" section's first bullet, which implied full friend-vs-friend play, now reads
+"Set up a game with a friend … take turns secretly placing your 48-piece army …
+When both armies are placed, the game is ready for battle," and a new "Fight the
+battle _(coming next)_" bullet was added so the battle phase is clearly not yet
+built. The Status line changed from "Nothing playable yet" to "you can now set
+up a game by placing both armies. The battle phase itself is still being built."
+Replay _(coming soon)_ and AI _(planned)_ bullets were left unchanged — still
+accurate. Scope was deliberately not overstated: Phase 2 play, AI, and replay
+remain marked as future. Separately, ran `prettier --write` on this story's own
+`story.md` and `implementation-plan.md` to clear the two long-standing
+markdown-formatting warnings (formatting only — emphasis-marker style, table
+column padding, blank-line normalization; no content changes), so the whole
+repository now passes `format:check` cleanly. Closing verification: `npm run
+typecheck`, `npm run lint`, `npm run format:check` (fully clean), and `npm test`
+(73 tests) all pass. No deviations from the plan.
 
 Review `README.md` against the changes in this story and update it if warranted.
 The current README says "early days … Nothing playable yet"; after this story,

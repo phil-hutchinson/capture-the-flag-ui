@@ -4,7 +4,7 @@
 
 Build the Phase 1 experience of Capture the Flag: two players, one after the
 other, secretly arrange their army on their own half of the board. This story
-covers *placement only* — not Phase 2 play, not an AI opponent, and not
+covers _placement only_ — not Phase 2 play, not an AI opponent, and not
 loading or replaying a saved game.
 
 From a player's point of view: I sit down, I see my own home rows in front of
@@ -75,11 +75,11 @@ games stay replayable forever.
    empty home squares with the player's remaining pieces — never onto lakes,
    always respecting remaining counts.
 7. **Confirm + hand-off.** When the active player confirms a complete army, the
-   app immediately presents the *next* player with an **empty** board from that
+   app immediately presents the _next_ player with an **empty** board from that
    player's own perspective. Because the confirming player's layout is already
    off-screen and the incoming player's army has not been placed yet, handing
    over the device at this moment leaks nothing. No separate privacy interstitial
-   is required — the confirm *is* the hand-off.
+   is required — the confirm _is_ the hand-off.
 8. **Neutral "both armies ready" end state.** After the second player (Black)
    confirms, the app lands on a neutral state that reveals **neither** layout
    (there is no reveal in this story — that belongs to Phase 2).
