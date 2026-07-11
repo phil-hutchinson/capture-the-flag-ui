@@ -692,7 +692,14 @@ always legal, so any piece can be sent against any enemy.)
 
 ## Step 8 — Knight charge, Halberdier anti-charge, Knight-vs-Knight (Gate B)
 
-Status: pending
+Status: committed
+
+Notes: Verification-only — no code changes needed. Gate B passed on manual
+testing (owner, 2026-07-11): a Knight charge over a clear line resolves as a
+win and advance; a charge against a Knight wins outright; a Halberdier is not
+offered as a charge target but is a valid adjacent (1-square) attack that wins
+normally (rank 3 over rank 5). The rule layer built in Steps 1/3 was correct
+end-to-end; no polish required.
 
 The rule logic for the Knight charge (Step 3 `legalAttacks`: 2–3 square charge
 over a clear line, never onto an empty square, never through a blocker or lake,
