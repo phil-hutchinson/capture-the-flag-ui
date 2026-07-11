@@ -761,7 +761,17 @@ the Tower stands**.
 
 ## Step 10 — Archer defensive support (Gate D)
 
-Status: pending
+Status: committed
+
+Notes: Verification-only — no code changes needed. Gate D passed on manual
+testing (owner, 2026-07-11): support flips an attacker-wins result to mutual
+loss when a friendly Archer stands one square beyond the defender on the
+attacker's line of travel — confirmed for an ordinary 1-square attack, a
+charge/rush from distance, a supported Tower traded with a Sapper, and an
+attacking Assassin (not immune). No support fired when the Archer was adjacent
+but off the attack line, or when the piece behind the Archer was the attacker
+(defensive only). The Archer support layer from Step 2 was correct
+end-to-end; no polish required.
 
 The Archer defensive-support resolution (Step 2) is already built and
 unit-tested. This step **exercises it end-to-end and applies any UI polish**
