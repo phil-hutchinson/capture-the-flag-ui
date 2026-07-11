@@ -1,12 +1,21 @@
-// Movement rule logic (empty-square destinations only) for ruleset
-// PRIMARY:1.1, Phase 2 §4.2 (companion capture-the-flag repository,
-// `doc/ruleset/rules.md`, the single source of truth).
+// Movement and attack-target rule logic for ruleset PRIMARY:1.1, Phase 2
+// §4.2-4.3 (companion capture-the-flag repository, `doc/ruleset/rules.md`,
+// the single source of truth).
 //
 // This module is pure rule logic - no React, no screen orientation - and
-// computes, for a piece at a given origin, the squares it may legally move
-// to *this story*: an empty, on-board, non-lake square reached without
-// crossing a lake or another piece, and never diagonally. Attacking an
-// occupied square (combat) is out of scope here - see story 00000005.
+// computes, for a piece at a given origin:
+//
+// - `legalDestinations` - the empty-square moves it may make (an empty,
+//   on-board, non-lake square reached without crossing a lake or another
+//   piece, and never diagonally);
+// - `legalAttacks` (story 00000005 Step 3) - the enemy-occupied squares it
+//   may legally attack (moving onto them resolves combat - see combat.ts -
+//   rather than a plain relocation).
+//
+// The two are kept deliberately distinct - an enemy-occupied square is never
+// a `legalDestinations` result and an empty square is never a `legalAttacks`
+// result - so callers (and the UI) can tell moves and attacks apart without
+// re-deriving intent.
 //
 // Builds only on story 00000001's board geometry (board.ts), piece catalog
 // (pieces.ts), and `BoardState` (gameState.ts); it has no further
@@ -23,7 +32,7 @@ import {
   type Side,
   type Square,
 } from "./board.ts";
-import type { BoardState } from "./gameState.ts";
+import type { BoardState, PlacedPiece } from "./gameState.ts";
 import type { PieceTypeId } from "./pieces.ts";
 
 /** The four orthogonal directions a piece may step in, as column/row deltas. */
@@ -97,6 +106,85 @@ export function legalDestinations(board: BoardState, origin: Square): Square[] {
     }
   }
   return destinations;
+}
+
+/** The furthest distance (in squares, along a clear straight line) a piece
+ * type may attack, per §4.3: a Knight's charge and a Skirmisher's rush both
+ * reach 3; every other piece type attacks only an adjacent (1-square)
+ * square. */
+function maxAttackDistance(pieceType: PieceTypeId): number {
+  return pieceType === "knight" || pieceType === "skirmisher" ? 3 : 1;
+}
+
+/**
+ * True if the piece occupying an attack ray's first blocking square,
+ * `occupant`, is a legal attack target for a piece of `pieceType` and `side`
+ * attacking at `distance` squares away. Never a friendly piece, never a Flag
+ * (the Flag is not attackable in this story - see story.md's Design
+ * decisions). A Knight may not charge (attack at distance 2 or 3) a
+ * Halberdier - it must attack one from adjacent, per §4.3's anti-charge rule
+ * - but every other combination of piece type, distance, and enemy type is a
+ * legal target (including a Knight's adjacent attack on a Halberdier, and a
+ * Skirmisher's rush onto any enemy type).
+ */
+function isLegalAttackTarget(
+  occupant: PlacedPiece,
+  side: Side,
+  pieceType: PieceTypeId,
+  distance: number,
+): boolean {
+  if (occupant.side === side || occupant.pieceType === "flag") {
+    return false;
+  }
+  if (
+    pieceType === "knight" &&
+    distance >= 2 &&
+    occupant.pieceType === "halberdier"
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * The enemy-occupied squares the piece on `origin` may legally attack, given
+ * `board`, keyed in the absolute White frame. Returns an empty array if
+ * `origin` is empty or holds an immobile piece (Tower or Flag - neither ever
+ * attacks). Every other piece type may attack an orthogonally adjacent enemy
+ * square in each of the four directions; a Knight or Skirmisher may instead
+ * reach up to 3 squares in a clear straight line (a Knight's charge, a
+ * Skirmisher's rush), stopping at - and only offering as a target - the
+ * first piece encountered along the ray (a lake also stops the ray, but is
+ * never itself a target, since a lake never holds a piece). A Knight may not
+ * charge (distance >= 2) onto a Halberdier. The Flag is never offered as a
+ * target. Never diagonal, never off-board.
+ */
+export function legalAttacks(board: BoardState, origin: Square): Square[] {
+  const occupant = board[squareKey(origin)];
+  if (occupant === undefined || isImmobile(occupant.pieceType)) {
+    return [];
+  }
+
+  const { side, pieceType } = occupant;
+  const maxDistance = maxAttackDistance(pieceType);
+  const attacks: Square[] = [];
+  for (const { dc, dr } of ORTHOGONAL_DIRECTIONS) {
+    for (let distance = 1; distance <= maxDistance; distance += 1) {
+      const next = step(origin, dc * distance, dr * distance);
+      if (next === null || isLake(next)) {
+        break;
+      }
+      const blocker = board[squareKey(next)];
+      if (blocker === undefined) {
+        continue;
+      }
+      if (isLegalAttackTarget(blocker, side, pieceType, distance)) {
+        attacks.push(next);
+      }
+      break;
+    }
+  }
+  return attacks;
 }
 
 /**

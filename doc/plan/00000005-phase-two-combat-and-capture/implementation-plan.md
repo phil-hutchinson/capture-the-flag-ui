@@ -106,7 +106,7 @@ consistent with stories 00000001 and 00000004. The story states the ruleset is
   `startPlay`, `applyMove(state, from, to)` (immutable, throws on an illegal
   move — a programming-invariant guard, since the UI never offers one), and
   `renderGameRecord(state)`. Moves are recorded as `squareKey(from) +
-  squareKey(to)` (e.g. `"A2A3"`), no separator, no markers.
+squareKey(to)` (e.g. `"A2A3"`), no separator, no markers.
 - `src/board/playSession.ts` — `PlaySession` (`{ play, selection }`),
   `startSession`, `actionableSquares` (drives visual **highlight**),
   `activatableSquares` (drives which cells **respond** to activation),
@@ -225,7 +225,7 @@ Implement the full ruleset-1.1 table **except Archer support** (Step 2):
   **adjacent** (distance 1) attack → **mutual loss** (this overrides the "equal
   rank → mutual" default only in the charge direction).
 - **Assassin as attacker:** **always wins** (defender removed), **including
-  Assassin-vs-Assassin** — *except* attacking a **Tower**, where the Assassin is
+  Assassin-vs-Assassin** — _except_ attacking a **Tower**, where the Assassin is
   destroyed and the Tower stands (attacker loses). The Assassin's guaranteed win
   does not extend to Towers.
 - **Assassin as defender** (a non-Assassin numbered piece, or a Sapper, attacks
@@ -323,7 +323,22 @@ cases are unaffected).
 
 ## Step 3 — Attack-target rule logic (`legalAttacks`)
 
-Status: pending
+Status: committed
+
+Notes: Added `legalAttacks(board, origin)` to `src/rules/primary/v1_1/movement.ts`
+alongside the unchanged `legalDestinations`, plus two private helpers
+(`maxAttackDistance`, `isLegalAttackTarget`) that mirror `legalDestinations`'s
+existing ray-walk shape (reusing `step` and `ORTHOGONAL_DIRECTIONS`): each
+direction is walked out to the piece's max attack distance (1 for baseline
+pieces, 3 for Knight and Skirmisher), stopping at the first lake or occupied
+square, and offering that square as a target only if it holds an enemy,
+non-Flag piece — with the Knight's extra restriction that a blocker at
+distance ≥ 2 (a charge) may not be a Halberdier. Added 19 cases to
+`movement.test.ts` (34 total) covering every scenario in the step's
+verification. No deviations from the plan.
+`npm run typecheck`, `npm run lint`, and `npm test` all pass (194 tests, 14
+files); `npm run format:check` was also run and `movement.ts`/`movement.test.ts`
+were reformatted with `prettier --write` to match repository style.
 
 Extend `src/rules/primary/v1_1/movement.ts` (pure, no React) with a
 `legalAttacks(board, origin)` that returns the enemy-occupied squares the piece
