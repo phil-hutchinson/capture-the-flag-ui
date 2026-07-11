@@ -3,28 +3,43 @@
 // A `PlayState` tracks an in-progress Phase-2 game: the current board, whose
 // turn it is to move, and the ordered list of moves made so far in the
 // simple `A2A3` coordinate form (source square immediately followed by
-// destination square, no separator - rules.md §4.4). This is the minimum
-// structure recorded-game replay can build on later; this story does not
-// implement replay itself.
+// destination square, no separator - rules.md §4.4, unchanged for attacks:
+// no combat-resolution markers - see story 00000005's Design decisions).
+// This is the minimum structure recorded-game replay can build on later;
+// this story does not implement replay itself.
 //
 // Operations are pure and immutable-style - `applyMove` returns a *new*
 // state rather than mutating its input - matching placement.ts. Because the
-// UI only ever offers legal destinations (structural prevention), `applyMove`
-// treats an illegal move as a programming-invariant violation: it throws
-// rather than silently no-op'ing.
+// UI only ever offers a legal destination or a legal attack target
+// (structural prevention), `applyMove` treats anything else as a
+// programming-invariant violation: it throws rather than silently
+// no-op'ing.
 //
-// This module builds on the board geometry (board.ts), the movement rules
-// (movement.ts, story 00000004 Step 1), and the initial-game-state artifact
-// (gameState.ts, story 00000001); it has no further dependencies.
+// A destination among `legalDestinations` (movement.ts) is a plain move: the
+// piece relocates. A destination among `legalAttacks` (movement.ts, story
+// 00000005 Step 3) is an attack: it is resolved via `resolveCombat`
+// (combat.ts, story 00000005 Steps 1-2) and the board updates per the
+// outcome (attacker wins / attacker loses / mutual loss). The two
+// destination sets are always disjoint - an enemy-occupied square is never a
+// `legalDestinations` result - so there is never ambiguity about which
+// applies. `applyMove` exposes the resolved `PlyOutcome` alongside the new
+// state so callers (the session layer, story 00000006's game-end detection)
+// can react to what the ply actually did without re-deriving it.
+//
+// This module builds on the board geometry (board.ts), the movement and
+// attack-target rules (movement.ts, stories 00000004/00000005), the combat
+// resolution rules (combat.ts, story 00000005), and the initial-game-state
+// artifact (gameState.ts, story 00000001); it has no further dependencies.
 
 import { squareKey, type Side, type Square } from "./board.ts";
+import { resolveCombat, type CombatOutcome } from "./combat.ts";
 import {
   renderPositionBlock,
   type BoardState,
   type InitialGameState,
   type PlacedPiece,
 } from "./gameState.ts";
-import { legalDestinations } from "./movement.ts";
+import { legalAttacks, legalDestinations } from "./movement.ts";
 
 /** The side that moves first, per rules.md §4.1 (White/Red moves first). */
 const FIRST_SIDE: Side = "white";
@@ -68,19 +83,52 @@ const OTHER_SIDE: Readonly<Record<Side, Side>> = {
 };
 
 /**
- * Applies a single ply, moving the piece on `from` to `to`, and returns a
- * *new* `PlayState` (the input is never mutated): the piece moves, the side
- * to move flips, and the move is appended as its `A2A3` coordinate string
- * (`squareKey(from) + squareKey(to)`). Rejects (throws) if `from` does not
- * hold a piece belonging to `state.sideToMove`, or if `to` is not among
- * `legalDestinations(state.board, from)` - the UI never offers an illegal
- * move, so this is a programming-invariant guard, not a user-facing error.
+ * The outcome of a single ply applied via `applyMove`: either a resolved
+ * combat encounter (`kind: "attack"`, carrying every field of
+ * `resolveCombat`'s `CombatOutcome` - combat.ts, story 00000005 Steps 1-2) or,
+ * for a plain move onto an empty square, a "just a move" record
+ * (`kind: "move"`) naming the piece that moved and the square it moved to -
+ * deliberately with no attacker/defender/capture to report, since nothing
+ * fought. Callers (the session layer, and story 00000006's game-end
+ * detection) discriminate on `kind`.
+ */
+export type PlyOutcome =
+  | ({ readonly kind: "attack" } & CombatOutcome)
+  | {
+      readonly kind: "move";
+      readonly piece: PlacedPiece;
+      readonly square: Square;
+    };
+
+/**
+ * Applies a single ply - a plain move or an attack - moving the piece on
+ * `from` to `to`, and returns a *new* `PlayState` (the input is never
+ * mutated) together with the resolved `PlyOutcome`.
+ *
+ * If `to` is among `legalDestinations(state.board, from)` this is a plain
+ * move: the piece relocates and the outcome is `{ kind: "move", ... }`. If
+ * `to` is instead among `legalAttacks(state.board, from)` this is an attack:
+ * it is resolved via `resolveCombat` and the board updates per the result -
+ * **attacker wins** removes the defender and moves the attacker onto `to`;
+ * **attacker loses** removes the attacker and leaves the defender in place;
+ * **mutual loss** removes both, leaving `to` empty - and the outcome is
+ * `{ kind: "attack", ...combatOutcome }`.
+ *
+ * In every case the side to move flips and the move is appended to
+ * `state.moves` in the same plain `A2A3` coordinate string
+ * (`squareKey(from) + squareKey(to)`) - no combat-resolution markers, even
+ * for an attack.
+ *
+ * Rejects (throws) if `from` does not hold a piece belonging to
+ * `state.sideToMove`, or if `to` is neither a legal destination nor a legal
+ * attack target for that piece - the UI never offers such a move, so this is
+ * a programming-invariant guard, not a user-facing error.
  */
 export function applyMove(
   state: PlayState,
   from: Square,
   to: Square,
-): PlayState {
+): { readonly state: PlayState; readonly outcome: PlyOutcome } {
   const fromKey = squareKey(from);
   const toKey = squareKey(to);
   const piece = state.board[fromKey];
@@ -90,22 +138,48 @@ export function applyMove(
     );
   }
 
-  const legal = legalDestinations(state.board, from);
-  if (!legal.some((square) => squareKey(square) === toKey)) {
+  const isAttack = legalAttacks(state.board, from).some(
+    (square) => squareKey(square) === toKey,
+  );
+  const isMove =
+    !isAttack &&
+    legalDestinations(state.board, from).some(
+      (square) => squareKey(square) === toKey,
+    );
+  if (!isAttack && !isMove) {
     throw new Error(
-      `Cannot apply move: ${toKey} is not a legal destination for the piece on ${fromKey}.`,
+      `Cannot apply move: ${toKey} is not a legal destination or attack target for the piece on ${fromKey}.`,
     );
   }
 
   const board: Record<string, PlacedPiece> = { ...state.board };
-  delete board[fromKey];
-  board[toKey] = piece;
+  let outcome: PlyOutcome;
+
+  if (isAttack) {
+    const combat = resolveCombat(state.board, from, to);
+    delete board[fromKey];
+    delete board[toKey];
+    if (combat.result === "attackerWins") {
+      board[toKey] = piece;
+    } else if (combat.result === "attackerLoses") {
+      board[toKey] = combat.defender;
+    }
+    // mutualLoss: both squares stay empty - already deleted above.
+    outcome = { kind: "attack", ...combat };
+  } else {
+    delete board[fromKey];
+    board[toKey] = piece;
+    outcome = { kind: "move", piece, square: to };
+  }
 
   return {
-    ...state,
-    board,
-    sideToMove: OTHER_SIDE[state.sideToMove],
-    moves: [...state.moves, fromKey + toKey],
+    state: {
+      ...state,
+      board,
+      sideToMove: OTHER_SIDE[state.sideToMove],
+      moves: [...state.moves, fromKey + toKey],
+    },
+    outcome,
   };
 }
 
@@ -124,8 +198,9 @@ export function applyMove(
  * - the **move sequence**, grouped into rounds numbered from 1, each written
  *   `N. <whiteMove> <blackMove>` (a game whose last move was White's shows
  *   that trailing round with only the White move) - in the plain `A2A3`
- *   form, with no separators and no combat-resolution markers (there is no
- *   combat in this story).
+ *   form, with no separators and no combat-resolution markers even for an
+ *   attack (rules.md §4.4 - an attack's result always follows automatically
+ *   from the position and the rules).
  *
  * This is deliberately not a full record file (no `Event`/`Site`/`Date`/etc.
  * roster tags, no `Result`): it is the minimum a future replay story can

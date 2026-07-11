@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Square } from "./board.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
-import { hasAnyLegalMove, legalDestinations } from "./movement.ts";
+import {
+  hasAnyLegalNonAttackMove,
+  legalAttacks,
+  legalDestinations,
+} from "./movement.ts";
 import type { PieceTypeId } from "./pieces.ts";
 
 /** Builds a `BoardState` from a list of `[squareKey, side, pieceType]` triples. */
@@ -165,14 +169,191 @@ describe("legalDestinations (ruleset PRIMARY:1.1, empty-square moves only)", () 
   });
 });
 
-describe("hasAnyLegalMove", () => {
+describe("hasAnyLegalNonAttackMove", () => {
   it("is true when at least one of the side's pieces has a legal destination", () => {
     const state = board([["D5", "white", "infantry"]]);
-    expect(hasAnyLegalMove(state, "white")).toBe(true);
+    expect(hasAnyLegalNonAttackMove(state, "white")).toBe(true);
   });
 
   it("is false for a side with no pieces on the board", () => {
     const state = board([["D5", "black", "infantry"]]);
-    expect(hasAnyLegalMove(state, "white")).toBe(false);
+    expect(hasAnyLegalNonAttackMove(state, "white")).toBe(false);
+  });
+});
+
+describe("legalAttacks (ruleset PRIMARY:1.1, enemy-occupied attack targets)", () => {
+  it("offers a baseline piece exactly its adjacent enemy squares", () => {
+    const state = board([
+      ["D5", "white", "infantry"],
+      ["D6", "black", "militia"], // adjacent enemy - offered
+      ["D4", "white", "militia"], // adjacent friendly - excluded
+      ["C5", "black", "militia"], // adjacent enemy - offered
+      // E5 left empty - excluded
+    ]);
+    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    expect(sortedKeys(attacks)).toEqual(["C5", "D6"].sort());
+  });
+
+  it("never offers an adjacent Flag as an attack target for a baseline piece", () => {
+    const state = board([
+      ["D5", "white", "infantry"],
+      ["D6", "black", "flag"],
+    ]);
+    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    expect(attacks).toEqual([]);
+  });
+
+  it("offers a Knight its adjacent enemy in an ordinary attack", () => {
+    const state = board([
+      ["D5", "white", "knight"],
+      ["D6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    expect(sortedKeys(attacks)).toEqual(["D6"]);
+  });
+
+  it("offers a Knight a 2-square charge onto an enemy over a clear line", () => {
+    const state = board([
+      ["D5", "white", "knight"],
+      ["D7", "black", "militia"], // D6 clear between them
+    ]);
+    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    expect(sortedKeys(attacks)).toEqual(["D7"]);
+  });
+
+  it("offers a Knight a 3-square charge onto an enemy over a clear line", () => {
+    const state = board([
+      ["D5", "white", "knight"],
+      ["D8", "black", "militia"], // D6, D7 clear between them
+    ]);
+    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    expect(sortedKeys(attacks)).toEqual(["D8"]);
+  });
+
+  it("never offers a Knight a charge onto an empty square", () => {
+    const state = board([["D5", "white", "knight"]]);
+    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    expect(attacks).toEqual([]);
+  });
+
+  it("never offers a Knight a charge through a blocking piece", () => {
+    const state = board([
+      ["D5", "white", "knight"],
+      ["D6", "black", "militia"], // blocker at distance 1
+      ["D7", "black", "militia"], // would-be charge target at distance 2
+    ]);
+    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    // The distance-1 blocker is itself an ordinary attack target; the
+    // distance-2 square is never reachable past it.
+    expect(sortedKeys(attacks)).toEqual(["D6"]);
+  });
+
+  it("never offers a Knight a charge through a lake", () => {
+    // B is a lake column; B6/B7 are lake squares. From B5, a charge toward
+    // row 8 or beyond must cross the lake at B6/B7.
+    const state = board([
+      ["B5", "white", "knight"],
+      ["B8", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(state, { column: "B", row: 5 });
+    expect(attacks.some((s) => s.column === "B" && s.row === 8)).toBe(false);
+  });
+
+  it("never offers a Knight a charge onto a Halberdier, while the same Halberdier is offered when adjacent", () => {
+    const chargeState = board([
+      ["D5", "white", "knight"],
+      ["D7", "black", "halberdier"], // D6 clear - would be a 2-square charge
+    ]);
+    expect(legalAttacks(chargeState, { column: "D", row: 5 })).toEqual([]);
+
+    const adjacentState = board([
+      ["D5", "white", "knight"],
+      ["D6", "black", "halberdier"],
+    ]);
+    const attacks = legalAttacks(adjacentState, { column: "D", row: 5 });
+    expect(sortedKeys(attacks)).toEqual(["D6"]);
+  });
+
+  it("offers a Skirmisher enemies at 1, 2, and 3 squares in a clear line", () => {
+    const oneAway = board([
+      ["E9", "black", "skirmisher"],
+      ["E8", "white", "militia"],
+    ]);
+    expect(sortedKeys(legalAttacks(oneAway, { column: "E", row: 9 }))).toEqual([
+      "E8",
+    ]);
+
+    const twoAway = board([
+      ["E9", "black", "skirmisher"],
+      ["E7", "white", "militia"],
+    ]);
+    expect(sortedKeys(legalAttacks(twoAway, { column: "E", row: 9 }))).toEqual([
+      "E7",
+    ]);
+
+    const threeAway = board([
+      ["E9", "black", "skirmisher"],
+      ["E6", "white", "militia"],
+    ]);
+    expect(
+      sortedKeys(legalAttacks(threeAway, { column: "E", row: 9 })),
+    ).toEqual(["E6"]);
+  });
+
+  it("cuts a Skirmisher's attack ray short at a lake", () => {
+    // C is a lake column; C6/C7 are lake squares. From C9 toward row 1,
+    // C8 (distance 1) is clear, C7 (distance 2) is a lake.
+    const state = board([
+      ["C9", "black", "skirmisher"],
+      ["C5", "white", "militia"], // beyond the lake - unreachable
+    ]);
+    const attacks = legalAttacks(state, { column: "C", row: 9 });
+    expect(attacks.filter((s) => s.column === "C")).toEqual([]);
+  });
+
+  it("cuts a Skirmisher's attack ray short at a blocking piece, offering only that piece if it is an enemy", () => {
+    const state = board([
+      ["H5", "white", "skirmisher"],
+      ["J5", "black", "militia"], // blocker at distance 2
+      ["K5", "black", "militia"], // beyond the blocker - unreachable
+    ]);
+    const attacks = legalAttacks(state, { column: "H", row: 5 });
+    const rightward = attacks.filter((s) => s.row === 5 && s.column > "H");
+    expect(sortedKeys(rightward)).toEqual(["J5"]);
+  });
+
+  it("gives Tower no attack targets", () => {
+    const state = board([
+      ["A1", "white", "tower"],
+      ["A2", "black", "militia"],
+    ]);
+    expect(legalAttacks(state, { column: "A", row: 1 })).toEqual([]);
+  });
+
+  it("gives Flag no attack targets", () => {
+    const state = board([
+      ["A1", "white", "flag"],
+      ["A2", "black", "militia"],
+    ]);
+    expect(legalAttacks(state, { column: "A", row: 1 })).toEqual([]);
+  });
+
+  it("gives no attack targets for an empty origin square", () => {
+    const state = board([]);
+    expect(legalAttacks(state, { column: "D", row: 5 })).toEqual([]);
+  });
+
+  it("never returns a diagonal attack target", () => {
+    const state = board([
+      ["E9", "black", "skirmisher"],
+      ["D8", "white", "militia"], // diagonally adjacent - must never be offered
+      ["F10", "white", "militia"], // diagonally adjacent - must never be offered
+    ]);
+    const attacks = legalAttacks(state, { column: "E", row: 9 });
+    for (const attack of attacks) {
+      const sameColumn = attack.column === "E";
+      const sameRow = attack.row === 9;
+      expect(sameColumn !== sameRow).toBe(true);
+    }
   });
 });

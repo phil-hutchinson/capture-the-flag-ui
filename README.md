@@ -14,9 +14,11 @@ install, no account, no server.
 - **Set up a game with a friend** on the same device — take turns secretly
   placing your 48-piece army on your side of the board, then hand off. When
   both armies are placed, the game is ready for battle.
-- **Move your pieces on the battlefield** — once both armies are revealed,
-  take turns moving pieces across the board in full view, one move each turn.
-  Attacks, capturing, and winning the game are _(coming next)_.
+- **Move, attack, and capture on the battlefield** — once both armies are
+  revealed, take turns moving pieces across the board in full view. Moving a
+  piece onto an enemy piece attacks it, and the fight resolves immediately —
+  the losing piece (or both, if they're evenly matched) leaves the board.
+  Winning, losing, and drawing the game are _(coming next)_.
 - **Replay finished games** from their game log files — step through a past
   battle move by move. _(coming soon)_
 - **Play against the computer** — an AI opponent trained by the companion
@@ -24,8 +26,8 @@ install, no account, no server.
   project. _(planned, once the AI engine is trained)_
 
 > **Status:** early days — you can set up a game by placing both armies, then
-> take turns moving pieces on the revealed board. Attacks and winning the game
-> are still being built.
+> take turns moving, attacking, and capturing on the revealed board. Winning,
+> losing, and drawing the game are still being built.
 
 ## The rules
 

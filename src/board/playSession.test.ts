@@ -11,6 +11,7 @@ import {
   actionableSquares,
   activatableSquares,
   activateSquare,
+  attackTargets,
   startSession,
   type PlaySession,
 } from "./playSession.ts";
@@ -43,12 +44,13 @@ const sq = (column: Square["column"], row: Square["row"]): Square => ({
 });
 
 describe("startSession", () => {
-  it("starts with White to move and nothing selected", () => {
+  it("starts with White to move, nothing selected, and no resolved outcome", () => {
     const session = startSession(
       initialGameState([["D5", "white", "infantry"]]),
     );
     expect(session.play.sideToMove).toBe("white");
     expect(session.selection).toBeNull();
+    expect(session.lastOutcome).toBeNull();
   });
 });
 
@@ -64,16 +66,22 @@ describe("actionableSquares - nothing selected", () => {
     expect(sortedKeys(actionableSquares(session))).toEqual(["D5"]);
   });
 
-  it("yields an empty actionable set (without throwing) when the side to move is stuck", () => {
-    // White's only piece is boxed in on every side by enemy pieces, so it
-    // has zero legal destinations; White has no other piece on the board.
+  it("yields an empty actionable set (without throwing) when the side to move has neither a legal move nor a legal attack", () => {
+    // White's infantry is boxed in on every side by *friendly* Towers, so it
+    // has zero legal destinations (all four neighbours occupied) and zero
+    // legal attacks (attacks only ever target an enemy - a friendly-occupied
+    // square is never a target). The Towers are themselves immobile. White
+    // has no other piece on the board, so no piece anywhere has a legal move
+    // or attack. (Note: an enemy-surrounded piece, as story 00000004 used to
+    // stage this case, is no longer "stuck" now that attacks are offered -
+    // it would have a legal attack against each adjacent enemy.)
     const session = startSession(
       initialGameState([
         ["D5", "white", "infantry"],
-        ["C5", "black", "militia"],
-        ["E5", "black", "militia"],
-        ["D4", "black", "militia"],
-        ["D6", "black", "militia"],
+        ["C5", "white", "tower"],
+        ["E5", "white", "tower"],
+        ["D4", "white", "tower"],
+        ["D6", "white", "tower"],
       ]),
     );
     expect(() => actionableSquares(session)).not.toThrow();
@@ -311,5 +319,190 @@ describe("activateSquare - turn alternation across a sequence", () => {
     session = activateSquare(session, sq("C", 4));
     expect(session.play.sideToMove).toBe("black");
     expect(session.play.moves).toEqual(["D5D4", "D9D10", "D4C4"]);
+  });
+});
+
+describe("attacks - selectability", () => {
+  it("a piece with no legal moves but a legal attack is still selectable", () => {
+    // D5's infantry is boxed in on three sides by friendly Towers, so it has
+    // zero legal *moves* - but E5 holds an enemy Militia, so it has one legal
+    // attack. It must still appear as selectable.
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["C5", "white", "tower"],
+        ["D4", "white", "tower"],
+        ["D6", "white", "tower"],
+        ["E5", "black", "militia"],
+      ]),
+    );
+    expect(sortedKeys(actionableSquares(session))).toEqual(["D5"]);
+    expect(sortedKeys(activatableSquares(session))).toEqual(["D5"]);
+  });
+});
+
+describe("attacks - offered alongside moves, distinguishable", () => {
+  it("exposes attack targets in the actionable/activatable sets and the attackTargets accessor, distinct from move targets", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["D9", "black", "militia"], // out of range - neither a move nor an attack target
+        ["E5", "black", "champion"], // adjacent enemy - an attack target, not a move
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+
+    // Plain move destinations: C5, D4, D6 (all empty and adjacent). E5 is
+    // enemy-occupied, so it is an attack target, never a move destination.
+    expect(sortedKeys(actionableSquares(selected))).toEqual(
+      ["C5", "D4", "D6", "E5"].sort(),
+    );
+    expect(sortedKeys(activatableSquares(selected))).toEqual(
+      ["D5", "C5", "D4", "D6", "E5"].sort(),
+    );
+    expect(sortedKeys(attackTargets(selected))).toEqual(["E5"]);
+  });
+
+  it("attackTargets is empty when nothing is selected", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["E5", "black", "militia"],
+      ]),
+    );
+    expect(attackTargets(session)).toEqual([]);
+  });
+
+  it("a friendly-occupied square is never offered as a move or attack target", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["E5", "white", "tower"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+    expect(actionableSquares(selected)).not.toContainEqual(sq("E", 5));
+    expect(attackTargets(selected)).toEqual([]);
+  });
+
+  it("a Flag square is never offered as an attack target, even though it is enemy-occupied", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["E5", "black", "flag"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+    expect(actionableSquares(selected)).not.toContainEqual(sq("E", 5));
+    expect(attackTargets(selected)).toEqual([]);
+    // The piece's other, empty-square destinations remain available.
+    expect(sortedKeys(actionableSquares(selected))).toEqual(
+      ["C5", "D4", "D6"].sort(),
+    );
+  });
+});
+
+describe("attacks - activating a target", () => {
+  it("applies the attack, flips the side, clears the selection, and records the resolved outcome", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"], // rank 4
+        ["E5", "black", "militia"], // rank 6 - weaker, so the attacker wins
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+    const attacked = activateSquare(selected, sq("E", 5));
+
+    expect(attacked.selection).toBeNull();
+    expect(attacked.play.sideToMove).toBe("black");
+    expect(attacked.play.board["D5"]).toBeUndefined();
+    expect(attacked.play.board["E5"]).toEqual({
+      side: "white",
+      pieceType: "infantry",
+    });
+    expect(attacked.play.moves).toEqual(["D5E5"]);
+    expect(attacked.lastOutcome).toEqual({
+      kind: "attack",
+      result: "attackerWins",
+      attacker: { side: "white", pieceType: "infantry" },
+      defender: { side: "black", pieceType: "militia" },
+      square: sq("E", 5),
+      capture: true,
+      archerSupport: false,
+    });
+  });
+
+  it("records a mutual-loss outcome (both pieces removed) for an equal-rank attack", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"], // rank 4
+        ["E5", "black", "infantry"], // rank 4 - equal, mutual loss
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+    const attacked = activateSquare(selected, sq("E", 5));
+
+    expect(attacked.play.board["D5"]).toBeUndefined();
+    expect(attacked.play.board["E5"]).toBeUndefined();
+    expect(attacked.lastOutcome).toMatchObject({
+      kind: "attack",
+      result: "mutualLoss",
+      capture: true,
+    });
+  });
+
+  it("a plain move (not an attack) records a non-combat outcome", () => {
+    const session = startSession(
+      initialGameState([["D5", "white", "infantry"]]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+    const moved = activateSquare(selected, sq("D", 4));
+
+    expect(moved.lastOutcome).toEqual({
+      kind: "move",
+      piece: { side: "white", pieceType: "infantry" },
+      square: sq("D", 4),
+    });
+  });
+});
+
+describe("attacks - turn alternation with attacks mixed in", () => {
+  it("strictly alternates sides across a sequence mixing a plain move and an attack", () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D7", "black", "militia"],
+    ]);
+    let session: PlaySession = startSession(initial);
+    expect(session.play.sideToMove).toBe("white");
+
+    // White makes a plain move, bringing its piece adjacent to Black's.
+    session = activateSquare(session, sq("D", 5));
+    session = activateSquare(session, sq("D", 6));
+    expect(session.play.sideToMove).toBe("black");
+    expect(session.selection).toBeNull();
+    expect(session.lastOutcome).toEqual({
+      kind: "move",
+      piece: { side: "white", pieceType: "infantry" },
+      square: sq("D", 6),
+    });
+
+    // Black attacks White's now-adjacent piece. Militia (rank 6) attacking
+    // Infantry (rank 4): the defender is stronger, so the attacker loses.
+    session = activateSquare(session, sq("D", 7));
+    expect(sortedKeys(attackTargets(session))).toEqual(["D6"]);
+    session = activateSquare(session, sq("D", 6));
+
+    expect(session.play.sideToMove).toBe("white");
+    expect(session.selection).toBeNull();
+    expect(session.play.moves).toEqual(["D5D6", "D7D6"]);
+    expect(session.play.board["D7"]).toBeUndefined();
+    expect(session.play.board["D6"]).toEqual({
+      side: "white",
+      pieceType: "infantry",
+    });
+    expect(session.lastOutcome).toMatchObject({
+      kind: "attack",
+      result: "attackerLoses",
+    });
   });
 });

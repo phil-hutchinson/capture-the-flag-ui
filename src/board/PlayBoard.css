@@ -43,13 +43,27 @@
 }
 
 .play-board__square--destination {
-  /* A legal destination for the piece currently picked up. A background tint
-     only - deliberately no border, so the amber *border* stays reserved for
-     the keyboard-focus ring (AccessibleGrid.css) and a destination never
-     reads as a focused square. The fill alone still makes destinations easy
-     to spot at a glance across the full 12x12 board, whether they hold an
-     opponent piece to capture or are an empty square to move to. */
+  /* A legal *plain-move* destination for the piece currently picked up - an
+     empty square. A background tint only - deliberately no border, so the
+     amber *border* stays reserved for the keyboard-focus ring
+     (AccessibleGrid.css) and a destination never reads as a focused square. */
   background: rgba(255, 183, 3, 0.22);
+}
+
+.play-board__square--attack {
+  /* A legal *attack* target for the piece currently picked up (story
+     00000005, Step 7) - always an enemy-occupied square. Distinct from
+     `--destination` (a plain move, amber fill only) so a sighted player can
+     tell an attack apart from a move before committing: a red-tinted fill
+     *plus* a solid red inset border. `--side-a`'s red (rather than a new
+     color) reads naturally as "danger" and is unambiguous here since only
+     enemy pieces are ever offered as attack targets, never a same-colored
+     own piece. Both the fill and the border are deliberately unlike the
+     amber `--destination` fill and the amber keyboard-focus ring, so all
+     three states stay visually distinct even when they coincide (e.g. a
+     focused attack target). */
+  background: rgb(161 61 43 / 22%);
+  box-shadow: inset 0 0 0 2px var(--side-a);
 }
 
 .play-board__lake-icon,

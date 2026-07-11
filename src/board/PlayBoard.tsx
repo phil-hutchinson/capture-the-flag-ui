@@ -16,21 +16,25 @@
 //
 // Visual highlighting is deliberately minimal (Gate D revision): the only
 // square-fill highlights are for an *in-progress selection* - the picked-up
-// piece (`--selected`, dark ink) and its legal destinations (`--destination`,
-// an amber tint, background only, no border). With nothing selected, no
-// square is highlighted at all: which of your own pieces can move is left
-// self-evident, and the amber *border* is reserved exclusively for the
-// keyboard-focus ring (AccessibleGrid.css's `:focus-visible`), so a fill and
-// a border never read as the same thing.
+// piece (`--selected`, dark ink), its legal plain-move destinations
+// (`--destination`, an amber tint, background only, no border), and (story
+// 00000005, Step 7) its legal *attack* targets (`--attack`, its own distinct
+// fill/border treatment) - always an enemy-occupied square, so a sighted
+// player can tell an attack apart from a plain move before committing. With
+// nothing selected, no square is highlighted at all: which of your own
+// pieces can move is left self-evident, and the amber *border* is reserved
+// exclusively for the keyboard-focus ring (AccessibleGrid.css's
+// `:focus-visible`), so a fill and a border never read as the same thing,
+// and `--attack` in turn never reads as a `--destination` or a focus ring.
 //
 // That visual set is strictly smaller than the set of squares that actually
 // *respond* to activation. The accessible grid's activation gate
 // (`GridCellDescriptor.actionable`, which decides which cells answer a click
 // or Enter/Space) is driven by `activatableSquares` from `playSession.ts` -
 // every own movable piece plus, while one is selected, its legal
-// destinations - so picking up a piece, deselecting it, and switching to a
-// different own piece are all reachable by mouse and keyboard even though an
-// unselected movable piece shows no highlight.
+// destinations and legal attack targets - so picking up a piece, deselecting
+// it, and switching to a different own piece are all reachable by mouse and
+// keyboard even though an unselected movable piece shows no highlight.
 
 import { PieceIcon, LAKE_SYMBOL_ID } from "../art/PieceIcon.tsx";
 import {
@@ -49,6 +53,7 @@ import type { GridPosition } from "./grid/gridNavigation.ts";
 import {
   actionableSquares,
   activatableSquares,
+  attackTargets,
   type PlaySession,
 } from "./playSession.ts";
 import { fullBoardRows, visibleColumns } from "./boardView.ts";
@@ -59,12 +64,21 @@ function sideColorName(side: Side): string {
   return side === "white" ? "Red" : "Blue";
 }
 
-/** Accessible label for one square: its name plus what occupies it, if anything. */
+/**
+ * Accessible label for one square: its name plus what occupies it, if
+ * anything. `attack` (story 00000005, Step 7) marks a square as one of the
+ * currently selected piece's legal *attack* targets - always an enemy-
+ * occupied square - and is worded distinctly ("attack {color} {piece}") from
+ * a plain occupied-square label, so a screen-reader user can tell an attack
+ * target apart from a plain move target (an empty square, unchanged) or an
+ * ordinarily-described piece before committing to an activation.
+ */
 function squareLabel(
   square: Square,
   piece: PlacedPiece | undefined,
   lake: boolean,
   selected: boolean,
+  attack: boolean,
 ): string {
   const name = squareKey(square);
   if (lake) {
@@ -76,6 +90,9 @@ function squareLabel(
   const occupant = `${sideColorName(piece.side)} ${
     PIECE_CATALOG[piece.pieceType].displayName
   }`;
+  if (attack) {
+    return `${name}, attack ${occupant}`;
+  }
   return selected ? `${name}, ${occupant}, selected` : `${name}, ${occupant}`;
 }
 
@@ -119,6 +136,12 @@ export function PlayBoard({
       ? actionableSquares(session).map((square) => squareKey(square))
       : [],
   );
+  // The subset of `highlightedKeys` that are attacks rather than plain moves
+  // (Step 5's `attackTargets` - empty with nothing selected), so the board
+  // can render and label them distinctly from plain move destinations.
+  const attackKeys = new Set(
+    attackTargets(session).map((square) => squareKey(square)),
+  );
   const activatableKeys = new Set(
     activatableSquares(session).map((square) => squareKey(square)),
   );
@@ -133,7 +156,8 @@ export function PlayBoard({
       const lake = isLake(square);
       const piece = session.play.board[key];
       const selected = key === selectedKey;
-      const isDestination = highlightedKeys.has(key);
+      const isAttack = attackKeys.has(key);
+      const isDestination = highlightedKeys.has(key) && !isAttack;
       const activatable = activatableKeys.has(key);
 
       return {
@@ -143,9 +167,10 @@ export function PlayBoard({
             lake={lake}
             selected={selected}
             destination={isDestination}
+            attack={isAttack}
           />
         ),
-        label: squareLabel(square, piece, lake, selected),
+        label: squareLabel(square, piece, lake, selected, isAttack),
         focusable: true,
         actionable: activatable,
       };
@@ -172,8 +197,16 @@ interface PlayBoardCellProps {
   readonly piece: PlacedPiece | undefined;
   readonly lake: boolean;
   readonly selected: boolean;
-  /** A legal destination for the currently selected piece (amber fill, no border). */
+  /** A legal (plain-move) destination for the currently selected piece (amber fill, no border). */
   readonly destination: boolean;
+  /**
+   * A legal *attack* target for the currently selected piece (story
+   * 00000005, Step 7) - always an enemy-occupied square. Mutually exclusive
+   * with `destination`: rendered with its own fill/border treatment so a
+   * sighted player can tell an attack apart from a plain move before
+   * committing, distinct in turn from the amber focus ring.
+   */
+  readonly attack: boolean;
 }
 
 function PlayBoardCell({
@@ -181,6 +214,7 @@ function PlayBoardCell({
   lake,
   selected,
   destination,
+  attack,
 }: PlayBoardCellProps) {
   const classNames = ["play-board__square"];
   if (lake) {
@@ -188,6 +222,8 @@ function PlayBoardCell({
   }
   if (selected) {
     classNames.push("play-board__square--selected");
+  } else if (attack) {
+    classNames.push("play-board__square--attack");
   } else if (destination) {
     classNames.push("play-board__square--destination");
   }
