@@ -545,7 +545,50 @@ independently while progress counts every ply. The input state is never mutated.
 
 ## Step 4 — Game-end detection with the reference engine's precedence
 
-Status: pending
+Status: committed
+
+Notes: Added `src/rules/primary/v1_1/outcome.ts` exporting `GameEndReason`,
+`GameOutcome`, `INACTIVITY_LIMIT` (50), `PROGRESS_LIMIT` (80), and
+`computeOutcome(board, activeSide, inactivityCounters, progressCounter)`
+implementing the six-step precedence exactly as specified (flag capture via
+a local `hasFlag` scan, §6.2 via Step 1's `computeUnbreachableFlagInputs`
+computed once for both sides regardless of `activeSide` so a mutual win is
+detected as a draw independent of whose turn it is, opponent inactivity,
+shared progress, `hasAnyLegalPly`, then the active side's own inactivity for
+completeness); it never imports `play.ts`. `movement.ts`'s
+`hasAnyLegalNonAttackMove` was deleted and replaced with `hasAnyLegalPly`
+(true if any of the side's pieces has a `legalDestinations` **or**
+`legalAttacks` result), with `movement.test.ts` updated accordingly.
+`play.ts`'s `PlayState` gained `result: GameOutcome`; `startPlay` computes it
+at the reveal; `applyMove` now throws immediately if called on an
+already-finished state and recomputes `result` after updating the counters
+and flipping the side; added `agreeDraw(state)` producing `{ kind: "draw",
+reason: "agreement" }` with everything else unchanged, throwing if the game
+is already over. Added `src/rules/primary/v1_1/outcome.test.ts` covering
+every case and precedence tie in the step's verification list. Extended
+`play.test.ts` (`startPlay`/`applyMove` result detection, `agreeDraw`) and
+`movement.test.ts` (`hasAnyLegalPly`, including the "only an attack
+available" and "truly boxed-in" cases, the latter using immobile Tower
+walls rather than mobile friendly pieces so the fixture doesn't
+inadvertently give the boxed piece's neighbors legal moves of their own).
+Deviation from the plan (necessary, not optional): once `startPlay`/
+`applyMove` compute `result` eagerly, every pre-existing fixture across
+`play.test.ts`, `src/board/playSession.test.ts`, and
+`src/board/playAnnouncement.test.ts` that omitted a Flag for one or both
+sides had its game immediately register as finished (no Flag on the board
+reads as "already captured"), which made `applyMove` throw on the next ply
+and broke 22 previously-passing tests. Fixed by adding a `["A1", "white",
+"flag"]` / `["L12", "black", "flag"]` pair (far from the pieces each test
+actually exercises) to every such fixture that applies more than one ply,
+and by fixing two of my own new fixtures that had the same problem (a
+fixture meant to test "leaves result ongoing" left Black with only an
+immobile Flag, which is itself a no-legal-move loss; a Flag-capture fixture
+had no White Flag at all, so the reveal was already decided). This mirrors
+the precedent set in Step 2's notes for an unrelated pre-existing test.
+`npm run typecheck`, `npm run lint`, `npm test` (276 tests, 16 files), and
+`npm run format:check` (after `prettier --write` on the touched files) all
+pass; the two pre-existing `story.md`/`implementation-plan.md` markdown
+warnings are unrelated and untouched.
 
 Add a new versioned module `src/rules/primary/v1_1/outcome.ts` (pure, no React)
 that decides whether — and how — the game has ended, and wire it into

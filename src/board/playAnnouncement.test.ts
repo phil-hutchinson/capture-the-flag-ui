@@ -104,6 +104,8 @@ describe("describeActivation - selecting a piece", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const moved = activateSquare(session, sq("D", 5));
@@ -139,6 +141,8 @@ describe("describeActivation - moving", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -154,6 +158,8 @@ describe("describeActivation - moving", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const afterWhite = activateSquare(
@@ -175,6 +181,8 @@ describe("describeActivation - combat outcomes", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["D4", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -190,6 +198,8 @@ describe("describeActivation - combat outcomes", () => {
       initialGameState([
         ["D5", "white", "militia"],
         ["D4", "black", "infantry"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -205,6 +215,8 @@ describe("describeActivation - combat outcomes", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["D4", "black", "infantry"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -221,6 +233,8 @@ describe("describeActivation - combat outcomes", () => {
         ["D5", "white", "lordMarshal"],
         ["D4", "black", "halberdier"],
         ["D3", "black", "archer"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -237,6 +251,8 @@ describe("describeActivation - combat outcomes", () => {
         ["D5", "white", "infantry"],
         ["D9", "black", "militia"],
         ["D10", "white", "halberdier"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const afterWhite = activateSquare(

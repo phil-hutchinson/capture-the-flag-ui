@@ -222,6 +222,8 @@ describe("activateSquare - moving", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -301,6 +303,8 @@ describe("activateSquare - turn alternation across a sequence", () => {
     const initial = initialGameState([
       ["D5", "white", "infantry"],
       ["D9", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let session: PlaySession = startSession(initial);
     expect(session.play.sideToMove).toBe("white");
@@ -408,6 +412,8 @@ describe("attacks - activating a target", () => {
       initialGameState([
         ["D5", "white", "infantry"], // rank 4
         ["E5", "black", "militia"], // rank 6 - weaker, so the attacker wins
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -437,6 +443,8 @@ describe("attacks - activating a target", () => {
       initialGameState([
         ["D5", "white", "infantry"], // rank 4
         ["E5", "black", "infantry"], // rank 4 - equal, mutual loss
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -453,7 +461,11 @@ describe("attacks - activating a target", () => {
 
   it("a plain move (not an attack) records a non-combat outcome", () => {
     const session = startSession(
-      initialGameState([["D5", "white", "infantry"]]),
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ]),
     );
     const selected = activateSquare(session, sq("D", 5));
     const moved = activateSquare(selected, sq("D", 4));
@@ -471,6 +483,8 @@ describe("attacks - turn alternation with attacks mixed in", () => {
     const initial = initialGameState([
       ["D5", "white", "infantry"],
       ["D7", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let session: PlaySession = startSession(initial);
     expect(session.play.sideToMove).toBe("white");

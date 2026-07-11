@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Square } from "./board.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
-import {
-  hasAnyLegalNonAttackMove,
-  legalAttacks,
-  legalDestinations,
-} from "./movement.ts";
+import { hasAnyLegalPly, legalAttacks, legalDestinations } from "./movement.ts";
 import type { PieceTypeId } from "./pieces.ts";
 
 /** Builds a `BoardState` from a list of `[squareKey, side, pieceType]` triples. */
@@ -169,15 +165,41 @@ describe("legalDestinations (ruleset PRIMARY:1.1, empty-square moves only)", () 
   });
 });
 
-describe("hasAnyLegalNonAttackMove", () => {
+describe("hasAnyLegalPly", () => {
   it("is true when at least one of the side's pieces has a legal destination", () => {
     const state = board([["D5", "white", "infantry"]]);
-    expect(hasAnyLegalNonAttackMove(state, "white")).toBe(true);
+    expect(hasAnyLegalPly(state, "white")).toBe(true);
   });
 
   it("is false for a side with no pieces on the board", () => {
     const state = board([["D5", "black", "infantry"]]);
-    expect(hasAnyLegalNonAttackMove(state, "white")).toBe(false);
+    expect(hasAnyLegalPly(state, "white")).toBe(false);
+  });
+
+  it("is true for a piece with only an attack available (no legal destination)", () => {
+    // Boxed in on every non-attack direction by friendly pieces/the edge,
+    // but with an adjacent enemy to attack.
+    const state = board([
+      ["A1", "white", "infantry"],
+      ["A2", "white", "militia"], // friendly, blocks the only other empty direction
+      ["B1", "black", "militia"], // adjacent enemy - a legal, sacrificial attack
+    ]);
+    expect(legalDestinations(state, { column: "A", row: 1 })).toEqual([]);
+    expect(hasAnyLegalPly(state, "white")).toBe(true);
+  });
+
+  it("is false for a side that is truly boxed in - no legal move and no legal attack anywhere", () => {
+    // A single mobile White piece in a corner, walled in by two friendly
+    // *Towers* (immobile, so they never contribute a legal ply of their
+    // own - unlike a mobile piece, which would itself have somewhere to go
+    // and defeat the point of this fixture), with no enemy piece anywhere on
+    // the board to attack.
+    const state = board([
+      ["A1", "white", "infantry"],
+      ["A2", "white", "tower"],
+      ["B1", "white", "tower"],
+    ]);
+    expect(hasAnyLegalPly(state, "white")).toBe(false);
   });
 });
 

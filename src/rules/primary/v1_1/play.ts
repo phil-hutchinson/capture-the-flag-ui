@@ -40,6 +40,7 @@ import {
   type PlacedPiece,
 } from "./gameState.ts";
 import { legalAttacks, legalDestinations } from "./movement.ts";
+import { computeOutcome, type GameOutcome } from "./outcome.ts";
 
 /** The side that moves first, per rules.md §4.1 (White/Red moves first). */
 const FIRST_SIDE: Side = "white";
@@ -51,9 +52,13 @@ const FIRST_SIDE: Side = "white";
  * record file format's position block, which is always the *starting*
  * position, never the current one), the current board, whose turn it is,
  * every move made so far, in order, as `A2A3` coordinate strings (absolute
- * White frame - see board.ts), and the two pieces of §6.4/§6.5 rule state
- * this story adds: each side's personal inactivity counter and the single
- * shared no-progress counter (see `applyMove` for how they evolve).
+ * White frame - see board.ts), the two pieces of §6.4/§6.5 rule state this
+ * story adds - each side's personal inactivity counter and the single shared
+ * no-progress counter (see `applyMove` for how they evolve) - and the
+ * current `GameOutcome` (`result` - outcome.ts, story 00000006 Step 4):
+ * whether the game is still ongoing, or how it ended. Everything downstream
+ * (the session layer, the UI, the record) reads `result` rather than
+ * recomputing detection for itself.
  */
 export interface PlayState {
   readonly ruleset: string;
@@ -63,24 +68,35 @@ export interface PlayState {
   readonly moves: readonly string[];
   readonly inactivityCounters: Readonly<Record<Side, number>>;
   readonly progressCounter: number;
+  readonly result: GameOutcome;
 }
 
 /**
  * The opening `PlayState` for `initial` (story 00000001's completed-placement
  * artifact): the same board (as both the starting and current board), White
  * (Red) to move first, no moves made yet, the ruleset carried over
- * unchanged, and both inactivity counters and the progress counter starting
- * at 0 (rules.md §6.4/§6.5).
+ * unchanged, both inactivity counters and the progress counter starting at 0
+ * (rules.md §6.4/§6.5), and `result` computed immediately - since placement
+ * is unrestricted, the Unbreachable Flag condition (§6.2) can already hold
+ * **at the reveal**, before any ply is made.
  */
 export function startPlay(initial: InitialGameState): PlayState {
+  const inactivityCounters = { white: 0, black: 0 };
+  const progressCounter = 0;
   return {
     ruleset: initial.ruleset,
     initialBoard: initial.board,
     board: initial.board,
     sideToMove: FIRST_SIDE,
     moves: [],
-    inactivityCounters: { white: 0, black: 0 },
-    progressCounter: 0,
+    inactivityCounters,
+    progressCounter,
+    result: computeOutcome(
+      initial.board,
+      FIRST_SIDE,
+      inactivityCounters,
+      progressCounter,
+    ),
   };
 }
 
@@ -126,16 +142,28 @@ export type PlyOutcome =
  * (`squareKey(from) + squareKey(to)`) - no combat-resolution markers, even
  * for an attack.
  *
- * Rejects (throws) if `from` does not hold a piece belonging to
- * `state.sideToMove`, or if `to` is neither a legal destination nor a legal
- * attack target for that piece - the UI never offers such a move, so this is
- * a programming-invariant guard, not a user-facing error.
+ * After the counters are updated, `state.result` is recomputed
+ * (`computeOutcome`, outcome.ts - story 00000006 Step 4) from the *new*
+ * board, the *new* side to move, and the updated counters, so the returned
+ * state always reflects whether that ply just ended the game - and, if so,
+ * who won (or that it is a draw) and why.
+ *
+ * Rejects (throws) if `state.result` is already a finished game, if `from`
+ * does not hold a piece belonging to `state.sideToMove`, or if `to` is
+ * neither a legal destination nor a legal attack target for that piece - the
+ * UI never offers such a move (it makes the board inert the moment the game
+ * ends - Step 6), so each of these is a programming-invariant guard, not a
+ * user-facing error.
  */
 export function applyMove(
   state: PlayState,
   from: Square,
   to: Square,
 ): { readonly state: PlayState; readonly outcome: PlyOutcome } {
+  if (state.result.kind !== "ongoing") {
+    throw new Error("Cannot apply move: the game has already ended.");
+  }
+
   const fromKey = squareKey(from);
   const toKey = squareKey(to);
   const piece = state.board[fromKey];
@@ -214,16 +242,51 @@ export function applyMove(
     [opponent]: opponentInactivity,
   };
 
+  const nextSideToMove = OTHER_SIDE[state.sideToMove];
+
   return {
     state: {
       ...state,
       board,
-      sideToMove: OTHER_SIDE[state.sideToMove],
+      sideToMove: nextSideToMove,
       moves: [...state.moves, fromKey + toKey],
       inactivityCounters,
       progressCounter,
+      result: computeOutcome(
+        board,
+        nextSideToMove,
+        inactivityCounters,
+        progressCounter,
+      ),
     },
     outcome,
+  };
+}
+
+/**
+ * Ends `state`'s game immediately as a draw by **agreement** (rules.md
+ * §6.6) - the one ending that is *declared*, not detected: `computeOutcome`
+ * never produces the `"agreement"` reason. Returns a new state whose
+ * `result` is `{ kind: "draw", reason: "agreement" }` and is otherwise
+ * **unchanged** - no counter update, no side-to-move flip, no move appended
+ * to `state.moves` - since an offer never replaces or skips a move and an
+ * agreed draw leaves no trace in the move sequence (see the record layer,
+ * Step 5). The draw offer/accept/decline *interaction* (who offered, whether
+ * an answer is pending) is session state, not rule state - see
+ * `src/board/playSession.ts`, Step 6 - this function only performs the
+ * ending itself, once the session layer has decided to call it.
+ *
+ * Rejects (throws) if the game has already ended - a programming-invariant
+ * guard, like `applyMove`'s: the UI never offers a draw once the game is
+ * over.
+ */
+export function agreeDraw(state: PlayState): PlayState {
+  if (state.result.kind !== "ongoing") {
+    throw new Error("Cannot agree to a draw: the game has already ended.");
+  }
+  return {
+    ...state,
+    result: { kind: "draw", reason: "agreement" },
   };
 }
 

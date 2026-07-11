@@ -3,6 +3,7 @@ import type { BoardState, InitialGameState, PlacedPiece } from "./gameState.ts";
 import { renderPositionBlock, RULESET_TAG } from "./gameState.ts";
 import type { PieceTypeId } from "./pieces.ts";
 import {
+  agreeDraw,
   applyMove,
   renderGameRecord,
   startPlay,
@@ -43,7 +44,11 @@ describe("startPlay", () => {
 
 describe("applyMove", () => {
   it("moves the piece, flips the side, and appends the A2A3 move string", () => {
-    const initial = initialGameState([["D5", "white", "infantry"]]);
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
+    ]);
     const state = startPlay(initial);
     const { state: next, outcome } = applyMove(
       state,
@@ -63,7 +68,11 @@ describe("applyMove", () => {
   });
 
   it("does not mutate the input state", () => {
-    const initial = initialGameState([["D5", "white", "infantry"]]);
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
+    ]);
     const state = startPlay(initial);
     const originalBoard = state.board;
     const originalMoves = state.moves;
@@ -81,6 +90,8 @@ describe("applyMove", () => {
     const initial = initialGameState([
       ["D5", "white", "infantry"],
       ["D9", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let state: PlayState = startPlay(initial);
 
@@ -170,6 +181,8 @@ describe("applyMove", () => {
       const initial = initialGameState([
         ["D5", "white", "champion"], // rank 2
         ["D4", "black", "militia"], // rank 6
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]);
       const state = startPlay(initial);
       const { state: next, outcome } = applyMove(
@@ -200,6 +213,8 @@ describe("applyMove", () => {
       const initial = initialGameState([
         ["D5", "white", "militia"], // rank 6
         ["D4", "black", "champion"], // rank 2
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]);
       const state = startPlay(initial);
       const { state: next, outcome } = applyMove(
@@ -230,6 +245,8 @@ describe("applyMove", () => {
       const initial = initialGameState([
         ["D5", "white", "militia"],
         ["D4", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]);
       const state = startPlay(initial);
       const { state: next, outcome } = applyMove(
@@ -257,6 +274,8 @@ describe("applyMove", () => {
       const initial = initialGameState([
         ["D5", "white", "champion"],
         ["D4", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]);
       const state = startPlay(initial);
       const originalBoard = state.board;
@@ -279,6 +298,8 @@ describe("applyMove", () => {
       const initial = initialGameState([
         ["D5", "white", "champion"],
         ["D4", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]);
       let state: PlayState = startPlay(initial);
       state = applyMove(
@@ -310,6 +331,8 @@ describe("applyMove counters (§6.4/§6.5)", () => {
     const initial = initialGameState([
       ["D5", "white", "infantry"],
       ["D9", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     const state = startPlay(initial);
 
@@ -327,6 +350,8 @@ describe("applyMove counters (§6.4/§6.5)", () => {
     const initial = initialGameState([
       ["D5", "white", "champion"], // rank 2
       ["D4", "black", "militia"], // rank 6
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let state: PlayState = startPlay(initial);
     // Build up some counter state first so the reset is observable.
@@ -351,6 +376,8 @@ describe("applyMove counters (§6.4/§6.5)", () => {
     const initial = initialGameState([
       ["D5", "white", "militia"], // rank 6
       ["D4", "black", "champion"], // rank 2
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let state: PlayState = startPlay(initial);
     state = {
@@ -374,6 +401,8 @@ describe("applyMove counters (§6.4/§6.5)", () => {
     const initial = initialGameState([
       ["D5", "white", "militia"],
       ["D4", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let state: PlayState = startPlay(initial);
     state = {
@@ -397,6 +426,8 @@ describe("applyMove counters (§6.4/§6.5)", () => {
     const initial = initialGameState([
       ["D5", "white", "sapper"],
       ["D4", "black", "tower"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let state: PlayState = startPlay(initial);
     state = { ...state, progressCounter: 7 };
@@ -415,6 +446,8 @@ describe("applyMove counters (§6.4/§6.5)", () => {
     const initial = initialGameState([
       ["D5", "white", "infantry"],
       ["D9", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let state: PlayState = startPlay(initial);
 
@@ -447,6 +480,8 @@ describe("applyMove counters (§6.4/§6.5)", () => {
     const initial = initialGameState([
       ["D5", "white", "infantry"],
       ["D9", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     const state = startPlay(initial);
     const originalCounters = state.inactivityCounters;
@@ -456,6 +491,141 @@ describe("applyMove counters (§6.4/§6.5)", () => {
     expect(state.inactivityCounters).toBe(originalCounters);
     expect(state.inactivityCounters).toEqual({ white: 0, black: 0 });
     expect(state.progressCounter).toBe(0);
+  });
+});
+
+describe("startPlay - result (§6 detection at the reveal)", () => {
+  it("is ongoing for an ordinary starting position", () => {
+    const initial = initialGameState([
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
+      ["D5", "white", "infantry"],
+      ["D9", "black", "militia"],
+    ]);
+    const state = startPlay(initial);
+    expect(state.result).toEqual({ kind: "ongoing" });
+  });
+
+  it("detects a §6.2 Unbreachable Flag win at the reveal, before any ply is played", () => {
+    // White's Flag is sealed into a corner by two of White's own Towers
+    // (mirrors reachability.test.ts's enclosure fixture); Black has no
+    // Sapper anywhere on the board, so Black's Sappers are unavailable.
+    const initial = initialGameState([
+      ["A1", "white", "flag"],
+      ["A2", "white", "tower"],
+      ["B1", "white", "tower"],
+      ["L12", "black", "flag"],
+    ]);
+    const state = startPlay(initial);
+    expect(state.result).toEqual({
+      kind: "win",
+      winner: "white",
+      reason: "unbreachableFlag",
+    });
+  });
+});
+
+describe("applyMove - result (§6 detection after every ply)", () => {
+  it("sets result to a win when a ply captures the opponent's Flag", () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D6", "black", "flag"],
+      ["A1", "white", "flag"],
+    ]);
+    const state = startPlay(initial);
+    const { state: next, outcome } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 6 },
+    );
+
+    expect(outcome).toMatchObject({ kind: "attack", result: "attackerWins" });
+    expect(next.result).toEqual({
+      kind: "win",
+      winner: "white",
+      reason: "flagCapture",
+    });
+  });
+
+  it("leaves result ongoing after a ply that does not end the game", () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D9", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
+    ]);
+    const state = startPlay(initial);
+    const { state: next } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    );
+    expect(next.result).toEqual({ kind: "ongoing" });
+  });
+
+  it("throws when called on a state whose game has already ended", () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D6", "black", "flag"],
+      ["A1", "white", "flag"],
+    ]);
+    const state = startPlay(initial);
+    const { state: finished } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 6 },
+    );
+    expect(finished.result.kind).not.toBe("ongoing");
+
+    expect(() =>
+      applyMove(finished, { column: "D", row: 6 }, { column: "D", row: 7 }),
+    ).toThrow();
+  });
+});
+
+describe("agreeDraw", () => {
+  it("ends the game as an agreed draw, leaving the board, counters, side to move, and moves untouched", () => {
+    const initial = initialGameState([
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
+      ["D5", "white", "infantry"],
+      ["D9", "black", "militia"],
+    ]);
+    let state: PlayState = startPlay(initial);
+    state = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    ).state;
+    const boardBefore = state.board;
+    const countersBefore = state.inactivityCounters;
+    const progressBefore = state.progressCounter;
+    const sideBefore = state.sideToMove;
+    const movesBefore = state.moves;
+
+    const drawn = agreeDraw(state);
+
+    expect(drawn.result).toEqual({ kind: "draw", reason: "agreement" });
+    expect(drawn.board).toBe(boardBefore);
+    expect(drawn.inactivityCounters).toBe(countersBefore);
+    expect(drawn.progressCounter).toBe(progressBefore);
+    expect(drawn.sideToMove).toBe(sideBefore);
+    expect(drawn.moves).toBe(movesBefore);
+  });
+
+  it("throws when the game has already ended", () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D6", "black", "flag"],
+      ["A1", "white", "flag"],
+    ]);
+    const state = startPlay(initial);
+    const { state: finished } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 6 },
+    );
+    expect(() => agreeDraw(finished)).toThrow();
   });
 });
 
@@ -477,6 +647,8 @@ describe("renderGameRecord", () => {
     const initial = initialGameState([
       ["D5", "white", "infantry"],
       ["D9", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let state: PlayState = startPlay(initial);
     state = applyMove(
@@ -505,6 +677,8 @@ describe("renderGameRecord", () => {
       ["D5", "white", "infantry"],
       ["D9", "black", "militia"],
       ["C5", "white", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let state: PlayState = startPlay(initial);
     state = applyMove(
