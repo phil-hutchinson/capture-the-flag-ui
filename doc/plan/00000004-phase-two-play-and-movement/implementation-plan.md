@@ -171,9 +171,21 @@ blocker; Tower and Flag yielding no destinations; and no diagonal ever appearing
 
 ## Step 2 — Phase 2 game-state model and move application
 
-Status: pending
+Status: committed
 
-Notes:
+Notes: Added `src/rules/primary/v1_1/play.ts` exporting `PlayState`
+(`ruleset`, `board`, `sideToMove`, `moves: readonly string[]`), `startPlay`
+(White to move first, board/ruleset carried from the `InitialGameState`,
+empty move list), and `applyMove` (immutable-style, mirrors `placement.ts`'s
+throw-on-invariant style: throws if `from` isn't the side-to-move's own
+piece, or if `to` isn't among `legalDestinations(state.board, from)` from
+Step 1; otherwise returns a new `PlayState` with the piece moved, the side
+flipped, and the move appended as `squareKey(from) + squareKey(to)`). Added
+colocated `play.test.ts` covering `startPlay` correctness, `applyMove`
+moving/flipping/appending, a multi-move alternating sequence, non-mutation
+of the input state, and throws for a wrong-side piece, an empty origin, an
+out-of-range destination, and an occupied destination. No deviations from
+the plan.
 
 Add a new versioned module `src/rules/primary/v1_1/play.ts` (pure, no React) that
 models an in-progress Phase-2 game and applies moves. Define a `PlayState`
