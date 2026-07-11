@@ -445,9 +445,49 @@ without throwing.
 
 ## Step 7 — Phase 2 board component, phase transition, and turn indicator
 
-Status: pending
+Status: committed
 
-Notes:
+Notes: Added `src/board/PlayBoard.tsx` (+ colocated `PlayBoard.css`), which
+renders the full 12x12 board through Step 5's `AccessibleGrid`, using Step
+4's `fullBoardRows`/`visibleColumns` for `session.play.sideToMove`, drawing
+both armies with `PieceIcon` (colored per side) and lakes with
+`LAKE_SYMBOL_ID`; every cell's accessible label is its square name plus what
+occupies it (e.g. "A2, Red Skirmisher", "F6, lake", "D5, empty", with
+", selected" appended for the picked-up piece). Cells are marked
+`actionable`/highlighted per Step 6's `actionableSquares`, and activation is
+reported up as a domain `Square` for the caller to route through
+`activateSquare`. Added `src/board/PlayStatus.tsx` (+ `PlayStatus.css`), a
+small "Red to move" / "Blue to move" indicator reusing
+`PlacementStatus.tsx`'s color convention. Extended `src/App.tsx` with a new
+`playSession` state (`PlaySession | null`); `handleConfirm` now reads
+`confirmActive(session)` directly (rather than via a `setSession` functional
+updater, so the resulting `next.active` is available synchronously) and,
+when both players have just confirmed, immediately builds the
+`InitialGameState` (`buildInitialGameState`) and starts a `PlaySession`
+(`startSession`) in the same event — both `setSession`/`setPlaySession`
+calls batch into one render, so the app auto-advances into Phase 2 with no
+intermediate "reveal" affordance, per the owner decision. The old
+`session.active === null` branch that rendered `SessionComplete` was
+removed (superseded, per the plan); `SessionComplete.tsx`/`.css` were left
+in place, unused, since deleting them was not requested and they are
+harmless dead code. `PieceSpriteDefs` continues to be mounted once, at the
+app root, for both the placement and Phase-2 views.
+
+Verification: `npm run typecheck`, `npm run lint`, `npm test` (134 tests,
+all passing), and `npm run format:check` all pass; `npm run build` (`tsc -b
+&& vite build`) also succeeds. Gate A (initial reveal) itself is manual and
+was not run here — see the owner's manual verification.
+
+Deviations: (1) `handleConfirm` switched from a `setSession` functional
+updater to reading `session` directly from the closure, so the freshly
+confirmed `PlacementSession` is available synchronously to decide whether to
+start Phase 2 in the same handler — safe here since `handleConfirm` only
+runs once per click and isn't racing other updates to `session`. (2) Kept a
+defensive (never-actually-reachable) `if (session.active === null) return
+null;` branch purely so TypeScript can narrow `session.active` to `Side` for
+the placement-UI code below it; documented in-code as unreachable given
+`handleConfirm`'s batching. Neither changes any behavior described in the
+story or plan.
 
 Deliver the visible entry into Phase 2. Build a new Phase-2 board component (e.g.
 `src/board/PlayBoard.tsx`, distinct from the placement `Board.tsx`) that renders

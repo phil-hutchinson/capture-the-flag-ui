@@ -1,0 +1,15 @@
+/* Phase 2 turn indicator (Step 7). Mirrors PlacementStatus.css's chrome. */
+
+.play-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+}
+
+.play-status__side {
+  font-weight: bold;
+}

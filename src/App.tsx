@@ -11,9 +11,16 @@ import {
   updateActivePlacement,
   type PlacementSession,
 } from "./board/placementSession.ts";
-import { SessionComplete } from "./board/SessionComplete.tsx";
+import { PlayBoard } from "./board/PlayBoard.tsx";
+import {
+  activateSquare,
+  startSession,
+  type PlaySession,
+} from "./board/playSession.ts";
+import { PlayStatus } from "./board/PlayStatus.tsx";
 import { Tray } from "./board/Tray.tsx";
 import { squareKey, type Square } from "./rules/primary/v1_1/board.ts";
+import { buildInitialGameState } from "./rules/primary/v1_1/gameState.ts";
 import {
   autoFill,
   clear,
@@ -74,20 +81,43 @@ type Selection =
 export function App() {
   const [session, setSession] = useState<PlacementSession>(() => newSession());
   const [selection, setSelection] = useState<Selection>(null);
+  // Story 00000004, Step 7: once both players confirm, the app auto-advances
+  // straight into Phase 2 - there is no intermediate "reveal armies" step.
+  // `playSession` is `null` throughout placement and is set exactly once, by
+  // `handleConfirm` below, the moment the second player confirms.
+  const [playSession, setPlaySession] = useState<PlaySession | null>(null);
 
-  if (session.active === null) {
-    // Both players have confirmed: this is the story's terminal, neutral
-    // "both armies ready" end state (Step 11 — Gate E). It never renders a
-    // `Board` or either player's `PlacementState`, so it reveals neither
-    // layout; SessionComplete separately surfaces the inspectable, versioned
-    // initial game-state artifact (Step 5) built from both final placements.
+  if (playSession !== null) {
+    // Phase 2: both armies are placed and fully visible on one board,
+    // oriented to whichever side is to move next (Step 4's `fullBoardRows`,
+    // re-evaluated on every render as `playSession.play.sideToMove`
+    // changes). All interaction - selecting a piece, moving it, and the turn
+    // hand-off - flows through `activateSquare` (Step 6); this component
+    // only turns a grid activation into that one call.
     return (
       <main className="app">
         <PieceSpriteDefs />
         <h1 className="app__title">{APP_NAME}</h1>
-        <SessionComplete white={session.white} black={session.black} />
+        <PlayStatus sideToMove={playSession.play.sideToMove} />
+        <PlayBoard
+          session={playSession}
+          onActivate={(square) =>
+            setPlaySession((current) =>
+              current ? activateSquare(current, square) : current,
+            )
+          }
+        />
       </main>
     );
+  }
+
+  if (session.active === null) {
+    // Unreachable in practice: `handleConfirm` always starts `playSession`
+    // in the very same event as advancing `session.active` to `null`, and
+    // React batches both updates into one render, so the branch above always
+    // handles that case first. Kept only so TypeScript can narrow
+    // `session.active` to `Side` below.
+    return null;
   }
 
   const activeSide = session.active;
@@ -169,7 +199,15 @@ export function App() {
   }
 
   function handleConfirm() {
-    setSession((current) => confirmActive(current));
+    const next = confirmActive(session);
+    setSession(next);
+    if (next.active === null) {
+      // Both players have now confirmed: build the versioned initial
+      // game-state artifact (story 00000001) and start Phase 2 immediately -
+      // per the owner's decision, there is no separate "reveal" gate.
+      const gameState = buildInitialGameState(next.white, next.black);
+      setPlaySession(startSession(gameState));
+    }
     setSelection(null);
   }
 
