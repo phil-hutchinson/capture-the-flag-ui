@@ -161,7 +161,10 @@ export function activateSquare(
     }
     const destinations = legalDestinations(play.board, selection);
     if (destinations.some((d) => squareKey(d) === squareKey(square))) {
-      return { play: applyMove(play, selection, square), selection: null };
+      return {
+        play: applyMove(play, selection, square).state,
+        selection: null,
+      };
     }
     if (isOwnMovablePiece(play.board, play.sideToMove, square)) {
       return { play, selection: square };

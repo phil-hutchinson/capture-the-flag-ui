@@ -45,7 +45,7 @@ describe("applyMove", () => {
   it("moves the piece, flips the side, and appends the A2A3 move string", () => {
     const initial = initialGameState([["D5", "white", "infantry"]]);
     const state = startPlay(initial);
-    const next = applyMove(
+    const { state: next, outcome } = applyMove(
       state,
       { column: "D", row: 5 },
       { column: "D", row: 4 },
@@ -55,6 +55,11 @@ describe("applyMove", () => {
     expect(next.board["D4"]).toEqual({ side: "white", pieceType: "infantry" });
     expect(next.sideToMove).toBe("black");
     expect(next.moves).toEqual(["D5D4"]);
+    expect(outcome).toEqual({
+      kind: "move",
+      piece: { side: "white", pieceType: "infantry" },
+      square: { column: "D", row: 4 },
+    });
   });
 
   it("does not mutate the input state", () => {
@@ -79,13 +84,25 @@ describe("applyMove", () => {
     ]);
     let state: PlayState = startPlay(initial);
 
-    state = applyMove(state, { column: "D", row: 5 }, { column: "D", row: 4 });
+    state = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    ).state;
     expect(state.sideToMove).toBe("black");
 
-    state = applyMove(state, { column: "D", row: 9 }, { column: "D", row: 10 });
+    state = applyMove(
+      state,
+      { column: "D", row: 9 },
+      { column: "D", row: 10 },
+    ).state;
     expect(state.sideToMove).toBe("white");
 
-    state = applyMove(state, { column: "D", row: 4 }, { column: "C", row: 4 });
+    state = applyMove(
+      state,
+      { column: "D", row: 4 },
+      { column: "C", row: 4 },
+    ).state;
     expect(state.sideToMove).toBe("black");
 
     expect(state.moves).toEqual(["D5D4", "D9D10", "D4C4"]);
@@ -123,7 +140,7 @@ describe("applyMove", () => {
     ).toThrow();
   });
 
-  it("throws when `to` is occupied", () => {
+  it("throws when `to` is occupied by a friendly piece", () => {
     const initial = initialGameState([
       ["D5", "white", "infantry"],
       ["D4", "white", "militia"],
@@ -133,6 +150,147 @@ describe("applyMove", () => {
     expect(() =>
       applyMove(state, { column: "D", row: 5 }, { column: "D", row: 4 }),
     ).toThrow();
+  });
+
+  it("throws when `to` is neither a legal destination nor a legal attack target", () => {
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D3", "black", "militia"],
+    ]);
+    const state = startPlay(initial);
+
+    // D3 is two squares away - out of range for both a move and an attack.
+    expect(() =>
+      applyMove(state, { column: "D", row: 5 }, { column: "D", row: 3 }),
+    ).toThrow();
+  });
+
+  describe("attacks", () => {
+    it("attacking a weaker piece removes the defender and advances the attacker (attacker wins)", () => {
+      const initial = initialGameState([
+        ["D5", "white", "champion"], // rank 2
+        ["D4", "black", "militia"], // rank 6
+      ]);
+      const state = startPlay(initial);
+      const { state: next, outcome } = applyMove(
+        state,
+        { column: "D", row: 5 },
+        { column: "D", row: 4 },
+      );
+
+      expect(next.board["D5"]).toBeUndefined();
+      expect(next.board["D4"]).toEqual({
+        side: "white",
+        pieceType: "champion",
+      });
+      expect(next.sideToMove).toBe("black");
+      expect(next.moves).toEqual(["D5D4"]);
+      expect(outcome).toEqual({
+        kind: "attack",
+        result: "attackerWins",
+        attacker: { side: "white", pieceType: "champion" },
+        defender: { side: "black", pieceType: "militia" },
+        square: { column: "D", row: 4 },
+        capture: true,
+        archerSupport: false,
+      });
+    });
+
+    it("attacking a stronger piece removes the attacker and leaves the defender (attacker loses)", () => {
+      const initial = initialGameState([
+        ["D5", "white", "militia"], // rank 6
+        ["D4", "black", "champion"], // rank 2
+      ]);
+      const state = startPlay(initial);
+      const { state: next, outcome } = applyMove(
+        state,
+        { column: "D", row: 5 },
+        { column: "D", row: 4 },
+      );
+
+      expect(next.board["D5"]).toBeUndefined();
+      expect(next.board["D4"]).toEqual({
+        side: "black",
+        pieceType: "champion",
+      });
+      expect(next.sideToMove).toBe("black");
+      expect(next.moves).toEqual(["D5D4"]);
+      expect(outcome).toEqual({
+        kind: "attack",
+        result: "attackerLoses",
+        attacker: { side: "white", pieceType: "militia" },
+        defender: { side: "black", pieceType: "champion" },
+        square: { column: "D", row: 4 },
+        capture: false,
+        archerSupport: false,
+      });
+    });
+
+    it("an equal-rank attack empties the square (mutual loss)", () => {
+      const initial = initialGameState([
+        ["D5", "white", "militia"],
+        ["D4", "black", "militia"],
+      ]);
+      const state = startPlay(initial);
+      const { state: next, outcome } = applyMove(
+        state,
+        { column: "D", row: 5 },
+        { column: "D", row: 4 },
+      );
+
+      expect(next.board["D5"]).toBeUndefined();
+      expect(next.board["D4"]).toBeUndefined();
+      expect(next.sideToMove).toBe("black");
+      expect(next.moves).toEqual(["D5D4"]);
+      expect(outcome).toEqual({
+        kind: "attack",
+        result: "mutualLoss",
+        attacker: { side: "white", pieceType: "militia" },
+        defender: { side: "black", pieceType: "militia" },
+        square: { column: "D", row: 4 },
+        capture: true,
+        archerSupport: false,
+      });
+    });
+
+    it("does not mutate the input state", () => {
+      const initial = initialGameState([
+        ["D5", "white", "champion"],
+        ["D4", "black", "militia"],
+      ]);
+      const state = startPlay(initial);
+      const originalBoard = state.board;
+
+      applyMove(state, { column: "D", row: 5 }, { column: "D", row: 4 });
+
+      expect(state.board).toBe(originalBoard);
+      expect(state.board["D5"]).toEqual({
+        side: "white",
+        pieceType: "champion",
+      });
+      expect(state.board["D4"]).toEqual({
+        side: "black",
+        pieceType: "militia",
+      });
+      expect(state.sideToMove).toBe("white");
+    });
+
+    it("renders an attack as a plain A2A3 move in the game record", () => {
+      const initial = initialGameState([
+        ["D5", "white", "champion"],
+        ["D4", "black", "militia"],
+      ]);
+      let state: PlayState = startPlay(initial);
+      state = applyMove(
+        state,
+        { column: "D", row: 5 },
+        { column: "D", row: 4 },
+      ).state;
+
+      const record = renderGameRecord(state);
+      expect(record).toContain("1. D5D4");
+      expect(record).not.toMatch(/D5D4[^\s]/);
+    });
   });
 });
 
@@ -156,8 +314,16 @@ describe("renderGameRecord", () => {
       ["D9", "black", "militia"],
     ]);
     let state: PlayState = startPlay(initial);
-    state = applyMove(state, { column: "D", row: 5 }, { column: "D", row: 4 });
-    state = applyMove(state, { column: "D", row: 9 }, { column: "D", row: 10 });
+    state = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    ).state;
+    state = applyMove(
+      state,
+      { column: "D", row: 9 },
+      { column: "D", row: 10 },
+    ).state;
 
     const record = renderGameRecord(state);
 
@@ -176,9 +342,21 @@ describe("renderGameRecord", () => {
       ["C5", "white", "militia"],
     ]);
     let state: PlayState = startPlay(initial);
-    state = applyMove(state, { column: "D", row: 5 }, { column: "D", row: 4 });
-    state = applyMove(state, { column: "D", row: 9 }, { column: "D", row: 10 });
-    state = applyMove(state, { column: "C", row: 5 }, { column: "C", row: 4 });
+    state = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    ).state;
+    state = applyMove(
+      state,
+      { column: "D", row: 9 },
+      { column: "D", row: 10 },
+    ).state;
+    state = applyMove(
+      state,
+      { column: "C", row: 5 },
+      { column: "C", row: 4 },
+    ).state;
 
     const record = renderGameRecord(state);
 

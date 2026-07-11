@@ -392,7 +392,36 @@ and no diagonal target ever appearing.
 
 ## Step 4 — Apply attacks in the play state and expose the outcome
 
-Status: pending
+Status: committed
+
+Notes: Extended `applyMove` in `src/rules/primary/v1_1/play.ts` to accept a
+destination among `legalAttacks` (Step 3) in addition to `legalDestinations`,
+resolving an attack via `resolveCombat` (Steps 1-2) and updating the board per
+the outcome (attacker wins removes the defender and advances the attacker;
+attacker loses removes the attacker; mutual loss removes both). The side
+still flips and the ply is still appended in the plain `A2A3` form with no
+combat markers in every case. `applyMove`'s signature changed from returning
+`PlayState` to returning `{ state: PlayState; outcome: PlyOutcome }`; a new
+exported discriminated union `PlyOutcome` was added
+(`{ kind: "attack" } & CombatOutcome` for a resolved attack, or
+`{ kind: "move"; piece: PlacedPiece; square: Square }` for a plain move with
+no attacker/defender/capture to report) so callers can pattern-match on
+`kind`. The illegal-move throw is preserved, now triggered when `to` is
+neither a legal destination nor a legal attack target. Updated
+`src/board/playSession.ts`'s sole call site to unwrap `.state` (its own
+behavior is otherwise unchanged - it does not yet offer attacks; that is
+Step 5's job) so the build stays green per the plan's instruction. Extended
+`src/rules/primary/v1_1/play.test.ts` with an `attacks` sub-describe covering
+all three outcomes, the outcome's exact shape (including `archerSupport`),
+no-mutation of the input state, plain-`A2A3` rendering of an attack in
+`renderGameRecord`, and an illegal-target throw; updated existing move tests
+for the new `{ state, outcome }` return shape. No behavioral deviations from
+the plan; the `PlyOutcome` union shape was a judgment call within the plan's
+"recommended shape ... or an equivalently clear record" latitude, chosen
+because `CombatOutcome`'s fields are all non-optional and can't represent "no
+defender, no capture" without an artificial value. `npm run typecheck`,
+`npm run lint`, `npm test` (200 tests, 14 files), and `npm run format:check`
+all pass (prettier reformatted `play.ts` after the edit, no content change).
 
 Extend `src/rules/primary/v1_1/play.ts` so move application handles **attacks**
 as well as plain moves, and **exposes the resolved outcome** to callers.
