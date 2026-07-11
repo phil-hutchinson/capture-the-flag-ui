@@ -277,9 +277,17 @@ when the last move was White's).
 
 ## Step 4 — Full-board screen-orientation geometry
 
-Status: pending
+Status: committed
 
-Notes:
+Notes: Added `fullBoardRows(side)` to `src/board/boardView.ts`, returning the
+full 12-row order (White: 12...1 top-to-bottom; Black: 1...12), reusing
+`ROWS` from `board.ts`; left `visibleRows`/`visibleColumns` untouched. A
+Phase-2 renderer pairs `fullBoardRows(side)` with the existing
+`visibleColumns(side)` to draw all 144 squares oriented per side. Added
+tests to `src/board/boardView.test.ts` covering the row order for each side,
+that every row appears exactly once, that combining with `visibleColumns`
+covers all 144 unique squares per side, and column order per side. No
+deviations from the plan.
 
 Extend `src/board/boardView.ts` (pure, no React) with the **full 12×12**
 orientation for Phase 2, alongside the existing cropped `visibleRows` /
