@@ -389,7 +389,36 @@ enemy Tower runs through a lake is unavailable).
 
 ## Step 2 — The Flag becomes capturable (attack targeting & combat resolution)
 
-Status: pending
+Status: committed
+
+Notes: `movement.ts`'s `isLegalAttackTarget` no longer rejects a Flag
+defender (only a friendly piece is excluded now), so an enemy Flag is
+offered wherever the existing adjacency/charge/rush geometry already
+allows an attack; doc comments on `isLegalAttackTarget` and `legalAttacks`
+updated to describe the new behavior. `combat.ts`'s `baseResult` gained a
+Flag-defender case (`attackerWins`, no rank comparison) placed before the
+Assassin/Tower/rank-table paths, and `resolveCombat` suppresses Archer
+support whenever the defender is a Flag (`defender.pieceType !== "flag"`
+guards the `archerSupportFires` call), so an Archer behind the Flag never
+flips the capture to a mutual loss. Extended `movement.test.ts` (Flag
+offered to a baseline piece and an Assassin adjacent; friendly Flag never
+offered; Knight charge onto a Flag at distance 2/3, cut short by a blocker
+and by a lake; Skirmisher rush onto a Flag at distance 1/2/3, cut short by
+a blocker) and `combat.test.ts` (Militia/Assassin/charging-Knight/Sapper
+all win outright against a Flag with `capture: true`/`archerSupport:
+false`; three Archer-behind-the-Flag cases confirming support never fires
+for a Militia's ordinary attack, a Knight's charge, and an attacking
+Assassin). Deviation from the plan: fixing an obsolete pre-existing test in
+`src/board/playSession.test.ts` ("a Flag square is never offered as an
+attack target") was necessary because it asserted story 00000005's
+excluded-Flag behavior, which this step deliberately changes; updated it
+to assert the Flag is now offered and attackable (renamed accordingly).
+This file/test isn't named in Step 2's own file list but the change is a
+direct, unavoidable consequence of the `movement.ts` change and required
+`npm test` to pass; no other files touched. No other deviations. `npm run
+typecheck`, `npm run lint`, `npm test` (242 tests, 15 files), and `npm run
+format:check` all pass (ran `prettier --write` on the new movement.test.ts
+content to satisfy formatting).
 
 Make the enemy Flag an attackable square in the **rule layer**, so it is offered
 and resolved through story 00000005's existing attack pathway rather than a

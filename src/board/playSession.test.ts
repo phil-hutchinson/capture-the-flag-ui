@@ -385,7 +385,7 @@ describe("attacks - offered alongside moves, distinguishable", () => {
     expect(attackTargets(selected)).toEqual([]);
   });
 
-  it("a Flag square is never offered as an attack target, even though it is enemy-occupied", () => {
+  it("an enemy Flag square is offered as an attack target (story 00000006 - the Flag is now capturable)", () => {
     const session = startSession(
       initialGameState([
         ["D5", "white", "infantry"],
@@ -393,11 +393,11 @@ describe("attacks - offered alongside moves, distinguishable", () => {
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
-    expect(actionableSquares(selected)).not.toContainEqual(sq("E", 5));
-    expect(attackTargets(selected)).toEqual([]);
-    // The piece's other, empty-square destinations remain available.
+    expect(actionableSquares(selected)).toContainEqual(sq("E", 5));
+    expect(attackTargets(selected)).toEqual([sq("E", 5)]);
+    // The piece's other, empty-square destinations remain available too.
     expect(sortedKeys(actionableSquares(selected))).toEqual(
-      ["C5", "D4", "D6"].sort(),
+      ["C5", "D4", "D6", "E5"].sort(),
     );
   });
 });

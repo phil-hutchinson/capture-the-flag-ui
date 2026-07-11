@@ -73,8 +73,13 @@ function distance(from: Square, to: Square): number {
  * The non-Archer base result of `attacker` (on `from`) attacking `defender`
  * (on `to`), per rules.md §4.3's rank table and special cases:
  *
+ * - Flag defending: always falls (attacker wins), whatever the attacker -
+ *   §6.1's flag capture, combat's simplest case. No rank comparison, and
+ *   (per `resolveCombat`) never Archer-supported.
  * - Assassin attacking: always wins, including Assassin-vs-Assassin -
  *   *except* attacking a Tower, where the Assassin is destroyed instead.
+ *   (A Flag defender is handled above, before this case is reached, so an
+ *   attacking Assassin also always wins against a Flag.)
  * - Assassin defending (against a non-Assassin attacker): the attacker
  *   always wins.
  * - Tower defending: only a Sapper destroys it (attacker wins); any other
@@ -90,6 +95,10 @@ function baseResult(
   from: Square,
   to: Square,
 ): CombatResult {
+  if (defender.pieceType === "flag") {
+    return "attackerWins";
+  }
+
   if (attacker.pieceType === "assassin") {
     return defender.pieceType === "tower" ? "attackerLoses" : "attackerWins";
   }
@@ -191,7 +200,10 @@ function archerSupportFires(
  * bystander and is not removed). Support extends to a supported Tower
  * (which then trades with the Sapper demolishing it) and does not make an
  * attacking Assassin immune - both follow automatically, since each starts
- * as an attacker-wins base result that support flips to mutual.
+ * as an attacker-wins base result that support flips to mutual. The **Flag
+ * is never Archer-supported** (§6.1, story 00000006) - an Archer standing
+ * behind the Flag never flips a Flag capture into a trade, however the
+ * geometry lines up.
  *
  * A legal attack always has a piece on both `from` and `to` (see
  * `legalAttacks`, Step 3); this is a programming-invariant function like
@@ -217,7 +229,9 @@ export function resolveCombat(
 
   const base = baseResult(attacker, defender, from, to);
   const archerSupport =
-    base === "attackerWins" && archerSupportFires(board, from, to, defender);
+    base === "attackerWins" &&
+    defender.pieceType !== "flag" &&
+    archerSupportFires(board, from, to, defender);
   const result = archerSupport ? "mutualLoss" : base;
 
   return {

@@ -119,13 +119,15 @@ function maxAttackDistance(pieceType: PieceTypeId): number {
 /**
  * True if the piece occupying an attack ray's first blocking square,
  * `occupant`, is a legal attack target for a piece of `pieceType` and `side`
- * attacking at `distance` squares away. Never a friendly piece, never a Flag
- * (the Flag is not attackable in this story - see story.md's Design
- * decisions). A Knight may not charge (attack at distance 2 or 3) a
- * Halberdier - it must attack one from adjacent, per §4.3's anti-charge rule
- * - but every other combination of piece type, distance, and enemy type is a
- * legal target (including a Knight's adjacent attack on a Halberdier, and a
- * Skirmisher's rush onto any enemy type).
+ * attacking at `distance` squares away. Never a friendly piece - that
+ * includes a friendly Flag, which (being immobile) is never itself an
+ * attacker but is a legal target for the enemy (story 00000006 - capturing
+ * it wins the game, see combat.ts's Flag defender case). A Knight may not
+ * charge (attack at distance 2 or 3) a Halberdier - it must attack one from
+ * adjacent, per §4.3's anti-charge rule - but every other combination of
+ * piece type, distance, and enemy type is a legal target (including a
+ * Knight's adjacent attack on a Halberdier, a Knight's charge onto an enemy
+ * Flag, and a Skirmisher's rush onto any enemy type, including the Flag).
  */
 function isLegalAttackTarget(
   occupant: PlacedPiece,
@@ -133,7 +135,7 @@ function isLegalAttackTarget(
   pieceType: PieceTypeId,
   distance: number,
 ): boolean {
-  if (occupant.side === side || occupant.pieceType === "flag") {
+  if (occupant.side === side) {
     return false;
   }
   if (
@@ -156,8 +158,9 @@ function isLegalAttackTarget(
  * Skirmisher's rush), stopping at - and only offering as a target - the
  * first piece encountered along the ray (a lake also stops the ray, but is
  * never itself a target, since a lake never holds a piece). A Knight may not
- * charge (distance >= 2) onto a Halberdier. The Flag is never offered as a
- * target. Never diagonal, never off-board.
+ * charge (distance >= 2) onto a Halberdier. An **enemy** Flag is offered like
+ * any other enemy piece (story 00000006 - capturing it wins the game); a
+ * **friendly** Flag is never a target. Never diagonal, never off-board.
  */
 export function legalAttacks(board: BoardState, origin: Square): Square[] {
   const occupant = board[squareKey(origin)];
