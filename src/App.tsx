@@ -11,6 +11,7 @@ import {
   updateActivePlacement,
   type PlacementSession,
 } from "./board/placementSession.ts";
+import { describeActivation } from "./board/playAnnouncement.ts";
 import { PlayBoard } from "./board/PlayBoard.tsx";
 import {
   activateSquare,
@@ -86,6 +87,14 @@ export function App() {
   // `playSession` is `null` throughout placement and is set exactly once, by
   // `handleConfirm` below, the moment the second player confirms.
   const [playSession, setPlaySession] = useState<PlaySession | null>(null);
+  // Story 00000004, Step 9 (Gate D): text pushed into the board's polite live
+  // region. Derived from the session immediately before and after each
+  // activation via `describeActivation`, so a screen reader hears the piece
+  // just selected (and how many moves it has), the move just made and where
+  // it went, and whose turn it now is - the turn hand-off is announced here
+  // rather than by `PlayStatus` (a plain visual indicator) so it is never
+  // announced twice from two different live regions.
+  const [playAnnouncement, setPlayAnnouncement] = useState("");
 
   if (playSession !== null) {
     // Phase 2: both armies are placed and fully visible on one board,
@@ -93,7 +102,14 @@ export function App() {
     // re-evaluated on every render as `playSession.play.sideToMove`
     // changes). All interaction - selecting a piece, moving it, and the turn
     // hand-off - flows through `activateSquare` (Step 6); this component
-    // only turns a grid activation into that one call.
+    // only turns a grid activation into that one call (plus deriving the
+    // live-region announcement for it).
+    const handlePlayActivate = (square: Square) => {
+      const next = activateSquare(playSession, square);
+      setPlaySession(next);
+      setPlayAnnouncement(describeActivation(playSession, next, square));
+    };
+
     return (
       <main className="app">
         <PieceSpriteDefs />
@@ -101,11 +117,8 @@ export function App() {
         <PlayStatus sideToMove={playSession.play.sideToMove} />
         <PlayBoard
           session={playSession}
-          onActivate={(square) =>
-            setPlaySession((current) =>
-              current ? activateSquare(current, square) : current,
-            )
-          }
+          announcement={playAnnouncement}
+          onActivate={handlePlayActivate}
         />
       </main>
     );

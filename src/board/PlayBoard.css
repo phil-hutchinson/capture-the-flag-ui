@@ -42,13 +42,13 @@
   background: rgba(43, 33, 24, 0.14);
 }
 
-.play-board__square--actionable {
-  /* An own movable piece (nothing selected) or a legal destination for the
-     selected piece - the squares playSession.ts currently offers. The fill
-     (in addition to the border) makes actionable squares easy to spot at a
-     glance across the full 12x12 board, whether they hold a piece to pick up
-     or are an empty square to move to. */
-  box-shadow: inset 0 0 0 3px var(--focus-ring);
+.play-board__square--destination {
+  /* A legal destination for the piece currently picked up. A background tint
+     only - deliberately no border, so the amber *border* stays reserved for
+     the keyboard-focus ring (AccessibleGrid.css) and a destination never
+     reads as a focused square. The fill alone still makes destinations easy
+     to spot at a glance across the full 12x12 board, whether they hold an
+     opponent piece to capture or are an empty square to move to. */
   background: rgba(255, 183, 3, 0.22);
 }
 

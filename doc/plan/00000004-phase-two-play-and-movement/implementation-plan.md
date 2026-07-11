@@ -599,9 +599,98 @@ them.
 
 ## Step 9 — Accessible movement verification (keyboard and screen reader)
 
-Status: pending
+Status: committed
 
-Notes:
+Notes: Reviewed Steps 5-8's existing wiring and confirmed keyboard/focus
+behavior needed no changes (Tab reaches the roving-tabindex cell, arrow keys
+move one cell in screen space and clamp at every edge with no wraparound
+since `PlayBoard` marks every cell `focusable: true`, Enter/Space activates
+via `AccessibleGrid`'s existing handler, and `AccessibleGrid.css`'s
+`--focus-ring` outline is always visible on the focused cell) - so the only
+real gap was live-region wiring: nothing was pushing text into
+`AccessibleGrid`'s `announcement` prop. Added
+`src/board/playAnnouncement.ts` (`describeActivation(before, after,
+square)`, pure, no React) that derives the Gate D announcement sentence from
+a `PlaySession` transition: selecting/switching a selection announces
+"{Red|Blue} {Piece} selected, N move(s) available."; completing a move
+announces "{Red|Blue} {Piece} moved to {square}. {Red|Blue} to move." (the
+whose-turn sentence is appended here, deliberately the only place turn
+information is pushed to assistive technology, so `PlayStatus` stays a plain
+visual indicator and nothing is announced twice); reactivating the selected
+square announces "{Red|Blue} {Piece} deselected."; a no-op activation (not
+reachable through the UI, since only actionable cells can be activated)
+returns "" rather than throwing. Added colocated `playAnnouncement.test.ts`
+(8 tests) covering every case, including singular "1 move available"
+wording and both sides' color names. Wired it into `App.tsx`: added a
+`playAnnouncement` state string, and the Phase-2 `onActivate` handler now
+computes `describeActivation(playSession, next, square)` alongside applying
+`activateSquare`, passing the result to a new `PlayBoard` `announcement`
+prop, which forwards it to `AccessibleGrid`. Ran `npm run typecheck`, `npm
+run lint`, `npm test` (144 tests, all passing, 8 new), `npm run
+format:check`, and `npm run build` - all pass. Gate D itself is manual and
+was not run here - see the owner's manual verification.
+
+Follow-up fix (owner-requested, folded into this step): while reviewing the
+wiring above, found that `playSession.ts`'s "activate a different own
+movable piece switches the selection" and "reactivate the selected piece to
+deselect it" behaviors (tested at the state-machine level in
+`playSession.test.ts`, Steps 6/8) were not reachable through the UI, because
+`PlayBoard.tsx` only marked a selected piece's _legal destinations_ as
+`actionable` when something was selected - not the selected piece itself,
+nor the side's other own movable pieces. The owner asked for these gestures
+(switch-selection was explicitly requested and folded into Step 8; deselect
+should work too) to be made reachable as part of this step. Fixed by adding
+`activatableSquares(session)` to `playSession.ts`: the exact set of squares
+for which `activateSquare` would return a different session (own movable
+pieces - which already includes the currently selected piece, since it was
+only selectable because it is one, which is what makes deselect reachable -
+unioned with the selected piece's legal destinations when something is
+selected; reuses the existing `isOwnMovablePiece` predicate rather than
+duplicating it). Added 6 colocated tests in `playSession.test.ts` (150
+tests project-wide) covering nothing-selected, a piece selected (own movable
+incl. the selected square, union destinations), and exclusion of immobile
+own pieces, opponent pieces, and non-destination empties. `PlayBoard.tsx`
+now uses `activatableSquares` for each cell's `GridCellDescriptor.actionable`
+(the accessible grid's click/Enter/Space activation gate), while continuing
+to use the original `actionableSquares` for the `--selected`/`--actionable`
+visual highlight classes only - so highlighting is unchanged, but switching
+selection and deselecting now work by both mouse and keyboard.
+`playAnnouncement.ts`'s `describeActivation` needed no changes: it already
+handled the selection-switched and deselected cases (added in the base Step
+9 work above), and now actually fires for them since `onActivate` is
+invoked. Re-ran `npm run typecheck`, `npm run lint`, `npm test` (150 tests,
+all passing), `npm run format:check`, and `npm run build` - all pass.
+
+Gate D result (owner-run manual verification): PASSED. Keyboard-only play
+works end to end - Tab reaches the board, arrow keys move the focus one cell
+in screen space and clamp at edges, Enter/Space selects and moves, and focus
+is not trapped (Tab leaves the board). With a screen reader (Windows
+Narrator), the polite live region announces the selected piece and its move
+count, the move made and its destination, and whose turn it is. Note: as a
+`role="grid"` composite widget the board owns the arrow keys, so the screen
+reader must be in focus mode (Narrator: Caps Lock + Space to leave scan mode;
+NVDA auto-switches on entering a grid) for arrow navigation to reach the
+board - expected ARIA-grid behavior, not an app defect.
+
+Gate D polish (folded into this step): manual testing surfaced two focus/
+highlight issues, both fixed. (1) The keyboard-focus ring was invisible:
+`AccessibleGrid.css` drew it as an `outline` with a negative `outline-offset`
+on the cell, which the consumer's positioned, background-filled child
+(`.play-board__square`) painted over, leaving no visible ring. Replaced with
+an overlay `::after` pseudo-element (a later-painted, higher-`z-index`
+sibling of the cell content) so the ring always lands on top. (2) At the
+owner's request the visual model was simplified so the amber _border_ is
+reserved exclusively for keyboard focus: the ring now shows only on
+`:focus-visible` (no ring on load or on mouse focus; the roving target still
+updates on click so arrow keys continue from there); own movable pieces are
+no longer highlighted when nothing is selected; and a selected piece's legal
+destinations use a background tint only, no border. CSS class
+`.play-board__square--actionable` renamed to `--destination` and the
+`PlayBoard` cell prop `actionable` renamed to `destination` to match the
+narrowed meaning (`GridCellDescriptor.actionable`, the grid's activation
+gate, is unrelated and unchanged, so every own movable piece is still
+clickable/Enter-able even without a highlight). Re-ran `npm run typecheck`,
+`npm run lint`, and `npm test` (150 tests, all passing) - all pass.
 
 Accessibility is built into Steps 5–8 (the board is operated only through the
 accessible grid — there is no separate mouse-only movement path). This step is the

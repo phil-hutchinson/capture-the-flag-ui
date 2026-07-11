@@ -11,14 +11,21 @@
 // (clicked, or Enter/Space on the focused cell) - it never calls `applyMove`
 // directly and never decides for itself whether a square is legal. That
 // keeps illegal moves structurally unrepresentable, mirroring the placement
-// flow: `actionableSquares` tells the UI exactly which cells are highlighted
-// as legal for the current selection state (own movable pieces when nothing
-// is selected, the selected piece's legal destinations once one is).
-// `activateSquare` additionally accepts activating any *other* own movable
-// piece while one is already selected - even though it is not itself in
-// `actionableSquares` - by switching the selection to it rather than moving.
-// Any other activation - an opponent's piece, an immobile own piece, a lake,
-// an empty non-destination square - is a no-op.
+// flow: `actionableSquares` tells the UI exactly which cells are
+// *highlighted* as legal for the current selection state (own movable
+// pieces when nothing is selected, the selected piece's legal destinations
+// once one is) - this drives the board's visual highlight styling only.
+// `activateSquare` accepts a strictly larger set of squares than that
+// highlight set: while a piece is selected, reactivating that same piece
+// (deselect) and activating any *other* own movable piece (switch
+// selection) are also not no-ops, even though neither is a highlighted
+// destination. `activatableSquares` is the exact set of squares for which
+// `activateSquare` would return a different session - the UI (`PlayBoard`)
+// uses it, not `actionableSquares`, to decide which cells actually respond
+// to a click or Enter/Space, so deselect and switch-selection are reachable
+// by mouse and keyboard alike. Any square outside both sets - an opponent's
+// piece, an immobile own piece, a lake, an empty non-destination square - is
+// a no-op.
 //
 // Passing is never an operation: there is no "skip turn" here. If the side
 // to move has no legal move at all, `actionableSquares` simply returns an
@@ -94,6 +101,32 @@ export function actionableSquares(session: PlaySession): Square[] {
   return allSquares().filter((square) =>
     isOwnMovablePiece(play.board, play.sideToMove, square),
   );
+}
+
+/**
+ * The set of squares whose activation is *not* a no-op right now - i.e.
+ * exactly the squares for which `activateSquare(session, square)` returns a
+ * different session. This is a superset of `actionableSquares` while a piece
+ * is selected: it is the side-to-move's own movable pieces (which includes
+ * the currently selected piece itself, since it was only selectable because
+ * it is one - reactivating it is how deselection is reached) unioned with
+ * the selected piece's legal destinations. With nothing selected it is
+ * exactly the side-to-move's own movable pieces, same as `actionableSquares`.
+ * The UI (`PlayBoard.tsx`) uses this - not `actionableSquares` - to decide
+ * which cells respond to a click or Enter/Space, so switching the selection
+ * to a different own piece and deselecting the current one are reachable by
+ * mouse and keyboard alike; `actionableSquares` continues to drive only the
+ * visual highlight.
+ */
+export function activatableSquares(session: PlaySession): Square[] {
+  const { play, selection } = session;
+  const ownMovable = allSquares().filter((square) =>
+    isOwnMovablePiece(play.board, play.sideToMove, square),
+  );
+  if (selection === null) {
+    return ownMovable;
+  }
+  return [...ownMovable, ...legalDestinations(play.board, selection)];
 }
 
 /**

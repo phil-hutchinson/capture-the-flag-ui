@@ -9,6 +9,7 @@ import type {
 import type { PieceTypeId } from "../rules/primary/v1_1/pieces.ts";
 import {
   actionableSquares,
+  activatableSquares,
   activateSquare,
   startSession,
   type PlaySession,
@@ -77,6 +78,83 @@ describe("actionableSquares - nothing selected", () => {
     );
     expect(() => actionableSquares(session)).not.toThrow();
     expect(actionableSquares(session)).toEqual([]);
+  });
+});
+
+describe("activatableSquares - nothing selected", () => {
+  it("matches actionableSquares: exactly the side-to-move's own movable pieces", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["E5", "white", "tower"], // own, but immobile - excluded
+        ["D9", "black", "militia"], // opponent - excluded
+      ]),
+    );
+    expect(sortedKeys(activatableSquares(session))).toEqual(["D5"]);
+  });
+
+  it("excludes an immobile own piece (Tower/Flag) even though it belongs to the side to move", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["E5", "white", "tower"],
+        ["F5", "white", "flag"],
+      ]),
+    );
+    expect(sortedKeys(activatableSquares(session))).toEqual(["D5"]);
+  });
+
+  it("excludes an opponent's piece", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["D9", "black", "militia"],
+      ]),
+    );
+    expect(activatableSquares(session)).not.toContainEqual(sq("D", 9));
+  });
+
+  it("excludes an empty non-destination square", () => {
+    const session = startSession(
+      initialGameState([["D5", "white", "infantry"]]),
+    );
+    expect(activatableSquares(session)).not.toContainEqual(sq("H", 8));
+  });
+});
+
+describe("activatableSquares - a piece selected", () => {
+  it("is the side's own movable pieces (including the selected one) union the selected piece's legal destinations", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["H5", "white", "infantry"],
+        ["D9", "black", "militia"],
+        ["E5", "white", "tower"], // own, immobile - excluded
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+
+    // Own movable pieces: D5 (the selected piece itself - this is what makes
+    // reactivating it to deselect reachable) and H5. Plus D5's own legal
+    // destinations (C5, D4, D6 - E5 is occupied by the Tower).
+    expect(sortedKeys(activatableSquares(selected))).toEqual(
+      ["D5", "H5", "C5", "D4", "D6"].sort(),
+    );
+  });
+
+  it("still excludes an immobile own piece and an opponent's piece", () => {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["H5", "white", "tower"],
+        ["D9", "black", "militia"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+    const keys = activatableSquares(selected);
+
+    expect(keys).not.toContainEqual(sq("H", 5));
+    expect(keys).not.toContainEqual(sq("D", 9));
   });
 });
 
