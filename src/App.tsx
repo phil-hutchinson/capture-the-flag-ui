@@ -11,6 +11,7 @@ import {
   updateActivePlacement,
   type PlacementSession,
 } from "./board/placementSession.ts";
+import { SessionComplete } from "./board/SessionComplete.tsx";
 import { Tray } from "./board/Tray.tsx";
 import { squareKey, type Square } from "./rules/primary/v1_1/board.ts";
 import {
@@ -75,17 +76,16 @@ export function App() {
   const [selection, setSelection] = useState<Selection>(null);
 
   if (session.active === null) {
-    // Both players have confirmed. Step 11 builds the actual neutral
-    // "both armies ready" end state and the inspectable game-state artifact
-    // on top of this; this is a minimal placeholder so the hand-off flow
-    // this step adds has somewhere to land instead of dead-ending.
+    // Both players have confirmed: this is the story's terminal, neutral
+    // "both armies ready" end state (Step 11 — Gate E). It never renders a
+    // `Board` or either player's `PlacementState`, so it reveals neither
+    // layout; SessionComplete separately surfaces the inspectable, versioned
+    // initial game-state artifact (Step 5) built from both final placements.
     return (
       <main className="app">
         <PieceSpriteDefs />
         <h1 className="app__title">{APP_NAME}</h1>
-        <p className="app__complete-notice">
-          Both players have placed their armies. Setup is complete.
-        </p>
+        <SessionComplete white={session.white} black={session.black} />
       </main>
     );
   }

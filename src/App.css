@@ -29,10 +29,3 @@
      this width instead. */
   width: min-content;
 }
-
-.app__complete-notice {
-  /* Minimal placeholder for the session-complete state (Step 10); Step 11
-     replaces this with the real neutral "both armies ready" end state and
-     the inspectable game-state artifact. */
-  font-style: italic;
-}

@@ -659,7 +659,35 @@ trace of White's pieces.
 
 ### Step 11 — End-to-end session, end state & inspectable artifact — Gate E
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/SessionComplete.tsx` + `.css`, rendered by
+`src/App.tsx` in place of Step 10's minimal placeholder whenever
+`session.active === null` (both players have confirmed). It never renders a
+`Board` or either side's raw `PlacementState`, so the screen stays neutral
+and reveals neither layout — it only shows the fixed "Both players have
+placed their armies. Setup is complete." notice. Below that, it builds the
+Step 5 artifact via `buildInitialGameState(session.white, session.black)`
+(memoized with `useMemo`) and surfaces it as a developer-facing affordance:
+a collapsed `<details>` disclosure (`"Developer: inspect initial game
+state"`) containing the `ruleset` tag (`PRIMARY:1.1`), the position-block
+text render (`renderPositionBlock`), and a read-only `<textarea>` holding
+the full `JSON.stringify(gameState, null, 2)` (selectable/copyable natively,
+satisfying the story's "view/copy" wording without adding a Clipboard-API
+button); the same artifact is also `console.log`ged once per game-state
+change via `useEffect`, giving a second, always-available inspection path.
+Removed the now-unused `.app__complete-notice` CSS rule from `App.css`
+(superseded by `SessionComplete.css`). `npm run typecheck`, `npm run lint`,
+`npm test` (73 tests, unchanged — this step is pure React wiring over the
+already-unit-tested Step 5 serializer, same rationale as Steps 8-10), `npm
+run build`, and `npm run format:check` all pass (the two pre-existing
+markdown warnings on this story's own `story.md`/`implementation-plan.md`
+predate this step, per Steps 4-10's notes); confirmed `npm run dev` serves
+the app at HTTP 200. No deviations from the plan. Gate E remains for the
+owner to confirm manually: a full run-through (White places/confirms, Black
+places/confirms, landing on this neutral end state with neither layout
+rendered) and that the disclosed artifact is inspectable, tagged
+`PRIMARY:1.1`, and matches the two armies just placed.
 
 Complete the flow: after the second player (Black) confirms a complete army, land
 on a neutral **"both armies ready"** end state that reveals **neither** layout
