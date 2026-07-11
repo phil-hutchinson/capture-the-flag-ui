@@ -310,7 +310,28 @@ Session/UI layer, `src/board/`:
 
 ## Step 1 — Structural reachability & the Unbreachable-Flag inputs
 
-Status: pending
+Status: committed
+
+Notes: Added `src/rules/primary/v1_1/reachability.ts` exporting
+`computeUnbreachableFlagInputs(board)`, returning the four-boolean
+`UnbreachableFlagInputs` record (`whiteFlagEnclosed`, `blackFlagEnclosed`,
+`whiteSappersAvailable`, `blackSappersAvailable`) exactly per the plan's
+semantics: one wall set (lakes + intact Towers/Flags of both sides, mobile
+pieces ignored), a flood-fill enclosure check from the Flag square (itself
+the wall-exempt start) that fails iff the region touches the opponent's home
+zone, and a BFS-per-Sapper reachability check where the opponent Tower square
+counts as reached even though it is itself a wall. A side with no Flag on the
+board reports `false` rather than throwing (no Flag present in these
+hand-built fixtures is possible even though it can't happen in real
+`BoardState`s from `buildInitialGameState`). Added
+`src/rules/primary/v1_1/reachability.test.ts` covering every case the step's
+verification lists (corner enclosure, one-Tower-removed non-enclosure, open
+Flag, no-Flag side, both-sides independence, sealed/unsealed Sapper,
+zero-Sapper side, adjacent-enemy-Tower-as-target, mobile pieces not blocking,
+and a lake completing a wall). No deviations from the plan. `npm run
+typecheck`, `npm run lint`, and `npm test` all pass (228 tests, 15 files);
+`npm run format:check` also clean after a Prettier pass on the new test
+file.
 
 Add a new versioned module `src/rules/primary/v1_1/reachability.ts` (pure, no
 React) implementing **§5 structural reachability** and the four inputs the
