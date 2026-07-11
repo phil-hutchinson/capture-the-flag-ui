@@ -828,7 +828,15 @@ board).
 
 ## Step 12 — Move record with attacks (Gate F)
 
-Status: pending
+Status: committed
+
+Notes: Verification-only — no code changes needed. Gate F passed on manual
+testing (owner, 2026-07-11): a sequence mixing plain moves and attacks of each
+outcome type records every ply in the plain A2A3 form (no separators, no
+combat markers) with the ruleset version PRIMARY:1.1, and replaying those
+plies against the rules reproduces the board shown — confirming the record
+remains sufficient for future replay. renderGameRecord from Step 4/00000004
+was correct; no polish required.
 
 Attacks are recorded in the same plain `A2A3` form with no combat markers
 (Step 4) and `renderGameRecord` (00000004) surfaces them in the developer
