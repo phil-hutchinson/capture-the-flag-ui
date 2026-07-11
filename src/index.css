@@ -9,6 +9,11 @@
   --ink: #2b2118;
   --side-a: #a13d2b;
   --side-b: #33526b;
+  /* Keyboard-focus ring color for the accessible grid (story 00000004,
+     Step 5, src/board/grid/) and any other interactive control that needs a
+     clearly visible focus indicator. Chosen to contrast with both side
+     colors and the parchment background. */
+  --focus-ring: #ffb703;
 }
 
 body {

@@ -1,0 +1,82 @@
+/* Generic accessible grid (story 00000004, Step 5). No board/piece geometry
+   here - `.accessible-grid` only establishes a CSS grid box; the consumer
+   supplies row/column sizing (e.g. grid-template-columns, --square) via its
+   own `className` on the same element. `.accessible-grid__row` is
+   `display: contents` so the `role="row"` wrapper divs required by the ARIA
+   grid pattern don't break CSS Grid layout - their `role="gridcell"`
+   children still lay out as direct grid items. This file otherwise only
+   covers the interaction chrome shared by any consumer: a visible,
+   high-contrast focus ring shown only while a cell is *keyboard*-focused,
+   and a visually-hidden live region. */
+
+.accessible-grid__wrapper {
+  /* Groups the grid and its live region so the `role="status"` region can be
+     a sibling of (not a child of) the `role="grid"` element - required by
+     ARIA. `display: contents` means this wrapper generates no box, so the
+     grid lays out exactly as if it were still the top-level element. */
+  display: contents;
+}
+
+.accessible-grid {
+  display: grid;
+}
+
+.accessible-grid__row {
+  display: contents;
+}
+
+.accessible-grid__cell {
+  /* Positioning context for the focus-ring overlay below. */
+  position: relative;
+}
+
+.accessible-grid__cell:focus {
+  /* We draw our own ring on `:focus-visible` below; suppress the UA default
+     outline so mouse focus shows nothing and keyboard focus shows only our
+     ring. */
+  outline: none;
+}
+
+.accessible-grid__cell:focus-visible::after {
+  /* The keyboard-focus ring. Gated on `:focus-visible` (not the roving
+     `--focused` class, nor plain `:focus`) so it appears *only* while the
+     player is navigating with the keyboard: it never shows on load, and a
+     mouse click that focuses a cell draws no ring - the amber border is thus
+     reserved exclusively for keyboard focus, distinct from the fills that
+     mark selection (dark ink) and legal destinations (amber tint) in the
+     consumer's own styles. `:focus-visible` also matches the programmatic
+     `.focus()` the grid runs on arrow-key navigation, since that follows a
+     keydown.
+
+     Drawn as an overlay pseudo-element rather than an `outline`: the
+     consumer's cell content can be a positioned child with its own
+     background (e.g. PlayBoard's `.play-board__square`, which is
+     `position: relative` + a `background`), and such a child paints *over* a
+     negatively-offset outline on this cell, leaving the focused cell with no
+     visible ring at all. This overlay is a later-painted, higher-`z-index`
+     sibling of that content, so the ring always lands on top. `inset: 0` +
+     an inset border reproduces the "drawn just inside the cell" look (stays
+     visible even on cells that clip their own contents); `pointer-events:
+     none` keeps clicks passing through to the cell. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid var(--focus-ring, #ffb703);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Visually hidden but still announced by assistive technology - the
+   standard "sr-only" pattern. The consumer pushes short strings into this
+   region via the `announcement` prop. */
+.accessible-grid__live-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
