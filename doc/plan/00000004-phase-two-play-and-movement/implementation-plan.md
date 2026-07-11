@@ -224,9 +224,28 @@ occupied square).
 
 ## Step 3 — Replay-anticipating game-record rendering
 
-Status: pending
+Status: committed
 
-Notes:
+Notes: Confirmed the "Record file format" against the companion repository's
+live `doc/ruleset/technical-notes.md` (fetched via raw.githubusercontent.com):
+header tags use PGN `[Name "value"]` syntax, the position block is always the
+*starting* position, and the move sequence is `N. WhiteMove BlackMove` rounds
+numbered from 1 with a trailing White-only round when the game ends on
+White's move — exactly as the plan describes. Deviation: `PlayState` (Step 2)
+did not retain the starting board needed for the position block, so extended
+it with a new `initialBoard: BoardState` field (set once in `startPlay`,
+carried through unchanged by `applyMove`, which only touches `board`) — this
+is additive/backward-compatible, so Step 2's existing assertions still pass;
+added a couple of new assertions to `play.test.ts` (`startPlay` sets
+`initialBoard`; a move sequence leaves `initialBoard` equal to the opening
+board while `board` diverges) rather than rewriting Step 2's tests. Added
+`renderGameRecord(state: PlayState): string` to `play.ts`, emitting `[Ruleset
+"PRIMARY:1.1"]`, then `renderPositionBlock` of `state.initialBoard`, then the
+round-grouped move sequence, each section separated by a blank line. Added a
+`describe("renderGameRecord", ...)` block to `play.test.ts` covering the
+Ruleset tag, the opening-position block (verified it does *not* equal the
+current board's block after moves), and round numbering including the
+trailing White-only round. No other deviations.
 
 Add a function (in `play.ts`, or a small sibling it imports) that renders a
 `PlayState` into an inspectable, developer-facing text form that **anticipates the
