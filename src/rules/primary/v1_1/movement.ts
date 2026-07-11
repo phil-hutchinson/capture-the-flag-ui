@@ -24,6 +24,7 @@ import {
   type Square,
 } from "./board.ts";
 import type { BoardState } from "./gameState.ts";
+import type { PieceTypeId } from "./pieces.ts";
 
 /** The four orthogonal directions a piece may step in, as column/row deltas. */
 const ORTHOGONAL_DIRECTIONS: readonly { dc: number; dr: number }[] = [
@@ -56,7 +57,7 @@ function isEmpty(board: BoardState, square: Square): boolean {
 }
 
 /** The maximum number of squares a piece may travel in a straight line, per §4.2. */
-function maxRange(pieceType: string): number {
+function maxRange(pieceType: PieceTypeId): number {
   return pieceType === "skirmisher" ? 3 : 1;
 }
 
@@ -64,7 +65,7 @@ function maxRange(pieceType: string): number {
  * True if the piece type never moves at all (Tower, Flag - §4.2, §2.2). All
  * other piece types move at least one square orthogonally.
  */
-function isImmobile(pieceType: string): boolean {
+function isImmobile(pieceType: PieceTypeId): boolean {
   return pieceType === "tower" || pieceType === "flag";
 }
 
@@ -104,6 +105,9 @@ export function legalDestinations(board: BoardState, origin: Square): Square[] {
  * quietly for the accepted "stuck with no legal move" case (see story
  * 00000004's Grounding facts) - not surfaced in any UI or tested for its own
  * sake in this story; the real handling arrives in story 00000006.
+ *
+ * @remarks Intentionally has no production caller yet - retained as
+ * ready-for-use API that story 00000006 will consume.
  */
 export function hasAnyLegalMove(board: BoardState, side: Side): boolean {
   for (const square of allSquares()) {

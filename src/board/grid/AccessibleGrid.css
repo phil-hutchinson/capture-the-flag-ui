@@ -9,6 +9,14 @@
    high-contrast focus ring shown only while a cell is *keyboard*-focused,
    and a visually-hidden live region. */
 
+.accessible-grid__wrapper {
+  /* Groups the grid and its live region so the `role="status"` region can be
+     a sibling of (not a child of) the `role="grid"` element - required by
+     ARIA. `display: contents` means this wrapper generates no box, so the
+     grid lays out exactly as if it were still the top-level element. */
+  display: contents;
+}
+
 .accessible-grid {
   display: grid;
 }

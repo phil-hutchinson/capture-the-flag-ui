@@ -149,9 +149,11 @@ export function renderGameRecord(state: PlayState): string {
     );
   }
 
-  return [
-    `[Ruleset "${state.ruleset}"]`,
-    positionBlock,
-    rounds.join("\n"),
-  ].join("\n\n");
+  const sections = [`[Ruleset "${state.ruleset}"]`, positionBlock];
+  // Omit the move-sequence section entirely before any move is made, so the
+  // record doesn't end with a trailing empty section.
+  if (rounds.length > 0) {
+    sections.push(rounds.join("\n"));
+  }
+  return sections.join("\n\n");
 }

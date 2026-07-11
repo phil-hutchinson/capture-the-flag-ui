@@ -176,60 +176,67 @@ export function AccessibleGrid({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className={classNames.join(" ")}
-      role="grid"
-      aria-label={label}
-      onKeyDown={handleKeyDown}
-    >
-      {rows.map((rowCells, rowIndex) => (
-        <div className="accessible-grid__row" role="row" key={rowIndex}>
-          {rowCells.map((cell, columnIndex) => {
-            const position: GridPosition = {
-              row: rowIndex,
-              column: columnIndex,
-            };
-            const isFocused =
-              focused !== undefined &&
-              focused.row === rowIndex &&
-              focused.column === columnIndex;
-            const cellClassNames = ["accessible-grid__cell"];
-            if (isFocused) {
-              cellClassNames.push("accessible-grid__cell--focused");
-            }
-            return (
-              <div
-                key={columnIndex}
-                ref={(element) => {
-                  const key = positionKey(position);
-                  if (element) {
-                    cellRefs.current.set(key, element);
-                  } else {
-                    cellRefs.current.delete(key);
-                  }
-                }}
-                className={cellClassNames.join(" ")}
-                role="gridcell"
-                aria-label={cell.label}
-                tabIndex={cell.focusable ? (isFocused ? 0 : -1) : undefined}
-                onClick={
-                  cell.actionable
-                    ? () => {
-                        if (cell.focusable) {
-                          setFocused(position);
+    // The live region is a *sibling* of the `role="grid"` element, not a
+    // child: a `grid` may only own `row`/`rowgroup` elements, so a
+    // `role="status"` child is an ARIA structural violation. The wrapper is
+    // `display: contents` (see AccessibleGrid.css) so it adds no box and
+    // layout is unchanged - the grid still lays out exactly as before.
+    <div className="accessible-grid__wrapper">
+      <div
+        ref={containerRef}
+        className={classNames.join(" ")}
+        role="grid"
+        aria-label={label}
+        onKeyDown={handleKeyDown}
+      >
+        {rows.map((rowCells, rowIndex) => (
+          <div className="accessible-grid__row" role="row" key={rowIndex}>
+            {rowCells.map((cell, columnIndex) => {
+              const position: GridPosition = {
+                row: rowIndex,
+                column: columnIndex,
+              };
+              const isFocused =
+                focused !== undefined &&
+                focused.row === rowIndex &&
+                focused.column === columnIndex;
+              const cellClassNames = ["accessible-grid__cell"];
+              if (isFocused) {
+                cellClassNames.push("accessible-grid__cell--focused");
+              }
+              return (
+                <div
+                  key={columnIndex}
+                  ref={(element) => {
+                    const key = positionKey(position);
+                    if (element) {
+                      cellRefs.current.set(key, element);
+                    } else {
+                      cellRefs.current.delete(key);
+                    }
+                  }}
+                  className={cellClassNames.join(" ")}
+                  role="gridcell"
+                  aria-label={cell.label}
+                  tabIndex={cell.focusable ? (isFocused ? 0 : -1) : undefined}
+                  onClick={
+                    cell.actionable
+                      ? () => {
+                          if (cell.focusable) {
+                            setFocused(position);
+                          }
+                          activate(position);
                         }
-                        activate(position);
-                      }
-                    : undefined
-                }
-              >
-                {cell.content}
-              </div>
-            );
-          })}
-        </div>
-      ))}
+                      : undefined
+                  }
+                >
+                  {cell.content}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
       <div
         className="accessible-grid__live-region"
         role="status"
