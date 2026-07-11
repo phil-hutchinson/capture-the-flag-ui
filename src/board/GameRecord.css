@@ -1,0 +1,33 @@
+/* Evolving game-record artifact disclosure (Step 10). */
+
+.game-record {
+  align-self: stretch;
+  width: 100%;
+  max-width: 40rem;
+  text-align: left;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  padding: 0.75rem 1rem;
+  box-sizing: border-box;
+}
+
+.game-record summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.game-record__hint {
+  font-size: 0.9rem;
+}
+
+.game-record__text {
+  font-family: monospace;
+  font-size: 0.8rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  background: var(--parchment);
+  padding: 0.5rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+}

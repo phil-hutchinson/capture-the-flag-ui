@@ -714,9 +714,23 @@ legal destinations**, the **move** when made, and **whose turn it is**.
 
 ## Step 10 — Surface the evolving move record (Gate E)
 
-Status: pending
+Status: implemented
 
-Notes:
+Notes: Added `src/board/GameRecord.tsx` (+ colocated `GameRecord.css`),
+mirroring `SessionComplete.tsx`'s pattern: a collapsed `<details>`
+disclosure ("Developer: inspect game record") showing the `Ruleset` tag and
+the full record text from Step 3's `renderGameRecord(play)` (position block
+of the *starting* board plus the round-grouped `A2A3` move sequence), and a
+`console.log` gated to `import.meta.env.DEV` via a `useEffect` keyed on the
+memoized record string, so it re-logs each time the record actually
+changes. Wired into `App.tsx`'s Phase-2 branch: `<GameRecord play={playSession.play} />`
+renders below `<PlayBoard>`, so it re-renders (and the disclosure's content
+updates) on every move via the same `playSession` state that already drives
+the board and turn indicator. `npm run typecheck`, `npm run lint`, `npm
+test` (150 tests, all still passing — no new automated tests, per the
+plan's manual-only verification for this step), `npm run format:check`, and
+`npm run build` all pass. Gate E itself is manual and was not run here —
+see the owner's manual verification. No deviations from the plan.
 
 Surface the evolving Phase-2 game state as an inspectable, developer-facing
 artifact in the Phase-2 UI, reusing Step 3's render. Mirror the Phase-1 pattern

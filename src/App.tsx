@@ -2,6 +2,7 @@ import { useState } from "react";
 import { APP_NAME } from "./appInfo.ts";
 import { PieceSpriteDefs } from "./art/PieceIcon.tsx";
 import { Board } from "./board/Board.tsx";
+import { GameRecord } from "./board/GameRecord.tsx";
 import { PlacementControls } from "./board/PlacementControls.tsx";
 import { PlacementStatus } from "./board/PlacementStatus.tsx";
 import {
@@ -120,6 +121,7 @@ export function App() {
           announcement={playAnnouncement}
           onActivate={handlePlayActivate}
         />
+        <GameRecord play={playSession.play} />
       </main>
     );
   }
