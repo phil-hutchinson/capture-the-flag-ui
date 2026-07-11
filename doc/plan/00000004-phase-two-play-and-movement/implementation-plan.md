@@ -318,9 +318,32 @@ Black).
 
 ## Step 5 — Reusable accessible grid interaction model
 
-Status: pending
+Status: committed
 
-Notes:
+Notes: Added `src/board/grid/gridNavigation.ts` (pure) exporting
+`nextFocusPosition` and `firstFocusablePosition`, plus colocated
+`gridNavigation.test.ts` (16 tests: each arrow's one-cell movement, edge/corner
+clamping with no wraparound, and the focusable-mask skip policy).
+**Skip policy** (documented in code): stepping in the pressed direction, the
+nearest cell for which `isFocusable` is true is chosen — non-focusable cells
+are skipped over; if the edge of the grid is reached before any focusable
+cell is found, focus does not move at all (returns the unchanged current
+position), so navigation always clamps and is never trapped on a
+non-focusable cell. Added `src/board/grid/AccessibleGrid.tsx` (a generic,
+piece-agnostic React component: `role="grid"`/`"row"`/`"gridcell"`, roving
+`tabindex` via internal `focused` state synced to real DOM focus only while
+focus is already inside the grid (so mount/re-render never steals focus),
+arrow-key handling delegated to `nextFocusPosition`, Enter/Space and click
+activation gated on each cell's `actionable` flag, and a `role="status"
+aria-live="polite"` region driven by the consumer's `announcement` prop) and
+colocated `AccessibleGrid.css` (a `--focus-ring` custom property, added to
+`src/index.css`, drives a high-contrast, always-visible focus outline on the
+focused cell; `.accessible-grid__row { display: contents }` lets the
+ARIA-required row wrapper divs coexist with a CSS Grid layout on the
+container). Per the plan, the component's ARIA/keyboard/live-region behavior
+is **not** automated (no DOM test environment in this repo) — it is verified
+manually in Gate D (Step 9); only the pure navigation math has automated
+tests. No deviations from the plan.
 
 Build a generic, **piece-agnostic** accessible grid under `src/board/grid/` that
 Phase 2 will render the board through and that story 00000002 can later adopt for

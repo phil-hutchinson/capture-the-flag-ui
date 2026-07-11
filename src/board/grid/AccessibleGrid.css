@@ -1,0 +1,42 @@
+/* Generic accessible grid (story 00000004, Step 5). No board/piece geometry
+   here - `.accessible-grid` only establishes a CSS grid box; the consumer
+   supplies row/column sizing (e.g. grid-template-columns, --square) via its
+   own `className` on the same element. `.accessible-grid__row` is
+   `display: contents` so the `role="row"` wrapper divs required by the ARIA
+   grid pattern don't break CSS Grid layout - their `role="gridcell"`
+   children still lay out as direct grid items. This file otherwise only
+   covers the interaction chrome shared by any consumer: a visible,
+   high-contrast focus ring on the roving-tabindex target, and a
+   visually-hidden live region. */
+
+.accessible-grid {
+  display: grid;
+}
+
+.accessible-grid__row {
+  display: contents;
+}
+
+.accessible-grid__cell--focused {
+  /* Gate D requires focus to always be visible. This ring is drawn well
+     inside the cell (negative offset) so it stays visible even on cells
+     that clip their contents. */
+  outline: 3px solid var(--focus-ring, #ffb703);
+  outline-offset: -3px;
+  z-index: 1;
+}
+
+/* Visually hidden but still announced by assistive technology - the
+   standard "sr-only" pattern. The consumer pushes short strings into this
+   region via the `announcement` prop. */
+.accessible-grid__live-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
