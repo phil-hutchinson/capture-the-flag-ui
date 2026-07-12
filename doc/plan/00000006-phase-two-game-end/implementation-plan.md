@@ -909,7 +909,33 @@ accept sentences name the sides correctly.
 
 ## Step 8 — Countdown warning thresholds & wording
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/playWarnings.ts` exporting `computeCountdownWarnings(play:
+PlayState)`, returning `{ inactivity, noProgress }` where each is either `null`
+or a small structured record (`kind`, the relevant `side` for inactivity, the
+computed `movesRemaining`, and a player-facing `message`) per the plan's
+suggested shape. Both warnings are suppressed once `play.result.kind !==
+"ongoing"`; the inactivity warning is computed only for `play.sideToMove`
+against the story-fixed 10-remaining threshold (`INACTIVITY_LIMIT -
+inactivityCounters[side] <= 10`); the no-progress warning is side-agnostic
+against the story-fixed 20-remaining threshold (`PROGRESS_LIMIT -
+progressCounter <= 20`), reusing `outcome.ts`'s `INACTIVITY_LIMIT`/
+`PROGRESS_LIMIT` constants rather than redefining the rule limits. Two private
+sentence-builders produce the player-facing wording (Red/Blue, "move" not
+"ply"), the inactivity one always naming the color, the remaining count, and
+that an attack resets it. Added `src/board/playWarnings.test.ts` covering
+every case in the step's verification list: no warnings at the start of a
+game, the 39/40-used boundary and the not-side-to-move case for inactivity,
+the 40/45/49 remaining-count cases, the 59/60 boundary and turn-independence
+for no-progress, the 60/70/79 remaining-count cases, both warnings together,
+no warnings once the game is over (even with both counters deep in range, via
+a directly-overridden finished `result` field on the fixture), and the
+sentence wording (color, count, "attack" mention). No deviations from the
+plan. `npm run typecheck`, `npm run lint`, and `npm test` all pass (325
+tests, 17 files); ran `npx prettier --write` on the two new files to satisfy
+`npm run format:check` (the two pre-existing `story.md`/
+`implementation-plan.md` markdown warnings are unrelated and untouched).
 
 Add a small pure module (e.g. `src/board/playWarnings.ts`, no React) that turns
 the play state's counters into zero, one, or two **countdown warnings**. The
