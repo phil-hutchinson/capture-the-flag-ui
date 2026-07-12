@@ -18,16 +18,22 @@ install, no account, no server.
   revealed, take turns moving pieces across the board in full view. Moving a
   piece onto an enemy piece attacks it, and the fight resolves immediately —
   the losing piece (or both, if they're evenly matched) leaves the board.
-  Winning, losing, and drawing the game are _(coming next)_.
+- **Win, lose, or draw** — capture your opponent's flag and the game is yours.
+  You can also win if their flag becomes impossible to reach, or if they are
+  left with no legal move at all. A game can end in a draw too: by agreement,
+  or when neither side is making progress. And if you spend too long shuffling
+  pieces without attacking, you'll be warned before the clock runs out and you
+  lose. However it ends, the app tells you who won and why, leaves the final
+  position on screen, and offers you a new game.
 - **Replay finished games** from their game log files — step through a past
   battle move by move. _(coming soon)_
 - **Play against the computer** — an AI opponent trained by the companion
   [capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
   project. _(planned, once the AI engine is trained)_
 
-> **Status:** early days — you can set up a game by placing both armies, then
-> take turns moving, attacking, and capturing on the revealed board. Winning,
-> losing, and drawing the game are still being built.
+> **Status:** you can now play a full game from start to finish — place both
+> armies, battle on the revealed board, and reach a real result. Replaying
+> recorded games and playing against the computer are still to come.
 
 ## The rules
 

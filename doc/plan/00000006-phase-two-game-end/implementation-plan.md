@@ -1501,7 +1501,27 @@ control).
 
 ## Step 17 — README accuracy check
 
-Status: pending
+Status: committed
+
+Notes: `README.md` updated - the change was warranted, since the old text was
+now actively false: it told players that "winning, losing, and drawing the game
+are still being built" and its Status blockquote said the same. The
+"Move, attack, and capture" bullet loses that trailing caveat, and a new
+**"Win, lose, or draw"** bullet describes the endings in players' language:
+capturing the flag; winning when the opponent's flag becomes impossible to
+reach or they have no legal move; drawing by agreement or when neither side
+makes progress; and losing to the inactivity clock, framed as the warning a
+player actually sees rather than as a 50-move limit. It closes on what the app
+does at the end (names who won and why, leaves the final position visible,
+offers a new game). The Status blockquote now reads that a full game can be
+played start to finish, with replay and the AI opponent still to come.
+
+Deliberately **no** rule mechanics, counter values, or jargon (no "ply", no
+section numbers, no "unbreachable Flag" - "impossible to reach" instead): the
+rules document in the companion repository remains the single source of truth,
+so the README says what a player can *do*, not what the rules *are*.
+Verification: `npm run typecheck`, `npm run lint`, `npm test` (347 tests),
+`npm run format:check`, and `npm run build` all pass.
 
 Review `README.md` against this story's changes and update it if warranted (the
 `/update-readme` command automates this against the branch diff). After
