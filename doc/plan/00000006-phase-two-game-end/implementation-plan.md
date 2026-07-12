@@ -1100,7 +1100,59 @@ New game action is **not** offered at any point while a game is in progress.
 
 ## Step 11 — Countdown warnings in the UI (inactivity)
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/PlayWarnings.tsx` + `.css`: a component rendering
+Step 8's `CountdownWarnings` (zero, one, or both of `inactivity`/
+`noProgress`) as visible `<p>` sentences inside a wrapper that is always
+mounted with `role="status" aria-live="polite"` (kept mounted, not
+conditionally rendered, so the live region is already registered with
+assistive technology before the first warning appears, rather than being
+created at the same moment as its first announcement) - deliberately its
+own live region, separate from the board's existing one, per the plan. Each
+warning sentence is prefixed with a bold, uppercased "Warning:" label so the
+meaning is carried by text, not by the amber left-border accent alone
+(`rgb(255 183 3)`, the same amber used for `PlayBoard.css`'s legal-move
+fill, applied only as an additional cue). `src/App.tsx`'s Phase-2 branch now
+renders `<PlayWarnings warnings={computeCountdownWarnings(playSession.play)}
+/>` alongside `PlayStatus` in the `result.kind === "ongoing"` branch only
+(warnings are moot once `GameResult` takes over the slot). No new rule-layer
+or session-layer code — this step is UI-only, consuming Step 8's
+already-tested `playWarnings.ts` module as-is. No deviations from the plan.
+`npm run typecheck`, `npm run lint`, and `npm test` all pass (325 tests, 17
+files — one run showed two unrelated `ENOMEM`/module-resolution errors from
+the sandboxed Node process itself, not from the code under test; an
+immediate re-run was clean); `npm run format:check` shows only the two
+pre-existing unrelated `story.md`/`implementation-plan.md` markdown
+warnings; `npm run build` succeeds.
+
+Gate C: verified by the owner, but only on the second attempt. The first
+attempt showed no warning at all, which turned out **not** to be a code
+defect: the dev server had been started before this step's files existed and
+its watcher never picked them up (unreliable under WSL2), so the browser was
+executing an `App.tsx` with no `PlayWarnings` in it at all. Restarting Vite
+with a cleared `node_modules/.vite` cache fixed it. **Lesson for later manual
+gates: restart the dev server after an agent writes files, and confirm the
+served module actually contains the new code (`curl -s
+http://localhost:5173/src/App.tsx | grep ...`) before asking the owner to
+verify.**
+
+That false alarm exposed a real gap in coverage, so this step also adds
+`src/board/playWarnings.game.test.ts` (13 tests): `playWarnings.test.ts` only
+ever built counter fixtures by hand, so nothing proved a real stalling game
+ever *reaches* those counter values. The new tests replay whole games through
+`applyMove` and assert on the warnings at each ply. They also pin down a
+rules consequence that is easy to mistake for a bug and that the plan's Gate C
+wording did not anticipate: **a mutual shuffle can never produce the
+inactivity loss.** Both sides making plain moves raises the shared progress
+counter every ply, so the no-progress draw fires at 80 combined plies while
+each side's own inactivity counter has only reached 40 - the no-progress
+warning is the only one ever seen. Reaching the inactivity warning (counter
+40) and loss (50) at all requires the *opponent* to keep capturing, since a
+capture resets the shared progress counter and keeps the draw away; the
+capture must be a clean win (`attackerWins`), as a sacrificial attack also
+resets the stalling side's counter and undoes the stall. Both endings are now
+covered end to end.
 
 Render Step 8's warnings.
 

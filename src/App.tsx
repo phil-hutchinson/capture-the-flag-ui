@@ -24,6 +24,8 @@ import {
   type PlaySession,
 } from "./board/playSession.ts";
 import { PlayStatus } from "./board/PlayStatus.tsx";
+import { computeCountdownWarnings } from "./board/playWarnings.ts";
+import { PlayWarnings } from "./board/PlayWarnings.tsx";
 import { Tray } from "./board/Tray.tsx";
 import { squareKey, type Square } from "./rules/primary/v1_1/board.ts";
 import { buildInitialGameState } from "./rules/primary/v1_1/gameState.ts";
@@ -134,7 +136,12 @@ export function App() {
         <PieceSpriteDefs />
         <h1 className="app__title">{APP_NAME}</h1>
         {result.kind === "ongoing" ? (
-          <PlayStatus sideToMove={playSession.play.sideToMove} />
+          <>
+            <PlayStatus sideToMove={playSession.play.sideToMove} />
+            <PlayWarnings
+              warnings={computeCountdownWarnings(playSession.play)}
+            />
+          </>
         ) : (
           <GameResult result={result} onNewGame={handleNewGame} />
         )}
