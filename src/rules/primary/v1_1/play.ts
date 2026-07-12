@@ -31,7 +31,7 @@
 // resolution rules (combat.ts, story 00000005), and the initial-game-state
 // artifact (gameState.ts, story 00000001); it has no further dependencies.
 
-import { squareKey, type Side, type Square } from "./board.ts";
+import { otherSide, squareKey, type Side, type Square } from "./board.ts";
 import { resolveCombat, type CombatOutcome } from "./combat.ts";
 import {
   renderPositionBlock,
@@ -40,6 +40,11 @@ import {
   type PlacedPiece,
 } from "./gameState.ts";
 import { legalAttacks, legalDestinations } from "./movement.ts";
+import {
+  computeOutcome,
+  type GameEndReason,
+  type GameOutcome,
+} from "./outcome.ts";
 
 /** The side that moves first, per rules.md §4.1 (White/Red moves first). */
 const FIRST_SIDE: Side = "white";
@@ -49,9 +54,15 @@ const FIRST_SIDE: Side = "white";
  * *starting* board (the revealed position play began from - kept alongside
  * the current board so the record render, below, can always reproduce the
  * record file format's position block, which is always the *starting*
- * position, never the current one), the current board, whose turn it is, and
+ * position, never the current one), the current board, whose turn it is,
  * every move made so far, in order, as `A2A3` coordinate strings (absolute
- * White frame - see board.ts).
+ * White frame - see board.ts), the two pieces of §6.4/§6.5 rule state this
+ * story adds - each side's personal inactivity counter and the single shared
+ * no-progress counter (see `applyMove` for how they evolve) - and the
+ * current `GameOutcome` (`result` - outcome.ts, story 00000006 Step 4):
+ * whether the game is still ongoing, or how it ended. Everything downstream
+ * (the session layer, the UI, the record) reads `result` rather than
+ * recomputing detection for itself.
  */
 export interface PlayState {
   readonly ruleset: string;
@@ -59,28 +70,39 @@ export interface PlayState {
   readonly board: BoardState;
   readonly sideToMove: Side;
   readonly moves: readonly string[];
+  readonly inactivityCounters: Readonly<Record<Side, number>>;
+  readonly progressCounter: number;
+  readonly result: GameOutcome;
 }
 
 /**
  * The opening `PlayState` for `initial` (story 00000001's completed-placement
  * artifact): the same board (as both the starting and current board), White
- * (Red) to move first, no moves made yet, and the ruleset carried over
- * unchanged.
+ * (Red) to move first, no moves made yet, the ruleset carried over
+ * unchanged, both inactivity counters and the progress counter starting at 0
+ * (rules.md §6.4/§6.5), and `result` computed immediately - since placement
+ * is unrestricted, the Unbreachable Flag condition (§6.2) can already hold
+ * **at the reveal**, before any ply is made.
  */
 export function startPlay(initial: InitialGameState): PlayState {
+  const inactivityCounters = { white: 0, black: 0 };
+  const progressCounter = 0;
   return {
     ruleset: initial.ruleset,
     initialBoard: initial.board,
     board: initial.board,
     sideToMove: FIRST_SIDE,
     moves: [],
+    inactivityCounters,
+    progressCounter,
+    result: computeOutcome(
+      initial.board,
+      FIRST_SIDE,
+      inactivityCounters,
+      progressCounter,
+    ),
   };
 }
-
-const OTHER_SIDE: Readonly<Record<Side, Side>> = {
-  white: "black",
-  black: "white",
-};
 
 /**
  * The outcome of a single ply applied via `applyMove`: either a resolved
@@ -119,16 +141,28 @@ export type PlyOutcome =
  * (`squareKey(from) + squareKey(to)`) - no combat-resolution markers, even
  * for an attack.
  *
- * Rejects (throws) if `from` does not hold a piece belonging to
- * `state.sideToMove`, or if `to` is neither a legal destination nor a legal
- * attack target for that piece - the UI never offers such a move, so this is
- * a programming-invariant guard, not a user-facing error.
+ * After the counters are updated, `state.result` is recomputed
+ * (`computeOutcome`, outcome.ts - story 00000006 Step 4) from the *new*
+ * board, the *new* side to move, and the updated counters, so the returned
+ * state always reflects whether that ply just ended the game - and, if so,
+ * who won (or that it is a draw) and why.
+ *
+ * Rejects (throws) if `state.result` is already a finished game, if `from`
+ * does not hold a piece belonging to `state.sideToMove`, or if `to` is
+ * neither a legal destination nor a legal attack target for that piece - the
+ * UI never offers such a move (it makes the board inert the moment the game
+ * ends - Step 6), so each of these is a programming-invariant guard, not a
+ * user-facing error.
  */
 export function applyMove(
   state: PlayState,
   from: Square,
   to: Square,
 ): { readonly state: PlayState; readonly outcome: PlyOutcome } {
+  if (state.result.kind !== "ongoing") {
+    throw new Error("Cannot apply move: the game has already ended.");
+  }
+
   const fromKey = squareKey(from);
   const toKey = squareKey(to);
   const piece = state.board[fromKey];
@@ -172,24 +206,144 @@ export function applyMove(
     outcome = { kind: "move", piece, square: to };
   }
 
+  const mover = state.sideToMove;
+  const opponent = otherSide(mover);
+  let moverInactivity = state.inactivityCounters[mover];
+  let opponentInactivity = state.inactivityCounters[opponent];
+  let progressCounter = state.progressCounter;
+
+  if (outcome.kind === "attack") {
+    // Any attack - whatever its result - resets the mover's own inactivity
+    // counter (rules.md §6.4).
+    moverInactivity = 0;
+    // A sacrificial attack - the mover's own attacker falls, complete
+    // (`attackerLoses`) or partial (`mutualLoss`) - also resets the
+    // opponent's counter; a clean win (`attackerWins`) does not.
+    if (outcome.result === "attackerLoses" || outcome.result === "mutualLoss") {
+      opponentInactivity = 0;
+    }
+    // `capture` is true for exactly the two results that remove a
+    // defending piece (attackerWins, mutualLoss - rules.md §6.5); a
+    // complete sacrifice (`attackerLoses`) captures nothing and raises
+    // progress just like a plain move.
+    progressCounter = outcome.capture ? 0 : progressCounter + 1;
+  } else {
+    // A plain move: no attack, so it can never be sacrificial or capture
+    // anything - it raises both the mover's inactivity counter and the
+    // shared progress counter by 1.
+    moverInactivity += 1;
+    progressCounter += 1;
+  }
+
+  const inactivityCounters: Record<Side, number> = {
+    ...state.inactivityCounters,
+    [mover]: moverInactivity,
+    [opponent]: opponentInactivity,
+  };
+
+  const nextSideToMove = otherSide(state.sideToMove);
+
   return {
     state: {
       ...state,
       board,
-      sideToMove: OTHER_SIDE[state.sideToMove],
+      sideToMove: nextSideToMove,
       moves: [...state.moves, fromKey + toKey],
+      inactivityCounters,
+      progressCounter,
+      result: computeOutcome(
+        board,
+        nextSideToMove,
+        inactivityCounters,
+        progressCounter,
+      ),
     },
     outcome,
   };
 }
 
 /**
+ * Ends `state`'s game immediately as a draw by **agreement** (rules.md
+ * §6.6) - the one ending that is *declared*, not detected: `computeOutcome`
+ * never produces the `"agreement"` reason. Returns a new state whose
+ * `result` is `{ kind: "draw", reason: "agreement" }` and is otherwise
+ * **unchanged** - no counter update, no side-to-move flip, no move appended
+ * to `state.moves` - since an offer never replaces or skips a move and an
+ * agreed draw leaves no trace in the move sequence (see the record layer,
+ * Step 5). The draw offer/accept/decline *interaction* (who offered, whether
+ * an answer is pending) is session state, not rule state - see
+ * `src/board/playSession.ts`, Step 6 - this function only performs the
+ * ending itself, once the session layer has decided to call it.
+ *
+ * Rejects (throws) if the game has already ended - a programming-invariant
+ * guard, like `applyMove`'s: the UI never offers a draw once the game is
+ * over.
+ */
+export function agreeDraw(state: PlayState): PlayState {
+  if (state.result.kind !== "ongoing") {
+    throw new Error("Cannot agree to a draw: the game has already ended.");
+  }
+  return {
+    ...state,
+    result: { kind: "draw", reason: "agreement" },
+  };
+}
+
+/**
+ * Maps a finished game's winner (`Side`, or `undefined` for a draw) to the
+ * record file format's PGN `Result` value: `1-0` for White (Red), `0-1` for
+ * Black (Blue), `1/2-1/2` for a draw. Note the record uses White/Black, not
+ * the UI's Red/Blue.
+ */
+function renderResultValue(winner: Side | undefined): string {
+  if (winner === "white") {
+    return "1-0";
+  }
+  if (winner === "black") {
+    return "0-1";
+  }
+  return "1/2-1/2";
+}
+
+/**
+ * Maps a `GameEndReason` (outcome.ts's stable identifier) to the record file
+ * format's `ResultReason` free text. The first five strings are the
+ * companion repository's technical-notes examples verbatim; `"Agreement"` is
+ * not in those notes - it is the owner's fixed choice (2026-07-11) for a
+ * draw by agreement, to be raised upstream so both codebases agree.
+ */
+function renderResultReasonValue(reason: GameEndReason): string {
+  switch (reason) {
+    case "flagCapture":
+      return "Flag Captured";
+    case "unbreachableFlag":
+      return "Unbreachable Flag";
+    case "noLegalMove":
+      return "No Legal Move";
+    case "inactivity":
+      return "Inactivity";
+    case "noProgress":
+      return "No Progress";
+    case "agreement":
+      return "Agreement";
+  }
+}
+
+/**
  * Renders `state` as an inspectable, developer-facing text form that
  * anticipates the companion repository's recorded-game replay file format
  * (`doc/ruleset/technical-notes.md`, "Record file format") without
- * implementing replay itself. It carries the three load-bearing pieces of
- * that format:
+ * implementing replay itself. It carries the load-bearing pieces of that
+ * format:
  *
+ * - the **`Result`** header tag, always written, in the record format's PGN
+ *   values: `1-0` when White (Red) has won, `0-1` when Black (Blue) has won,
+ *   `1/2-1/2` for a draw, `*` while the game is still ongoing;
+ * - the **`ResultReason`** header tag, free text describing *why* the game
+ *   ended (see `renderResultReasonValue`) - written **only once the game has
+ *   ended**; while `state.result.kind === "ongoing"` this tag is **omitted
+ *   entirely** (owner's decision, 2026-07-11), so an ongoing record carries
+ *   `[Result "*"]` and no `ResultReason` tag at all;
  * - the `Ruleset` header tag, in the same `[Name "value"]` syntax the record
  *   file format uses for header tags;
  * - the **position block** for the *starting* position play began from
@@ -200,11 +354,13 @@ export function applyMove(
  *   that trailing round with only the White move) - in the plain `A2A3`
  *   form, with no separators and no combat-resolution markers even for an
  *   attack (rules.md §4.4 - an attack's result always follows automatically
- *   from the position and the rules).
+ *   from the position and the rules), and with **no** entry of any kind for
+ *   a draw offer, decline, or agreement (an agreed draw appears only in the
+ *   `Result`/`ResultReason` tags above).
  *
  * This is deliberately not a full record file (no `Event`/`Site`/`Date`/etc.
- * roster tags, no `Result`): it is the minimum a future replay story can
- * build on, kept as a plain string.
+ * roster tags): it is the minimum a future replay story can build on, kept
+ * as a plain string.
  */
 export function renderGameRecord(state: PlayState): string {
   const positionBlock = renderPositionBlock({
@@ -224,7 +380,20 @@ export function renderGameRecord(state: PlayState): string {
     );
   }
 
-  const sections = [`[Ruleset "${state.ruleset}"]`, positionBlock];
+  const headerTags: string[] = [];
+  if (state.result.kind === "ongoing") {
+    headerTags.push('[Result "*"]');
+  } else {
+    const winner =
+      state.result.kind === "win" ? state.result.winner : undefined;
+    headerTags.push(`[Result "${renderResultValue(winner)}"]`);
+    headerTags.push(
+      `[ResultReason "${renderResultReasonValue(state.result.reason)}"]`,
+    );
+  }
+  headerTags.push(`[Ruleset "${state.ruleset}"]`);
+
+  const sections = [headerTags.join("\n"), positionBlock];
   // Omit the move-sequence section entirely before any move is made, so the
   // record doesn't end with a trailing empty section.
   if (rounds.length > 0) {

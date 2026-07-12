@@ -39,6 +39,11 @@ export const ROWS: readonly Row[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 /** Internal turn-order label for a player. Not player-facing (see side colors). */
 export type Side = "white" | "black";
 
+/** The other side. The one side-flip helper for every module in this ruleset version. */
+export function otherSide(side: Side): Side {
+  return side === "white" ? "black" : "white";
+}
+
 export interface Square {
   readonly column: Column;
   readonly row: Row;

@@ -1,0 +1,50 @@
+/* Draw-offer control and prompt (Step 13). The "Offer a draw" button mirrors
+   PlacementStatus.css's plain button chrome; the pending-offer prompt panel
+   mirrors GameResult.css's panel chrome, with a left accent border naming
+   the offering side - additional, never the only signal, since the prompt
+   text itself always names both sides in full sentences. */
+
+.draw-offer__offer {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.draw-offer-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-left: 4px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+}
+
+.draw-offer-prompt[data-offering-side="white"] {
+  border-left-color: var(--side-a);
+}
+
+.draw-offer-prompt[data-offering-side="black"] {
+  border-left-color: var(--side-b);
+}
+
+.draw-offer-prompt__text {
+  font-weight: bold;
+}
+
+.draw-offer-prompt button {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}

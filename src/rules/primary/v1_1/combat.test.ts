@@ -190,6 +190,53 @@ describe("resolveCombat (ruleset PRIMARY:1.1, base rank table & non-Archer speci
     expect(outcome.result).toBe("attackerLoses");
     expect(outcome.capture).toBe(false);
   });
+
+  it("has a Militia attacking a Flag win outright, no rank comparison", () => {
+    const state = board([
+      ["D5", "white", "militia"],
+      ["D6", "black", "flag"],
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.capture).toBe(true);
+    expect(outcome.archerSupport).toBe(false);
+  });
+
+  it("has an Assassin attacking a Flag win outright", () => {
+    const state = board([
+      ["D5", "white", "assassin"],
+      ["D6", "black", "flag"],
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.capture).toBe(true);
+  });
+
+  it("has a charging Knight attacking a Flag win outright, adjacent and at distance", () => {
+    const adjacent = board([
+      ["D5", "white", "knight"],
+      ["D6", "black", "flag"],
+    ]);
+    expect(resolveCombat(adjacent, D5, D6).result).toBe("attackerWins");
+
+    const charging = board([
+      ["D5", "white", "knight"],
+      ["D7", "black", "flag"],
+    ]);
+    const outcome = resolveCombat(charging, D5, D7);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.capture).toBe(true);
+  });
+
+  it("has a Sapper attacking a Flag win outright", () => {
+    const state = board([
+      ["D5", "white", "sapper"],
+      ["D6", "black", "flag"],
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.capture).toBe(true);
+  });
 });
 
 const C4: Square = { column: "C", row: 4 };
@@ -307,6 +354,40 @@ describe("resolveCombat (ruleset PRIMARY:1.1, Archer defensive support)", () => 
     ]);
     const outcome = resolveCombat(state, D5, D6);
     expect(outcome.result).toBe("attackerLoses");
+    expect(outcome.archerSupport).toBe(false);
+  });
+
+  it("is never Archer-supported when the defender is a Flag - a Militia's ordinary attack still wins outright", () => {
+    const state = board([
+      ["D5", "white", "militia"],
+      ["D6", "black", "flag"],
+      ["D7", "black", "archer"], // one square beyond D6 on the attack line - never fires for a Flag
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.capture).toBe(true);
+    expect(outcome.archerSupport).toBe(false);
+  });
+
+  it("is never Archer-supported when the defender is a Flag - a charging Knight still wins outright", () => {
+    const state = board([
+      ["D4", "white", "knight"],
+      ["D6", "black", "flag"],
+      ["D7", "black", "archer"], // one square beyond D6, continuing the charge's direction of travel
+    ]);
+    const outcome = resolveCombat(state, D4, D6);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.archerSupport).toBe(false);
+  });
+
+  it("is never Archer-supported when the defender is a Flag - an attacking Assassin still wins outright", () => {
+    const state = board([
+      ["D5", "white", "assassin"],
+      ["D6", "black", "flag"],
+      ["D7", "black", "archer"],
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerWins");
     expect(outcome.archerSupport).toBe(false);
   });
 

@@ -2,7 +2,9 @@ import { useState } from "react";
 import { APP_NAME } from "./appInfo.ts";
 import { PieceSpriteDefs } from "./art/PieceIcon.tsx";
 import { Board } from "./board/Board.tsx";
+import { DrawOffer } from "./board/DrawOffer.tsx";
 import { GameRecord } from "./board/GameRecord.tsx";
+import { GameResult } from "./board/GameResult.tsx";
 import { PlacementControls } from "./board/PlacementControls.tsx";
 import { PlacementStatus } from "./board/PlacementStatus.tsx";
 import {
@@ -12,14 +14,25 @@ import {
   updateActivePlacement,
   type PlacementSession,
 } from "./board/placementSession.ts";
-import { describeActivation } from "./board/playAnnouncement.ts";
+import {
+  describeActivation,
+  describeDrawAccepted,
+  describeDrawDecline,
+  describeDrawOffer,
+  describeResult,
+} from "./board/playAnnouncement.ts";
 import { PlayBoard } from "./board/PlayBoard.tsx";
 import {
+  acceptDraw,
   activateSquare,
+  declineDraw,
+  offerDraw,
   startSession,
   type PlaySession,
 } from "./board/playSession.ts";
 import { PlayStatus } from "./board/PlayStatus.tsx";
+import { computeCountdownWarnings } from "./board/playWarnings.ts";
+import { PlayWarnings } from "./board/PlayWarnings.tsx";
 import { Tray } from "./board/Tray.tsx";
 import { squareKey, type Square } from "./rules/primary/v1_1/board.ts";
 import { buildInitialGameState } from "./rules/primary/v1_1/gameState.ts";
@@ -111,11 +124,69 @@ export function App() {
       setPlayAnnouncement(describeActivation(playSession, next, square));
     };
 
+    // Story 00000006, Step 10: "New game" is a full reset - a fresh, empty
+    // Phase-1 placement session for both players. Nothing from the finished
+    // game carries over: `playSession` goes back to `null` (which is what
+    // routes App back to the placement branch below), and the placement
+    // selection/announcement state are cleared alongside it.
+    const handleNewGame = () => {
+      setSession(newSession());
+      setPlaySession(null);
+      setSelection(null);
+      setPlayAnnouncement("");
+    };
+
+    // Story 00000006, Step 13: the draw-offer flow (rules.md §6.6). Each
+    // handler delegates the state transition to `playSession.ts` and pushes
+    // the matching sentence (`playAnnouncement.ts`) into the same live
+    // region the ply narrative already uses, so nothing is announced twice
+    // from two different regions.
+    const handleOfferDraw = () => {
+      const offeringSide = playSession.play.sideToMove;
+      setPlaySession(offerDraw(playSession));
+      setPlayAnnouncement(describeDrawOffer(offeringSide));
+    };
+
+    const handleAcceptDraw = () => {
+      const next = acceptDraw(playSession);
+      setPlaySession(next);
+      setPlayAnnouncement(describeDrawAccepted(next.play.result));
+    };
+
+    const handleDeclineDraw = () => {
+      const { drawOffer } = playSession;
+      if (drawOffer === null) {
+        return;
+      }
+      setPlaySession(declineDraw(playSession));
+      setPlayAnnouncement(describeDrawDecline(drawOffer));
+    };
+
+    const { result } = playSession.play;
+
     return (
       <main className="app">
         <PieceSpriteDefs />
         <h1 className="app__title">{APP_NAME}</h1>
-        <PlayStatus sideToMove={playSession.play.sideToMove} />
+        {result.kind === "ongoing" ? (
+          <>
+            <PlayStatus
+              sideToMove={playSession.play.sideToMove}
+              drawOfferPending={playSession.drawOffer !== null}
+            />
+            <PlayWarnings
+              warnings={computeCountdownWarnings(playSession.play)}
+            />
+            <DrawOffer
+              drawOffer={playSession.drawOffer}
+              onOffer={handleOfferDraw}
+              onAccept={handleAcceptDraw}
+              onDecline={handleDeclineDraw}
+            />
+          </>
+        ) : (
+          <GameResult result={result} onNewGame={handleNewGame} />
+        )}
         <PlayBoard
           session={playSession}
           announcement={playAnnouncement}
@@ -221,7 +292,15 @@ export function App() {
       // game-state artifact (story 00000001) and start Phase 2 immediately -
       // per the owner's decision, there is no separate "reveal" gate.
       const gameState = buildInitialGameState(next.white, next.black);
-      setPlaySession(startSession(gameState));
+      const freshPlaySession = startSession(gameState);
+      setPlaySession(freshPlaySession);
+      // Story 00000006, Step 9: placement is unrestricted, so the
+      // Unbreachable Flag condition (§6.2) can already hold at the reveal,
+      // before either player has made a single move - no activation occurs
+      // to drive `describeActivation`, so announce the result directly here.
+      if (freshPlaySession.play.result.kind !== "ongoing") {
+        setPlayAnnouncement(describeResult(freshPlaySession.play.result));
+      }
     }
     setSelection(null);
   }

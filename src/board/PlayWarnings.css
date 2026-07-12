@@ -1,0 +1,29 @@
+/* Countdown warnings banner (Step 11). Mirrors PlayStatus.css's / GameResult
+   .css's chrome per item, with an amber accent border - the same amber used
+   for PlayBoard.css's legal-destination fill - as an additional, non-color-
+   only cue; the "Warning:" label and full sentence text always carry the
+   meaning on their own. */
+
+.play-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.play-warnings__item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-left: 4px solid rgb(255 183 3);
+  border-radius: 4px;
+  background: var(--parchment);
+}
+
+.play-warnings__label {
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}

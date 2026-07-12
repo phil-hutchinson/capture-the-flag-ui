@@ -12,12 +12,8 @@
 
 import type { Side } from "../rules/primary/v1_1/board.ts";
 import type { PlacementProgress } from "../rules/primary/v1_1/placement.ts";
+import { sideColorName } from "./sideNames.ts";
 import "./PlacementStatus.css";
-
-/** Player-facing color name for a side. Internal-only; never shown as "White"/"Black". */
-function sideColorName(side: Side): string {
-  return side === "white" ? "Red" : "Blue";
-}
 
 export interface PlacementStatusProps {
   /** The active player's side, used only to pick the color name shown. */

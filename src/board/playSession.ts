@@ -35,12 +35,21 @@
 //
 // Passing is never an operation: there is no "skip turn" here. If the side
 // to move has no legal move *or attack* at all, `actionableSquares` simply
-// returns an empty array (the accepted "stuck" rough edge for this story -
-// see story.md; no crash, no special handling - the real handling is story
-// 00000006).
+// returns an empty array - and, per story 00000006's `outcome.ts`, this is
+// now itself a detected game-ending condition (§6.3), so `play.result` is
+// already a finished game by the time this can be observed.
+//
+// Story 00000006, Step 6 extends this state machine with two more ways the
+// board goes deliberately quiet: the game having ended (`play.result.kind
+// !== "ongoing"`), and a draw offer (§6.6) awaiting the opponent's answer
+// (`drawOffer`). In either case the board is *inert* - `actionableSquares`
+// and `activatableSquares` are empty and `activateSquare` is a no-op - via
+// the private `isInert` helper, so no new "disabled" flag threads through
+// the UI. A pending offer never changes `play.sideToMove`.
 
 import {
   allSquares,
+  otherSide,
   squareKey,
   type Side,
   type Square,
@@ -54,6 +63,7 @@ import {
   legalDestinations,
 } from "../rules/primary/v1_1/movement.ts";
 import {
+  agreeDraw,
   applyMove,
   startPlay,
   type PlayState,
@@ -63,25 +73,71 @@ import {
 /**
  * The Phase-2 session's state: the current `PlayState`, the active player's
  * current selection - the square of the own piece currently picked up, or
- * `null` if nothing is selected - and the most recently resolved `PlyOutcome`
- * (`null` before any ply is applied). Selection is always cleared by a
- * completed ply (move or attack; and by re-activating the selected piece),
- * and always belongs to `play.sideToMove` while it is non-`null`.
- * `lastOutcome` is overwritten whenever `activateSquare` applies a ply, and
- * left unchanged by every other transition (selection, deselection,
- * switching selection, and no-ops) - it is only meaningful to read
- * immediately after a ply, which is exactly how Step 6's announcement uses
- * it.
+ * `null` if nothing is selected - the most recently resolved `PlyOutcome`
+ * (`null` before any ply is applied), and the pending draw offer (story
+ * 00000006, Step 6): the `Side` that has offered a draw and is awaiting the
+ * opponent's answer, or `null` if none is pending. Selection is always
+ * cleared by a completed ply (move or attack; and by re-activating the
+ * selected piece) and by making a draw offer, and always belongs to
+ * `play.sideToMove` while it is non-`null`. `lastOutcome` is overwritten
+ * whenever `activateSquare` applies a ply, and left unchanged by every other
+ * transition (selection, deselection, switching selection, draw-offer
+ * transitions, and no-ops) - it is only meaningful to read immediately after
+ * a ply, which is exactly how Step 6's announcement uses it. A pending draw
+ * offer never changes `play.sideToMove` (rules.md §6.6: an offer never
+ * replaces or skips a move) - the turn is still the offerer's to take if the
+ * offer is declined. The board's orientation is a separate question from
+ * whose turn it is; see `viewSide`.
  */
 export interface PlaySession {
   readonly play: PlayState;
   readonly selection: Square | null;
   readonly lastOutcome: PlyOutcome | null;
+  readonly drawOffer: Side | null;
 }
 
 /** A fresh Phase-2 session starting from `initial` (story 00000001's artifact). */
 export function startSession(initial: InitialGameState): PlaySession {
-  return { play: startPlay(initial), selection: null, lastOutcome: null };
+  return {
+    play: startPlay(initial),
+    selection: null,
+    lastOutcome: null,
+    drawOffer: null,
+  };
+}
+
+/**
+ * True while the board must be **inert** - no cell selectable or activatable
+ * - because the game has ended (`play.result.kind !== "ongoing"`) or a draw
+ * offer is currently pending an answer. `actionableSquares`,
+ * `activatableSquares`, and `activateSquare` all consult this rather than
+ * threading a separate "disabled" flag through the UI: an inert board simply
+ * offers nothing to select and responds to nothing.
+ */
+function isInert(session: PlaySession): boolean {
+  return session.play.result.kind !== "ongoing" || session.drawOffer !== null;
+}
+
+/**
+ * The side whose perspective the board is drawn from - the player who is
+ * actually sitting at the board right now, which is not always the side to
+ * move (story 00000006, Step 13).
+ *
+ * Ordinarily that is `play.sideToMove`: the active player sees their own home
+ * edge nearest them, and the board flips at each hand-off. The exception is a
+ * **pending draw offer**. An offer does not change `sideToMove` (the turn
+ * remains the offerer's to take if declined), but it does hand the physical
+ * board to the *opponent*, who must answer Accept or Decline - so the board is
+ * drawn from **their** perspective while they answer. Answering ends the
+ * exception and orientation reverts to `sideToMove`: on a decline that is the
+ * offerer, who now takes their turn; on an accept the game is over and the
+ * final position is shown to the side to move, exactly as it is for every
+ * other ending.
+ */
+export function viewSide(session: PlaySession): Side {
+  return session.drawOffer === null
+    ? session.play.sideToMove
+    : otherSide(session.drawOffer);
 }
 
 /**
@@ -112,9 +168,13 @@ function isOwnMovablePiece(
  * that piece's legal destinations *and* legal attack targets (Step 1 of
  * story 00000004, extended by Step 3/5 of story 00000005). If the side to
  * move is stuck with no legal move or attack anywhere, this is simply empty -
- * never throws.
+ * never throws. **Empty** whenever the board is inert (story 00000006, Step
+ * 6) - the game has ended, or a draw offer is pending an answer.
  */
 export function actionableSquares(session: PlaySession): Square[] {
+  if (isInert(session)) {
+    return [];
+  }
   const { play, selection } = session;
   if (selection !== null) {
     return [
@@ -133,9 +193,16 @@ export function actionableSquares(session: PlaySession): Square[] {
  * `legalAttacks(session.play.board, session.selection)` when a piece is
  * selected, or an empty array when nothing is. `PlayBoard` (Step 7) uses this
  * to render and label attack targets distinctly from plain move targets,
- * without re-deriving which is which.
+ * without re-deriving which is which. **Empty** whenever the board is inert
+ * (story 00000006, Step 6) - the game has ended, or a draw offer is pending
+ * an answer - matching `actionableSquares`/`activatableSquares`, by contract
+ * rather than merely because a completed or ending ply happens to leave
+ * `selection === null`.
  */
 export function attackTargets(session: PlaySession): Square[] {
+  if (isInert(session)) {
+    return [];
+  }
   const { play, selection } = session;
   if (selection === null) {
     return [];
@@ -156,9 +223,14 @@ export function attackTargets(session: PlaySession): Square[] {
  * `actionableSquares` - to decide which cells respond to a click or
  * Enter/Space, so switching the selection to a different own piece and
  * deselecting the current one are reachable by mouse and keyboard alike;
- * `actionableSquares` continues to drive only the visual highlight.
+ * `actionableSquares` continues to drive only the visual highlight. **Empty**
+ * whenever the board is inert (story 00000006, Step 6) - the game has ended,
+ * or a draw offer is pending an answer.
  */
 export function activatableSquares(session: PlaySession): Square[] {
+  if (isInert(session)) {
+    return [];
+  }
   const { play, selection } = session;
   const ownMovable = allSquares().filter((square) =>
     isOwnMovablePiece(play.board, play.sideToMove, square),
@@ -194,16 +266,25 @@ export function activatableSquares(session: PlaySession): Square[] {
  *   empty non-destination square, or (with nothing selected) any square that
  *   is not one of the side-to-move's own movable pieces - is a no-op: the
  *   returned session is unchanged.
+ *
+ * A **no-op** in every case, regardless of `square`, when the board is inert
+ * (story 00000006, Step 6) - the game has already ended, or a draw offer is
+ * pending an answer: nothing may be selected or moved until the offer is
+ * resolved.
  */
 export function activateSquare(
   session: PlaySession,
   square: Square,
 ): PlaySession {
-  const { play, selection, lastOutcome } = session;
+  if (isInert(session)) {
+    return session;
+  }
+
+  const { play, selection, lastOutcome, drawOffer } = session;
 
   if (selection !== null) {
     if (squareKey(square) === squareKey(selection)) {
-      return { play, selection: null, lastOutcome };
+      return { play, selection: null, lastOutcome, drawOffer };
     }
     const destinations = legalDestinations(play.board, selection);
     const attacks = legalAttacks(play.board, selection);
@@ -216,16 +297,79 @@ export function activateSquare(
         play: applied.state,
         selection: null,
         lastOutcome: applied.outcome,
+        drawOffer: null,
       };
     }
     if (isOwnMovablePiece(play.board, play.sideToMove, square)) {
-      return { play, selection: square, lastOutcome };
+      return { play, selection: square, lastOutcome, drawOffer };
     }
     return session;
   }
 
   if (isOwnMovablePiece(play.board, play.sideToMove, square)) {
-    return { play, selection: square, lastOutcome };
+    return { play, selection: square, lastOutcome, drawOffer };
   }
   return session;
+}
+
+/**
+ * Offers a draw (rules.md §6.6) on behalf of the current side to move,
+ * recording it as the pending `drawOffer` and clearing any current
+ * selection - the board goes inert (per `isInert`) the moment an offer is
+ * made, so a piece mid-selection is picked back up. Does **not** change
+ * `play.sideToMove`: an offer never replaces or skips a move. A **no-op**
+ * (returns `session` unchanged) if the game has already ended or an offer is
+ * already pending - the UI never offers this action in either case (Step 9's
+ * end-of-game panel and Step 11's draw-offer control both gate on it).
+ */
+export function offerDraw(session: PlaySession): PlaySession {
+  if (session.play.result.kind !== "ongoing" || session.drawOffer !== null) {
+    return session;
+  }
+  return {
+    play: session.play,
+    selection: null,
+    lastOutcome: session.lastOutcome,
+    drawOffer: session.play.sideToMove,
+  };
+}
+
+/**
+ * Accepts the pending draw offer, ending the game immediately as a draw by
+ * **agreement** via `play.ts`'s `agreeDraw` (Step 4), and clears the pending
+ * offer. The board remains inert afterward - not because an offer is
+ * pending, but because the game is now over (`isInert` checks `result` first).
+ * A **no-op** if no offer is pending.
+ */
+export function acceptDraw(session: PlaySession): PlaySession {
+  if (session.drawOffer === null) {
+    return session;
+  }
+  return {
+    play: agreeDraw(session.play),
+    selection: session.selection,
+    lastOutcome: session.lastOutcome,
+    drawOffer: null,
+  };
+}
+
+/**
+ * Declines the pending draw offer: clears it and returns play to the
+ * offering player, who still has their turn - `play.sideToMove` is
+ * unchanged, since a draw offer never occupied a turn. Quiet, per rules.md
+ * §6.6: no counter change, no move appended, no penalty - `play` itself is
+ * untouched. Restores the board to normal (actionable/activatable) once the
+ * offer is cleared, so the offering player can then move as usual. A
+ * **no-op** if no offer is pending.
+ */
+export function declineDraw(session: PlaySession): PlaySession {
+  if (session.drawOffer === null) {
+    return session;
+  }
+  return {
+    play: session.play,
+    selection: session.selection,
+    lastOutcome: session.lastOutcome,
+    drawOffer: null,
+  };
 }

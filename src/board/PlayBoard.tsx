@@ -5,9 +5,12 @@
 // so movement is keyboard-operable and screen-reader-perceivable from the
 // start rather than retrofitted.
 //
-// Orientation flips with the side to move (Step 4's `fullBoardRows`): each
-// hand-off re-renders the board from the new active player's own
-// perspective, their home edge nearest them. This component itself is
+// Orientation follows `playSession.ts`'s `viewSide` (Step 4's
+// `fullBoardRows`): each hand-off re-renders the board from the perspective
+// of the player now sitting at it, their home edge nearest them. That is
+// normally the side to move, the exception being a pending draw offer, which
+// hands the board to the opponent to answer without changing whose turn it
+// is (story 00000006, Step 13). This component itself is
 // unaware of the move grammar (select/deselect/move) - it only renders
 // whichever squares are highlighted and which respond to activation, and
 // reports raw square activations up to the caller via `onActivate`; App.tsx
@@ -37,12 +40,7 @@
 // keyboard even though an unselected movable piece shows no highlight.
 
 import { PieceIcon, LAKE_SYMBOL_ID } from "../art/PieceIcon.tsx";
-import {
-  isLake,
-  squareKey,
-  type Side,
-  type Square,
-} from "../rules/primary/v1_1/board.ts";
+import { isLake, squareKey, type Square } from "../rules/primary/v1_1/board.ts";
 import type { PlacedPiece } from "../rules/primary/v1_1/gameState.ts";
 import { PIECE_CATALOG } from "../rules/primary/v1_1/pieces.ts";
 import {
@@ -54,15 +52,12 @@ import {
   actionableSquares,
   activatableSquares,
   attackTargets,
+  viewSide,
   type PlaySession,
 } from "./playSession.ts";
 import { fullBoardRows, visibleColumns } from "./boardView.ts";
+import { sideColorName } from "./sideNames.ts";
 import "./PlayBoard.css";
-
-/** Player-facing color name for a side. Internal-only; never shown as "White"/"Black". */
-function sideColorName(side: Side): string {
-  return side === "white" ? "Red" : "Blue";
-}
 
 /**
  * Accessible label for one square: its name plus what occupies it, if
@@ -111,7 +106,7 @@ export interface PlayBoardProps {
 }
 
 /**
- * The full 12x12 board, oriented to `session.play.sideToMove` (Step 4), drawn
+ * The full 12x12 board, oriented to `viewSide(session)` (Step 4), drawn
  * through the accessible grid (Step 5). The only highlighted squares are for
  * an in-progress selection: the selected piece and its legal destinations
  * (from `actionableSquares` once a piece is selected); with nothing selected
@@ -125,7 +120,7 @@ export function PlayBoard({
   onActivate,
   announcement,
 }: PlayBoardProps) {
-  const side = session.play.sideToMove;
+  const side = viewSide(session);
   const rows = fullBoardRows(side);
   const columns = visibleColumns(side);
   // Only a selected piece's legal destinations are highlighted; with nothing

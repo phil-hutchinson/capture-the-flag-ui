@@ -8,11 +8,15 @@ import type {
 } from "../rules/primary/v1_1/gameState.ts";
 import type { PieceTypeId } from "../rules/primary/v1_1/pieces.ts";
 import {
+  acceptDraw,
   actionableSquares,
   activatableSquares,
   activateSquare,
   attackTargets,
+  declineDraw,
+  offerDraw,
   startSession,
+  viewSide,
   type PlaySession,
 } from "./playSession.ts";
 
@@ -61,6 +65,8 @@ describe("actionableSquares - nothing selected", () => {
         ["D5", "white", "infantry"],
         ["E5", "white", "tower"], // own, but immobile - excluded
         ["D9", "black", "militia"], // opponent - excluded
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     expect(sortedKeys(actionableSquares(session))).toEqual(["D5"]);
@@ -74,7 +80,13 @@ describe("actionableSquares - nothing selected", () => {
     // has no other piece on the board, so no piece anywhere has a legal move
     // or attack. (Note: an enemy-surrounded piece, as story 00000004 used to
     // stage this case, is no longer "stuck" now that attacks are offered -
-    // it would have a legal attack against each adjacent enemy.)
+    // it would have a legal attack against each adjacent enemy.) Both sides
+    // have a Flag, elsewhere on the board, so this scenario is exactly what
+    // it looks like: White having no legal ply at all is itself a real §6.3
+    // game-ending condition (story 00000006), detected at the reveal - so
+    // `actionableSquares` is empty both because White is boxed in and
+    // because the board is now inert. Either way, the assertion - empty,
+    // never throws - holds.
     const session = startSession(
       initialGameState([
         ["D5", "white", "infantry"],
@@ -82,6 +94,8 @@ describe("actionableSquares - nothing selected", () => {
         ["E5", "white", "tower"],
         ["D4", "white", "tower"],
         ["D6", "white", "tower"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     expect(() => actionableSquares(session)).not.toThrow();
@@ -96,6 +110,8 @@ describe("activatableSquares - nothing selected", () => {
         ["D5", "white", "infantry"],
         ["E5", "white", "tower"], // own, but immobile - excluded
         ["D9", "black", "militia"], // opponent - excluded
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     expect(sortedKeys(activatableSquares(session))).toEqual(["D5"]);
@@ -107,6 +123,7 @@ describe("activatableSquares - nothing selected", () => {
         ["D5", "white", "infantry"],
         ["E5", "white", "tower"],
         ["F5", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     expect(sortedKeys(activatableSquares(session))).toEqual(["D5"]);
@@ -117,6 +134,8 @@ describe("activatableSquares - nothing selected", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     expect(activatableSquares(session)).not.toContainEqual(sq("D", 9));
@@ -124,7 +143,11 @@ describe("activatableSquares - nothing selected", () => {
 
   it("excludes an empty non-destination square", () => {
     const session = startSession(
-      initialGameState([["D5", "white", "infantry"]]),
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ]),
     );
     expect(activatableSquares(session)).not.toContainEqual(sq("H", 8));
   });
@@ -138,6 +161,8 @@ describe("activatableSquares - a piece selected", () => {
         ["H5", "white", "infantry"],
         ["D9", "black", "militia"],
         ["E5", "white", "tower"], // own, immobile - excluded
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -156,6 +181,8 @@ describe("activatableSquares - a piece selected", () => {
         ["D5", "white", "infantry"],
         ["H5", "white", "tower"],
         ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -169,7 +196,11 @@ describe("activatableSquares - a piece selected", () => {
 describe("activateSquare - selecting a piece", () => {
   it("selecting an own movable piece exposes exactly its legal destinations", () => {
     const session = startSession(
-      initialGameState([["D5", "white", "infantry"]]),
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ]),
     );
     const next = activateSquare(session, sq("D", 5));
     expect(next.selection).toEqual(sq("D", 5));
@@ -183,6 +214,8 @@ describe("activateSquare - selecting a piece", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const next = activateSquare(session, sq("D", 9));
@@ -205,7 +238,11 @@ describe("activateSquare - selecting a piece", () => {
 
   it("activating the same selected piece again deselects it", () => {
     const session = startSession(
-      initialGameState([["D5", "white", "infantry"]]),
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ]),
     );
     const selected = activateSquare(session, sq("D", 5));
     expect(selected.selection).toEqual(sq("D", 5));
@@ -222,6 +259,8 @@ describe("activateSquare - moving", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -242,6 +281,8 @@ describe("activateSquare - moving", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -267,6 +308,8 @@ describe("activateSquare - switching selection", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["H5", "white", "infantry"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selectedD5 = activateSquare(session, sq("D", 5));
@@ -286,6 +329,8 @@ describe("activateSquare - switching selection", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["H5", "white", "tower"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selectedD5 = activateSquare(session, sq("D", 5));
@@ -301,6 +346,8 @@ describe("activateSquare - turn alternation across a sequence", () => {
     const initial = initialGameState([
       ["D5", "white", "infantry"],
       ["D9", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let session: PlaySession = startSession(initial);
     expect(session.play.sideToMove).toBe("white");
@@ -334,6 +381,8 @@ describe("attacks - selectability", () => {
         ["D4", "white", "tower"],
         ["D6", "white", "tower"],
         ["E5", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     expect(sortedKeys(actionableSquares(session))).toEqual(["D5"]);
@@ -348,6 +397,8 @@ describe("attacks - offered alongside moves, distinguishable", () => {
         ["D5", "white", "infantry"],
         ["D9", "black", "militia"], // out of range - neither a move nor an attack target
         ["E5", "black", "champion"], // adjacent enemy - an attack target, not a move
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -385,19 +436,20 @@ describe("attacks - offered alongside moves, distinguishable", () => {
     expect(attackTargets(selected)).toEqual([]);
   });
 
-  it("a Flag square is never offered as an attack target, even though it is enemy-occupied", () => {
+  it("an enemy Flag square is offered as an attack target (story 00000006 - the Flag is now capturable)", () => {
     const session = startSession(
       initialGameState([
         ["D5", "white", "infantry"],
         ["E5", "black", "flag"],
+        ["A1", "white", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
-    expect(actionableSquares(selected)).not.toContainEqual(sq("E", 5));
-    expect(attackTargets(selected)).toEqual([]);
-    // The piece's other, empty-square destinations remain available.
+    expect(actionableSquares(selected)).toContainEqual(sq("E", 5));
+    expect(attackTargets(selected)).toEqual([sq("E", 5)]);
+    // The piece's other, empty-square destinations remain available too.
     expect(sortedKeys(actionableSquares(selected))).toEqual(
-      ["C5", "D4", "D6"].sort(),
+      ["C5", "D4", "D6", "E5"].sort(),
     );
   });
 });
@@ -408,6 +460,8 @@ describe("attacks - activating a target", () => {
       initialGameState([
         ["D5", "white", "infantry"], // rank 4
         ["E5", "black", "militia"], // rank 6 - weaker, so the attacker wins
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -437,6 +491,8 @@ describe("attacks - activating a target", () => {
       initialGameState([
         ["D5", "white", "infantry"], // rank 4
         ["E5", "black", "infantry"], // rank 4 - equal, mutual loss
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -453,7 +509,11 @@ describe("attacks - activating a target", () => {
 
   it("a plain move (not an attack) records a non-combat outcome", () => {
     const session = startSession(
-      initialGameState([["D5", "white", "infantry"]]),
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ]),
     );
     const selected = activateSquare(session, sq("D", 5));
     const moved = activateSquare(selected, sq("D", 4));
@@ -471,6 +531,8 @@ describe("attacks - turn alternation with attacks mixed in", () => {
     const initial = initialGameState([
       ["D5", "white", "infantry"],
       ["D7", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
     ]);
     let session: PlaySession = startSession(initial);
     expect(session.play.sideToMove).toBe("white");
@@ -506,3 +568,241 @@ describe("attacks - turn alternation with attacks mixed in", () => {
     });
   });
 });
+
+describe("game over: the board is inert (story 00000006, Step 6)", () => {
+  /**
+   * A session whose game has already ended: White's Infantry captures
+   * Black's Flag (offered as an attack target since story 00000006's Step
+   * 2), which is an immediate `flagCapture` win for White (Step 4). Also
+   * carries a spare piece for each side (Black's Militia at H8, White's
+   * Militia at K3) and an empty square (F6) so the no-op assertions below can
+   * exercise an "own piece" (from the new side to move, Black), an
+   * "opponent's piece", and an empty square all in one board.
+   */
+  function finishedSession(): PlaySession {
+    const session = startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["D4", "black", "flag"],
+        ["A1", "white", "flag"],
+        ["H8", "black", "militia"],
+        ["K3", "white", "militia"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("D", 5));
+    return activateSquare(selected, sq("D", 4));
+  }
+
+  it("ends the game as a flag-capture win for White, for this fixture", () => {
+    const session = finishedSession();
+    expect(session.play.result).toEqual({
+      kind: "win",
+      winner: "white",
+      reason: "flagCapture",
+    });
+    expect(session.play.sideToMove).toBe("black");
+  });
+
+  it("actionableSquares and activatableSquares are both empty once the game has ended", () => {
+    const session = finishedSession();
+    expect(actionableSquares(session)).toEqual([]);
+    expect(activatableSquares(session)).toEqual([]);
+  });
+
+  it("attackTargets is empty once the game has ended, even with a selection carried over (Minor 3 fix)", () => {
+    // `finishedSession()` itself leaves `selection === null` (a completed ply
+    // always clears it), which would make `attackTargets` empty anyway
+    // without the `isInert` guard - so this asserts the guard directly by
+    // reconstructing a finished session with a non-null `selection`, which
+    // `attackTargets` must still treat as inert rather than by accident.
+    const session = finishedSession();
+    const withSelection: PlaySession = { ...session, selection: sq("H", 8) };
+    expect(attackTargets(withSelection)).toEqual([]);
+  });
+
+  it("activateSquare is a no-op on an own piece, an enemy piece, and an empty square once the game has ended", () => {
+    const session = finishedSession();
+    // H8: Black's own Militia (Black is the side to move now, post-capture).
+    expect(activateSquare(session, sq("H", 8))).toBe(session);
+    // K3: White's (the opponent's) Militia.
+    expect(activateSquare(session, sq("K", 3))).toBe(session);
+    // F6: an empty square.
+    expect(activateSquare(session, sq("F", 6))).toBe(session);
+  });
+});
+
+describe("draw offer state machine (story 00000006, Step 6)", () => {
+  /** An ordinary, ongoing mid-game session with White to move. */
+  function ongoingSession(): PlaySession {
+    return startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ]),
+    );
+  }
+
+  it("a fresh session has no pending draw offer", () => {
+    expect(ongoingSession().drawOffer).toBeNull();
+  });
+
+  it("offerDraw records the side to move as the offerer and makes the board inert", () => {
+    const session = ongoingSession();
+    const offered = offerDraw(session);
+
+    expect(offered.drawOffer).toBe("white");
+    expect(offered.play).toBe(session.play);
+    expect(actionableSquares(offered)).toEqual([]);
+    expect(activatableSquares(offered)).toEqual([]);
+    expect(activateSquare(offered, sq("D", 5))).toBe(offered);
+  });
+
+  it("offerDraw clears any current selection", () => {
+    const session = ongoingSession();
+    const selected = activateSquare(session, sq("D", 5));
+    expect(selected.selection).toEqual(sq("D", 5));
+
+    const offered = offerDraw(selected);
+    expect(offered.selection).toBeNull();
+    expect(offered.drawOffer).toBe("white");
+  });
+
+  it("offerDraw is a no-op when the game has already ended", () => {
+    const session = finishedSessionForDrawTests();
+    expect(offerDraw(session)).toBe(session);
+  });
+
+  it("offerDraw is a no-op when an offer is already pending", () => {
+    const session = ongoingSession();
+    const offered = offerDraw(session);
+    expect(offerDraw(offered)).toBe(offered);
+  });
+
+  it("declineDraw clears the offer, leaves sideToMove unchanged, adds no move, and restores the actionable/activatable sets", () => {
+    const session = ongoingSession();
+    const offered = offerDraw(session);
+
+    const declined = declineDraw(offered);
+    expect(declined.drawOffer).toBeNull();
+    expect(declined.play.sideToMove).toBe("white");
+    expect(declined.play.moves).toEqual([]);
+    expect(declined.play.inactivityCounters).toEqual({ white: 0, black: 0 });
+    expect(declined.play.progressCounter).toBe(0);
+    expect(actionableSquares(declined)).toEqual(actionableSquares(session));
+    expect(activatableSquares(declined)).toEqual(activatableSquares(session));
+    // The offering player (White) can then move as usual.
+    const selected = activateSquare(declined, sq("D", 5));
+    expect(selected.selection).toEqual(sq("D", 5));
+  });
+
+  it("declineDraw is a no-op when no offer is pending", () => {
+    const session = ongoingSession();
+    expect(declineDraw(session)).toBe(session);
+  });
+
+  it("acceptDraw ends the game as an agreed draw and leaves the board inert", () => {
+    const session = ongoingSession();
+    const offered = offerDraw(session);
+
+    const accepted = acceptDraw(offered);
+    expect(accepted.drawOffer).toBeNull();
+    expect(accepted.play.result).toEqual({ kind: "draw", reason: "agreement" });
+    // Nothing else about the play state changed.
+    expect(accepted.play.sideToMove).toBe("white");
+    expect(accepted.play.moves).toEqual([]);
+    expect(actionableSquares(accepted)).toEqual([]);
+    expect(activatableSquares(accepted)).toEqual([]);
+  });
+
+  it("acceptDraw is a no-op when no offer is pending", () => {
+    const session = ongoingSession();
+    expect(acceptDraw(session)).toBe(session);
+  });
+
+  it("an ordinary mid-game session with no offer behaves exactly as before", () => {
+    const session = ongoingSession();
+    expect(session.drawOffer).toBeNull();
+    const selected = activateSquare(session, sq("D", 5));
+    const moved = activateSquare(selected, sq("D", 4));
+
+    expect(moved.drawOffer).toBeNull();
+    expect(moved.play.sideToMove).toBe("black");
+    expect(moved.play.moves).toEqual(["D5D4"]);
+  });
+});
+
+describe("viewSide - whose perspective the board is drawn from", () => {
+  function ongoingSession(): PlaySession {
+    return startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ]),
+    );
+  }
+
+  it("follows the side to move with no offer pending", () => {
+    const session = ongoingSession();
+    expect(viewSide(session)).toBe("white");
+
+    const selected = activateSquare(session, sq("D", 5));
+    const moved = activateSquare(selected, sq("D", 4));
+    expect(viewSide(moved)).toBe("black");
+  });
+
+  it("switches to the responder while an offer awaits an answer", () => {
+    // The turn is still White's - an offer never replaces a move - but it is
+    // Black who is sitting at the board, being asked to answer, so the board
+    // is drawn from Black's perspective.
+    const offered = offerDraw(ongoingSession());
+    expect(offered.play.sideToMove).toBe("white");
+    expect(viewSide(offered)).toBe("black");
+  });
+
+  it("switches back to the offerer when the offer is declined", () => {
+    const declined = declineDraw(offerDraw(ongoingSession()));
+    expect(declined.drawOffer).toBeNull();
+    expect(viewSide(declined)).toBe("white");
+  });
+
+  it("switches back to the side to move when the offer is accepted", () => {
+    // Accepting ends the game; the final position is shown to the side to
+    // move (the offerer), exactly as it is for every other ending.
+    const accepted = acceptDraw(offerDraw(ongoingSession()));
+    expect(accepted.play.result.kind).toBe("draw");
+    expect(viewSide(accepted)).toBe("white");
+  });
+
+  it("is unaffected by an offer from the other side", () => {
+    // Black to move, Black offers: it is now White who must answer.
+    const session = ongoingSession();
+    const selected = activateSquare(session, sq("D", 5));
+    const blackToMove = activateSquare(selected, sq("D", 4));
+    expect(viewSide(blackToMove)).toBe("black");
+
+    const offered = offerDraw(blackToMove);
+    expect(viewSide(offered)).toBe("white");
+    expect(viewSide(declineDraw(offered))).toBe("black");
+  });
+});
+
+/**
+ * A session whose game has already ended (a flag-capture win for White), for
+ * the draw-offer no-op tests above - separate from the "game over" describe
+ * block's `finishedSession` so each block reads standalone.
+ */
+function finishedSessionForDrawTests(): PlaySession {
+  const session = startSession(
+    initialGameState([
+      ["D5", "white", "infantry"],
+      ["D4", "black", "flag"],
+      ["A1", "white", "flag"],
+    ]),
+  );
+  const selected = activateSquare(session, sq("D", 5));
+  return activateSquare(selected, sq("D", 4));
+}
