@@ -1051,7 +1051,24 @@ needs a specific adjacency), and enter Phase 2. Confirm:
 
 ## Step 10 — Start a new game
 
-Status: pending
+Status: committed
+
+Notes: `GameResult` now takes an `onNewGame: () => void` prop and renders a
+plain `<button type="button" className="game-result__new-game">New game</button>`
+beside the result sentence, following `PlacementStatus.tsx`'s button precedent
+(styled but with the UA focus outline left intact, so keyboard focus stays
+visible; no live-region announcement — a screen-reader user tabbing to it hears
+its name and role from the button itself). Because the panel only renders when
+`result.kind !== "ongoing"`, the action is structurally unofferable while a game
+is in progress — mid-game abandonment/resignation stays out of scope. `App.tsx`'s
+`handleNewGame` performs the full reset: `setSession(newSession())`,
+`setPlaySession(null)` (which is what routes `App` back to the placement branch),
+`setSelection(null)`, `setPlayAnnouncement("")`. Nothing carries over. The panel
+gained `gap`/`flex-wrap` to seat the button. No test file constructed
+`GameResult`, so the new required prop broke nothing. Gate H verified manually by
+the owner: a Flag-capture ending, then New game returns to a fresh empty Phase-1
+placement (Red first, 0 / 48 placed, no pieces, no move record, no result panel),
+the new game plays into Phase 2 normally, and New game is never offered mid-game.
 
 Add the player-facing **New game** action, offered **only** from the end-of-game
 presentation.

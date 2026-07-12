@@ -115,6 +115,18 @@ export function App() {
       setPlayAnnouncement(describeActivation(playSession, next, square));
     };
 
+    // Story 00000006, Step 10: "New game" is a full reset - a fresh, empty
+    // Phase-1 placement session for both players. Nothing from the finished
+    // game carries over: `playSession` goes back to `null` (which is what
+    // routes App back to the placement branch below), and the placement
+    // selection/announcement state are cleared alongside it.
+    const handleNewGame = () => {
+      setSession(newSession());
+      setPlaySession(null);
+      setSelection(null);
+      setPlayAnnouncement("");
+    };
+
     const { result } = playSession.play;
 
     return (
@@ -124,7 +136,7 @@ export function App() {
         {result.kind === "ongoing" ? (
           <PlayStatus sideToMove={playSession.play.sideToMove} />
         ) : (
-          <GameResult result={result} />
+          <GameResult result={result} onNewGame={handleNewGame} />
         )}
         <PlayBoard
           session={playSession}

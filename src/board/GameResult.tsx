@@ -16,8 +16,15 @@
 // occupied), which keeps rendering - inert, per Step 6 - so the final
 // position stays visible.
 //
-// Step 10 adds a "New game" action inside this panel; this step only
-// presents the result.
+// Step 10 adds the "New game" action inside this panel: a full reset (a
+// fresh, empty Phase-1 placement for both players, nothing carried over),
+// offered only here because this panel is only ever rendered once the game
+// has ended. Following `PlacementStatus.tsx`'s precedent, it's a plain
+// `<button type="button">`, keyboard-reachable with a visible focus ring and
+// an accessible name from its own text - no separate live-region
+// announcement, for the same reason the result sentence above has none: a
+// screen-reader user tabbing to a button hears its name and role from the
+// button itself.
 
 import type { GameOutcome } from "../rules/primary/v1_1/outcome.ts";
 import { describeResult } from "./playAnnouncement.ts";
@@ -28,10 +35,12 @@ type FinishedOutcome = Exclude<GameOutcome, { readonly kind: "ongoing" }>;
 
 export interface GameResultProps {
   readonly result: FinishedOutcome;
+  /** Starts a fresh game: empty Phase-1 placement for both players. */
+  readonly onNewGame: () => void;
 }
 
 /** The end-of-game panel: the result and reason, replacing `PlayStatus` once the game is over. */
-export function GameResult({ result }: GameResultProps) {
+export function GameResult({ result, onNewGame }: GameResultProps) {
   const winner = result.kind === "win" ? result.winner : null;
   return (
     <div
@@ -40,6 +49,13 @@ export function GameResult({ result }: GameResultProps) {
       data-winner={winner ?? undefined}
     >
       <span className="game-result__summary">{describeResult(result)}</span>
+      <button
+        type="button"
+        className="game-result__new-game"
+        onClick={onNewGame}
+      >
+        New game
+      </button>
     </div>
   );
 }
