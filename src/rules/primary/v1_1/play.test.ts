@@ -548,6 +548,41 @@ describe("applyMove - result (§6 detection after every ply)", () => {
     });
   });
 
+  it("ends the game the moment a ply captures the opponent's last available Sapper (§6.2 in play)", () => {
+    // White's Flag is sealed into its corner by White's own Towers, so the
+    // only thing keeping the game alive is Black's single Sapper - the one
+    // piece type that can breach a Tower. It stands in the open with a clear
+    // path to a White Tower, so at the reveal it is *available* and the game
+    // is ongoing. White then captures it (Infantry, rank 4, over Sapper,
+    // rank 9 - a clean win), leaving Black with no Sapper at all: White's
+    // Flag becomes unbreachable and White wins on the spot, without the
+    // Flag itself ever being threatened.
+    const initial = initialGameState([
+      ["A1", "white", "flag"],
+      ["A2", "white", "tower"],
+      ["B1", "white", "tower"],
+      ["D5", "white", "infantry"],
+      ["D6", "black", "sapper"],
+      ["L12", "black", "flag"],
+    ]);
+    const state = startPlay(initial);
+    // Precondition: Black's Sapper is available, so §6.2 does *not* hold yet.
+    expect(state.result).toEqual({ kind: "ongoing" });
+
+    const { state: next, outcome } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 6 },
+    );
+
+    expect(outcome).toMatchObject({ kind: "attack", result: "attackerWins" });
+    expect(next.result).toEqual({
+      kind: "win",
+      winner: "white",
+      reason: "unbreachableFlag",
+    });
+  });
+
   it("leaves result ongoing after a ply that does not end the game", () => {
     const initial = initialGameState([
       ["D5", "white", "infantry"],

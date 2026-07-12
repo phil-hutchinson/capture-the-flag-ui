@@ -1346,7 +1346,30 @@ as a draw by agreement and the board going inert.
 
 ## Step 14 — The Unbreachable Flag, end to end
 
-Status: pending
+Status: committed
+
+Notes: **Verification-only** for production code - no defect surfaced, nothing
+in `src/` that the app bundles changed. Gate B verified by the owner, who
+exercised more than the gate asked: an enclosed **Red** Flag with Blue's
+Sappers locked away (instant Red win at the reveal), the mirror case with the
+sides swapped (instant Blue win), **both** sides enclosed with both sides'
+Sappers locked (instant **draw** - the §6.2 both-sides case from Step 4), and
+the ordinary Sapper-available cases (win, draw, and correctly **no** result at
+all when the Flag is not enclosed). Detection at the reveal, the mirror
+symmetry, the draw case, and the negative case are therefore all confirmed in
+the UI.
+
+One real **coverage gap** was found and filled while preparing the gate. The
+*reveal* half of §6.2 was already tested (`play.test.ts`: a walled Flag plus no
+enemy Sapper, detected before any ply), but the *in-play* half - a ply capturing
+the opponent's **last available Sapper** ending the game on the spot - was not
+covered anywhere. `play.test.ts` gains
+"ends the game the moment a ply captures the opponent's last available Sapper
+(§6.2 in play)": White's Flag is sealed behind its own Towers while Black's
+single Sapper stands in the open with a clear path to a White Tower (so it is
+*available* and the game is ongoing at the reveal); White captures it, and
+White wins immediately by unbreachable Flag - without the Flag itself ever
+being threatened. Suite now 344 tests.
 
 The reachability rule logic (Step 1), the §6.2 detection including the
 both-sides-draw case and the check **at the reveal** (Step 4), and the
