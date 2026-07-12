@@ -1189,7 +1189,28 @@ and the reason as **inactivity**.
 
 ## Step 12 — The no-progress draw, end to end
 
-Status: pending
+Status: committed
+
+Notes: **Verification-only** - no production code changed, and no defect
+surfaced. Gate D verified by the owner: the shared warning appears for both
+players at 20 combined moves remaining and counts down, a capture clears it
+(progress resets to 0), and reaching 80 combined moves ends the game as a draw
+with the reason given as no progress and the board inert. The path was already
+covered automatically as well: `play.test.ts` covers the complete-sacrifice
+counter semantics (both inactivity counters zeroed, progress still raised by 1),
+and Step 11's `playWarnings.game.test.ts` replays the whole mutual-shuffle game
+through the engine - warning at 20 remaining, counting down, draw at
+`PROGRESS_LIMIT`.
+
+**Correction to this step's tester note below:** the occasional complete
+sacrifice it prescribes (to hold the inactivity counters down while progress
+climbs) is **not needed**. The no-progress draw fires at 80 *combined* plies, at
+which point each side has made only 40 of *their own* plies - ten short of
+`INACTIVITY_LIMIT`. A plain mutual shuffle therefore always reaches the draw
+without any risk of an inactivity loss pre-empting it (pinned by the
+"never raises an inactivity warning" test in `playWarnings.game.test.ts`). The
+note is left in place below as originally written, but it describes a
+precaution the rules do not require.
 
 The no-progress counter (Step 3), its detection at 80 (Step 4), its warning at 20
 remaining (Steps 8, 11), and the end-of-game presentation (Step 9) are all built
