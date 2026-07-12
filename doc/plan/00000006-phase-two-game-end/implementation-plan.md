@@ -977,7 +977,32 @@ the right count, and (for inactivity) mention that an attack resets it.
 
 ## Step 9 — End-of-game presentation: result, reason, and an inert board
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/GameResult.tsx` + `.css`: a visual-only panel (no
+live region — the same rationale as the module's own comment: the result is
+already announced once through the board's live region) rendering
+`describeResult(result)` from `playAnnouncement.ts`, taking a `FinishedOutcome`
+(`Exclude<GameOutcome, { kind: "ongoing" }>`) so its own type signature
+enforces "only rendered once the game has ended"; `data-outcome`/`data-winner`
+attributes drive a colored left-border accent (`--side-a`/`--side-b`/neutral
+`--ink`) that is additional, not the only, signal — the sentence text always
+carries the meaning. `src/App.tsx`'s Phase-2 branch now destructures
+`playSession.play.result` and renders `GameResult` in `PlayStatus`'s slot
+(same position, above `PlayBoard`) whenever `result.kind !== "ongoing"`;
+`PlayBoard` and `GameRecord` keep rendering unconditionally so the final
+position stays visible, and the board is already inert via Step 6's
+`isInert`/`activatableSquares`. `handleConfirm` now also checks whether the
+freshly started `playSession` is already finished (a §6.2 win at the reveal)
+and, if so, pushes `describeResult(...)` into `playAnnouncement` directly,
+since no activation occurs to drive `describeActivation` in that case. No
+"New game" button was added — that is Step 10's responsibility per the plan
+("Step 10 adds a 'New game' action inside this panel"). No deviations from
+the plan. `npm run typecheck`, `npm run lint`, `npm test` (325 tests, 17
+files), `npm run format:check` (only the two pre-existing unrelated
+`story.md`/`implementation-plan.md` markdown warnings), and `npm run build`
+all pass; `npm run dev` was started and confirmed to serve the app without
+errors, but the manual gate itself (Gate A) is the owner's to run.
 
 Wire the ending into the visible app. This is the first step where a player can
 actually win.

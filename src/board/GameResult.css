@@ -1,0 +1,27 @@
+/* End-of-game panel: result and reason (Step 9). Mirrors PlayStatus.css's
+   chrome, plus a colored accent border naming the winning side (or a neutral
+   one for a draw) - never the only signal, since the sentence text always
+   carries the meaning on its own. */
+
+.game-result {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-left: 4px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+}
+
+.game-result[data-winner="white"] {
+  border-left-color: var(--side-a);
+}
+
+.game-result[data-winner="black"] {
+  border-left-color: var(--side-b);
+}
+
+.game-result__summary {
+  font-weight: bold;
+}

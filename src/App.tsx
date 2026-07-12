@@ -3,6 +3,7 @@ import { APP_NAME } from "./appInfo.ts";
 import { PieceSpriteDefs } from "./art/PieceIcon.tsx";
 import { Board } from "./board/Board.tsx";
 import { GameRecord } from "./board/GameRecord.tsx";
+import { GameResult } from "./board/GameResult.tsx";
 import { PlacementControls } from "./board/PlacementControls.tsx";
 import { PlacementStatus } from "./board/PlacementStatus.tsx";
 import {
@@ -12,7 +13,10 @@ import {
   updateActivePlacement,
   type PlacementSession,
 } from "./board/placementSession.ts";
-import { describeActivation } from "./board/playAnnouncement.ts";
+import {
+  describeActivation,
+  describeResult,
+} from "./board/playAnnouncement.ts";
 import { PlayBoard } from "./board/PlayBoard.tsx";
 import {
   activateSquare,
@@ -111,11 +115,17 @@ export function App() {
       setPlayAnnouncement(describeActivation(playSession, next, square));
     };
 
+    const { result } = playSession.play;
+
     return (
       <main className="app">
         <PieceSpriteDefs />
         <h1 className="app__title">{APP_NAME}</h1>
-        <PlayStatus sideToMove={playSession.play.sideToMove} />
+        {result.kind === "ongoing" ? (
+          <PlayStatus sideToMove={playSession.play.sideToMove} />
+        ) : (
+          <GameResult result={result} />
+        )}
         <PlayBoard
           session={playSession}
           announcement={playAnnouncement}
@@ -221,7 +231,15 @@ export function App() {
       // game-state artifact (story 00000001) and start Phase 2 immediately -
       // per the owner's decision, there is no separate "reveal" gate.
       const gameState = buildInitialGameState(next.white, next.black);
-      setPlaySession(startSession(gameState));
+      const freshPlaySession = startSession(gameState);
+      setPlaySession(freshPlaySession);
+      // Story 00000006, Step 9: placement is unrestricted, so the
+      // Unbreachable Flag condition (§6.2) can already hold at the reveal,
+      // before either player has made a single move - no activation occurs
+      // to drive `describeActivation`, so announce the result directly here.
+      if (freshPlaySession.play.result.kind !== "ongoing") {
+        setPlayAnnouncement(describeResult(freshPlaySession.play.result));
+      }
     }
     setSelection(null);
   }
