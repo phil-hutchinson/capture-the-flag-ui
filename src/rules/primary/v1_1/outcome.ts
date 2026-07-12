@@ -29,7 +29,7 @@
 // primitive (movement.ts), and the Unbreachable Flag inputs (reachability.ts,
 // Step 1); it has no further dependencies.
 
-import { allSquares, squareKey, type Side } from "./board.ts";
+import { allSquares, otherSide, squareKey, type Side } from "./board.ts";
 import type { BoardState } from "./gameState.ts";
 import { hasAnyLegalPly } from "./movement.ts";
 import { computeUnbreachableFlagInputs } from "./reachability.ts";
@@ -74,11 +74,6 @@ export type GameOutcome =
     }
   | { readonly kind: "draw"; readonly reason: GameEndReason };
 
-const OTHER_SIDE: Readonly<Record<Side, Side>> = {
-  white: "black",
-  black: "white",
-};
-
 /** True iff `side` still has its Flag somewhere on `board` (not yet captured). */
 function hasFlag(board: BoardState, side: Side): boolean {
   return allSquares().some((square) => {
@@ -109,7 +104,7 @@ export function computeOutcome(
   inactivityCounters: Readonly<Record<Side, number>>,
   progressCounter: number,
 ): GameOutcome {
-  const opponent = OTHER_SIDE[activeSide];
+  const opponent = otherSide(activeSide);
 
   // 1. §6.1 Flag capture - "does this side still have a Flag on the board",
   // not a check of what the last ply did.

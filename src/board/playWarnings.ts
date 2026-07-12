@@ -34,17 +34,13 @@ import {
   PROGRESS_LIMIT,
 } from "../rules/primary/v1_1/outcome.ts";
 import type { PlayState } from "../rules/primary/v1_1/play.ts";
+import { sideColorName } from "./sideNames.ts";
 
 /** How many of a player's own moves may remain before the inactivity warning appears (story-fixed). */
 const INACTIVITY_WARNING_THRESHOLD = 10;
 
 /** How many combined moves may remain before the no-progress warning appears (story-fixed). */
 const PROGRESS_WARNING_THRESHOLD = 20;
-
-/** Player-facing color name for a side. Internal-only; never shown as "White"/"Black". */
-function sideColorName(side: Side): string {
-  return side === "white" ? "Red" : "Blue";
-}
 
 /**
  * The inactivity countdown warning (rules.md §6.4), shown only to the player

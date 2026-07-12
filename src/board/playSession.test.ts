@@ -609,6 +609,17 @@ describe("game over: the board is inert (story 00000006, Step 6)", () => {
     expect(activatableSquares(session)).toEqual([]);
   });
 
+  it("attackTargets is empty once the game has ended, even with a selection carried over (Minor 3 fix)", () => {
+    // `finishedSession()` itself leaves `selection === null` (a completed ply
+    // always clears it), which would make `attackTargets` empty anyway
+    // without the `isInert` guard - so this asserts the guard directly by
+    // reconstructing a finished session with a non-null `selection`, which
+    // `attackTargets` must still treat as inert rather than by accident.
+    const session = finishedSession();
+    const withSelection: PlaySession = { ...session, selection: sq("H", 8) };
+    expect(attackTargets(withSelection)).toEqual([]);
+  });
+
   it("activateSquare is a no-op on an own piece, an enemy piece, and an empty square once the game has ended", () => {
     const session = finishedSession();
     // H8: Black's own Militia (Black is the side to move now, post-capture).

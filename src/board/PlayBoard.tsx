@@ -40,12 +40,7 @@
 // keyboard even though an unselected movable piece shows no highlight.
 
 import { PieceIcon, LAKE_SYMBOL_ID } from "../art/PieceIcon.tsx";
-import {
-  isLake,
-  squareKey,
-  type Side,
-  type Square,
-} from "../rules/primary/v1_1/board.ts";
+import { isLake, squareKey, type Square } from "../rules/primary/v1_1/board.ts";
 import type { PlacedPiece } from "../rules/primary/v1_1/gameState.ts";
 import { PIECE_CATALOG } from "../rules/primary/v1_1/pieces.ts";
 import {
@@ -61,12 +56,8 @@ import {
   type PlaySession,
 } from "./playSession.ts";
 import { fullBoardRows, visibleColumns } from "./boardView.ts";
+import { sideColorName } from "./sideNames.ts";
 import "./PlayBoard.css";
-
-/** Player-facing color name for a side. Internal-only; never shown as "White"/"Black". */
-function sideColorName(side: Side): string {
-  return side === "white" ? "Red" : "Blue";
-}
 
 /**
  * Accessible label for one square: its name plus what occupies it, if

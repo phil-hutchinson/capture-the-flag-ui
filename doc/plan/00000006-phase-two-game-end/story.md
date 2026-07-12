@@ -38,7 +38,7 @@ implementation. Relevant game-end facts at 1.1:
   Archer behind the Flag changes nothing — §4.3), and an **Assassin attacking
   a supported Flag wins outright**.
 - **Unbreachable Flag (§6.2):** a player wins immediately when every enemy
-  Sapper is *unavailable* (captured, or unable to reach any of that player's
+  Sapper is _unavailable_ (captured, or unable to reach any of that player's
   Towers under the §5 reachability rules) **and** their own Flag is fully
   enclosed by intact Towers and the board edge. Edge cases: enclosure can
   only degrade, never be built; availability is re-checked continuously
@@ -65,9 +65,11 @@ implementation. Relevant game-end facts at 1.1:
   skips a move.
 - **Recording results:** the companion repository's record file format
   (`doc/ruleset/technical-notes.md`) always writes `Result` (PGN values:
-  `1-0`, `0-1`, `1/2-1/2`, `*` for ongoing) and `ResultReason` (free text,
-  e.g. `Flag Captured`, `Inactivity`, `No Progress`, `Unbreachable Flag`,
-  `No Legal Move`) header tags.
+  `1-0`, `0-1`, `1/2-1/2`, `*` for ongoing). `ResultReason` (free text, e.g.
+  `Flag Captured`, `Inactivity`, `No Progress`, `Unbreachable Flag`, `No Legal
+  Move`) is written only once the game has ended; an ongoing record carries
+  `[Result "*"]` and no `ResultReason` tag (owner's decision, 2026-07-11 —
+  see the implementation plan's "Record file format").
 
 **Precedence.** The rulebook orders Section 6 but does not spell out what
 happens when one ply satisfies more than one condition. The companion
@@ -128,8 +130,8 @@ word "move" (never "ply").
    - when **20 or fewer** moves (by both players combined) remain before the
      80 no-progress draw, both players see a warning with the remaining
      count.
-   Warnings are perceivable without relying on color alone and are conveyed
-   to assistive technology.
+     Warnings are perceivable without relying on color alone and are conveyed
+     to assistive technology.
 5. **Draw by agreement.** On their turn, the active player can offer a draw.
    The offer is presented to the opponent across the hand-off; accepting ends
    the game immediately in a draw, declining returns play to the offering

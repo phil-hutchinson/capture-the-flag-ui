@@ -26,6 +26,7 @@
 // screen-reader user tabbing to a button hears its name and role from the
 // button itself.
 
+import { useEffect, useRef } from "react";
 import type { GameOutcome } from "../rules/primary/v1_1/outcome.ts";
 import { describeResult } from "./playAnnouncement.ts";
 import "./GameResult.css";
@@ -42,6 +43,26 @@ export interface GameResultProps {
 /** The end-of-game panel: the result and reason, replacing `PlayStatus` once the game is over. */
 export function GameResult({ result, onNewGame }: GameResultProps) {
   const winner = result.kind === "win" ? result.winner : null;
+  const newGameRef = useRef<HTMLButtonElement>(null);
+
+  // Peer-review fix (Major 2), with the owner's Gate-F decision on where
+  // focus should land. `App.tsx` only ever renders `GameResult` once the game
+  // has just ended, so this component mounts exactly once per ending. Accepting
+  // a draw unmounts the Accept button that had focus, which would otherwise
+  // strand focus on `<body>` and make the next Tab restart from the top of the
+  // document; focus therefore moves here on mount.
+  //
+  // The target is the **New game button**, deliberately *not* the result
+  // sentence: the result is already announced through the board's live region
+  // (see this module's header), and focusing an element carrying that same
+  // sentence would make a screen reader speak the result twice - which is
+  // exactly what Step 16 ruled out. A button announces only its own name and
+  // role ("New game, button"), so the result is heard once. Nothing is trapped:
+  // Tab/Shift+Tab move on from here as normal.
+  useEffect(() => {
+    newGameRef.current?.focus();
+  }, []);
+
   return (
     <div
       className="game-result"
@@ -53,6 +74,7 @@ export function GameResult({ result, onNewGame }: GameResultProps) {
         type="button"
         className="game-result__new-game"
         onClick={onNewGame}
+        ref={newGameRef}
       >
         New game
       </button>

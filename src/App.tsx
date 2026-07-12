@@ -170,7 +170,10 @@ export function App() {
         <h1 className="app__title">{APP_NAME}</h1>
         {result.kind === "ongoing" ? (
           <>
-            <PlayStatus sideToMove={playSession.play.sideToMove} />
+            <PlayStatus
+              sideToMove={playSession.play.sideToMove}
+              drawOfferPending={playSession.drawOffer !== null}
+            />
             <PlayWarnings
               warnings={computeCountdownWarnings(playSession.play)}
             />

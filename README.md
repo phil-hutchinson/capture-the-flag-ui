@@ -19,12 +19,13 @@ install, no account, no server.
   piece onto an enemy piece attacks it, and the fight resolves immediately —
   the losing piece (or both, if they're evenly matched) leaves the board.
 - **Win, lose, or draw** — capture your opponent's flag and the game is yours.
-  You can also win if their flag becomes impossible to reach, or if they are
-  left with no legal move at all. A game can end in a draw too: by agreement,
-  or when neither side is making progress. And if you spend too long shuffling
-  pieces without attacking, you'll be warned before the clock runs out and you
-  lose. However it ends, the app tells you who won and why, leaves the final
-  position on screen, and offers you a new game.
+  You can also win if your own flag becomes impossible for your opponent to
+  reach — walled in, with none of their pieces able to break through — or if
+  they are left with no legal move at all. A game can end in a draw too: by
+  agreement, or when neither side is making progress. And if you spend too
+  long shuffling pieces without attacking, you'll be warned before the clock
+  runs out and you lose. However it ends, the app tells you who won and why,
+  leaves the final position on screen, and offers you a new game.
 - **Replay finished games** from their game log files — step through a past
   battle move by move. _(coming soon)_
 - **Play against the computer** — an AI opponent trained by the companion

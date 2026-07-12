@@ -31,7 +31,7 @@
 // resolution rules (combat.ts, story 00000005), and the initial-game-state
 // artifact (gameState.ts, story 00000001); it has no further dependencies.
 
-import { squareKey, type Side, type Square } from "./board.ts";
+import { otherSide, squareKey, type Side, type Square } from "./board.ts";
 import { resolveCombat, type CombatOutcome } from "./combat.ts";
 import {
   renderPositionBlock,
@@ -103,11 +103,6 @@ export function startPlay(initial: InitialGameState): PlayState {
     ),
   };
 }
-
-const OTHER_SIDE: Readonly<Record<Side, Side>> = {
-  white: "black",
-  black: "white",
-};
 
 /**
  * The outcome of a single ply applied via `applyMove`: either a resolved
@@ -212,7 +207,7 @@ export function applyMove(
   }
 
   const mover = state.sideToMove;
-  const opponent = OTHER_SIDE[mover];
+  const opponent = otherSide(mover);
   let moverInactivity = state.inactivityCounters[mover];
   let opponentInactivity = state.inactivityCounters[opponent];
   let progressCounter = state.progressCounter;
@@ -246,7 +241,7 @@ export function applyMove(
     [opponent]: opponentInactivity,
   };
 
-  const nextSideToMove = OTHER_SIDE[state.sideToMove];
+  const nextSideToMove = otherSide(state.sideToMove);
 
   return {
     state: {

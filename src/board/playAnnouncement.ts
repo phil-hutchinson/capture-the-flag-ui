@@ -52,6 +52,7 @@
 // layer.
 
 import {
+  otherSide,
   squareKey,
   type Side,
   type Square,
@@ -68,23 +69,17 @@ import type {
 import { PIECE_CATALOG } from "../rules/primary/v1_1/pieces.ts";
 import type { PlyOutcome } from "../rules/primary/v1_1/play.ts";
 import type { PlaySession } from "./playSession.ts";
-
-/** Player-facing color name for a side. Internal-only; never shown as "White"/"Black". */
-function sideColorName(side: Side): string {
-  return side === "white" ? "Red" : "Blue";
-}
-
-/** The other side. Internal-only turn-order helper (mirrors `play.ts`'s private `OTHER_SIDE`). */
-function otherSide(side: Side): Side {
-  return side === "white" ? "black" : "white";
-}
+import { sideColorName } from "./sideNames.ts";
 
 /**
- * Player-facing phrase for one of `outcome.ts`'s six stable `GameEndReason`
- * identifiers, capitalized to read as its own clause following an em dash
- * (see `describeResult`) - never "ply", the rules' own terms otherwise.
+ * Bare, capitalized label for one of `outcome.ts`'s six stable
+ * `GameEndReason` identifiers - never "ply", the rules' own terms otherwise.
+ * Used only where a reason can occur without a losing side to name plainly
+ * (see `winReasonClause`/`drawReasonClause` below): a Flag capture already
+ * names the fallen Flag's color in the preceding ply description, and a
+ * no-progress or agreed draw has no single "loser" to name.
  */
-function reasonPhrase(reason: GameEndReason): string {
+function reasonLabel(reason: GameEndReason): string {
   switch (reason) {
     case "flagCapture":
       return "Flag captured";
@@ -104,22 +99,70 @@ function reasonPhrase(reason: GameEndReason): string {
 }
 
 /**
+ * Player-facing clause completing "{Winner} wins — ..." (no trailing period)
+ * for a win outcome. Peer-review fix (Minor 7): names the *losing* side
+ * plainly wherever the reason needs a subject to avoid reading as rules
+ * jargon - e.g. "Blue can no longer reach Red's flag" rather than
+ * "Unbreachable Flag". `noProgress` and `agreement` never occur for a win
+ * (`computeOutcome`/`agreeDraw` only ever produce them as draws) - listed
+ * only so this switch is exhaustive.
+ */
+function winReasonClause(winner: Side, reason: GameEndReason): string {
+  const loser = sideColorName(otherSide(winner));
+  switch (reason) {
+    case "unbreachableFlag":
+      return `${loser} can no longer reach ${sideColorName(winner)}'s flag`;
+    case "noLegalMove":
+      return `${loser} has no legal move left`;
+    case "inactivity":
+      return `${loser} ran out of moves without attacking`;
+    case "flagCapture":
+    case "noProgress":
+    case "agreement":
+      return reasonLabel(reason);
+    default:
+      return reason satisfies never;
+  }
+}
+
+/**
+ * Player-facing clause completing "The game is a draw — ..." (no trailing
+ * period) for a draw outcome. `flagCapture`, `noLegalMove`, and `inactivity`
+ * never occur for a draw - listed only so this switch is exhaustive.
+ */
+function drawReasonClause(reason: GameEndReason): string {
+  switch (reason) {
+    case "unbreachableFlag":
+      return "Neither side can reach the other's flag anymore";
+    case "flagCapture":
+    case "noLegalMove":
+    case "inactivity":
+    case "noProgress":
+    case "agreement":
+      return reasonLabel(reason);
+    default:
+      return reason satisfies never;
+  }
+}
+
+/**
  * The player-facing result-and-reason sentence for a finished `GameOutcome`
- * (e.g. "Red wins - Flag captured." / "The game is a draw - No progress.").
- * Returns the empty string for `{ kind: "ongoing" }` (not itself an ending to
- * announce); callers only call this once `result.kind !== "ongoing"`.
- * Standalone from `describeActivation` so it can render the same wording both
- * as the trailing clause of a game-ending ply's announcement and on its own -
- * for an ending detected with no ply (a §6.2 win already holding at the Phase
- * 2 reveal - see `App.tsx`, Step 9) and for accepting a draw offer (see
+ * (e.g. "Red wins - Flag captured." / "Blue wins - Red ran out of moves
+ * without attacking." / "The game is a draw - No progress."). Returns the
+ * empty string for `{ kind: "ongoing" }` (not itself an ending to announce);
+ * callers only call this once `result.kind !== "ongoing"`. Standalone from
+ * `describeActivation` so it can render the same wording both as the
+ * trailing clause of a game-ending ply's announcement and on its own - for
+ * an ending detected with no ply (a §6.2 win already holding at the Phase 2
+ * reveal - see `App.tsx`, Step 9) and for accepting a draw offer (see
  * `describeDrawAccepted` below).
  */
 export function describeResult(result: GameOutcome): string {
   if (result.kind === "win") {
-    return `${sideColorName(result.winner)} wins — ${reasonPhrase(result.reason)}.`;
+    return `${sideColorName(result.winner)} wins — ${winReasonClause(result.winner, result.reason)}.`;
   }
   if (result.kind === "draw") {
-    return `The game is a draw — ${reasonPhrase(result.reason)}.`;
+    return `The game is a draw — ${drawReasonClause(result.reason)}.`;
   }
   return "";
 }

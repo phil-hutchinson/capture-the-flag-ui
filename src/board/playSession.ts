@@ -49,6 +49,7 @@
 
 import {
   allSquares,
+  otherSide,
   squareKey,
   type Side,
   type Square,
@@ -139,11 +140,6 @@ export function viewSide(session: PlaySession): Side {
     : otherSide(session.drawOffer);
 }
 
-/** The other side. Internal-only turn-order helper (mirrors `play.ts`'s private `OTHER_SIDE`). */
-function otherSide(side: Side): Side {
-  return side === "white" ? "black" : "white";
-}
-
 /**
  * True if `square` holds one of `side`'s own pieces that has at least one
  * legal destination *or* legal attack right now - i.e. a piece the UI may
@@ -197,9 +193,16 @@ export function actionableSquares(session: PlaySession): Square[] {
  * `legalAttacks(session.play.board, session.selection)` when a piece is
  * selected, or an empty array when nothing is. `PlayBoard` (Step 7) uses this
  * to render and label attack targets distinctly from plain move targets,
- * without re-deriving which is which.
+ * without re-deriving which is which. **Empty** whenever the board is inert
+ * (story 00000006, Step 6) - the game has ended, or a draw offer is pending
+ * an answer - matching `actionableSquares`/`activatableSquares`, by contract
+ * rather than merely because a completed or ending ply happens to leave
+ * `selection === null`.
  */
 export function attackTargets(session: PlaySession): Square[] {
+  if (isInert(session)) {
+    return [];
+  }
   const { play, selection } = session;
   if (selection === null) {
     return [];
