@@ -819,7 +819,44 @@ mid-game session with no offer behaves exactly as before.
 
 ## Step 7 — Announcement wording: game end, and the draw-offer flow
 
-Status: pending
+Status: committed
+
+Notes: `describeAttack` and the plain-move branch of `describeActivation` in
+`src/board/playAnnouncement.ts` now take a `trailingClause` computed once per
+activation - `"{Color} to move."` while `after.play.result.kind ===
+"ongoing"`, otherwise the new exported `describeResult(result: GameOutcome)`
+sentence (e.g. "Red wins — Flag captured.", "The game is a draw — No
+progress.") - so a game-ending ply keeps its existing what-happened wording
+and swaps only the trailing clause. Added a private `reasonPhrase` mapping
+the six `GameEndReason` identifiers to capitalized player-facing phrases, and
+three more exported functions for the draw-offer flow: `describeDrawOffer`
+("Red offers a draw. Blue, accept or decline?"), `describeDrawDecline`
+("Blue declines the draw offer. Red to move."), and `describeDrawAccepted`
+(reuses `describeResult` for the agreed-draw outcome). Extended
+`src/board/playAnnouncement.test.ts` with new describe blocks covering every
+case in the step's verification list: a real Flag-capturing ply (naming
+combatants, the Flag falling, the winner, and the reason, asserting no "to
+move" text); three more game-ending plies for unbreachableFlag/inactivity/
+noProgress built directly as hand-crafted `PlayState`/`PlaySession` pairs
+(per the plan's own suggestion, since `describeActivation` only reads
+`before`/`after` data and does not itself validate legality or re-derive the
+result); `describeResult` for a win by each side across every reason, a draw
+across the remaining reasons, and the ongoing/empty-string case; and the
+offer/decline/accept sentences. Deviation from the plan (necessary, not
+optional): two pre-existing combat-outcome tests in
+`playAnnouncement.test.ts` ("attacker-wins" and "mutual-loss") left the
+non-mover side with nothing but an immobile Flag once the ply's defeated
+piece was removed, which is itself now a §6.3 no-legal-move win (per Step 4)
+and changed their expected "Blue to move." trailing clause to a result
+sentence; fixed by adding one extra, otherwise-uninvolved Black piece to each
+fixture so Black still has a legal move afterward and the tests continue to
+exercise the ordinary, non-ending case they were written for - mirroring the
+precedent set in Steps 2/4/6's notes for the same class of fallout. No other
+deviations; no UI (`App.tsx`) changes, as the step specifies. `npm run
+typecheck`, `npm run lint`, and `npm test` all pass (306 tests, 16 files);
+ran `npx prettier --write` on the two touched files to satisfy `npm run
+format:check` (the two pre-existing `story.md`/`implementation-plan.md`
+markdown warnings are unrelated and untouched).
 
 Extend `src/board/playAnnouncement.ts` (pure, no React) so the board's single
 polite live region also narrates the **end of the game** and the **draw-offer
