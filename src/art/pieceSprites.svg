@@ -3,8 +3,11 @@
 
   Source: .local/ctf-tile-prototype.svg (gitignored prototype; see
   .local/ctf-tile-prototype.md for renderer notes). This file carries over the
-  12 piece <symbol>s and the p-lake terrain <symbol> unchanged in shape,
-  re-tokenized per the themeability constraint (story 00000001):
+  12 piece <symbol>s and the p-lake terrain <symbol> unchanged in shape
+  (except p-flag and p-halberdier, redrawn in story 10 so the two no longer
+  resemble each other, and p-marshal's axe blade, flipped upward in the same
+  story for balance), re-tokenized per the themeability constraint
+  (story 00000001):
 
   - Side colors already use `currentColor` inside each symbol; the side (red
     Side A / blue Side B) is applied by the consumer via `color` on the
@@ -32,10 +35,11 @@
           <line x1="32" y1="38" x2="32" y2="47" stroke="currentColor" stroke-width="2.4"/>
           <circle cx="32" cy="49" r="2.2" fill="currentColor"/>
         </g>
-        <!-- Axe, head to the top-left -->
+        <!-- Axe, haft to the top-left; blade flipped to point up so it clears
+             the corner rank numeral and balances the icon -->
         <g transform="rotate(-45 32 32)">
-          <line x1="32" y1="8" x2="32" y2="50" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-          <path d="M33,6 Q29,8 24,3 Q14,13 24,23 Q29,18 33,20 Z" fill="currentColor"/>
+          <line x1="32" y1="11.5" x2="32" y2="50" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          <path d="M31.1,9.4 Q34.7,11 39.2,7 Q48.2,15 39.2,23 Q34.7,19 31.1,20.6 Z" fill="currentColor"/>
         </g>
         <circle cx="32" cy="32" r="3" fill="#a67c2e"/>
       </g>
@@ -58,9 +62,13 @@
       <path d="M32,18 L32,50 M20,32 L44,32" stroke="var(--parchment)" stroke-width="2" fill="none"/>
     </symbol>
     <symbol id="p-halberdier" viewBox="0 0 64 64">
-      <line x1="32" y1="52" x2="32" y2="14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-      <path d="M32,17 L47,21 L47,31 L32,27 Z" fill="currentColor"/>
-      <path d="M28,14 L32,6 L36,14 Z" fill="currentColor"/>
+      <line x1="32" y1="54" x2="32" y2="12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      <!-- Spear point -->
+      <path d="M32,3 C34.4,7 35,10.5 34.2,14.5 L29.8,14.5 C29,10.5 29.6,7 32,3 Z" fill="currentColor"/>
+      <!-- Axe head: concave cutting edge, top horn reaching past the bottom horn -->
+      <path d="M33,17 C38.5,14.8 44.5,13 50.5,11.5 Q42,21.5 47,31.5 C42.5,30.6 37.8,29.8 33,29 Z" fill="currentColor"/>
+      <!-- Rear fluke -->
+      <path d="M31,18.5 Q25,19.5 20,23 Q25,26.5 31,27.5 Z" fill="currentColor"/>
     </symbol>
     <symbol id="p-militia" viewBox="0 0 64 64">
       <line x1="32" y1="52" x2="32" y2="22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
@@ -97,9 +105,10 @@
       <rect x="28" y="40" width="8" height="12" fill="var(--parchment)"/>
     </symbol>
     <symbol id="p-flag" viewBox="0 0 64 64">
-      <line x1="24" y1="53" x2="24" y2="12" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
-      <path d="M24,14 L47,20 L24,26 Z" fill="currentColor"/>
-      <circle cx="24" cy="12" r="2" fill="currentColor"/>
+      <line x1="22" y1="53" x2="22" y2="11" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      <!-- Waving rectangular banner -->
+      <path d="M22,14 C29,10.5 36,17.5 46,14 L46,29 C36,32.5 29,25.5 22,29 Z" fill="currentColor"/>
+      <circle cx="22" cy="10" r="2" fill="currentColor"/>
     </symbol>
     <symbol id="p-lake" viewBox="0 0 64 64">
       <path d="M10,24 q6,-7 12,0 q6,7 12,0 q6,-7 12,0 q6,7 12,0" fill="none" stroke="#3f7b8a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
