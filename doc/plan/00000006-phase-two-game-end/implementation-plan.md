@@ -1455,7 +1455,21 @@ sequence, with **no** entry for the draw offer or decline.
 
 ## Step 16 — Accessible endings
 
-Status: pending
+Status: committed
+
+Notes: **Verification-only** - no polish proved necessary, nothing changed.
+Gate F verified by the owner: a full game finished by keyboard alone (Flag
+capture, offering and answering a draw, starting a new game), with the Flag as
+an attack target, the countdown warnings, the result and reason, and the New
+game action all announced, and focus visible and untrapped throughout.
+
+The known rough edge flagged in this step - the end-of-game panel sitting
+*above* the board in DOM order, so the New game button is reached with
+**Shift+Tab** after a game-ending activation on a board cell - was checked and
+did **not** bite in practice. The contingency fix (moving focus to a
+`tabIndex={-1}` heading on the panel when the game ends) was therefore **not**
+applied, which also avoids its two risks: trapping focus, and announcing the
+result twice. The accessibility built into Steps 9-13 stands as-is.
 
 Accessibility is built into Steps 9–13 (the Flag is an ordinary attack target in
 the existing accessible grid; the warnings banner is its own polite live region;
