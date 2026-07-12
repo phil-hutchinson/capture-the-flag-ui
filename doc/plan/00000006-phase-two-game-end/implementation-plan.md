@@ -1405,7 +1405,30 @@ construct the condition:
 
 ## Step 15 — The result in the game record
 
-Status: pending
+Status: committed
+
+Notes: **Verification-only** for production code - the `Result` / `ResultReason`
+tags render correctly and no defect surfaced. Gate G: quick-checked by the
+owner, who had already seen most of these tags in the course of the earlier
+gates (B, C, D, E) rather than re-walking each ending.
+
+The **test** coverage did have a real hole, now filled. Of the six
+`ResultReason` strings in `play.ts`'s `renderResultReasonValue`, only three
+were exercised (`Flag Captured`, `No Progress`, `Agreement`).
+`play.test.ts` gains the other three:
+
+- **`Inactivity`** (the reason Gate G names explicitly), which also pins the
+  easily-inverted detail that a White stall-out records as **`0-1`** - the side
+  whose counter ran out is the *loser*;
+- **`Unbreachable Flag`**, detected at the reveal, so the tags are written with
+  an empty move sequence;
+- **`No Legal Move`**, the side to move boxed in by its own Towers.
+
+Suite now 347 tests. Writing the last of those surfaced how easily §6.2 is
+triggered unintentionally: the first fixture placed two spare Towers beside
+Black's Flag, quietly *enclosing* it, so the game ended at the reveal by
+unbreachable Flag instead of by no-legal-move. Worth knowing for anyone
+building §6.3 fixtures later.
 
 The `Result` / `ResultReason` header tags (Step 5) surface automatically in the
 existing developer `GameRecord` dump, which re-renders `renderGameRecord` on every

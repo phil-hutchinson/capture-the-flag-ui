@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BoardState, InitialGameState, PlacedPiece } from "./gameState.ts";
 import { renderPositionBlock, RULESET_TAG } from "./gameState.ts";
-import { PROGRESS_LIMIT } from "./outcome.ts";
+import { INACTIVITY_LIMIT, PROGRESS_LIMIT } from "./outcome.ts";
 import type { PieceTypeId } from "./pieces.ts";
 import {
   agreeDraw,
@@ -851,6 +851,93 @@ describe("renderGameRecord - Result/ResultReason (§6 record file format)", () =
     expect(drawn.moves).toBe(movesBefore);
     expect(record).toContain("1. D5D4");
     expect(record).not.toMatch(/D5D4[^\s]/);
+  });
+
+  it('writes [ResultReason "Inactivity"] for a real inactivity loss, naming the *opponent* as the winner', () => {
+    // White is one stalling move short of the limit; White stalls again and
+    // loses. The record must name Black (0-1) - the loser is the one whose
+    // counter ran out, not the one who wins the game.
+    const initial = initialGameState([
+      ["D5", "white", "infantry"],
+      ["D9", "black", "militia"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
+    ]);
+    let state: PlayState = startPlay(initial);
+    state = {
+      ...state,
+      inactivityCounters: { white: INACTIVITY_LIMIT - 1, black: 0 },
+    };
+
+    const { state: finished } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
+    );
+    expect(finished.result).toEqual({
+      kind: "win",
+      winner: "black",
+      reason: "inactivity",
+    });
+
+    const record = renderGameRecord(finished);
+
+    expect(record).toContain('[Result "0-1"]');
+    expect(record).toContain('[ResultReason "Inactivity"]');
+  });
+
+  it('writes [ResultReason "Unbreachable Flag"] for a §6.2 win detected at the reveal', () => {
+    // White's Flag is sealed behind its own Towers and Black has no Sapper:
+    // the game is over before a single move is recorded, so the record
+    // carries the result tags with an empty move sequence.
+    const initial = initialGameState([
+      ["A1", "white", "flag"],
+      ["A2", "white", "tower"],
+      ["B1", "white", "tower"],
+      ["L12", "black", "flag"],
+    ]);
+    const state = startPlay(initial);
+    expect(state.result).toMatchObject({ reason: "unbreachableFlag" });
+
+    const record = renderGameRecord(state);
+
+    expect(record).toContain('[Result "1-0"]');
+    expect(record).toContain('[ResultReason "Unbreachable Flag"]');
+  });
+
+  it('writes [ResultReason "No Legal Move"] when the side to move is left with no legal ply', () => {
+    // Black's only mobile piece is boxed in by its own immobile Towers, so
+    // once it is Black to move they have no legal ply at all and White wins
+    // (§6.3). Black's Flag is left in the open, so §6.2 does not pre-empt it.
+    const initial = initialGameState([
+      ["A1", "white", "flag"],
+      ["H5", "white", "infantry"],
+      ["L12", "black", "flag"],
+      ["D9", "black", "militia"],
+      ["C9", "black", "tower"],
+      ["E9", "black", "tower"],
+      ["D8", "black", "tower"],
+      ["D10", "black", "tower"],
+    ]);
+    let state: PlayState = startPlay(initial);
+    expect(state.result).toEqual({ kind: "ongoing" });
+
+    // White moves; it is now Black to move, with nothing they can legally do.
+    state = applyMove(
+      state,
+      { column: "H", row: 5 },
+      { column: "H", row: 4 },
+    ).state;
+    expect(state.result).toEqual({
+      kind: "win",
+      winner: "white",
+      reason: "noLegalMove",
+    });
+
+    const record = renderGameRecord(state);
+
+    expect(record).toContain('[Result "1-0"]');
+    expect(record).toContain('[ResultReason "No Legal Move"]');
   });
 
   it("still contains the Ruleset tag, position block, and plain-form move rounds alongside the result tags", () => {
