@@ -16,6 +16,7 @@ import {
   declineDraw,
   offerDraw,
   startSession,
+  viewSide,
   type PlaySession,
 } from "./playSession.ts";
 
@@ -718,6 +719,63 @@ describe("draw offer state machine (story 00000006, Step 6)", () => {
     expect(moved.drawOffer).toBeNull();
     expect(moved.play.sideToMove).toBe("black");
     expect(moved.play.moves).toEqual(["D5D4"]);
+  });
+});
+
+describe("viewSide - whose perspective the board is drawn from", () => {
+  function ongoingSession(): PlaySession {
+    return startSession(
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["D9", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ]),
+    );
+  }
+
+  it("follows the side to move with no offer pending", () => {
+    const session = ongoingSession();
+    expect(viewSide(session)).toBe("white");
+
+    const selected = activateSquare(session, sq("D", 5));
+    const moved = activateSquare(selected, sq("D", 4));
+    expect(viewSide(moved)).toBe("black");
+  });
+
+  it("switches to the responder while an offer awaits an answer", () => {
+    // The turn is still White's - an offer never replaces a move - but it is
+    // Black who is sitting at the board, being asked to answer, so the board
+    // is drawn from Black's perspective.
+    const offered = offerDraw(ongoingSession());
+    expect(offered.play.sideToMove).toBe("white");
+    expect(viewSide(offered)).toBe("black");
+  });
+
+  it("switches back to the offerer when the offer is declined", () => {
+    const declined = declineDraw(offerDraw(ongoingSession()));
+    expect(declined.drawOffer).toBeNull();
+    expect(viewSide(declined)).toBe("white");
+  });
+
+  it("switches back to the side to move when the offer is accepted", () => {
+    // Accepting ends the game; the final position is shown to the side to
+    // move (the offerer), exactly as it is for every other ending.
+    const accepted = acceptDraw(offerDraw(ongoingSession()));
+    expect(accepted.play.result.kind).toBe("draw");
+    expect(viewSide(accepted)).toBe("white");
+  });
+
+  it("is unaffected by an offer from the other side", () => {
+    // Black to move, Black offers: it is now White who must answer.
+    const session = ongoingSession();
+    const selected = activateSquare(session, sq("D", 5));
+    const blackToMove = activateSquare(selected, sq("D", 4));
+    expect(viewSide(blackToMove)).toBe("black");
+
+    const offered = offerDraw(blackToMove);
+    expect(viewSide(offered)).toBe("white");
+    expect(viewSide(declineDraw(offered))).toBe("black");
   });
 });
 

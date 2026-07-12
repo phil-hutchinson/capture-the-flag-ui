@@ -135,6 +135,12 @@ word "move" (never "ply").
    the game immediately in a draw, declining returns play to the offering
    player, who takes their turn as usual. Declining is quiet — no penalty, no
    record entry.
+   Because the offer hands the physical board to the opponent, the board is
+   drawn from **their** perspective while they answer, and turns back the
+   moment they do: on a decline, back to the offering player, who now takes
+   their turn; on an accept, the game is over and the final position is shown
+   to the side to move, exactly as for every other ending. (An offer never
+   changes whose turn it is — only who is looking at the board.)
 6. **End-of-game presentation.** The moment the game ends, both players are
    told the result and the reason in player-facing terms — who won (red or
    blue) or that it is a draw, and why (Flag captured, unbreachable Flag, no

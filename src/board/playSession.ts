@@ -84,8 +84,9 @@ import {
  * transitions, and no-ops) - it is only meaningful to read immediately after
  * a ply, which is exactly how Step 6's announcement uses it. A pending draw
  * offer never changes `play.sideToMove` (rules.md §6.6: an offer never
- * replaces or skips a move) - so the board's orientation, which follows
- * `sideToMove`, does not flip while an offer awaits an answer.
+ * replaces or skips a move) - the turn is still the offerer's to take if the
+ * offer is declined. The board's orientation is a separate question from
+ * whose turn it is; see `viewSide`.
  */
 export interface PlaySession {
   readonly play: PlayState;
@@ -114,6 +115,33 @@ export function startSession(initial: InitialGameState): PlaySession {
  */
 function isInert(session: PlaySession): boolean {
   return session.play.result.kind !== "ongoing" || session.drawOffer !== null;
+}
+
+/**
+ * The side whose perspective the board is drawn from - the player who is
+ * actually sitting at the board right now, which is not always the side to
+ * move (story 00000006, Step 13).
+ *
+ * Ordinarily that is `play.sideToMove`: the active player sees their own home
+ * edge nearest them, and the board flips at each hand-off. The exception is a
+ * **pending draw offer**. An offer does not change `sideToMove` (the turn
+ * remains the offerer's to take if declined), but it does hand the physical
+ * board to the *opponent*, who must answer Accept or Decline - so the board is
+ * drawn from **their** perspective while they answer. Answering ends the
+ * exception and orientation reverts to `sideToMove`: on a decline that is the
+ * offerer, who now takes their turn; on an accept the game is over and the
+ * final position is shown to the side to move, exactly as it is for every
+ * other ending.
+ */
+export function viewSide(session: PlaySession): Side {
+  return session.drawOffer === null
+    ? session.play.sideToMove
+    : otherSide(session.drawOffer);
+}
+
+/** The other side. Internal-only turn-order helper (mirrors `play.ts`'s private `OTHER_SIDE`). */
+function otherSide(side: Side): Side {
+  return side === "white" ? "black" : "white";
 }
 
 /**

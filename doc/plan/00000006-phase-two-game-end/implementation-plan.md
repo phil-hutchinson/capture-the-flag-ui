@@ -1244,7 +1244,65 @@ board going inert.
 
 ## Step 13 — Draw by agreement (offer, decline, accept)
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/DrawOffer.tsx` + `.css`: a component with two
+mutually exclusive faces driven by `PlaySession.drawOffer` - a plain
+`<button type="button">Offer a draw</button>` (`PlacementStatus.tsx`'s
+precedent) when no offer is pending, or a prompt panel (`GameResult.css`'s
+panel chrome, with a `data-offering-side`-driven left accent border that is
+additional, never the only signal) naming both sides explicitly ("Red
+offers a draw. Blue, do you accept?") with Accept/Decline buttons while one
+is. Renders no live region of its own, mirroring `GameResult.tsx`'s
+rationale. `src/App.tsx`'s Phase-2 branch now imports `offerDraw`/
+`acceptDraw`/`declineDraw` (`playSession.ts`) and `describeDrawOffer`/
+`describeDrawDecline`/`describeDrawAccepted` (`playAnnouncement.ts`), adds
+three handlers (`handleOfferDraw`, `handleAcceptDraw`, `handleDeclineDraw`)
+that delegate the state transition to `playSession.ts` and push the
+matching sentence into the same `playAnnouncement` live-region state the
+ply narrative already uses, and renders `<DrawOffer>` alongside
+`PlayStatus`/`PlayWarnings` in the `result.kind === "ongoing"` branch only
+(the action is structurally unofferable once the game is over, since that
+branch renders `GameResult` instead). The board's inertness while an offer
+is pending and the orientation staying fixed were already handled by Step
+6's session layer - no change needed there. No new automated tests: per the
+project's testing conventions (`node` environment, no jsdom/DOM testing),
+React components are not unit-tested - `DrawOffer.tsx`'s behavior is
+exercised by the manual Gate E, and the state machine and wording it wires
+together are already covered by Steps 6/7's existing `playSession.test.ts`/
+`playAnnouncement.test.ts`. No deviations from the plan. `npm run
+typecheck`, `npm run lint`, `npm test` (338 tests, 18 files - one run hit
+the sandbox's known `ENOMEM` flake noted in Step 11's notes, unrelated to
+this change; an immediate re-run was clean), `npm run format:check` (only
+the two pre-existing unrelated `story.md`/`implementation-plan.md` markdown
+warnings), and `npm run build` all pass.
+
+**Owner decision at Gate E - board perspective during a pending offer
+(reverses this step's bullet below, and `story.md` is updated to match).**
+The step as written said the board's orientation must *not* change while an
+offer is pending, on the grounds that `sideToMove` is unchanged and the
+prompt names both sides. In hot-seat play that is wrong: the offer hands the
+*physical* board to the opponent, who must answer Accept or Decline while
+looking at the offerer's view of the board. The owner called this at Gate E
+and chose the rule below; orientation and turn are now understood as separate
+questions.
+
+  Board perspective = **pending offer ? the responder : `sideToMove`.**
+
+Implemented as `viewSide(session)` in `playSession.ts` (the session layer, not
+the component, so it is testable in the `node` environment);
+`PlayBoard.tsx` now orients to `viewSide(session)` instead of reading
+`play.sideToMove` directly. On a **decline**, orientation reverts to the
+offerer, who takes their turn as usual; on an **accept**, the game is over and
+the final position is shown to the side to move - exactly as for every other
+ending, so there is no special case for the agreed draw. Five tests in
+`playSession.test.ts` cover it (follows `sideToMove` with no offer; switches to
+the responder on an offer; switches back on decline; switches back on accept;
+and symmetrically when Black is the offerer). Suite now 343 tests. The stale
+comments in `playSession.ts`/`PlayBoard.tsx`/`DrawOffer.tsx` asserting that
+orientation never flips during an offer were corrected.
+
+Gate E: verified by the owner, including the perspective flip above.
 
 Wire the draw-offer flow (Step 6's state machine, Step 7's wording) into the UI.
 

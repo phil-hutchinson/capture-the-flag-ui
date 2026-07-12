@@ -2,6 +2,7 @@ import { useState } from "react";
 import { APP_NAME } from "./appInfo.ts";
 import { PieceSpriteDefs } from "./art/PieceIcon.tsx";
 import { Board } from "./board/Board.tsx";
+import { DrawOffer } from "./board/DrawOffer.tsx";
 import { GameRecord } from "./board/GameRecord.tsx";
 import { GameResult } from "./board/GameResult.tsx";
 import { PlacementControls } from "./board/PlacementControls.tsx";
@@ -15,11 +16,17 @@ import {
 } from "./board/placementSession.ts";
 import {
   describeActivation,
+  describeDrawAccepted,
+  describeDrawDecline,
+  describeDrawOffer,
   describeResult,
 } from "./board/playAnnouncement.ts";
 import { PlayBoard } from "./board/PlayBoard.tsx";
 import {
+  acceptDraw,
   activateSquare,
+  declineDraw,
+  offerDraw,
   startSession,
   type PlaySession,
 } from "./board/playSession.ts";
@@ -129,6 +136,32 @@ export function App() {
       setPlayAnnouncement("");
     };
 
+    // Story 00000006, Step 13: the draw-offer flow (rules.md §6.6). Each
+    // handler delegates the state transition to `playSession.ts` and pushes
+    // the matching sentence (`playAnnouncement.ts`) into the same live
+    // region the ply narrative already uses, so nothing is announced twice
+    // from two different regions.
+    const handleOfferDraw = () => {
+      const offeringSide = playSession.play.sideToMove;
+      setPlaySession(offerDraw(playSession));
+      setPlayAnnouncement(describeDrawOffer(offeringSide));
+    };
+
+    const handleAcceptDraw = () => {
+      const next = acceptDraw(playSession);
+      setPlaySession(next);
+      setPlayAnnouncement(describeDrawAccepted(next.play.result));
+    };
+
+    const handleDeclineDraw = () => {
+      const { drawOffer } = playSession;
+      if (drawOffer === null) {
+        return;
+      }
+      setPlaySession(declineDraw(playSession));
+      setPlayAnnouncement(describeDrawDecline(drawOffer));
+    };
+
     const { result } = playSession.play;
 
     return (
@@ -140,6 +173,12 @@ export function App() {
             <PlayStatus sideToMove={playSession.play.sideToMove} />
             <PlayWarnings
               warnings={computeCountdownWarnings(playSession.play)}
+            />
+            <DrawOffer
+              drawOffer={playSession.drawOffer}
+              onOffer={handleOfferDraw}
+              onAccept={handleAcceptDraw}
+              onDecline={handleDeclineDraw}
             />
           </>
         ) : (
