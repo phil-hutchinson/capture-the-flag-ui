@@ -35,7 +35,11 @@ const sq = (column: Square["column"], row: Square["row"]): Square => ({
 describe("describeActivation - selecting a piece", () => {
   it("announces the piece and its legal-destination count", () => {
     const session = startSession(
-      initialGameState([["D5", "white", "infantry"]]),
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ]),
     );
     const selected = activateSquare(session, sq("D", 5));
 
@@ -53,6 +57,8 @@ describe("describeActivation - selecting a piece", () => {
         ["C5", "white", "militia"],
         ["D4", "white", "militia"],
         ["D6", "white", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -71,6 +77,8 @@ describe("describeActivation - selecting a piece", () => {
         ["C5", "black", "militia"],
         ["D4", "black", "militia"],
         ["D6", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -90,6 +98,8 @@ describe("describeActivation - selecting a piece", () => {
         ["E5", "black", "militia"],
         ["D4", "black", "militia"],
         ["D6", "black", "militia"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
@@ -124,6 +134,8 @@ describe("describeActivation - switching selection", () => {
       initialGameState([
         ["D5", "white", "infantry"],
         ["H5", "white", "skirmisher"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
       ]),
     );
     const selectedD5 = activateSquare(session, sq("D", 5));
@@ -271,7 +283,11 @@ describe("describeActivation - combat outcomes", () => {
 describe("describeActivation - deselecting", () => {
   it("announces the piece being deselected", () => {
     const session = startSession(
-      initialGameState([["D5", "white", "infantry"]]),
+      initialGameState([
+        ["D5", "white", "infantry"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ]),
     );
     const selected = activateSquare(session, sq("D", 5));
     const deselected = activateSquare(selected, sq("D", 5));

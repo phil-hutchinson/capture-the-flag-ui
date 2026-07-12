@@ -738,7 +738,38 @@ move rounds are all still present and unchanged.
 
 ## Step 6 — Session layer: inert board when the game ends, and the draw-offer state machine
 
-Status: pending
+Status: committed
+
+Notes: `PlaySession` gained `drawOffer: Side | null` (`null` from
+`startSession`); a private `isInert(session)` helper (`play.result.kind !==
+"ongoing" || drawOffer !== null`) now gates `actionableSquares`,
+`activatableSquares` (both return `[]` when inert), and `activateSquare`
+(returns the session unchanged when inert). Added `offerDraw`, `acceptDraw`
+(delegates to `play.ts`'s `agreeDraw`), and `declineDraw`, each with the
+no-op guards the plan specifies; `offerDraw` also clears any current
+selection. Extended `src/board/playSession.test.ts` with two new describe
+blocks covering every case in the step's verification list (game-over
+inertness across an own/enemy/empty square, and the full offer/accept/decline
+state machine including all three no-op paths and the ordinary-session
+regression check). Deviation from the plan (necessary, not optional): once
+`actionableSquares`/`activatableSquares`/`activateSquare` also go inert
+whenever `play.result.kind !== "ongoing"`, every pre-existing fixture in
+`src/board/playSession.test.ts` and `src/board/playAnnouncement.test.ts` that
+omitted a Flag for one or both sides now has its game register as already
+finished at `startSession` (no Flag reads as "already captured" per Step 4's
+`outcome.ts`), which silently turned `activateSquare` into a no-op and broke
+19 previously-passing tests. Fixed by adding a `["A1", "white", "flag"]` /
+`["L12", "black", "flag"]` pair (or an equivalent, out-of-the-way square) to
+every affected fixture, mirroring the precedent Step 4's own notes set for
+the same class of fallout. One fixture ("yields an empty actionable set...")
+turned out, once given both sides' Flags, to be a genuine §6.3 no-legal-move
+game-over case rather than merely a "stuck for one side" case — its comment
+was updated to say so; the assertion (empty, never throws) still holds and
+is arguably a better test of the intersection of Steps 4 and 6. No other
+deviations. `npm run typecheck`, `npm run lint`, and `npm test` all pass (295
+tests, 16 files); ran `npx prettier --write` on the touched test file to
+satisfy `npm run format:check` (the two pre-existing `story.md`/
+`implementation-plan.md` markdown warnings are unrelated and untouched).
 
 Extend `src/board/playSession.ts` (pure, no React) so the interaction state
 machine knows the game can be over and that a draw offer can be pending. No new
