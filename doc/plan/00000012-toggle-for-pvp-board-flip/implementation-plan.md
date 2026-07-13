@@ -285,7 +285,25 @@ on is expected here and is fixed in Step 4.)
 
 ### Step 4 — Persist the setting across reloads and games
 
-Status: pending
+Status: committed
+
+Notes: Implemented as planned in `src/App.tsx`. Added an import of
+`readFlipBetweenTurns`/`writeFlipBetweenTurns` from
+`src/board/flipBoardSetting.ts` (placed alphabetically between `DrawOffer`
+and `FlipBoardToggle` to satisfy the existing import ordering), changed
+`flipBetweenTurns` state to a lazy `useState(() => readFlipBetweenTurns())`
+initializer (replacing Step 3's literal `true`), and added a
+`handleFlipBetweenTurnsChange` handler that calls `setFlipBetweenTurns` and
+then `writeFlipBetweenTurns` before wiring it as `FlipBoardToggle`'s
+`onChange` (replacing the bare `setFlipBetweenTurns` from Step 3).
+`handleNewGame` was left untouched, so "New game" does not reset the
+setting, per the plan. `npm run typecheck`, `npm run lint`, `npm test` (355
+tests across 19 files, unchanged - this step adds no new automated tests
+per its own manual-only verification), `npm run build`, and
+`npx prettier --check src/App.tsx` all pass. No deviations from the plan.
+Manual verification of Gate C (persistence across reload/new game, and
+graceful behavior with local storage disabled) is the owner's to perform
+per the step's own verification section - not attempted here.
 
 Wire the Step 1 persistence helper into `src/App.tsx` so the flip setting
 survives reloads and carries across games. Initialize the flip state from the
