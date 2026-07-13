@@ -3,7 +3,11 @@ import type { PositionBlockError } from "../rules/primary/v1_1/gameState.ts";
 import type { RecordFileError } from "../rules/primary/v1_1/recordFile.ts";
 import type { ReplayError } from "../rules/primary/v1_1/replay.ts";
 import type { ReadRecordError } from "../rules/readRecord.ts";
-import { describeRecordedResult, describeRejection } from "./reviewText.ts";
+import {
+  describePosition,
+  describeRecordedResult,
+  describeRejection,
+} from "./reviewText.ts";
 
 /** Every case fed to `describeRejection` below, grouped by which layer produced it. */
 const POSITION_BLOCK_ERRORS: readonly PositionBlockError[] = [
@@ -322,5 +326,31 @@ describe("describeRecordedResult", () => {
       expect(message).not.toMatch(/\bWhite\b/);
       expect(message).not.toMatch(/\bBlack\b/);
     }
+  });
+});
+
+describe("describePosition", () => {
+  it("describes the opening position", () => {
+    expect(describePosition({ totalMoves: 57, move: null })).toBe(
+      "Opening position",
+    );
+  });
+
+  it("names the move, its place among the total, its round and its color", () => {
+    expect(
+      describePosition({
+        totalMoves: 57,
+        move: { ply: 23, round: 12, side: "white" },
+      }),
+    ).toBe("Move 23 of 57 — round 12, red");
+  });
+
+  it("names the black side as blue, lower-cased", () => {
+    expect(
+      describePosition({
+        totalMoves: 3,
+        move: { ply: 2, round: 1, side: "black" },
+      }),
+    ).toBe("Move 2 of 3 — round 1, blue");
   });
 });

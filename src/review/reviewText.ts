@@ -121,6 +121,29 @@ function describeReplayError(error: ReplayError): string {
 }
 
 /**
+ * A short player-facing description of where the review cursor is in the
+ * game: "Opening position" before any move has been made, or "Move {ply} of
+ * {totalMoves} — round {round}, {color}" once one has. Used by
+ * `reviewSession.ts`'s `describeCurrentPosition` - the one place this
+ * wording is assembled, so the status line and (later) the announcement of
+ * a step or jump read identically.
+ */
+export function describePosition(input: {
+  readonly totalMoves: number;
+  readonly move: {
+    readonly ply: number;
+    readonly round: number;
+    readonly side: Side;
+  } | null;
+}): string {
+  if (input.move === null) {
+    return "Opening position";
+  }
+  const { ply, round, side } = input.move;
+  return `Move ${ply} of ${input.totalMoves} — round ${round}, ${sideColorName(side).toLowerCase()}`;
+}
+
+/**
  * The player-facing rejection sentence for a `ReadRecordError` - what a
  * player can act on: what is wrong and, where it is a specific move, which
  * one (its number, round, side and token). Never "ply"; sides are always

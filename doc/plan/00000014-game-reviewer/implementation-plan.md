@@ -755,7 +755,30 @@ is populated).
 
 ### Step 10 — The review session (cursor over the replayed game)
 
-Status: pending
+Status: committed
+
+Notes: Added `src/review/reviewSession.ts` (`ReviewSession`,
+`createReviewSession`, `stepForward`, `stepBack`, `jumpToStart`, `jumpToEnd`,
+`jumpToMove`, `currentBoard`, `isAtStart`, `isAtEnd`, `lastMove`,
+`describeCurrentPosition`) and `reviewSession.test.ts`, over a hand-built
+three-move game (a capture, a quiet move by the other side, a quiet
+continuation) built with `replayRecord` exactly as `replay.test.ts` does. The
+session is `{ record: ReplayedRecord, cursor: number }`; every operation
+clamps the cursor into `[0, positions.length - 1]` rather than throwing, so
+stepping past either end is a no-op. `jumpToMove` takes a 0-based index into
+`record.moves` (what a move-list item naturally has) and lands one past it.
+The "short player-facing description of where you are" the step asks the
+session to expose is kept out of this module's prose per the dispatch
+instructions: the wording itself (`describePosition`) was added to
+`reviewText.ts` instead, taking a plain structured input (total move count,
+and the current move's ply/round/side or `null` at the opening); `reviewSession.ts`'s
+`describeCurrentPosition` only gathers that input from the session and calls
+it, so the wording still lives in exactly one place. New tests for
+`describePosition` were added to `reviewText.test.ts` alongside the existing
+wording tests. No deviation from the plan's behavior; the only judgment call
+was this reviewText.ts placement of the position-description wording, which
+the step itself left open ("a short player-facing description...") and the
+task's own instructions specifically called out.
 
 Add `src/review/reviewSession.ts`: the reviewer's own state — the recorded game
 (from Step 4) plus a cursor into its positions — and the pure operations over
