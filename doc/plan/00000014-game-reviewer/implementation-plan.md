@@ -206,7 +206,15 @@ the player-facing sentences, using `sideColorName` and reusing
 
 ### Step 1 — The move-notation grammar
 
-Status: pending
+Status: committed
+
+Notes: Added `src/rules/primary/v1_1/notation.ts` (`RecordedMove`,
+`ParsedMoveToken`, `parseMoveToken`, `renderMoveToken`) and
+`notation.test.ts`. Parsing uses one shared square sub-pattern
+(`[A-L](?:1[0-2]|[1-9])`) for both the extended and plain regexes so a
+plain-form token is recognized (and rejected with the distinct
+`"plainNotation"` kind) rather than merely falling through to `"malformed"`.
+No deviation from the plan.
 
 Add `src/rules/primary/v1_1/notation.ts`: the single home of the move-notation
 grammar for this ruleset version. It parses one move token (e.g. `A4x-A5x`)
