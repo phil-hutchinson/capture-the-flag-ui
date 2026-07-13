@@ -244,7 +244,19 @@ plain-notation error kind), malformed tokens (`A4-`, `M4-A5`, `A13-A5`,
 
 ### Step 2 — Reading the position block
 
-Status: pending
+Status: committed
+
+Notes: Added `parsePositionBlock` to `gameState.ts` alongside a
+`PIECE_TYPE_BY_SYMBOL` reverse lookup, `PositionBlockError` (six kinds:
+`wrongRowCount`, `wrongCellCount`, `unrecognizedCell`, `unknownPieceSymbol`,
+`lakeCellOffLake`, `lakeSquareNotXxx`) and `PositionBlockResult`. Blank lines
+are tolerated wherever they fall (not just at the leading/trailing edges),
+which is slightly more lenient than the plan's minimum ask but harmless since
+a genuinely missing row is still caught by the row-count check. New tests in
+`gameState.test.ts` cover the round-trip (including a sparse board with
+pieces removed and a non-full-army board, proving army composition/counts are
+never checked), whitespace/CRLF tolerance, and each rejection case. No other
+deviation from the plan.
 
 Add a position-block **parser** to `src/rules/primary/v1_1/gameState.ts`,
 directly alongside `renderPositionBlock` (its inverse): given the 12 lines of

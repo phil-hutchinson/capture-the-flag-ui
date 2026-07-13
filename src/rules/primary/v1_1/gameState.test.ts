@@ -4,9 +4,12 @@ import { pieceCatalogEntries } from "./pieces.ts";
 import { autoFill, emptyPlacement, type PlacementState } from "./placement.ts";
 import {
   buildInitialGameState,
+  parsePositionBlock,
   renderPositionBlock,
   RULESET_TAG,
+  type BoardState,
   type InitialGameState,
+  type PlacedPiece,
 } from "./gameState.ts";
 
 /** A tiny seeded linear-congruential generator (see placement.test.ts). */
@@ -160,5 +163,174 @@ describe("renderPositionBlock (ruleset PRIMARY:1.1)", () => {
       expect(row7[index]).toBe("XXX");
       expect(row6[index]).toBe("XXX");
     }
+  });
+});
+
+describe("parsePositionBlock (ruleset PRIMARY:1.1)", () => {
+  /** A full-army position block, rendered from two deterministic autoFill armies. */
+  function fullBoardBlock(): { board: BoardState; block: string } {
+    const white = completeArmy("white", 900);
+    const black = completeArmy("black", 901);
+    const gameState = buildInitialGameState(white, black);
+    return { board: gameState.board, block: renderPositionBlock(gameState) };
+  }
+
+  function parsed(result: ReturnType<typeof parsePositionBlock>): BoardState {
+    expect(result.kind).toBe("parsed");
+    return (result as { kind: "parsed"; board: BoardState }).board;
+  }
+
+  it("round-trips several generated full-army boards", () => {
+    for (let seed = 0; seed < 3; seed += 1) {
+      const white = completeArmy("white", seed * 2 + 100);
+      const black = completeArmy("black", seed * 2 + 101);
+      const gameState = buildInitialGameState(white, black);
+      const block = renderPositionBlock(gameState);
+
+      expect(parsed(parsePositionBlock(block))).toEqual(gameState.board);
+    }
+  });
+
+  it("round-trips a board with pieces removed - empty cells round-trip too", () => {
+    const { board } = fullBoardBlock();
+
+    const sparseBoard: Record<string, PlacedPiece> = { ...board };
+    for (const key of Object.keys(board).slice(0, 5)) {
+      delete sparseBoard[key];
+    }
+    const sparseGameState: InitialGameState = {
+      ruleset: RULESET_TAG,
+      board: sparseBoard,
+    };
+
+    const block = renderPositionBlock(sparseGameState);
+    expect(parsed(parsePositionBlock(block))).toEqual(sparseBoard);
+  });
+
+  it("tolerates CRLF line endings, extra inter-cell spaces, and leading/trailing line whitespace", () => {
+    const { board, block } = fullBoardBlock();
+
+    const noisy = block
+      .split("\n")
+      .map((line) => `  ${line.replaceAll(" ", "   ")}  `)
+      .join("\r\n");
+
+    expect(parsed(parsePositionBlock(noisy))).toEqual(board);
+  });
+
+  it("rejects a block with too few rows", () => {
+    const { block } = fullBoardBlock();
+    const tooFewRows = block.split("\n").slice(0, 11).join("\n");
+
+    expect(parsePositionBlock(tooFewRows)).toEqual({
+      kind: "error",
+      error: { kind: "wrongRowCount", rowCount: 11 },
+    });
+  });
+
+  it("rejects a block with too many rows", () => {
+    const { block } = fullBoardBlock();
+    const tooManyRows = `${block}\n${block.split("\n")[0]}`;
+
+    expect(parsePositionBlock(tooManyRows)).toEqual({
+      kind: "error",
+      error: { kind: "wrongRowCount", rowCount: 13 },
+    });
+  });
+
+  it("rejects a row that is not 12 cells", () => {
+    const { block } = fullBoardBlock();
+    const lines = block.split("\n");
+    // Line 0 is row 12 (top row of the block).
+    lines[0] = lines[0].split(" ").slice(0, 11).join(" ");
+
+    expect(parsePositionBlock(lines.join("\n"))).toEqual({
+      kind: "error",
+      error: { kind: "wrongCellCount", row: 12, cellCount: 11 },
+    });
+  });
+
+  it("rejects a cell matching none of the four cell forms", () => {
+    const { block } = fullBoardBlock();
+    const lines = block.split("\n");
+    // Line 11 is row 1 (bottom row); column index 0 is column A.
+    const cells = lines[11].split(" ");
+    cells[0] = "???";
+    lines[11] = cells.join(" ");
+
+    expect(parsePositionBlock(lines.join("\n"))).toEqual({
+      kind: "error",
+      error: {
+        kind: "unrecognizedCell",
+        square: { column: "A", row: 1 },
+        cell: "???",
+      },
+    });
+  });
+
+  it("rejects a piece symbol not in PIECE_CATALOG", () => {
+    const { block } = fullBoardBlock();
+    const lines = block.split("\n");
+    // Line 11 is row 1 (bottom row); column index 1 is column B.
+    const cells = lines[11].split(" ");
+    cells[1] = "[Z]";
+    lines[11] = cells.join(" ");
+
+    expect(parsePositionBlock(lines.join("\n"))).toEqual({
+      kind: "error",
+      error: {
+        kind: "unknownPieceSymbol",
+        square: { column: "B", row: 1 },
+        symbol: "Z",
+      },
+    });
+  });
+
+  it("rejects a lake cell (XXX) that is not exactly on one of the 12 lake squares", () => {
+    const { block } = fullBoardBlock();
+    const lines = block.split("\n");
+    // Line 11 is row 1 (bottom row); column index 0 is column A - not a lake square.
+    const cells = lines[11].split(" ");
+    cells[0] = "XXX";
+    lines[11] = cells.join(" ");
+
+    expect(parsePositionBlock(lines.join("\n"))).toEqual({
+      kind: "error",
+      error: {
+        kind: "lakeCellOffLake",
+        square: { column: "A", row: 1 },
+      },
+    });
+  });
+
+  it("rejects a lake square whose cell is not XXX", () => {
+    const { block } = fullBoardBlock();
+    const lines = block.split("\n");
+    // Row 6 is line index 6 (12 - 6); column index 1 is column B, a lake square.
+    const cells = lines[6].split(" ");
+    expect(cells[1]).toBe("XXX");
+    cells[1] = "---";
+    lines[6] = cells.join(" ");
+
+    expect(parsePositionBlock(lines.join("\n"))).toEqual({
+      kind: "error",
+      error: {
+        kind: "lakeSquareNotXxx",
+        square: { column: "B", row: 6 },
+        cell: "---",
+      },
+    });
+  });
+
+  it("does not check army composition or counts - accepts an arbitrary sparse board", () => {
+    const gameState: InitialGameState = {
+      ruleset: RULESET_TAG,
+      board: {
+        A1: { side: "white", pieceType: "flag" },
+      },
+    };
+    const block = renderPositionBlock(gameState);
+
+    expect(parsed(parsePositionBlock(block))).toEqual(gameState.board);
   });
 });

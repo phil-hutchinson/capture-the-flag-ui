@@ -14,8 +14,15 @@
 // (Step 2), and the placement-state model (Step 3); it has no further
 // dependencies.
 
-import { COLUMNS, isLake, ROWS, squareKey, type Square } from "./board.ts";
-import { PIECE_CATALOG, type PieceTypeId } from "./pieces.ts";
+import {
+  COLUMNS,
+  isLake,
+  ROWS,
+  squareKey,
+  type Side,
+  type Square,
+} from "./board.ts";
+import { PIECE_CATALOG, PIECE_TYPES, type PieceTypeId } from "./pieces.ts";
 import { isComplete, type PlacementState } from "./placement.ts";
 
 /**
@@ -118,4 +125,167 @@ export function renderPositionBlock(gameState: InitialGameState): string {
       ).join(" "),
     )
     .join("\n");
+}
+
+/** Reverse lookup: position-block symbol -> piece type id (see `pieces.ts`). */
+const PIECE_TYPE_BY_SYMBOL: Readonly<Record<string, PieceTypeId>> =
+  Object.fromEntries(PIECE_TYPES.map((id) => [PIECE_CATALOG[id].symbol, id]));
+
+/**
+ * Everything that can go wrong parsing a position block, per
+ * `parsePositionBlock`: a wrong overall shape (not 12 rows, or a row that is
+ * not 12 cells), a cell matching none of the four cell forms, a piece symbol
+ * not in `PIECE_CATALOG`, or a mismatch between a cell's lake marking and
+ * `isLake` for that square. These are structured for callers (recordFile.ts,
+ * Step 3) to word into a player-facing message; this module never produces
+ * text itself.
+ */
+export type PositionBlockError =
+  | { readonly kind: "wrongRowCount"; readonly rowCount: number }
+  | {
+      readonly kind: "wrongCellCount";
+      readonly row: Square["row"];
+      readonly cellCount: number;
+    }
+  | {
+      readonly kind: "unrecognizedCell";
+      readonly square: Square;
+      readonly cell: string;
+    }
+  | {
+      readonly kind: "unknownPieceSymbol";
+      readonly square: Square;
+      readonly symbol: string;
+    }
+  | { readonly kind: "lakeCellOffLake"; readonly square: Square }
+  | {
+      readonly kind: "lakeSquareNotXxx";
+      readonly square: Square;
+      readonly cell: string;
+    };
+
+/** The result of parsing a position block: a `BoardState`, or a structured error. Never throws. */
+export type PositionBlockResult =
+  | { readonly kind: "parsed"; readonly board: BoardState }
+  | { readonly kind: "error"; readonly error: PositionBlockError };
+
+/** One already-recognized cell token, before it is checked against `isLake` and `PIECE_CATALOG`. */
+type ParsedCell =
+  | { readonly kind: "empty" }
+  | { readonly kind: "lake" }
+  | { readonly kind: "piece"; readonly side: Side; readonly symbol: string };
+
+/** A single cell token's shape: `---`, `XXX`, `[X]` (White) or `*X*` (Black). */
+const WHITE_PIECE_CELL = /^\[(.)\]$/;
+const BLACK_PIECE_CELL = /^\*(.)\*$/;
+
+/** Parses one cell token already split out of a line; `undefined` if it matches none of the four forms. */
+function parseCell(cell: string): ParsedCell | undefined {
+  if (cell === "---") {
+    return { kind: "empty" };
+  }
+  if (cell === "XXX") {
+    return { kind: "lake" };
+  }
+  const whiteMatch = WHITE_PIECE_CELL.exec(cell);
+  if (whiteMatch !== null) {
+    return { kind: "piece", side: "white", symbol: whiteMatch[1] };
+  }
+  const blackMatch = BLACK_PIECE_CELL.exec(cell);
+  if (blackMatch !== null) {
+    return { kind: "piece", side: "black", symbol: blackMatch[1] };
+  }
+  return undefined;
+}
+
+/**
+ * Parses the position-block text form (see `renderPositionBlock`, its
+ * inverse) back into a `BoardState`, or a structured `PositionBlockError` if
+ * the block is not a valid 12x12 board. Accepts exactly what
+ * `renderPositionBlock` writes, plus reasonable whitespace slop: CRLF or LF
+ * line endings, leading/trailing spaces on a line, extra spaces between
+ * cells, and blank lines (tolerated wherever they fall, not just at the
+ * edges). Terrain *is* checked - a lake cell (`XXX`) must land exactly on one
+ * of the 12 lake squares (`isLake`), and a lake square's cell must be `XXX` -
+ * because the position block draws the full board including terrain, so a
+ * mismatch is not a valid rendering of any board; this is the format's own
+ * self-description, not a rules check. Army composition and piece counts are
+ * not checked - any position, including a partial one, is accepted. Never
+ * throws.
+ */
+export function parsePositionBlock(text: string): PositionBlockResult {
+  const lines = text
+    .split(/\r\n|\r|\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length !== 12) {
+    return {
+      kind: "error",
+      error: { kind: "wrongRowCount", rowCount: lines.length },
+    };
+  }
+
+  const rowsTopToBottom = [...ROWS].reverse();
+  const board: Record<string, PlacedPiece> = {};
+
+  for (const [lineIndex, line] of lines.entries()) {
+    const row = rowsTopToBottom[lineIndex];
+    const cells = line.split(/\s+/);
+    if (cells.length !== 12) {
+      return {
+        kind: "error",
+        error: { kind: "wrongCellCount", row, cellCount: cells.length },
+      };
+    }
+
+    for (const [columnIndex, cellText] of cells.entries()) {
+      const column = COLUMNS[columnIndex];
+      const square: Square = { column, row };
+      const parsedCell = parseCell(cellText);
+
+      if (parsedCell === undefined) {
+        return {
+          kind: "error",
+          error: { kind: "unrecognizedCell", square, cell: cellText },
+        };
+      }
+
+      const onLake = isLake(square);
+
+      if (parsedCell.kind === "lake") {
+        if (!onLake) {
+          return { kind: "error", error: { kind: "lakeCellOffLake", square } };
+        }
+        continue;
+      }
+
+      if (onLake) {
+        return {
+          kind: "error",
+          error: { kind: "lakeSquareNotXxx", square, cell: cellText },
+        };
+      }
+
+      if (parsedCell.kind === "empty") {
+        continue;
+      }
+
+      const pieceType = PIECE_TYPE_BY_SYMBOL[parsedCell.symbol];
+      if (pieceType === undefined) {
+        return {
+          kind: "error",
+          error: {
+            kind: "unknownPieceSymbol",
+            square,
+            symbol: parsedCell.symbol,
+          },
+        };
+      }
+
+      board[squareKey(square)] = { side: parsedCell.side, pieceType };
+    }
+  }
+
+  return { kind: "parsed", board };
 }
