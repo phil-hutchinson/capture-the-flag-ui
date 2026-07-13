@@ -33,7 +33,7 @@ does not re-decide it.
   reads. The toggle's label is exactly **"Flip board between turns"** (fixed by
   the owner).
 - **Test environment.** Tests run with `npm test` (vitest, `environment:
-  "node"` per `vitest.config.ts`). There is no jsdom / testing-library / DOM
+"node"` per `vitest.config.ts`). There is no jsdom / testing-library / DOM
   in tests, and no `.test.tsx` React-component tests exist. So pure logic
   (`viewSide`, the persistence helper) is verified with automated unit tests,
   and the React UI (the toggle switch, its wiring, orientation behavior) is
@@ -330,7 +330,24 @@ error appears).
 
 ### Step 5 — README accuracy check
 
-Status: pending
+Status: committed
+
+Notes: Reviewed the branch's player-visible change (the "Flip board between
+turns" toggle) against `README.md`'s "What you can do" section and judged it
+worth a brief mention, since it changes a capability a player experiences
+directly. Added one sentence to the existing "Move, attack, and capture on
+the battlefield" bullet, in player language (red, "the board flips to face
+whoever's turn it is", "a 'Flip board between turns' switch", no "ply", no
+trademarked names), rather than adding a new bullet, since the toggle is a
+minor refinement of that existing capability rather than a capability of its
+own. `npm run format:check` passes (README.md is not among the flagged
+files; the pre-existing warnings on `src/board/playSession.ts` and two
+`doc/plan/00000006-*` files are unrelated and untouched, and
+`implementation-plan.md` in this folder is now also flagged by
+`format:check` purely because Step 3/4's own Notes already exceeded
+Prettier's prose-wrap defaults — pre-existing, not from this step's edit).
+`npm run typecheck`, `npm run lint`, and `npm test` all pass unchanged (355
+tests across 19 files). No deviations from the plan.
 
 Review `README.md` against this story's changes and update it if warranted, or
 confirm no update is needed. The README's "What you can do" section describes
