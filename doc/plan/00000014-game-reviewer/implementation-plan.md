@@ -415,7 +415,41 @@ nothing). Each is reported with the right ply number and token.
 
 ### Step 5 — Sample record files for the manual gates
 
-Status: pending
+Status: committed
+
+Notes: Added five files under `doc/plan/00000014-game-reviewer/samples/`
+(`good-game.txt`, `plain-notation.txt`, `unknown-ruleset.txt`,
+`empty-square-move.txt`, `phantom-capture.txt`) and a corpus test,
+`src/rules/readRecord.samples.test.ts`, that reads them via `readRecord` and
+checks the good one replays to its Flag capture (100 moves, 101 positions,
+no Flag of the losing color left on the board, `Result`/`ResultReason` tags
+present) and each bad one is rejected with the matching error kind. The good
+game was generated exactly as the plan specifies: a throwaway vitest test
+(`__gen_sample.script.test.ts`, run once via `npx vitest run` then deleted,
+never committed) built two full 48-piece armies with `placement.ts`'s
+`autoFill`, ran them through `play.ts`'s `startPlay`/`applyMove`, and chose
+among the legal plies `movement.ts` offered (biased 85% toward an available
+attack over a plain move, since a purely uniform walk across two full armies
+rarely makes contact) using a seeded LCG (the same generator
+`placement.test.ts`/`gameState.test.ts` already use for reproducibility). It
+tried seeds in turn, rejecting a game that ran past 300 plies or that didn't
+end in a Flag capture containing at least one plain capture, one complete
+sacrifice, one mutual loss, and a Sapper destroying a Tower; seed 907 was the
+first to satisfy all of that, in 100 plies (50 rounds) — Black wins by Flag
+capture. Every move's `x` marks were derived from the real `PlyOutcome`
+`applyMove` returned, via `renderMoveToken`; nothing was hand-computed. Event
+move numbers in that game: complete sacrifice at ply 3, plain capture at ply
+46, mutual loss at ply 51, Sapper-vs-Tower at ply 98, Flag capture (game end)
+at ply 100. The bad samples are hand-derived from the good one's own token
+list (an empty-square source substituted into ply 1 — row 5 is the buffer,
+guaranteed empty at the game's start — a phantom `x` added to the first
+quiet move, an altered `Ruleset` tag value, and every token flattened to the
+plain form) rather than literal post-hoc text edits, which is equivalent but
+kept the script free of fragile string surgery. Also added `@types/node` as
+a new dev-dependency (pinned to `^22.20.1`, matching the container's Node
+22) so the corpus test can use Node's `fs`/`url` modules per the step's own
+instruction to read the sample files that way; `tsconfig.app.json` picks up
+its ambient types automatically (no config change needed).
 
 Produce the record files the story's manual gates (B and C) need, and commit
 them under `doc/plan/00000014-game-reviewer/samples/` (plain `.txt` files):
