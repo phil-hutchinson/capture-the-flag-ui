@@ -49,7 +49,22 @@ does not re-decide it.
 
 ### Step 1 — Flip-setting persistence helper
 
-Status: pending
+Status: committed
+
+Notes: Implemented as planned at `src/board/flipBoardSetting.ts` /
+`src/board/flipBoardSetting.test.ts`, using the suggested local-storage key
+`"ctf:flip-board-between-turns"` and default `true`. `readFlipBetweenTurns`
+and `writeFlipBetweenTurns` guard access with a `typeof globalThis.localStorage
+=== "undefined"` check plus a `try…catch`, per the story's best-effort
+requirement. Tests install an in-memory `Storage` stub and a throwing stub as
+`globalThis.localStorage` to cover the round trip, the default, and both
+failure modes. `npm run typecheck`, `npm run lint`, and `npm test` all pass
+(353 tests across 19 files, including the 5 new ones); one `npm test` run hit
+a transient "Cannot find module .../vitest/dist/index.js" resolution error in
+two unrelated pre-existing suites (`placement.test.ts`, `play.test.ts`) with
+no code changes present, and re-running immediately passed cleanly — treated
+as environment flakiness, not a regression from this step. No deviations from
+the plan.
 
 Add a small, framework-free helper module (suggested path
 `src/board/flipBoardSetting.ts`, with `src/board/flipBoardSetting.test.ts`)
