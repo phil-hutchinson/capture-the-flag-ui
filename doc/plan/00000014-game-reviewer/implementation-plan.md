@@ -287,7 +287,29 @@ rejection case above.
 
 ### Step 3 — The record-file parser
 
-Status: pending
+Status: committed
+
+Notes: Added `src/rules/primary/v1_1/recordFile.ts` (`parseRecordFile`,
+`RecordFileTags`, `RecordedPly`, `ParsedRecord`, `RecordFileError`,
+`RecordFileResult`) and `src/rules/readRecord.ts` (`readRecord`,
+`ReadRecordError`, `ReadRecordResult`), plus `recordFile.test.ts` and
+`readRecord.test.ts`. Two judgment calls not spelled out verbatim in the
+step, recorded here since they shape the error surface: (1) `notARecord`
+covers both "fewer than two blank-line-separated chunks" and "the header
+chunk's lines don't all match the `[Name "value"]` tag pattern" — a header
+that parses cleanly but simply lacks a `Ruleset` tag is instead
+`missingRuleset` (distinct because a record author who forgot the tag is a
+different problem from a non-record file); (2) `readRecord.ts`'s ruleset
+dispatch is a light-touch regex scan for a `[Ruleset "..."]` line anywhere in
+the raw text (not a full header parse) so that an unrelated ruleset's
+position-block/notation syntax is never run through the v1_1 parser before
+the ruleset is known to match — if no such line is found anywhere, that's
+`notARecord` at the dispatch level too. No other deviation from the plan.
+`RecordFileError` has two round-shaped error kinds beyond what the step
+names outright: `malformedRound` (a stray token where a round marker was
+expected) and `emptyRound` (a round marker with no moves following it at
+all) alongside `tooManyMovesInRound` (three or more) — kept distinct rather
+than folded together so a message can say precisely what's wrong.
 
 Add `src/rules/primary/v1_1/recordFile.ts`: file text → a parsed record (the
 header tags, the starting `BoardState`, and the ordered list of moves with, for
