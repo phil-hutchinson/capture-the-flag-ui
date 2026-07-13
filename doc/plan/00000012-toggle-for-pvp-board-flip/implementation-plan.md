@@ -164,7 +164,55 @@ to confirm `PlayBoard`'s new required prop is satisfied at its call site.
 
 ### Step 3 — Accessible toggle switch, wired into the Phase 2 UI
 
-Status: pending
+Status: committed
+
+Notes: Implemented as planned. Added `src/board/FlipBoardToggle.tsx` /
+`src/board/FlipBoardToggle.css`: a controlled component (`flipBetweenTurns`,
+`onChange`) built on a native `<input type="checkbox">` wrapped in a
+`<label>` with fixed visible text "Flip board between turns" (chosen form,
+per the plan's request to record it: a real `<input type="checkbox">`
+restyled with `appearance: none` plus a `::before` knob as a track/switch,
+rather than a hidden-checkbox-behind-custom-markup pattern, so the one
+focusable element keeps its native accessible name/checked-state semantics
+for free). Non-color state is carried by two extra signals, both
+`aria-hidden` (the native checked state already announces itself to
+assistive tech, so a second announcement would double it): the knob's slide
+position and an explicit "On"/"Off" text label beside the switch, both
+driven by CSS `:checked`. Focus is shown via `:focus-visible` with
+`var(--focus-ring)`, matching the accessible grid's existing focus-ring
+convention. In `src/App.tsx`, added `flipBetweenTurns` React state
+(`useState(true)`, in-memory only per this step), rendered `FlipBoardToggle`
+in the Phase 2 branch right after the `result.kind === "ongoing" ? … : …`
+conditional (so it shows during ongoing play, a pending draw offer, and
+game end, but never in Phase 1), and replaced the Step 2 temporary literal
+`flipBetweenTurns={true}` on `PlayBoard` with the real state, wiring
+`onChange={setFlipBetweenTurns}` into the toggle. `npm run typecheck`,
+`npm run lint`, `npm test` (355 tests across 19 files, unchanged from Step
+2 since this step added no new automated tests — the plan's verification
+for this step is manual only), and `npm run build` all pass; `npm run
+format:check` passes for the two new files (ran `prettier --write` once to
+match the repo's formatting) with three pre-existing unrelated warnings
+left untouched (`src/board/playSession.ts` and two `doc/plan/00000006-*`
+files, none touched by this step). No deviations from the plan. Manual
+verification (Gates A, B, D, and the Phase-1-absence/status-text check) is
+the owner's to perform per the step's own verification section below — not
+attempted here.
+
+Owner-requested adjustment after manual verification: the owner ran manual
+verification and confirmed Gates A, B, and D all passed, then requested two
+presentation changes before commit, applied in this same step. (1) DOM/
+reading order: the checkbox now comes first, the label text after -
+"[ ] Flip board between turns" - and the separate "On"/"Off" text affordance
+was removed entirely; the checkbox's own checked/unchecked appearance (the
+track/knob switch) is the sole non-color state signal now. (2) Association
+robustness: switched from an implicit wrapping `<label>` to an explicit
+`htmlFor`/`id` association (`useId()`-generated id) between the `<input>`
+and its `<label>`, confirming the accessible name conveyed to assistive
+technology stays exactly "Flip board between turns." Both changes are
+confined to `FlipBoardToggle.tsx`/`FlipBoardToggle.css`; `App.tsx`'s wiring
+from the original implementation is unchanged. Re-ran `npm run typecheck`,
+`npm run lint`, `npm test` (still 355 passing), `npm run build`, and
+`npx prettier --check` on the two touched files - all pass.
 
 Add the visible, working toggle and connect it end to end (using a
 non-persisted, default-on in-memory state for now; persistence is Step 4).

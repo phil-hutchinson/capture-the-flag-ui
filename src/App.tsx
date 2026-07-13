@@ -3,6 +3,7 @@ import { APP_NAME } from "./appInfo.ts";
 import { PieceSpriteDefs } from "./art/PieceIcon.tsx";
 import { Board } from "./board/Board.tsx";
 import { DrawOffer } from "./board/DrawOffer.tsx";
+import { FlipBoardToggle } from "./board/FlipBoardToggle.tsx";
 import { GameRecord } from "./board/GameRecord.tsx";
 import { GameResult } from "./board/GameResult.tsx";
 import { PlacementControls } from "./board/PlacementControls.tsx";
@@ -109,6 +110,11 @@ export function App() {
   // rather than by `PlayStatus` (a plain visual indicator) so it is never
   // announced twice from two different live regions.
   const [playAnnouncement, setPlayAnnouncement] = useState("");
+  // Story 00000012, Step 3: the "Flip board between turns" setting. In-memory
+  // only for now, default on (today's behavior unchanged); Step 4 swaps this
+  // literal `true` for a lazy read from `flipBoardSetting.ts` and adds a
+  // write-through on change, so the setting survives reloads.
+  const [flipBetweenTurns, setFlipBetweenTurns] = useState(true);
 
   if (playSession !== null) {
     // Phase 2: both armies are placed and fully visible on one board,
@@ -187,10 +193,13 @@ export function App() {
         ) : (
           <GameResult result={result} onNewGame={handleNewGame} />
         )}
+        <FlipBoardToggle
+          flipBetweenTurns={flipBetweenTurns}
+          onChange={setFlipBetweenTurns}
+        />
         <PlayBoard
           session={playSession}
-          // TODO(story 00000012, Step 3): replace with real toggle state.
-          flipBetweenTurns={true}
+          flipBetweenTurns={flipBetweenTurns}
           announcement={playAnnouncement}
           onActivate={handlePlayActivate}
         />
