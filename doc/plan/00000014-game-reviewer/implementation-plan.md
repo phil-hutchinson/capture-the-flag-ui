@@ -494,7 +494,24 @@ position block, rounds) whose replay ends in a Flag capture.
 
 ### Step 6 — Player-facing wording for rejections and the recorded result
 
-Status: pending
+Status: committed
+
+Notes: Added `src/review/reviewText.ts` (`describeRejection`,
+`describeRecordedResult`) and `reviewText.test.ts`. `describeRejection`
+covers every kind of `ReadRecordError`, `RecordFileError`, `PositionBlockError`
+and `ReplayError` through nested switches, each ending in
+`default: return kind satisfies never;` (the same exhaustiveness pattern
+`playAnnouncement.ts`'s `reasonLabel` already uses) so a future error kind
+fails to compile until this module is taught its wording, per the step's
+instruction. `describeRecordedResult` maps the four `Result` values and the
+engine's `ResultReason` strings (plus `Agreement`) case-insensitively onto
+`GameEndReason`, reusing `describeResult` for a recognized reason and
+quoting an unrecognized one verbatim; one judgment call beyond what the plan
+names outright: a `Result` value that is present but not one of the four
+recognized strings (and isn't `*`) is treated the same as absent/`*` — no
+claim at all — since the record-file parser never validates `Result`'s
+value and silently making no claim is safer than guessing. No other
+deviation from the plan.
 
 Add `src/review/reviewText.ts`: the one place the reviewer's player-facing
 sentences are built. It is pure (no React) and has two jobs:
