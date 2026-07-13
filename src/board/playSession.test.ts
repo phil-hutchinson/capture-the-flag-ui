@@ -788,6 +788,27 @@ describe("viewSide - whose perspective the board is drawn from", () => {
     expect(viewSide(offered)).toBe("white");
     expect(viewSide(declineDraw(offered))).toBe("black");
   });
+
+  it("with flipping off, always returns white regardless of who is to move", () => {
+    const session = ongoingSession();
+    expect(viewSide(session, false)).toBe("white");
+
+    const selected = activateSquare(session, sq("D", 5));
+    const blackToMove = activateSquare(selected, sq("D", 4));
+    expect(blackToMove.play.sideToMove).toBe("black");
+    expect(viewSide(blackToMove, false)).toBe("white");
+  });
+
+  it("with flipping off, stays on white even while a draw offer is pending, regardless of who offered", () => {
+    const session = ongoingSession();
+    const offeredByWhite = offerDraw(session);
+    expect(viewSide(offeredByWhite, false)).toBe("white");
+
+    const selected = activateSquare(session, sq("D", 5));
+    const blackToMove = activateSquare(selected, sq("D", 4));
+    const offeredByBlack = offerDraw(blackToMove);
+    expect(viewSide(offeredByBlack, false)).toBe("white");
+  });
 });
 
 /**

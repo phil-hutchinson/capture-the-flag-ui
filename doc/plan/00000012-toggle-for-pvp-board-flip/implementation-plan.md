@@ -99,7 +99,25 @@ Run `npm test` and confirm these pass alongside the existing suite.
 
 ### Step 2 — `viewSide` honors a "flip between turns" flag
 
-Status: pending
+Status: committed
+
+Notes: Implemented as planned. `viewSide(session, flipBetweenTurns = true)`
+in `src/board/playSession.ts` now short-circuits to `"white"` whenever
+`flipBetweenTurns` is `false` (checked before the draw-offer branch, so it
+overrides the responder exception), and its doc comment documents both
+branches. `PlayBoard` in `src/board/PlayBoard.tsx` gained a required
+`flipBetweenTurns: boolean` prop, documented, and passes it straight into
+`viewSide(session, flipBetweenTurns)`; its module/function doc comments were
+updated to mention the flag. `src/App.tsx`'s sole `PlayBoard` call site
+passes a temporary literal `flipBetweenTurns={true}` with a `TODO(story
+00000012, Step 3)` comment, to be replaced by real state in Step 3. Added two
+new cases to the existing `describe("viewSide …")` block in
+`src/board/playSession.test.ts`: flipping off returns `"white"` regardless of
+which side is to move, and stays on `"white"` while a draw offer is pending
+regardless of who offered; the existing flipping-on cases were left
+unchanged since they already cover today's default behavior. `npm run
+typecheck`, `npm run lint`, and `npm test` all pass (355 tests across 19
+files, including the 2 new cases). No deviations from the plan.
 
 Extend `viewSide` in `src/board/playSession.ts` to take a second parameter — a
 boolean for whether the between-turns flip is enabled — defaulting to `true`

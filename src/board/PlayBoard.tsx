@@ -94,6 +94,14 @@ function squareLabel(
 export interface PlayBoardProps {
   /** The in-progress Phase-2 session: whose turn, the board, and any selection. */
   readonly session: PlaySession;
+  /**
+   * The player's "Flip board between turns" setting (story 00000012, Step
+   * 2), passed straight through to `viewSide`: `true` (today's behavior)
+   * flips to whichever side is sitting at the board at each hand-off and
+   * while a draw offer is answered; `false` always draws from red's
+   * (`"white"`'s) perspective, throughout Phase 2.
+   */
+  readonly flipBetweenTurns: boolean;
   /** Called with the domain square of an actionable cell when it is activated. */
   readonly onActivate: (square: Square) => void;
   /**
@@ -106,21 +114,23 @@ export interface PlayBoardProps {
 }
 
 /**
- * The full 12x12 board, oriented to `viewSide(session)` (Step 4), drawn
- * through the accessible grid (Step 5). The only highlighted squares are for
- * an in-progress selection: the selected piece and its legal destinations
- * (from `actionableSquares` once a piece is selected); with nothing selected
- * no square is highlighted. Which squares actually respond to activation come
+ * The full 12x12 board, oriented to `viewSide(session, flipBetweenTurns)`
+ * (Step 4; the flag added in story 00000012, Step 2), drawn through the
+ * accessible grid (Step 5). The only highlighted squares are for an
+ * in-progress selection: the selected piece and its legal destinations (from
+ * `actionableSquares` once a piece is selected); with nothing selected no
+ * square is highlighted. Which squares actually respond to activation come
  * from the larger `activatableSquares` (Step 9), so illegal moves are never
  * offered while selecting, deselecting, and switching selection remain
  * reachable.
  */
 export function PlayBoard({
   session,
+  flipBetweenTurns,
   onActivate,
   announcement,
 }: PlayBoardProps) {
-  const side = viewSide(session);
+  const side = viewSide(session, flipBetweenTurns);
   const rows = fullBoardRows(side);
   const columns = visibleColumns(side);
   // Only a selected piece's legal destinations are highlighted; with nothing

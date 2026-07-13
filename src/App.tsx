@@ -189,6 +189,8 @@ export function App() {
         )}
         <PlayBoard
           session={playSession}
+          // TODO(story 00000012, Step 3): replace with real toggle state.
+          flipBetweenTurns={true}
           announcement={playAnnouncement}
           onActivate={handlePlayActivate}
         />
