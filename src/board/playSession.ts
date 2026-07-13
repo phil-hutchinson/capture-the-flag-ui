@@ -123,18 +123,31 @@ function isInert(session: PlaySession): boolean {
  * actually sitting at the board right now, which is not always the side to
  * move (story 00000006, Step 13).
  *
- * Ordinarily that is `play.sideToMove`: the active player sees their own home
- * edge nearest them, and the board flips at each hand-off. The exception is a
- * **pending draw offer**. An offer does not change `sideToMove` (the turn
- * remains the offerer's to take if declined), but it does hand the physical
- * board to the *opponent*, who must answer Accept or Decline - so the board is
- * drawn from **their** perspective while they answer. Answering ends the
- * exception and orientation reverts to `sideToMove`: on a decline that is the
- * offerer, who now takes their turn; on an accept the game is over and the
- * final position is shown to the side to move, exactly as it is for every
- * other ending.
+ * `flipBetweenTurns` (story 00000012, Step 2) is the player's "Flip board
+ * between turns" setting, defaulting to `true` so existing callers keep
+ * today's behavior unchanged:
+ *
+ * - **`true`** (flipping on, the default): ordinarily this is
+ *   `play.sideToMove` - the active player sees their own home edge nearest
+ *   them, and the board flips at each hand-off. The exception is a **pending
+ *   draw offer**. An offer does not change `sideToMove` (the turn remains the
+ *   offerer's to take if declined), but it does hand the physical board to
+ *   the *opponent*, who must answer Accept or Decline - so the board is drawn
+ *   from **their** perspective while they answer. Answering ends the
+ *   exception and orientation reverts to `sideToMove`: on a decline that is
+ *   the offerer, who now takes their turn; on an accept the game is over and
+ *   the final position is shown to the side to move, exactly as it is for
+ *   every other ending.
+ * - **`false`** (flipping off): always `"white"` (red), regardless of
+ *   `sideToMove` and regardless of any pending draw offer - the board is
+ *   drawn from red's perspective throughout Phase 2, including while a draw
+ *   offer is being answered and at game end. This overrides the draw-offer
+ *   responder exception above.
  */
-export function viewSide(session: PlaySession): Side {
+export function viewSide(session: PlaySession, flipBetweenTurns = true): Side {
+  if (!flipBetweenTurns) {
+    return "white";
+  }
   return session.drawOffer === null
     ? session.play.sideToMove
     : otherSide(session.drawOffer);

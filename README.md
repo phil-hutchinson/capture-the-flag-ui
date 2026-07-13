@@ -17,7 +17,10 @@ install, no account, no server.
 - **Move, attack, and capture on the battlefield** — once both armies are
   revealed, take turns moving pieces across the board in full view. Moving a
   piece onto an enemy piece attacks it, and the fight resolves immediately —
-  the losing piece (or both, if they're evenly matched) leaves the board.
+  the losing piece (or both, if they're evenly matched) leaves the board. By
+  default the board flips to face whoever's turn it is; a "Flip board between
+  turns" switch lets you turn that off and keep the board on red's side the
+  whole game — handy if you're playing both sides yourself.
 - **Win, lose, or draw** — capture your opponent's flag and the game is yours.
   You can also win if your own flag becomes impossible for your opponent to
   reach — walled in, with none of their pieces able to break through — or if
