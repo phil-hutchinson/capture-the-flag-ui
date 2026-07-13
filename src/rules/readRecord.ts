@@ -11,35 +11,41 @@
 // to review. A future ruleset version adds a case here rather than editing an
 // existing one.
 //
-// In this step, reading a record means parsing its structure only (see
-// `recordFile.ts`); Step 4 extends this to parse-then-replay, so that this
-// entry point returns either a fully replayed recorded game or a rejection,
-// with no partial result - the shape below is deliberately structured to make
-// that extension a matter of adding a case, not restructuring.
+// Reading a record is parse-then-replay (`recordFile.ts` then `replay.ts`):
+// this entry point returns either a fully replayed recorded game - every
+// position it ever occupied - or a rejection, naming what went wrong. There
+// is no partial result: a file that parses but cannot be replayed to the end
+// is rejected exactly as if it had failed to parse.
 
 import {
   parseRecordFile,
-  type ParsedRecord,
   type RecordFileError,
 } from "./primary/v1_1/recordFile.ts";
 import { RULESET_TAG } from "./primary/v1_1/gameState.ts";
+import {
+  replayRecord,
+  type ReplayedRecord,
+  type ReplayError,
+} from "./primary/v1_1/replay.ts";
 
 /**
  * Everything that can go wrong before a version-specific reader even gets a
  * chance to run: the file has no readable `Ruleset` tag at all (most likely
  * an arbitrary file was chosen - see `recordFile.ts`'s own `notARecord`,
  * which this deliberately mirrors), or it names a ruleset this app does not
- * know how to review. A recognized ruleset's own structural or replay errors
- * are that version's `RecordFileError`, carried through unchanged.
+ * know how to review. A recognized ruleset's own structural errors are that
+ * version's `RecordFileError`; a record whose structure is fine but that
+ * cannot be replayed to the end is that version's `ReplayError`.
  */
 export type ReadRecordError =
   | { readonly kind: "notARecord" }
   | { readonly kind: "unknownRuleset"; readonly ruleset: string }
-  | { readonly kind: "recordFile"; readonly error: RecordFileError };
+  | { readonly kind: "recordFile"; readonly error: RecordFileError }
+  | { readonly kind: "replay"; readonly error: ReplayError };
 
-/** The result of reading a record file: a parsed record, or a structured rejection. Never throws. */
+/** The result of reading a record file: a fully replayed recorded game, or a structured rejection. Never throws. */
 export type ReadRecordResult =
-  | { readonly kind: "parsed"; readonly record: ParsedRecord }
+  | { readonly kind: "parsed"; readonly record: ReplayedRecord }
   | { readonly kind: "error"; readonly error: ReadRecordError };
 
 /**
@@ -58,11 +64,14 @@ function unescapeTagValue(raw: string): string {
 
 /**
  * Reads a recorded game file's text, dispatching to the ruleset version it
- * declares. Returns a `notARecord` rejection when no `Ruleset` tag can be
- * found at all (the file is not recognizable as a game record - most likely
- * the wrong kind of file was chosen), an `unknownRuleset` rejection naming
- * the ruleset when one is found but this app does not know it, or otherwise
- * delegates to that ruleset version's own reader.
+ * declares and then replaying it in full. Returns a `notARecord` rejection
+ * when no `Ruleset` tag can be found at all (the file is not recognizable as
+ * a game record - most likely the wrong kind of file was chosen), an
+ * `unknownRuleset` rejection naming the ruleset when one is found but this
+ * app does not know it, that version's own `recordFile` rejection if the
+ * file's structure is unreadable, that version's own `replay` rejection if
+ * the file parses but cannot be replayed to the end, or otherwise the fully
+ * replayed game - there is no partial result.
  */
 export function readRecord(text: string): ReadRecordResult {
   const match = RULESET_TAG_LINE.exec(text);
@@ -75,12 +84,21 @@ export function readRecord(text: string): ReadRecordResult {
     return { kind: "error", error: { kind: "unknownRuleset", ruleset } };
   }
 
-  const result = parseRecordFile(text);
-  if (result.kind === "error") {
+  const parseResult = parseRecordFile(text);
+  if (parseResult.kind === "error") {
     return {
       kind: "error",
-      error: { kind: "recordFile", error: result.error },
+      error: { kind: "recordFile", error: parseResult.error },
     };
   }
-  return { kind: "parsed", record: result.record };
+
+  const replayResult = replayRecord(parseResult.record);
+  if (replayResult.kind === "error") {
+    return {
+      kind: "error",
+      error: { kind: "replay", error: replayResult.error },
+    };
+  }
+
+  return { kind: "parsed", record: replayResult.record };
 }

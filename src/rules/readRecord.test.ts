@@ -22,7 +22,7 @@ describe("readRecord - version dispatch", () => {
     expect(result.kind).toBe("parsed");
     if (result.kind === "parsed") {
       expect(result.record.tags.ruleset).toBe("PRIMARY:1.1");
-      expect(result.record.startingBoard).toEqual(GAME_STATE.board);
+      expect(result.record.positions).toEqual([GAME_STATE.board]);
       expect(result.record.moves).toEqual([]);
     }
   });
@@ -65,6 +65,31 @@ describe("readRecord - version dispatch", () => {
     expect(result.kind).toBe("error");
     if (result.kind === "error") {
       expect(result.error.kind).toBe("recordFile");
+    }
+  });
+
+  it("replays a well-formed record, and surfaces the delegated reader's own replay errors", () => {
+    // A move from an empty square: the file parses cleanly (it is
+    // structurally a valid record) but cannot be replayed to the end - so
+    // reading it is a rejection, not a part-loaded game.
+    const text = ['[Ruleset "PRIMARY:1.1"]', POSITION_BLOCK, "1. B1-B2"].join(
+      "\n\n",
+    );
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") {
+      expect(result.error).toEqual({
+        kind: "replay",
+        error: {
+          kind: "emptySource",
+          ply: 1,
+          round: 1,
+          side: "white",
+          token: "B1-B2",
+          square: { column: "B", row: 1 },
+        },
+      });
     }
   });
 });

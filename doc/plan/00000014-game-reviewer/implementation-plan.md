@@ -357,7 +357,27 @@ game record"; and a zero-move record accepted.
 
 ### Step 4 — The replayer (the import dry run)
 
-Status: pending
+Status: committed
+
+Notes: Added `src/rules/primary/v1_1/replay.ts` (`replayRecord`, `ReplayedRecord`,
+`ReplayedPly`, `ReplayError`, `ReplayResult`) and `replay.test.ts`, and wired it
+into `src/rules/readRecord.ts` so `readRecord` is parse-then-replay: its
+`ParsedRecord`/success shape changed to `ReplayedRecord` (`positions` +
+`moves`, no bare `startingBoard`), and `ReadRecordError` gained a `"replay"`
+case carrying `ReplayError`. Updated `readRecord.test.ts` accordingly
+(`startingBoard` -> `positions[0]`) and added a case proving a structurally
+valid record with an unplayable move (empty-square source) is rejected end to
+end through `readRecord`, not part-loaded. One judgment call beyond what the
+step names outright: the "empty destination marked with an x" rejection is
+split into two distinct error kinds - `phantomCapture` (`toRemoved` on an
+empty destination - a capture of nothing) and `phantomSacrifice`
+(`fromRemoved` on an empty destination with no `toRemoved` - the attacker
+sacrificed against nothing) - rather than one combined kind, following
+`recordFile.ts`'s precedent of distinct kinds for distinct problems so
+`reviewText.ts` (Step 6) can word each precisely; when both marks are present
+on an empty destination, `phantomCapture` is reported (an untested
+double-phantom edge case the plan does not call out). No other deviation
+from the plan.
 
 Add `src/rules/primary/v1_1/replay.ts`: given a parsed record (Step 3), replay
 every move from the starting board and return the **whole** game — the ordered
