@@ -621,7 +621,32 @@ Also confirm `npm run typecheck && npm run lint && npm test` stay clean.
 
 ### Step 8 — The start screen and the app shell
 
-Status: pending
+Status: committed
+
+Notes: `App.tsx` is now a thin shell holding a `Screen` discriminated union
+(`start` | `play` | `import` | `review` carrying a `ReplayedRecord`) in
+`useState`, with no router. Moved today's entire placement-and-play UI
+verbatim into `src/board/HotSeatGame.tsx` (same state, same logic, only the
+imports' relative paths and the component name changed); mounting it (via
+"Play a game") starts a fresh placement and unmounting it (reachable from
+Step 15 onward) will discard the game in progress. Added
+`src/app/StartScreen.tsx` (+ CSS): the app name, tagline, and two buttons
+("Play a game" / "Two players, one device" and "Review a game" / "Watch a
+recorded game") styled after `PlacementStatus.css`'s button chrome. Added the
+Step-9 stub `src/review/ImportScreen.tsx` (+ CSS): only a heading and a
+"Back" button, wired to return to `start`. Every screen's top-level heading
+is a `tabIndex={-1} <h1>` focused via `useEffect` on mount (the same pattern
+`GameResult.tsx` already uses for its "New game" button), so a keyboard/
+screen-reader user is never stranded when the screen changes; `HotSeatGame`'s
+heading-focus effect fires once on mount only, deliberately not re-firing
+across the internal placement-to-play transition (not a screen change).
+`App.tsx`'s `review` case is currently unreachable (nothing yet produces a
+`Screen` in that state — `ImportScreen` has no file picker until Step 9) and
+renders `null`; this is intentional per the step's own phasing ("Step 9
+fills in the file picker") and is called out here as it's the one branch of
+the new shell with no observable behavior yet. No other deviation from the
+plan; `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`
+(445 tests) and `npm run build` all pass.
 
 Turn `App.tsx` into a shell that holds a `Screen` state — `start` | `play` |
 `import` | `review` (the review case carrying the loaded recorded game) — as a

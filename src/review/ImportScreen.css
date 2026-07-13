@@ -1,0 +1,13 @@
+/* The import screen's shell (Step 8; the file picker and rejection message
+   are added in Step 9). Mirrors the button chrome `PlacementStatus.css` /
+   `GameResult.css` already establish. */
+
+.import-screen__back {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}
