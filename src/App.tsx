@@ -2,6 +2,7 @@ import { useState } from "react";
 import { StartScreen } from "./app/StartScreen.tsx";
 import { HotSeatGame } from "./board/HotSeatGame.tsx";
 import { ImportScreen } from "./review/ImportScreen.tsx";
+import { ReviewScreen } from "./review/ReviewScreen.tsx";
 import type { ReplayedRecord } from "./rules/primary/v1_1/replay.ts";
 
 // The app shell (story 00000014, Step 8): which of the app's four screens is
@@ -14,10 +15,10 @@ import type { ReplayedRecord } from "./rules/primary/v1_1/replay.ts";
 //
 // `import` and `review` are reached only from `start` (via `HotSeatGame`
 // once Step 15 adds "back to start", the other three screens can also lead
-// back to `start`). The `review` case already carries the fully replayed
-// game its screen will need, but nothing produces one yet: Step 9 adds the
-// file picker to `ImportScreen` and the hand-off into this state; until
-// then, `import`'s only way onward is back to `start`.
+// back to `start`). Step 9 wires `ImportScreen`'s file picker to this state:
+// a successful import moves `screen` to `review`, carrying the fully
+// replayed game; `ReviewScreen` (also added in Step 9, a first cut showing
+// only the opening position) renders it.
 type Screen =
   | { readonly kind: "start" }
   | { readonly kind: "play" }
@@ -41,11 +42,21 @@ export function App() {
   }
 
   if (screen.kind === "import") {
-    return <ImportScreen onBack={() => setScreen({ kind: "start" })} />;
+    return (
+      <ImportScreen
+        onBack={() => setScreen({ kind: "start" })}
+        onImported={(record: ReplayedRecord) =>
+          setScreen({ kind: "review", record })
+        }
+      />
+    );
   }
 
-  // screen.kind === "review": Step 9 adds the review screen itself and the
-  // only path that reaches this state (`ImportScreen` navigating here with a
-  // successfully replayed game); nothing produces it yet.
-  return null;
+  // screen.kind === "review"
+  return (
+    <ReviewScreen
+      record={screen.record}
+      onBack={() => setScreen({ kind: "start" })}
+    />
+  );
 }

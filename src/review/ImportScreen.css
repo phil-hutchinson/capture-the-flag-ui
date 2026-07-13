@@ -1,6 +1,38 @@
-/* The import screen's shell (Step 8; the file picker and rejection message
-   are added in Step 9). Mirrors the button chrome `PlacementStatus.css` /
-   `GameResult.css` already establish. */
+/* The import screen (Step 8's shell, plus Step 9's file picker and
+   rejection message). Button chrome mirrors `PlacementStatus.css` /
+   `GameResult.css`. */
+
+.import-screen__explanation {
+  max-width: 32rem;
+  text-align: center;
+  margin: 0;
+}
+
+.import-screen__picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.import-screen__label {
+  font-weight: bold;
+}
+
+/* Rendered even with nothing to say, matching `PlayWarnings.css`'s
+   precedent: an empty paragraph takes up no visible space, but the live
+   region it carries (`role="alert"`) is registered with assistive
+   technology before the first rejection message ever appears in it. */
+.import-screen__error {
+  max-width: 32rem;
+  text-align: center;
+  margin: 0;
+  color: rgb(154 34 34);
+}
+
+.import-screen__error:empty {
+  display: none;
+}
 
 .import-screen__back {
   font: inherit;

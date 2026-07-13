@@ -684,7 +684,38 @@ activatable by keyboard alone with a visible focus ring.
 
 ### Step 9 — Import a file: choose, read, reject or load
 
-Status: pending
+Status: committed
+
+Notes: Filled in `src/review/ImportScreen.tsx` with a plain `<input
+type="file">` (no `accept` filter, so a photo can be chosen and rejected per
+Gate C), a short "Nothing is uploaded" explanation line, and a size ceiling
+(5 MB - generous for any real record, its own message if exceeded) before
+reading the file with `File.text()`. The chosen file's text goes to
+`readRecord.ts`; a rejection is rendered through `reviewText.ts`'s
+`describeRejection` inside a `<p role="alert">` that stays mounted at all
+times (its text simply toggles between empty and a message, `:empty` hiding
+it visually), following `PlayWarnings.tsx`'s established precedent that a
+live region should be registered with assistive technology before its first
+announcement rather than mounted only once there's something to say. The
+file input is reset (`value = ""`) after every selection so the same file
+can be re-chosen (e.g. after fixing it) and still fires `onChange`. Added
+`src/review/ReviewScreen.tsx` (+ CSS) as the first cut the step asks for:
+`PieceSpriteDefs`, a heading, the shared inert `FullBoard` showing
+`record.positions[0]` from red's (`"white"`) perspective, and a "Back to
+start" button with no confirmation (reviewing loses nothing) - no controls
+(Step 11), no move list (Step 12), no result (Step 13) yet. Wired both
+into `App.tsx`: `ImportScreen` gained an `onImported` prop that moves
+`screen` to `{ kind: "review", record }`, and the `review` branch (previously
+`return null`, unreachable) now renders `ReviewScreen`. This step's own
+verification is manual (`npm run dev` against the Step 5 samples, Gate A part
+2 and Gate C) and is left to the owner, per the pipeline's division of
+labor; the existing automated suite is unaffected (no new unit tests - this
+step is pure UI wiring over already-tested `readRecord`/`reviewText`
+modules). `npm run typecheck`, `npm run lint`, `npm run format:check` and
+`npm test` (445 tests, unchanged) all pass; `npm run build` also confirmed
+clean. No deviation from the plan beyond the size-ceiling number and message
+wording, which the plan leaves to this step's own judgment ("if you add
+one").
 
 Fill in `src/review/ImportScreen.tsx` (the stub from Step 8): a file input the
 player uses to choose a file from their device (no `accept` filter narrow enough
