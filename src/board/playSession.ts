@@ -144,10 +144,7 @@ function isInert(session: PlaySession): boolean {
  *   offer is being answered and at game end. This overrides the draw-offer
  *   responder exception above.
  */
-export function viewSide(
-  session: PlaySession,
-  flipBetweenTurns = true,
-): Side {
+export function viewSide(session: PlaySession, flipBetweenTurns = true): Side {
   if (!flipBetweenTurns) {
     return "white";
   }

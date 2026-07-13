@@ -18,11 +18,11 @@
 // changes shape between the two states.
 //
 // The on/off state must also be perceivable *without* relying on color
-// alone (story in-scope item 5). Per the owner's review, the checkbox's own
-// checked/unchecked appearance (a track/knob switch, `::before` on the
-// input, styled in FlipBoardToggle.css - the knob's position and the
-// track's fill both change) is that non-color signal; there is no separate
-// text affordance, since the control's own state already carries it and a
+// alone (story in-scope item 5). Per the owner's review, this component has
+// no stylesheet of its own and relies entirely on the browser's native
+// checkbox rendering: the native checkmark is that non-color signal, and
+// the native focus outline shows keyboard focus. There is no separate text
+// affordance, since the control's own appearance already carries it and a
 // screen reader announces the native checked/unchecked state on its own.
 
 import { useId } from "react";

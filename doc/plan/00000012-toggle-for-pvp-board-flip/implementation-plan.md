@@ -214,6 +214,21 @@ from the original implementation is unchanged. Re-ran `npm run typecheck`,
 `npm run lint`, `npm test` (still 355 passing), `npm run build`, and
 `npx prettier --check` on the two touched files - all pass.
 
+Peer-review correction: the two paragraphs above describe a
+`flip-board-toggle__input` restyled with `appearance: none` plus a sliding
+`::before` knob (a track/knob switch) in `FlipBoardToggle.css`. That
+stylesheet was never imported by any module, so none of it ever rendered
+(peer review comment #1) - the appearance the owner actually ran manual
+verification against and approved (Gates A, B, D, including "the checkbox's
+own checked/unchecked appearance … is the sole non-color state signal")
+was the **plain native browser checkbox**, not a styled switch. Per the
+owner's peer-review decision, `FlipBoardToggle.css` has since been deleted
+and the comments in `FlipBoardToggle.tsx` rewritten to describe reliance on
+native checkbox rendering, the native focus outline, and the native
+checkmark. No re-verification was needed: the owner's approval already
+covers that exact (native checkbox) rendering, since it is what was on
+screen throughout this step's manual checks.
+
 Add the visible, working toggle and connect it end to end (using a
 non-persisted, default-on in-memory state for now; persistence is Step 4).
 
