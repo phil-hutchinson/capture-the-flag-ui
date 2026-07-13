@@ -550,7 +550,38 @@ the record-claim framing; an unrecognized reason is quoted; absent `Result` or
 
 ### Step 7 — Extract the presentational board (shared by play and review)
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/FullBoard.tsx` + `src/board/FullBoard.css` (a `git mv`
+of `PlayBoard.css`, with every `.play-board*` selector renamed to
+`.full-board*` and a new `--last-move` rule appended — a forest-green
+fill/ring, a color used nowhere else on the board, so it can never be
+mistaken for `--selected`, `--attack`, `--destination`, or the amber focus
+ring). `PlayBoard.tsx` is now a thin adapter: it computes `viewSide` and
+passes `session.play.board`, `selected`, `destinationSquares`,
+`attackSquares` and `activatableSquares` straight through to `FullBoard`,
+reproducing the pre-refactor highlighting logic exactly (same precedence:
+attack over destination, both empty with nothing selected), with no change
+to `App.tsx`'s usage or props. `lastMove` is a new optional `{ from, to }`
+prop on `FullBoard`, plumbed into both the cell's class list and its
+accessible label (", last move" suffix); `PlayBoard` never passes it, so
+hot-seat rendering is unchanged. Updated a stale cross-file comment in
+`PlayWarnings.css` that named `PlayBoard.css` by file name. Checked
+`AccessibleGrid.tsx`/`gridNavigation.ts`: cell focusability is already
+driven solely by `GridCellDescriptor.focusable` (always `true` here),
+independent of `actionable`, and the click handler is simply omitted for a
+non-actionable cell rather than attached-and-guarded — so an
+all-non-actionable grid (an inert review board) is already fully
+keyboard-navigable and silent on activation with no warnings; no change was
+needed there, so none was made. `npm run typecheck`, `npm run lint`,
+`npm run format:check` and `npm test` (445 tests) all pass; `npm run build`
+also verified clean. No behavioral deviation from the plan; the only naming
+choice beyond it was renaming the CSS classes from `play-board*` to
+`full-board*` (rather than leaving the old class names in place under the
+new file), on the reasoning that the review screen rendering a literal
+`play-board__square--attack` class would be a confusing fossil, and the
+rename is a mechanical, purely-cosmetic string substitution with identical
+computed styles.
 
 Refactor `src/board/PlayBoard.tsx` so the board rendering no longer depends on
 `PlaySession`: extract a presentational full-board component (e.g.
