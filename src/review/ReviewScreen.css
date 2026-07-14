@@ -16,14 +16,31 @@
 }
 
 /* Mirrors PlayStatus.css's chrome - the review's status line occupies the
-   same visual slot the hot-seat game's turn indicator does. */
+   same visual slot the hot-seat game's turn indicator does. A column of
+   (up to) two lines: where the cursor is in the game, and - only at the
+   final position, and only when the record's tags claim one (Step 13) - the
+   recorded result underneath it. */
 .review-status {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.3rem;
   padding: 0.5rem 0.9rem;
   border: 1px solid var(--ink);
   border-radius: 4px;
   background: var(--parchment);
   font-weight: bold;
+}
+
+.review-status__position,
+.review-status__result {
+  margin: 0;
+}
+
+/* Distinguishes the record's claim from the plain "where you are" line above
+   it, without relying on color alone - the sentence text itself always says
+   "The record says:" (`reviewText.ts`'s `describeRecordedResult`). */
+.review-status__result {
+  font-style: italic;
 }

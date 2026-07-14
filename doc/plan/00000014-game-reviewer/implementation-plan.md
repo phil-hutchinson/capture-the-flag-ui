@@ -914,7 +914,23 @@ alone.
 
 ### Step 13 — The recorded result
 
-Status: pending
+Status: committed
+
+Notes: `ReviewScreen.tsx` now computes `recordedResult` from
+`reviewText.ts`'s `describeRecordedResult(session.record.tags)` (added
+Step 6, unused until now), but only while `isAtEnd(session)` is true — so it
+reads `null` at every other cursor position, and `describeRecordedResult`
+itself already returns `null` for an absent/`"*"`/unrecognized `Result` tag,
+so no claim is shown in any of those cases. The status slot above the board
+(`.review-status`, previously a single line showing
+`describeCurrentPosition`) now holds up to two stacked lines — the existing
+position line, plus the recorded-result line only when non-null — styled
+per the CSS comment already left for this step in Step 12
+(`review-status__position`/`__result`, the latter italicized so the record's
+claim is visually distinct from the "where you are" line without relying on
+color alone). No new component, no new module: this step is entirely wiring
+already-built Step 6 wording into the already-built Step 11 status slot, per
+the plan. No deviation from the plan.
 
 At the end of the game (cursor at the final position), show what the record says
 about how it ended — who won, in **red/blue**, or that it was a draw, and the

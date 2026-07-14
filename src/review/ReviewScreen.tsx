@@ -8,10 +8,14 @@
 // (`FullBoard.tsx`'s `lastMove` prop, Step 7). Step 12 adds the move list
 // (`MoveList.tsx`) in the right-hand column, the same slot `Tray` occupies in
 // the hot-seat layout: the game's rounds as recorded, each move a button that
-// jumps the cursor straight to the position after it. No recorded result yet
-// (Step 13, which will replace/extend the status line at the final position)
-// - the board stays inert throughout: no square is activatable, nothing is
-// selectable or movable.
+// jumps the cursor straight to the position after it. Step 13 extends the
+// status line at the final position with the recorded result - what the
+// file's `Result`/`ResultReason` tags claim (`reviewText.ts`'s
+// `describeRecordedResult`), quoted back and framed as the record's claim,
+// never computed. It disappears the moment the cursor steps back off the end
+// (`isAtEnd`), and stays absent throughout if the record carries no result
+// tags at all. The board stays inert throughout: no square is activatable,
+// nothing is selectable or movable.
 //
 // Board orientation is always red's perspective - per story.md's "board
 // orientation" decision, a review has no hand-off and nothing secret, so
@@ -43,6 +47,7 @@ import {
 } from "./reviewSession.ts";
 import { ReviewControls } from "./ReviewControls.tsx";
 import { MoveList } from "./MoveList.tsx";
+import { describeRecordedResult } from "./reviewText.ts";
 
 export interface ReviewScreenProps {
   /** The fully replayed recorded game (`readRecord.ts`'s success result). */
@@ -64,6 +69,14 @@ export function ReviewScreen({ record, onBack }: ReviewScreenProps) {
 
   const move = lastMove(session);
   const currentMoveIndex = session.cursor > 0 ? session.cursor - 1 : null;
+  // Only claimed at the final position (per Step 13), and only when the
+  // record's `Result`/`ResultReason` tags actually say something - stepping
+  // back off the end removes the claim, and a record with no result tags (or
+  // `Result "*"`) never shows one at all. Never computed - `describeRecordedResult`
+  // only quotes the file's own tags back, framed as the record's claim.
+  const recordedResult = isAtEnd(session)
+    ? describeRecordedResult(session.record.tags)
+    : null;
 
   return (
     <main className="app">
@@ -74,7 +87,14 @@ export function ReviewScreen({ record, onBack }: ReviewScreenProps) {
       <button type="button" className="review-screen__back" onClick={onBack}>
         Back to start
       </button>
-      <div className="review-status">{describeCurrentPosition(session)}</div>
+      <div className="review-status">
+        <p className="review-status__position">
+          {describeCurrentPosition(session)}
+        </p>
+        {recordedResult !== null && (
+          <p className="review-status__result">{recordedResult}</p>
+        )}
+      </div>
       <div className="app__layout">
         <div className="app__board-column">
           <FullBoard
