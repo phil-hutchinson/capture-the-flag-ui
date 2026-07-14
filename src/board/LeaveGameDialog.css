@@ -1,0 +1,50 @@
+/* The "leave this game?" confirmation dialog (Step 15). Shown modally via
+   `showModal()` (`LeaveGameDialog.tsx`), so the browser supplies its own
+   centering and the ::backdrop pseudo-element below is only painted while
+   open - only the dialog's own chrome needs styling here. */
+
+.leave-game-dialog {
+  max-width: 24rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  background: var(--parchment);
+  color: var(--ink);
+}
+
+.leave-game-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.leave-game-dialog h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.leave-game-dialog p {
+  margin: 0 0 1rem;
+}
+
+.leave-game-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.leave-game-dialog__actions button {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* The destructive action - the same red already used for the import
+   screen's rejection text (`ImportScreen.css`), so "this loses something"
+   reads consistently across the app. */
+.leave-game-dialog__confirm {
+  border-color: rgb(154 34 34);
+  color: rgb(154 34 34);
+}

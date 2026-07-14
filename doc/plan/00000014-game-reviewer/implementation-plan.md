@@ -1028,7 +1028,37 @@ untrapped throughout.
 
 ### Step 15 — Leaving a game
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/LeaveGameDialog.tsx` (+ `.css`), a native
+`<dialog>`-backed confirmation shown via `showModal()`/`close()` (never the
+plain `open` attribute, which would render it non-modally), with
+`aria-labelledby`/`aria-describedby` naming and describing it, focus moved
+explicitly to Cancel (the harmless option, following `DrawOffer.tsx`'s
+precedent) each time it opens, and the Escape key's native `cancel` event
+routed through the same `onCancel` prop as the Cancel button (`preventDefault`
+so the dialog's open/closed state stays driven by React alone). Focus
+returning to the "Back to start" button on cancel needed no extra code: a
+native dialog's own `close()` restores focus to whatever was focused when
+`showModal()` was called, which the browser handles for us. `HotSeatGame.tsx`
+gained an `onBack` prop (wired from `App.tsx`, mirroring `ImportScreen`'s and
+`ReviewScreen`'s existing `onBack`) and a "Back to start" button
+(`hot-seat-game__back`, new `HotSeatGame.css`) placed right after the title in
+all three of its render states - placement, an ongoing Phase-2 game, and a
+finished one - the same spot `ReviewScreen.tsx`'s own back button occupies.
+A single `gameInProgress` boolean (`playSession === null || result.kind ===
+"ongoing"`) decides whether clicking it opens `LeaveGameDialog` first or
+calls `onBack` straight away; cancelling touches none of `session` /
+`playSession` / `selection`, so the game (including any in-progress
+selection) is left exactly as it was. `ReviewScreen.tsx`'s existing
+no-prompt "Back to start" (Step 9) needed no change - leaving a review was
+already unconditional, per the plan. No deviation from the plan. Automated
+checks: `npm run typecheck`, `npm run lint` and `npm test` (477 tests,
+unchanged - this step is pure UI wiring with no new pure logic worth a unit
+test, per Steps 9/11/12/13's precedent) all pass clean, as does `npm run
+build`; `npm run format:check` still reports only its four pre-existing,
+unrelated doc-markdown warnings. This step's own verification (Gate D) is
+manual and is left to the owner.
 
 Add the way out of the hot-seat game: a **Back to start** control on the
 hot-seat screen (visible during placement, during play, and after the game ends

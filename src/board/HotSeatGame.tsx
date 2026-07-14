@@ -10,6 +10,7 @@ import {
 import { FlipBoardToggle } from "./FlipBoardToggle.tsx";
 import { GameRecord } from "./GameRecord.tsx";
 import { GameResult } from "./GameResult.tsx";
+import { LeaveGameDialog } from "./LeaveGameDialog.tsx";
 import { PlacementControls } from "./PlacementControls.tsx";
 import { PlacementStatus } from "./PlacementStatus.tsx";
 import {
@@ -55,15 +56,26 @@ import {
 } from "../rules/primary/v1_1/placement.ts";
 import type { PieceTypeId } from "../rules/primary/v1_1/pieces.ts";
 import "../App.css";
+import "./HotSeatGame.css";
 
 // The hot-seat game: placement (Phase 1) then play (Phase 2), moved verbatim
 // out of `App.tsx` (story 00000014, Step 8) so it can live in its own
 // component with its own state. `App.tsx` mounts this whenever
 // `screen.kind === "play"` and nothing else; every bit of state below is
 // local to this component, so mounting always starts a fresh placement and
-// unmounting discards whatever game was in progress. Leaving mid-game (with
-// its confirmation) is added in Step 15 - this component does not yet offer
-// a way back to the start screen.
+// unmounting discards whatever game was in progress.
+//
+// Step 15: "Back to start" (`onBack`, supplied by `App.tsx`) sits right
+// after the title in every one of this component's three states -
+// placement, an ongoing Phase-2 game, and a finished one - the same spot
+// `ReviewScreen.tsx`'s own back button occupies. `gameInProgress` below is
+// true throughout placement and throughout an ongoing game and false only
+// once the game has ended; leaving while it is true first opens
+// `LeaveGameDialog` (a confirmation, since the game would be lost), while
+// leaving a finished game calls `onBack` straight away, exactly like leaving
+// a review. Cancelling the dialog changes nothing in `session` / `playSession`
+// / `selection`, so the game (including any in-progress selection) is left
+// exactly as it was.
 //
 // Step 10 drives the whole app from a two-player `PlacementSession`
 // (src/board/placementSession.ts) rather than a single hardcoded active
@@ -107,9 +119,22 @@ type Selection =
   | { readonly kind: "boardSquare"; readonly square: Square }
   | null;
 
-export function HotSeatGame() {
+export interface HotSeatGameProps {
+  /**
+   * Returns to the start screen. Called directly once the game has ended;
+   * while the game is in progress (placing or playing), called only after
+   * the player confirms in `LeaveGameDialog`, since the game is lost.
+   */
+  readonly onBack: () => void;
+}
+
+export function HotSeatGame({ onBack }: HotSeatGameProps) {
   const [session, setSession] = useState<PlacementSession>(() => newSession());
   const [selection, setSelection] = useState<Selection>(null);
+  // Step 15: whether "Back to start" needs to ask for confirmation first.
+  // Never touches `session` / `playSession` / `selection` - cancelling
+  // simply closes the dialog again, leaving the game exactly as it was.
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
   // Story 00000004, Step 7: once both players confirm, the app auto-advances
   // straight into Phase 2 - there is no intermediate "reveal armies" step.
   // `playSession` is `null` throughout placement and is set exactly once, by
@@ -148,6 +173,21 @@ export function HotSeatGame() {
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
+
+  // Story 00000014, Step 15: true throughout placement (`playSession` is
+  // `null`) and throughout an ongoing Phase-2 game, false only once the game
+  // has ended - i.e. exactly the condition under which leaving would lose
+  // something.
+  const gameInProgress =
+    playSession === null || playSession.play.result.kind === "ongoing";
+
+  function handleBackToStart() {
+    if (gameInProgress) {
+      setConfirmingLeave(true);
+      return;
+    }
+    onBack();
+  }
 
   if (playSession !== null) {
     // Phase 2: both armies are placed and fully visible on one board,
@@ -209,6 +249,18 @@ export function HotSeatGame() {
         <h1 className="app__title" tabIndex={-1} ref={headingRef}>
           {APP_NAME}
         </h1>
+        <button
+          type="button"
+          className="hot-seat-game__back"
+          onClick={handleBackToStart}
+        >
+          Back to start
+        </button>
+        <LeaveGameDialog
+          open={confirmingLeave}
+          onConfirm={onBack}
+          onCancel={() => setConfirmingLeave(false)}
+        />
         {result.kind === "ongoing" ? (
           <>
             <PlayStatus
@@ -366,6 +418,18 @@ export function HotSeatGame() {
       <h1 className="app__title" tabIndex={-1} ref={headingRef}>
         {APP_NAME}
       </h1>
+      <button
+        type="button"
+        className="hot-seat-game__back"
+        onClick={handleBackToStart}
+      >
+        Back to start
+      </button>
+      <LeaveGameDialog
+        open={confirmingLeave}
+        onConfirm={onBack}
+        onCancel={() => setConfirmingLeave(false)}
+      />
       <PlacementStatus
         side={activeSide}
         progress={progress(placement)}

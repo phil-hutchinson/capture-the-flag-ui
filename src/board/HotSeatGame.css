@@ -1,0 +1,15 @@
+/* The hot-seat game's own "Back to start" control (Step 15). Placed right
+   after the title, in the same spot `ReviewScreen.css`'s
+   `.review-screen__back` occupies, so it sits in the same place across
+   placement, play and the finished-game panel below it. Chrome mirrors that
+   same button. */
+
+.hot-seat-game__back {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}

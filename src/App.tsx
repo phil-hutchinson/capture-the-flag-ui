@@ -13,12 +13,14 @@ import type { ReplayedRecord } from "./rules/primary/v1_1/replay.ts";
 // discards whatever was in progress, and likewise a fresh import screen
 // begins import cleanly every time "Review a game" is chosen.
 //
-// `import` and `review` are reached only from `start` (via `HotSeatGame`
-// once Step 15 adds "back to start", the other three screens can also lead
-// back to `start`). Step 9 wires `ImportScreen`'s file picker to this state:
-// a successful import moves `screen` to `review`, carrying the fully
-// replayed game; `ReviewScreen` (also added in Step 9, a first cut showing
-// only the opening position) renders it.
+// Every non-`start` screen can lead back to `start`: `ImportScreen` and
+// `ReviewScreen`'s own "Back" controls (Step 9) never prompt, since nothing
+// is lost by leaving an import or a review, while `HotSeatGame`'s "Back to
+// start" (Step 15) first confirms with the player whenever the game is still
+// in progress (placing, or playing), since leaving then loses it. Step 9
+// also wires `ImportScreen`'s file picker to this state: a successful import
+// moves `screen` to `review`, carrying the fully replayed game;
+// `ReviewScreen` renders it.
 type Screen =
   | { readonly kind: "start" }
   | { readonly kind: "play" }
@@ -38,7 +40,7 @@ export function App() {
   }
 
   if (screen.kind === "play") {
-    return <HotSeatGame />;
+    return <HotSeatGame onBack={() => setScreen({ kind: "start" })} />;
   }
 
   if (screen.kind === "import") {
