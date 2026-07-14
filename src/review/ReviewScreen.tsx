@@ -24,6 +24,16 @@
 //
 // Leaving a review never asks for confirmation - unlike a hot-seat game in
 // progress (Step 15), nothing here is lost by leaving.
+//
+// Story 00000014, Step 14: every step or jump pushes a fresh sentence into
+// the board's one polite live region (`FullBoard`'s `announcement` prop,
+// `AccessibleGrid.tsx`'s live region underneath it) via
+// `reviewSession.ts`'s `describeStepAnnouncement` - the move that was made,
+// where the cursor now is, and, at the final position, the recorded result.
+// It is set (not merely read) inside `moveTo` below, alongside `setSession`,
+// so a screen-reader user hears the same thing a sighted player reads in the
+// status line above the board - nothing here announces anything from a
+// second live region.
 
 import { useEffect, useRef, useState } from "react";
 import "../App.css";
@@ -35,19 +45,20 @@ import {
   createReviewSession,
   currentBoard,
   describeCurrentPosition,
+  describeStepAnnouncement,
   isAtEnd,
   isAtStart,
   jumpToEnd,
   jumpToMove,
   jumpToStart,
   lastMove,
+  recordedResultAt,
   stepBack,
   stepForward,
   type ReviewSession,
 } from "./reviewSession.ts";
 import { ReviewControls } from "./ReviewControls.tsx";
 import { MoveList } from "./MoveList.tsx";
-import { describeRecordedResult } from "./reviewText.ts";
 
 export interface ReviewScreenProps {
   /** The fully replayed recorded game (`readRecord.ts`'s success result). */
@@ -62,10 +73,20 @@ export function ReviewScreen({ record, onBack }: ReviewScreenProps) {
   const [session, setSession] = useState<ReviewSession>(() =>
     createReviewSession(record),
   );
+  // Empty until the first step or jump, matching `HotSeatGame.tsx`'s
+  // `playAnnouncement` pattern - nothing is announced merely because the
+  // screen mounted (the heading-focus effect below covers that instead).
+  const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
+
+  /** Moves the cursor to `next` and announces what changed, from exactly one live region. */
+  function moveTo(next: ReviewSession) {
+    setSession(next);
+    setAnnouncement(describeStepAnnouncement(next));
+  }
 
   const move = lastMove(session);
   const currentMoveIndex = session.cursor > 0 ? session.cursor - 1 : null;
@@ -73,10 +94,10 @@ export function ReviewScreen({ record, onBack }: ReviewScreenProps) {
   // record's `Result`/`ResultReason` tags actually say something - stepping
   // back off the end removes the claim, and a record with no result tags (or
   // `Result "*"`) never shows one at all. Never computed - `describeRecordedResult`
-  // only quotes the file's own tags back, framed as the record's claim.
-  const recordedResult = isAtEnd(session)
-    ? describeRecordedResult(session.record.tags)
-    : null;
+  // (via `recordedResultAt`) only quotes the file's own tags back, framed as
+  // the record's claim. Shared with `describeStepAnnouncement` so the visible
+  // text and the live-region announcement always agree.
+  const recordedResult = recordedResultAt(session);
 
   return (
     <main className="app">
@@ -105,22 +126,21 @@ export function ReviewScreen({ record, onBack }: ReviewScreenProps) {
                 ? undefined
                 : { from: move.move.from, to: move.move.to }
             }
+            announcement={announcement}
           />
           <ReviewControls
             isAtStart={isAtStart(session)}
             isAtEnd={isAtEnd(session)}
-            onJumpToStart={() => setSession(jumpToStart(session))}
-            onStepBack={() => setSession(stepBack(session))}
-            onStepForward={() => setSession(stepForward(session))}
-            onJumpToEnd={() => setSession(jumpToEnd(session))}
+            onJumpToStart={() => moveTo(jumpToStart(session))}
+            onStepBack={() => moveTo(stepBack(session))}
+            onStepForward={() => moveTo(stepForward(session))}
+            onJumpToEnd={() => moveTo(jumpToEnd(session))}
           />
         </div>
         <MoveList
           moves={session.record.moves}
           currentMoveIndex={currentMoveIndex}
-          onSelectMove={(moveIndex) =>
-            setSession(jumpToMove(session, moveIndex))
-          }
+          onSelectMove={(moveIndex) => moveTo(jumpToMove(session, moveIndex))}
         />
       </div>
     </main>

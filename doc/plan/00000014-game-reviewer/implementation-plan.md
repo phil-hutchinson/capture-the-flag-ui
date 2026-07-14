@@ -953,7 +953,50 @@ with the result tags deleted, and confirm each behaves as specified.
 
 ### Step 14 — Review accessibility
 
-Status: pending
+Status: committed
+
+Notes: The keyboard/focus-trap and inert-board-cell-labeling scope was already
+satisfied by earlier steps (Step 7's `FullBoard`/`AccessibleGrid` keep every
+cell focusable and labeled regardless of `actionable`; every review control is
+a plain `<button>` in normal tab order; no code removes the browser's default
+focus ring anywhere outside `AccessibleGrid.css`, which supplies its own), so
+this step's actual work was the announcement wiring. Added `describeMove` (+
+its `MoveAnnouncementInput` type) to `reviewText.ts`: the sentence naming one
+recorded move (color, piece, source/destination squares, and — echoing
+`playAnnouncement.ts`'s established "attacked .../falls/advances/holds"
+idiom — what the record says was removed), covering all four move shapes
+(quiet, attacker-wins, complete-sacrifice, mutual-loss). Added
+`describeStepAnnouncement` to `reviewSession.ts`, which gathers the mover/
+defender piece types from the board immediately before the current move
+(`record.positions[cursor - 1]`) and joins `describeMove` with the existing
+`describeCurrentPosition` and a new `recordedResultAt` helper (factored out of
+`ReviewScreen.tsx`'s inline Step-13 logic so the visible status line and the
+announcement always agree word-for-word) — the recorded-result clause only
+appears at the final position, matching Step 13. `ReviewScreen.tsx` now holds
+an `announcement` state (empty until the first step/jump, mirroring
+`HotSeatGame.tsx`'s `playAnnouncement` pattern) set by a new `moveTo` helper
+alongside `setSession`, wired to every control and the move list, and passed
+into `FullBoard`'s existing `announcement` prop — i.e. the board's one polite
+live region (`AccessibleGrid.tsx`), never a second one. New automated tests:
+`reviewText.test.ts` gained a `describeMove` suite (all four move shapes, plus
+a "never ply/White/Black" check) and `reviewSession.test.ts` gained
+`recordedResultAt` and `describeStepAnnouncement` suites (opening position, a
+capture, a quiet move, the final position with and without a recorded result,
+and the same wording check) — all pure-logic, per the task's instruction, since
+rendering/focus/live-region behavior itself remains a manual check (Gate E,
+left to the owner). `npm run typecheck`, `npm run lint`, `npm test` (477
+tests, up from 463) and `npm run build` all pass clean; `npm run format:check`
+still reports only its four pre-existing, unrelated doc-markdown warnings
+(confirmed unchanged by this step). No deviation from the plan's described
+behavior.
+
+Gate E (2026-07-13): the keyboard-only half passed — the owner walked the whole
+review path (start screen → import → review → controls → move list → back)
+with the mouse put away, focus visible and untrapped throughout. The
+**screen-reader half was deliberately skipped** and remains unverified against
+a real screen reader: the announcement *wording* is covered by automated tests,
+but that the live region actually speaks it (once, not twice) has not been
+observed. Worth picking up at final sign-off or in a later story.
 
 Complete the story's accessibility scope for the review path, extending the
 established patterns rather than inventing new ones (the roving-tabindex grid in

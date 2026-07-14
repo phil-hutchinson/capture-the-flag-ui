@@ -27,11 +27,22 @@
 //      (`playAnnouncement.ts`) for any recognized reason, so a reviewed
 //      result reads word-for-word like a played one.
 //
+// Story 00000014, Step 14 adds a third job: `describeMove`, the sentence
+// naming one recorded move for the review's screen-reader announcement (color,
+// piece, from/to, and what the record says was removed) - reusing
+// `sideColorName` and `PIECE_CATALOG` display names, and echoing
+// `playAnnouncement.ts`'s "attacked .../falls/advances/holds" idiom (Phase 2's
+// own established combat wording) so a reviewed move reads in the same voice
+// as a played one. `reviewSession.ts`'s `describeStepAnnouncement` combines
+// this with `describePosition` and `describeRecordedResult` into the single
+// sentence pushed into the board's one polite live region on every step or
+// jump.
+//
 // Always "move", never "ply"; always Red/Blue via `sideColorName`, never
 // White/Black.
 
-import type { Side } from "../rules/primary/v1_1/board.ts";
-import { squareKey } from "../rules/primary/v1_1/board.ts";
+import type { Side, Square } from "../rules/primary/v1_1/board.ts";
+import { otherSide, squareKey } from "../rules/primary/v1_1/board.ts";
 import type {
   RecordFileError,
   RecordFileTags,
@@ -42,6 +53,10 @@ import type {
   GameEndReason,
   GameOutcome,
 } from "../rules/primary/v1_1/outcome.ts";
+import {
+  PIECE_CATALOG,
+  type PieceTypeId,
+} from "../rules/primary/v1_1/pieces.ts";
 import type { ReadRecordError } from "../rules/readRecord.ts";
 import { describeResult } from "../board/playAnnouncement.ts";
 import { sideColorName } from "../board/sideNames.ts";
@@ -141,6 +156,56 @@ export function describePosition(input: {
   }
   const { ply, round, side } = input.move;
   return `Move ${ply} of ${input.totalMoves} — round ${round}, ${sideColorName(side).toLowerCase()}`;
+}
+
+/**
+ * Structured input for `describeMove` - everything it needs to name one
+ * recorded move, gathered by `reviewSession.ts` from the positions either
+ * side of it (`mover` is always present - the replayer already proved the
+ * source square held a piece; `defender` is the piece type that stood on the
+ * destination *before* the move, or `null` for a quiet move onto an empty
+ * square, per `replay.ts`'s "marked if and only if the destination is
+ * occupied" rule).
+ */
+export interface MoveAnnouncementInput {
+  readonly side: Side;
+  readonly mover: PieceTypeId;
+  readonly from: Square;
+  readonly to: Square;
+  readonly fromRemoved: boolean;
+  readonly toRemoved: boolean;
+  readonly defender: PieceTypeId | null;
+}
+
+/**
+ * The player-facing sentence naming one recorded move for the review's
+ * screen-reader announcement: color, piece, source and destination squares,
+ * and - for a move that carries combat marks - what the record says was
+ * removed. Echoes `playAnnouncement.ts`'s `describeAttack` idiom ("attacked
+ * ... falls/advances/holds") so a reviewed move reads in the same voice as a
+ * played one, but always states the source square too (unlike
+ * `describeAttack`, which can rely on the piece having *just* been picked up
+ * from a visibly selected square - a review can jump straight to any
+ * position, so the origin needs to be said explicitly).
+ */
+export function describeMove(input: MoveAnnouncementInput): string {
+  const moverName = `${sideColorName(input.side)} ${PIECE_CATALOG[input.mover].displayName}`;
+  const fromName = squareKey(input.from);
+  const toName = squareKey(input.to);
+
+  if (input.defender === null) {
+    return `${moverName} moved from ${fromName} to ${toName}.`;
+  }
+
+  const defenderName = `${sideColorName(otherSide(input.side))} ${PIECE_CATALOG[input.defender].displayName}`;
+
+  if (input.toRemoved && !input.fromRemoved) {
+    return `${moverName} attacked ${defenderName} from ${fromName} to ${toName}: ${defenderName} falls, ${moverName} advances.`;
+  }
+  if (input.fromRemoved && !input.toRemoved) {
+    return `${moverName} attacked ${defenderName} from ${fromName} to ${toName} and falls; ${defenderName} holds.`;
+  }
+  return `${moverName} attacked ${defenderName} from ${fromName} to ${toName}: both fall.`;
 }
 
 /**

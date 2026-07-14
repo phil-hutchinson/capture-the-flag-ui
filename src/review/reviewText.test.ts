@@ -4,9 +4,11 @@ import type { RecordFileError } from "../rules/primary/v1_1/recordFile.ts";
 import type { ReplayError } from "../rules/primary/v1_1/replay.ts";
 import type { ReadRecordError } from "../rules/readRecord.ts";
 import {
+  describeMove,
   describePosition,
   describeRecordedResult,
   describeRejection,
+  type MoveAnnouncementInput,
 } from "./reviewText.ts";
 
 /** Every case fed to `describeRejection` below, grouped by which layer produced it. */
@@ -322,6 +324,98 @@ describe("describeRecordedResult", () => {
     ];
     for (const message of samples) {
       expect(message).not.toBeNull();
+      expect(message).not.toMatch(/\bply\b/i);
+      expect(message).not.toMatch(/\bWhite\b/);
+      expect(message).not.toMatch(/\bBlack\b/);
+    }
+  });
+});
+
+describe("describeMove", () => {
+  const from = { column: "A", row: 4 } as const;
+  const to = { column: "A", row: 5 } as const;
+
+  it("names a quiet move by color, piece and squares, with no removal clause", () => {
+    const input: MoveAnnouncementInput = {
+      side: "white",
+      mover: "infantry",
+      from,
+      to,
+      fromRemoved: false,
+      toRemoved: false,
+      defender: null,
+    };
+    expect(describeMove(input)).toBe("Red Infantry moved from A4 to A5.");
+  });
+
+  it("names an attacker-wins move: the defender falls, the attacker advances", () => {
+    const input: MoveAnnouncementInput = {
+      side: "white",
+      mover: "sapper",
+      from,
+      to,
+      fromRemoved: false,
+      toRemoved: true,
+      defender: "tower",
+    };
+    expect(describeMove(input)).toBe(
+      "Red Sapper attacked Blue Tower from A4 to A5: Blue Tower falls, Red Sapper advances.",
+    );
+  });
+
+  it("names a complete-sacrifice move: the attacker falls, the defender holds", () => {
+    const input: MoveAnnouncementInput = {
+      side: "black",
+      mover: "militia",
+      from,
+      to,
+      fromRemoved: true,
+      toRemoved: false,
+      defender: "knight",
+    };
+    expect(describeMove(input)).toBe(
+      "Blue Militia attacked Red Knight from A4 to A5 and falls; Red Knight holds.",
+    );
+  });
+
+  it("names a mutual-loss move: both fall", () => {
+    const input: MoveAnnouncementInput = {
+      side: "white",
+      mover: "assassin",
+      from,
+      to,
+      fromRemoved: true,
+      toRemoved: true,
+      defender: "champion",
+    };
+    expect(describeMove(input)).toBe(
+      "Red Assassin attacked Blue Champion from A4 to A5: both fall.",
+    );
+  });
+
+  it("never mentions ply, White or Black", () => {
+    const inputs: readonly MoveAnnouncementInput[] = [
+      {
+        side: "white",
+        mover: "infantry",
+        from,
+        to,
+        fromRemoved: false,
+        toRemoved: false,
+        defender: null,
+      },
+      {
+        side: "black",
+        mover: "sapper",
+        from,
+        to,
+        fromRemoved: false,
+        toRemoved: true,
+        defender: "tower",
+      },
+    ];
+    for (const input of inputs) {
+      const message = describeMove(input);
       expect(message).not.toMatch(/\bply\b/i);
       expect(message).not.toMatch(/\bWhite\b/);
       expect(message).not.toMatch(/\bBlack\b/);

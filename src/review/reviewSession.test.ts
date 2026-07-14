@@ -15,12 +15,14 @@ import {
   createReviewSession,
   currentBoard,
   describeCurrentPosition,
+  describeStepAnnouncement,
   isAtEnd,
   isAtStart,
   jumpToEnd,
   jumpToMove,
   jumpToStart,
   lastMove,
+  recordedResultAt,
   stepBack,
   stepForward,
   type ReviewSession,
@@ -83,6 +85,19 @@ function buildGame(): ReplayedRecord {
   const result = replayRecord(parsed);
   expect(result.kind).toBe("replayed");
   return (result as { kind: "replayed"; record: ReplayedRecord }).record;
+}
+
+/** The same three-move game as `buildGame`, but carrying `Result`/`ResultReason` tags. */
+function buildGameWithResult(): ReplayedRecord {
+  const game = buildGame();
+  return {
+    ...game,
+    tags: {
+      ruleset: "PRIMARY:1.1",
+      result: "1-0",
+      resultReason: "Flag Captured",
+    },
+  };
 }
 
 describe("createReviewSession", () => {
@@ -232,5 +247,77 @@ describe("describeCurrentPosition", () => {
   it("reflects the final move at the end of the game", () => {
     const session = jumpToEnd(createReviewSession(buildGame()));
     expect(describeCurrentPosition(session)).toBe("Move 3 of 3 — round 2, red");
+  });
+});
+
+describe("recordedResultAt", () => {
+  it("is null anywhere but the final position", () => {
+    const game = buildGameWithResult();
+    expect(recordedResultAt(createReviewSession(game))).toBeNull();
+    expect(
+      recordedResultAt(jumpToMove(createReviewSession(game), 0)),
+    ).toBeNull();
+    expect(
+      recordedResultAt(jumpToMove(createReviewSession(game), 1)),
+    ).toBeNull();
+  });
+
+  it("names the record's claim at the final position", () => {
+    const session = jumpToEnd(createReviewSession(buildGameWithResult()));
+    expect(recordedResultAt(session)).toBe(
+      "The record says: Red wins — Flag captured.",
+    );
+  });
+
+  it("is null at the final position when the record carries no result tags", () => {
+    const session = jumpToEnd(createReviewSession(buildGame()));
+    expect(recordedResultAt(session)).toBeNull();
+  });
+});
+
+describe("describeStepAnnouncement", () => {
+  it("announces only the opening position, with no move and no result", () => {
+    const session = createReviewSession(buildGame());
+    expect(describeStepAnnouncement(session)).toBe("Opening position");
+  });
+
+  it("announces a capture move, naming both pieces, the squares, and where the cursor now is", () => {
+    const session = jumpToMove(createReviewSession(buildGame()), 0);
+    expect(describeStepAnnouncement(session)).toBe(
+      "Red Sapper attacked Blue Tower from A1 to A2: Blue Tower falls, Red Sapper advances. Move 1 of 3 — round 1, red",
+    );
+  });
+
+  it("announces a quiet move by naming the mover and the squares, with no removal clause", () => {
+    const session = jumpToMove(createReviewSession(buildGame()), 1);
+    expect(describeStepAnnouncement(session)).toBe(
+      "Blue Infantry moved from B12 to B11. Move 2 of 3 — round 1, blue",
+    );
+  });
+
+  it("appends the recorded result at the final position, when the record claims one", () => {
+    const session = jumpToEnd(createReviewSession(buildGameWithResult()));
+    expect(describeStepAnnouncement(session)).toBe(
+      "Red Sapper moved from A2 to A3. Move 3 of 3 — round 2, red The record says: Red wins — Flag captured.",
+    );
+  });
+
+  it("omits the result clause at the final position when the record claims none", () => {
+    const session = jumpToEnd(createReviewSession(buildGame()));
+    expect(describeStepAnnouncement(session)).toBe(
+      "Red Sapper moved from A2 to A3. Move 3 of 3 — round 2, red",
+    );
+  });
+
+  it("never mentions ply, White or Black", () => {
+    const game = buildGameWithResult();
+    for (let moveIndex = 0; moveIndex < game.moves.length; moveIndex += 1) {
+      const message = describeStepAnnouncement(
+        jumpToMove(createReviewSession(game), moveIndex),
+      );
+      expect(message).not.toMatch(/\bply\b/i);
+      expect(message).not.toMatch(/\bWhite\b/);
+      expect(message).not.toMatch(/\bBlack\b/);
+    }
   });
 });
