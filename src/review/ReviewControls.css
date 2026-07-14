@@ -1,0 +1,25 @@
+/* Review controls: step/jump buttons beneath the board (Step 11). Mirrors
+   PlacementControls.css's button chrome so the review screen's controls read
+   as the same family of control as the hot-seat game's. */
+
+.review-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.review-controls__button {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.review-controls__button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}

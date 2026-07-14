@@ -810,7 +810,23 @@ each cursor (and is absent at the opening).
 
 ### Step 11 — Review controls: step, jump, and where you are
 
-Status: pending
+Status: committed
+
+Notes: Added `src/review/ReviewControls.tsx` + CSS (four plain buttons -
+Jump to start / Back / Forward / Jump to end - disabled in the expected
+pairs at each end) and wired `ReviewScreen.tsx` to hold its own
+`ReviewSession` state (`useState`, initialized via `createReviewSession`),
+rendering the board and controls inside `app__layout` /
+`app__board-column` (mirroring the hot-seat placement layout, per the plan's
+layout resolution), with a `.review-status` line above (styled after
+`PlayStatus.css`) showing `describeCurrentPosition(session)`, and the
+board's `lastMove` prop fed from `reviewSession.ts`'s `lastMove(session)`.
+The right-hand column (the move list, Step 12) is not yet added, so
+`app__layout` currently wraps a single column; this is expected to be
+filled in by the next step rather than a gap in this one. No deviation from
+the plan otherwise. Automated checks (`npm run typecheck`, `npm run lint`,
+`npm run format:check`, `npm test` - 463 tests, `npm run build`) all pass;
+the step's own verification is manual and is left to the owner.
 
 Add the review controls to the review screen (`src/review/ReviewControls.tsx` +
 CSS, placed directly beneath the board where `PlacementControls` sit in the

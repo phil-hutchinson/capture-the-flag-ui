@@ -1,7 +1,8 @@
 /* The review screen's shell (Step 9's first cut - just the "Back to start"
-   button; Steps 11-13 add the status line, controls and move list around the
-   board). Mirrors the button chrome `ImportScreen.css` / `GameResult.css`
-   already establish. */
+   button; Step 11 adds the status line below, in the same slot
+   `PlayStatus.css` occupies in the hot-seat layout; Step 12 adds the move
+   list; Step 13 extends the status line with the recorded result). Mirrors
+   the button chrome `ImportScreen.css` / `GameResult.css` already establish. */
 
 .review-screen__back {
   font: inherit;
@@ -11,4 +12,17 @@
   background: var(--parchment);
   color: var(--ink);
   cursor: pointer;
+}
+
+/* Mirrors PlayStatus.css's chrome - the review's status line occupies the
+   same visual slot the hot-seat game's turn indicator does. */
+.review-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  font-weight: bold;
 }
