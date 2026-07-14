@@ -133,7 +133,7 @@ file's `Result` / `ResultReason` tags claim, quoted back, never computed.
   is. (Rejects "moves from an empty square" and "moves the other side's
   piece".)
 - **Combat marks and an occupied destination go together** (owner's decision,
-  2026-07-13). Judged against the board *before* the move:
+  2026-07-13). Judged against the board _before_ the move:
   - If `D` holds a piece, the move must carry **at least one** `x` — on `D`, on
     `S`, or both. A move onto an occupied square with no marks at all is a
     piece landing on top of a piece the record does not remove: rejected.
@@ -144,8 +144,9 @@ file's `Result` / `ResultReason` tags claim, quoted back, never computed.
   Equivalently: a move is marked if and only if its destination is occupied.
   This is an internal-consistency check, not a rules check — it never consults
   ranks, reachability or support.
+
 - Terrain is **not** checked on moves (a record that moves a piece onto a lake
-  square replays as recorded); the position block's lake cells *are* checked
+  square replays as recorded); the position block's lake cells _are_ checked
   (see Step 2), because that is the format's own self-description.
 - Army composition is **not** checked: the reader accepts any position block,
   including one that is not a full 48-piece-per-side placement.
@@ -169,7 +170,7 @@ file's `Result` / `ResultReason` tags claim, quoted back, never computed.
    `useState` in `App.tsx` (`start` | `play` | `import` | `review` carrying the
    loaded game). No router library, no URL routing (out of scope). `App.tsx`
    becomes a thin shell: each screen is its own component, and the hot-seat
-   game's own state lives *inside* its component, so unmounting it discards the
+   game's own state lives _inside_ its component, so unmounting it discards the
    game and remounting it starts a fresh one.
 3. **Review screen layout** — reuses the hot-seat screen's shape: the app title,
    then a status/result bar in the same slot `PlayStatus` / `GameResult` occupy
@@ -182,7 +183,7 @@ file's `Result` / `ResultReason` tags claim, quoted back, never computed.
    not shown in review.
 4. **One module or several** — several, split by job, all under
    `src/rules/primary/v1_1/`: `notation.ts` (the move-notation grammar —
-   the single home of the grammar, exporting both a parser *and* a renderer, so
+   the single home of the grammar, exporting both a parser _and_ a renderer, so
    the future extended-form writer changes this module rather than forking it),
    `parsePositionBlock` added to `gameState.ts` (next to `renderPositionBlock`,
    its inverse), `recordFile.ts` (file text → sections, tags, starting board,
@@ -446,8 +447,7 @@ guaranteed empty at the game's start — a phantom `x` added to the first
 quiet move, an altered `Ruleset` tag value, and every token flattened to the
 plain form) rather than literal post-hoc text edits, which is equivalent but
 kept the script free of fragile string surgery. Also added `@types/node` as
-a new dev-dependency (pinned to `^22.20.1`, matching the container's Node
-22) so the corpus test can use Node's `fs`/`url` modules per the step's own
+a new dev-dependency (pinned to `^22.20.1`, matching the container's Node 22) so the corpus test can use Node's `fs`/`url` modules per the step's own
 instruction to read the sample files that way; `tsconfig.app.json` picks up
 its ambient types automatically (no config change needed).
 
@@ -479,7 +479,7 @@ expected error kind. Read the files in the test with Node's `fs` from an
 absolute path derived from the test file's own URL (the vitest environment is
 `node`).
 
-Note for the owner: these samples are produced by *this* codebase's engine, so
+Note for the owner: these samples are produced by _this_ codebase's engine, so
 Gate B should ideally also be run against a record produced by the companion
 repository's own engine, if one can be supplied.
 
@@ -719,7 +719,7 @@ one").
 
 Fill in `src/review/ImportScreen.tsx` (the stub from Step 8): a file input the
 player uses to choose a file from their device (no `accept` filter narrow enough
-to prevent choosing a photo — Gate C requires that a wrong file *can* be chosen
+to prevent choosing a photo — Gate C requires that a wrong file _can_ be chosen
 and rejected), a short line of explanation ("Nothing is uploaded — the file is
 read on your device."), and a **Back** button to the start screen. Read the file
 in the browser (`File.text()`), pass the text to `src/rules/readRecord.ts`, and:
@@ -802,8 +802,8 @@ Verification (automated): `npm test` — new tests in `reviewSession.test.ts`
 over a small hand-built recorded game: forward/back walk the positions in order
 and are exact inverses; back at the opening and forward at the end are no-ops;
 jump-to-start and jump-to-end reach the first and last positions; jump-to-move
-lands on the position *after* that move; the board at cursor *n* equals the
-replayed position *n*; the last-move readout names the right move and squares at
+lands on the position _after_ that move; the board at cursor _n_ equals the
+replayed position _n_; the last-move readout names the right move and squares at
 each cursor (and is absent at the opening).
 
 ---
@@ -994,7 +994,7 @@ Gate E (2026-07-13): the keyboard-only half passed — the owner walked the whol
 review path (start screen → import → review → controls → move list → back)
 with the mouse put away, focus visible and untrapped throughout. The
 **screen-reader half was deliberately skipped** and remains unverified against
-a real screen reader: the announcement *wording* is covered by automated tests,
+a real screen reader: the announcement _wording_ is covered by automated tests,
 but that the live region actually speaks it (once, not twice) has not been
 observed. Worth picking up at final sign-off or in a later story.
 
@@ -1090,13 +1090,34 @@ Tab stays inside it) and focus returns sensibly when it closes.
 
 ### Step 16 — README check and final sweep
 
-Status: pending
+Status: committed
+
+Notes: Ran `/update-readme` in the orchestrating session. Three player-facing
+edits to `README.md`: the intro now says the app opens on a start screen with
+two choices; the "Replay finished games ... _(coming soon)_" bullet is replaced
+by a real **Review a recorded game** bullet (choose a file from your device,
+step forward/back, jump to start/end, click any move, the last move is marked,
+the record's claimed result at the end, nothing is uploaded, records come from
+the companion project's engine) carrying the honest caveat that a game played
+in this app cannot yet be saved or reviewed; and the status blurb now covers
+reviewing and lists saving-a-played-game alongside the AI opponent as still to
+come. The rules section was left alone — its line about keeping older rule
+versions around so recorded games stay replayable is unchanged and now more
+apt. No technical detail was added (`@types/node`, added in Step 5, is a
+dev-only concern that does not belong in the README).
+
+Final sweep: `npm run typecheck`, `npm run lint`, `npm run format:check`,
+`npm test` (477 tests) and `npm run build` all pass clean. One repo-wide
+cleanup was needed to get `format:check` green: four plan/story markdown files
+(this story's two, plus story 00000006's two, which were already failing on
+`main`) were reformatted by `npm run format` — purely cosmetic (`*emphasis*` →
+`_emphasis_`, one indent, one blank line), no prose changed.
 
 Review `README.md` against what this story changed and update it for a
 non-technical player: the app now opens on a start screen with two choices, and
 "Replay finished games from their game log files" is no longer "coming soon" —
 it is here, for records produced by the companion project's engine, with the
-honest caveat that a game played *in this app* cannot yet be saved or reviewed
+honest caveat that a game played _in this app_ cannot yet be saved or reviewed
 (that is a later story). Keep the existing tone and structure; do not add
 technical detail (that belongs in `CONTRIBUTING.md`). Running the
 `/update-readme` command is the intended route. Also confirm nothing else in the

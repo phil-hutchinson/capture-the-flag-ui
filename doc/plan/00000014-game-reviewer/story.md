@@ -57,7 +57,7 @@ leaving a review does not, since nothing is lost.
 ## Policy (fixed by the owner, 2026-07-13)
 
 - **Extended notation is required, throughout.** Every move in the file must
-  carry the result-marking form. A file containing *any* plain-form move
+  carry the result-marking form. A file containing _any_ plain-form move
   (`A2A3`) is rejected, with a message saying so in plain language. We do not
   guess at combat outcomes, not even for a quiet move to an empty square.
 - **A file we cannot replay is rejected at import,** not part-loaded. The
@@ -68,7 +68,7 @@ leaving a review does not, since nothing is lost.
 - **Phantom captures are rejected too.** An `x` that removes nothing, or a
   move that lands a piece on top of a piece that the record does not remove,
   is a record we cannot make sense of — the file is rejected on the same
-  terms. (Rules legality is *never* checked; internal consistency is.)
+  terms. (Rules legality is _never_ checked; internal consistency is.)
 - **No rules are applied, ever.** No legality, no combat resolution, no
   game-end detection. The outcome shown at the end of the review is the one
   the file's `Result` / `ResultReason` tags claim, quoted back, not one we
@@ -79,7 +79,7 @@ leaving a review does not, since nothing is lost.
   hot-seat game **in progress** (placing, or playing) asks for confirmation
   first; leaving a finished hot-seat game or a review does not.
 - **Import only, this story.** The hot-seat game keeps writing the plain form
-  and still has no way to save a file, so a game played *in this app* is not
+  and still has no way to save a file, so a game played _in this app_ is not
   yet reviewable in it. That gap is accepted and closed by later stories
   (switch the emitted record to the extended form; save a game to a file).
   Records for this story come from the companion repository's engine.

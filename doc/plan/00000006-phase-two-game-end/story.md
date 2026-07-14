@@ -67,7 +67,7 @@ implementation. Relevant game-end facts at 1.1:
   (`doc/ruleset/technical-notes.md`) always writes `Result` (PGN values:
   `1-0`, `0-1`, `1/2-1/2`, `*` for ongoing). `ResultReason` (free text, e.g.
   `Flag Captured`, `Inactivity`, `No Progress`, `Unbreachable Flag`, `No Legal
-  Move`) is written only once the game has ended; an ongoing record carries
+Move`) is written only once the game has ended; an ongoing record carries
   `[Result "*"]` and no `ResultReason` tag (owner's decision, 2026-07-11 —
   see the implementation plan's "Record file format").
 

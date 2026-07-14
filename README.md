@@ -7,7 +7,8 @@ move and clash in full view, each rank with its own strengths, until one side
 captures the other's flag.
 
 This is the game's web app. It runs entirely in your browser — nothing to
-install, no account, no server.
+install, no account, no server. It opens on a start screen with two choices:
+play a game, or review a recorded one.
 
 ## What you can do
 
@@ -29,15 +30,22 @@ install, no account, no server.
   long shuffling pieces without attacking, you'll be warned before the clock
   runs out and you lose. However it ends, the app tells you who won and why,
   leaves the final position on screen, and offers you a new game.
-- **Replay finished games** from their game log files — step through a past
-  battle move by move. _(coming soon)_
+- **Review a recorded game** — choose a game record file from your device and
+  watch the battle again: step forward and back a move at a time, jump to the
+  start or the end, or click any move in the list to go straight to it. The
+  board shows the last move made, and at the end you see the result the record
+  claims. The file is read on your device — nothing is uploaded. Records come
+  from the companion
+  [capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
+  project's engine; a game you play here can't be saved or reviewed yet.
 - **Play against the computer** — an AI opponent trained by the companion
   [capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
   project. _(planned, once the AI engine is trained)_
 
-> **Status:** you can now play a full game from start to finish — place both
-> armies, battle on the revealed board, and reach a real result. Replaying
-> recorded games and playing against the computer are still to come.
+> **Status:** you can play a full game from start to finish — place both
+> armies, battle on the revealed board, and reach a real result — and you can
+> review a recorded game move by move. Saving a game you played here, and
+> playing against the computer, are still to come.
 
 ## The rules
 
