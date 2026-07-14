@@ -42,11 +42,14 @@ import type { ParsedRecord, RecordedPly } from "./recordFile.ts";
  * move onto an occupied destination carrying no `x` mark at all
  * (`unmarkedCapture` - a piece landing on top of one the record does not
  * remove); a move onto an *empty* destination that nonetheless marks the
- * destination `x` (`phantomCapture` - a capture of nothing); or a move onto
- * an empty destination that marks the source `x` (`phantomSacrifice` - the
- * attacker sacrificed against nothing). Every kind carries the offending
- * ply's number, round, side and token, plus the square that was the
- * problem, so `reviewText.ts` can name exactly what went wrong.
+ * destination `x` (`phantomCapture` - a capture of nothing); a move onto an
+ * empty destination that marks the source `x` (`phantomSacrifice` - the
+ * attacker sacrificed against nothing); or a move whose source and
+ * destination are the *same* square (`sameSquare` - `A4-A4` is a no-op
+ * dressed up as a move, and `A4x-A4x` silently deletes the piece; neither is
+ * a record we can make sense of, regardless of its `x` marks). Every kind
+ * carries the offending ply's number, round, side and token, plus the square
+ * that was the problem, so `reviewText.ts` can name exactly what went wrong.
  */
 export type ReplayError =
   | {
@@ -83,6 +86,14 @@ export type ReplayError =
     }
   | {
       readonly kind: "phantomSacrifice";
+      readonly ply: number;
+      readonly round: number;
+      readonly side: Side;
+      readonly token: string;
+      readonly square: Square;
+    }
+  | {
+      readonly kind: "sameSquare";
       readonly ply: number;
       readonly round: number;
       readonly side: Side;
@@ -175,6 +186,12 @@ export function replayRecord(record: ParsedRecord): ReplayResult {
       return {
         kind: "error",
         error: { kind: "wrongSide", ...base, square: move.from },
+      };
+    }
+    if (fromKey === toKey) {
+      return {
+        kind: "error",
+        error: { kind: "sameSquare", ...base, square: move.from },
       };
     }
 

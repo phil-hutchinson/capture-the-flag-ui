@@ -316,6 +316,19 @@ describe("parseRecordFile - move-sequence rejections", () => {
       error: { kind: "tooManyMovesInRound", round: 1 },
     });
   });
+
+  it("rejects a one-move round unless it is the final round of the file", () => {
+    const rounds = [
+      `1. ${WHITE_MOVE_1}`,
+      `2. ${WHITE_MOVE_2} ${BLACK_MOVE_2}`,
+    ].join("\n");
+    const text = [header(), POSITION_BLOCK, rounds].join("\n\n");
+
+    expect(parseRecordFile(text)).toEqual({
+      kind: "error",
+      error: { kind: "incompleteRound", round: 1 },
+    });
+  });
 });
 
 describe("parseRecordFile - not a game record at all", () => {

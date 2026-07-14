@@ -8,10 +8,17 @@
 // watch-only (story.md): there is no "take over from here," no autoplay,
 // nothing here mutates the record, only where the cursor points at it.
 //
-// "Back" and "Jump to start" disable together at the opening position;
-// "Forward" and "Jump to end" disable together at the final position - a
-// keyboard/screen-reader user gets the same "there's nothing further that
-// way" signal a sighted player reads from a disabled button.
+// "Back" and "Jump to start" are marked `aria-disabled` (and styled to look
+// disabled) at the opening position; "Forward" and "Jump to end" the same at
+// the final position - a keyboard/screen-reader user gets the same "there's
+// nothing further that way" signal a sighted player reads from a disabled
+// button. Deliberately *not* the native `disabled` attribute: a genuinely
+// disabled button is dropped from the tab order, so stepping to either end
+// of the game with Forward or Back focused would silently drop keyboard
+// focus to `<body>`. `aria-disabled` keeps the button focusable and in the
+// tab order while still announcing (and looking) unavailable; the session
+// the buttons call into (`reviewSession.ts`) already clamps at both ends, so
+// calling the handler there is always a harmless no-op.
 
 import "./ReviewControls.css";
 
@@ -41,7 +48,7 @@ export function ReviewControls({
         type="button"
         className="review-controls__button"
         onClick={onJumpToStart}
-        disabled={isAtStart}
+        aria-disabled={isAtStart}
       >
         Jump to start
       </button>
@@ -49,7 +56,7 @@ export function ReviewControls({
         type="button"
         className="review-controls__button"
         onClick={onStepBack}
-        disabled={isAtStart}
+        aria-disabled={isAtStart}
       >
         Back
       </button>
@@ -57,7 +64,7 @@ export function ReviewControls({
         type="button"
         className="review-controls__button"
         onClick={onStepForward}
-        disabled={isAtEnd}
+        aria-disabled={isAtEnd}
       >
         Forward
       </button>
@@ -65,7 +72,7 @@ export function ReviewControls({
         type="button"
         className="review-controls__button"
         onClick={onJumpToEnd}
-        disabled={isAtEnd}
+        aria-disabled={isAtEnd}
       >
         Jump to end
       </button>

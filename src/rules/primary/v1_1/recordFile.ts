@@ -97,6 +97,7 @@ export type RecordFileError =
     }
   | { readonly kind: "emptyRound"; readonly round: number }
   | { readonly kind: "tooManyMovesInRound"; readonly round: number }
+  | { readonly kind: "incompleteRound"; readonly round: number }
   | {
       readonly kind: "plainNotation";
       readonly ply: number;
@@ -259,6 +260,13 @@ function parseMoves(tokens: readonly string[]): MovesResult {
     }
     if (roundTokens.length > 2) {
       return { kind: "error", error: { kind: "tooManyMovesInRound", round } };
+    }
+    // A one-move round is only valid as the very last round of the file (a
+    // game that ended on White's move) - a one-move round anywhere else
+    // silently drops the missing side's move and renumbers every ply after
+    // it, which is exactly the kind of record this app cannot make sense of.
+    if (roundTokens.length === 1 && index < tokens.length) {
+      return { kind: "error", error: { kind: "incompleteRound", round } };
     }
 
     for (const [sideIndex, token] of roundTokens.entries()) {

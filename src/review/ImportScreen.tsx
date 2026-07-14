@@ -40,6 +40,15 @@ import { describeRejection } from "./reviewText.ts";
  */
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
+/**
+ * Shown when reading the chosen file itself fails - the file was moved or
+ * deleted after the picker opened, a permission or I/O error, a directory
+ * dropped in on some platforms - as opposed to the file being read fine but
+ * not a record this app can review (`describeRejection` handles that case).
+ */
+const UNREADABLE_FILE_MESSAGE =
+  "This file couldn't be read. Try choosing it again.";
+
 export interface ImportScreenProps {
   /** Returns to the start screen without choosing a file. */
   readonly onBack: () => void;
@@ -63,15 +72,19 @@ export function ImportScreen({ onBack, onImported }: ImportScreenProps) {
       return;
     }
 
-    const text = await file.text();
-    const result = readRecord(text);
-    if (result.kind === "error") {
-      setError(describeRejection(result.error));
-      return;
-    }
+    try {
+      const text = await file.text();
+      const result = readRecord(text);
+      if (result.kind === "error") {
+        setError(describeRejection(result.error));
+        return;
+      }
 
-    setError(null);
-    onImported(result.record);
+      setError(null);
+      onImported(result.record);
+    } catch {
+      setError(UNREADABLE_FILE_MESSAGE);
+    }
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -83,7 +96,11 @@ export function ImportScreen({ onBack, onImported }: ImportScreenProps) {
     if (file === undefined) {
       return;
     }
-    void readChosenFile(file);
+    // Belt and suspenders: `readChosenFile` already catches everything it
+    // can, but nothing here should ever let a rejection escape unhandled.
+    readChosenFile(file).catch(() => {
+      setError(UNREADABLE_FILE_MESSAGE);
+    });
   }
 
   return (

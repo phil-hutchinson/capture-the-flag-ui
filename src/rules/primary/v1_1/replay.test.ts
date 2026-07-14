@@ -217,6 +217,29 @@ describe("replayRecord - the whole game", () => {
   });
 });
 
+describe("replayRecord - friendly-piece captures are accepted (owner's decision)", () => {
+  it("does not reject a move whose recorded defender is the mover's own side", () => {
+    const board: BoardState = {
+      A1: WHITE_PIECE,
+      A2: { side: "white", pieceType: "tower" },
+    };
+    const game = replayed(
+      record(board, [
+        ply({
+          token: "A1-A2x",
+          move: {
+            from: { column: "A", row: 1 },
+            to: { column: "A", row: 2 },
+            fromRemoved: false,
+            toRemoved: true,
+          },
+        }),
+      ]),
+    );
+    expect(game.positions[1]).toEqual({ A2: WHITE_PIECE });
+  });
+});
+
 describe("replayRecord - rejections", () => {
   it("rejects a move from an empty square", () => {
     const board: BoardState = {};
@@ -353,6 +376,62 @@ describe("replayRecord - rejections", () => {
         round: 1,
         side: "white",
         token: "A1x-A2",
+        square: { column: "A", row: 1 },
+      },
+    });
+  });
+
+  it("rejects a move whose source equals its destination (no marks)", () => {
+    const board: BoardState = { A1: WHITE_PIECE };
+    const result = replayRecord(
+      record(board, [
+        ply({
+          token: "A1-A1",
+          move: {
+            from: { column: "A", row: 1 },
+            to: { column: "A", row: 1 },
+            fromRemoved: false,
+            toRemoved: false,
+          },
+        }),
+      ]),
+    );
+    expect(result).toEqual({
+      kind: "error",
+      error: {
+        kind: "sameSquare",
+        ply: 1,
+        round: 1,
+        side: "white",
+        token: "A1-A1",
+        square: { column: "A", row: 1 },
+      },
+    });
+  });
+
+  it("rejects a move whose source equals its destination, marked both ways", () => {
+    const board: BoardState = { A1: WHITE_PIECE };
+    const result = replayRecord(
+      record(board, [
+        ply({
+          token: "A1x-A1x",
+          move: {
+            from: { column: "A", row: 1 },
+            to: { column: "A", row: 1 },
+            fromRemoved: true,
+            toRemoved: true,
+          },
+        }),
+      ]),
+    );
+    expect(result).toEqual({
+      kind: "error",
+      error: {
+        kind: "sameSquare",
+        ply: 1,
+        round: 1,
+        side: "white",
+        token: "A1x-A1x",
         square: { column: "A", row: 1 },
       },
     });

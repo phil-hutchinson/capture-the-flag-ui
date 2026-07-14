@@ -19,7 +19,11 @@
   cursor: pointer;
 }
 
-.review-controls__button:disabled {
+/* aria-disabled, not the native `disabled` attribute: the button stays
+   focusable (and in the tab order) at either end of the game, so keyboard
+   focus is never dropped to <body> - see ReviewControls.tsx's module
+   comment. */
+.review-controls__button[aria-disabled="true"] {
   cursor: default;
   opacity: 0.4;
 }

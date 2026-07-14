@@ -42,7 +42,7 @@
 // White/Black.
 
 import type { Side, Square } from "../rules/primary/v1_1/board.ts";
-import { otherSide, squareKey } from "../rules/primary/v1_1/board.ts";
+import { squareKey } from "../rules/primary/v1_1/board.ts";
 import type {
   RecordFileError,
   RecordFileTags,
@@ -61,8 +61,13 @@ import type { ReadRecordError } from "../rules/readRecord.ts";
 import { describeResult } from "../board/playAnnouncement.ts";
 import { sideColorName } from "../board/sideNames.ts";
 
-/** "Move {ply} (round {round}, {color})" - the shared prefix naming a specific recorded move. Lower-cased color, matching prose like "round 6, blue". */
-function moveLabel(ply: number, round: number, side: Side): string {
+/**
+ * "Move {ply} (round {round}, {color})" - the shared prefix naming a specific
+ * recorded move. Lower-cased color, matching prose like "round 6, blue".
+ * Exported so `MoveList.tsx` can build the same wording into each move
+ * button's accessible name.
+ */
+export function moveLabel(ply: number, round: number, side: Side): string {
   return `Move ${ply} (round ${round}, ${sideColorName(side).toLowerCase()})`;
 }
 
@@ -107,6 +112,8 @@ function describeRecordFileError(error: RecordFileError): string {
       return `This file's round ${error.round} has no moves in it, so it can't be reviewed.`;
     case "tooManyMovesInRound":
       return `This file's round ${error.round} has more than two moves in it, so it can't be reviewed.`;
+    case "incompleteRound":
+      return `This file's round ${error.round} has only one move, but it isn't the last round in the file, so it can't be reviewed.`;
     case "plainNotation":
       return `${moveLabel(error.ply, error.round, error.side)} — ${error.token} uses the short move notation, which doesn't record what happened to each piece, so it can't be reviewed.`;
     case "malformedMove":
@@ -130,6 +137,8 @@ function describeReplayError(error: ReplayError): string {
       return `${label} — ${error.token} marks a capture, but the square it lands on is empty.`;
     case "phantomSacrifice":
       return `${label} — ${error.token} sacrifices the piece that moved, but the square it's moving to is empty.`;
+    case "sameSquare":
+      return `${label} — ${error.token} doesn't move anywhere.`;
     default:
       return error satisfies never;
   }
@@ -165,7 +174,12 @@ export function describePosition(input: {
  * source square held a piece; `defender` is the piece type that stood on the
  * destination *before* the move, or `null` for a quiet move onto an empty
  * square, per `replay.ts`'s "marked if and only if the destination is
- * occupied" rule).
+ * occupied" rule). `defenderSide` is that piece's *actual* side, read from
+ * the board rather than assumed to be the mover's opponent - the replayer
+ * never checks that a captured piece belongs to the other side, so a record
+ * can (and does, when it does) claim a friendly-piece capture, and the
+ * announcement must say what the record says, not what would normally be
+ * true. `defenderSide` is non-null exactly when `defender` is.
  */
 export interface MoveAnnouncementInput {
   readonly side: Side;
@@ -175,6 +189,7 @@ export interface MoveAnnouncementInput {
   readonly fromRemoved: boolean;
   readonly toRemoved: boolean;
   readonly defender: PieceTypeId | null;
+  readonly defenderSide: Side | null;
 }
 
 /**
@@ -193,11 +208,11 @@ export function describeMove(input: MoveAnnouncementInput): string {
   const fromName = squareKey(input.from);
   const toName = squareKey(input.to);
 
-  if (input.defender === null) {
+  if (input.defender === null || input.defenderSide === null) {
     return `${moverName} moved from ${fromName} to ${toName}.`;
   }
 
-  const defenderName = `${sideColorName(otherSide(input.side))} ${PIECE_CATALOG[input.defender].displayName}`;
+  const defenderName = `${sideColorName(input.defenderSide)} ${PIECE_CATALOG[input.defender].displayName}`;
 
   if (input.toRemoved && !input.fromRemoved) {
     return `${moverName} attacked ${defenderName} from ${fromName} to ${toName}: ${defenderName} falls, ${moverName} advances.`;

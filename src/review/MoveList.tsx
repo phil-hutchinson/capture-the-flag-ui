@@ -23,6 +23,7 @@ import { useEffect, useRef } from "react";
 import "./MoveList.css";
 import type { ReplayedPly } from "../rules/primary/v1_1/replay.ts";
 import { sideColorName } from "../board/sideNames.ts";
+import { moveLabel } from "./reviewText.ts";
 
 export interface MoveListProps {
   /** The recorded game's moves, in order (`ReviewSession.record.moves`). */
@@ -91,6 +92,7 @@ export function MoveList({
       return <span className="move-list__move move-list__move--empty" />;
     }
     const isCurrent = slot.index === currentMoveIndex;
+    const { move } = slot;
     return (
       <button
         type="button"
@@ -101,9 +103,10 @@ export function MoveList({
             : "move-list__move"
         }
         aria-current={isCurrent ? "step" : undefined}
+        aria-label={`${moveLabel(move.ply, move.round, move.side)} — ${move.token}`}
         onClick={() => onSelectMove(slot.index)}
       >
-        {slot.move.token}
+        {move.token}
       </button>
     );
   }
@@ -121,7 +124,7 @@ export function MoveList({
           {sideColorName("black")}
         </span>
       </div>
-      <ol className="move-list__rounds">
+      <ol className="move-list__rounds" aria-label="Moves">
         {rounds.map((round) => (
           <li className="move-list__round" key={round.round}>
             <span className="move-list__round-number">{round.round}.</span>

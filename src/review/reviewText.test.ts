@@ -46,6 +46,7 @@ const RECORD_FILE_ERRORS: readonly RecordFileError[] = [
   { kind: "roundOutOfOrder", expected: 3, found: 5 },
   { kind: "emptyRound", round: 4 },
   { kind: "tooManyMovesInRound", round: 4 },
+  { kind: "incompleteRound", round: 4 },
   {
     kind: "plainNotation",
     ply: 12,
@@ -102,6 +103,14 @@ const REPLAY_ERRORS: readonly ReplayError[] = [
     side: "black",
     token: "D5x-D6",
     square: { column: "D", row: 5 },
+  },
+  {
+    kind: "sameSquare",
+    ply: 9,
+    round: 5,
+    side: "white",
+    token: "E5-E5",
+    square: { column: "E", row: 5 },
   },
 ];
 
@@ -344,6 +353,7 @@ describe("describeMove", () => {
       fromRemoved: false,
       toRemoved: false,
       defender: null,
+      defenderSide: null,
     };
     expect(describeMove(input)).toBe("Red Infantry moved from A4 to A5.");
   });
@@ -357,6 +367,7 @@ describe("describeMove", () => {
       fromRemoved: false,
       toRemoved: true,
       defender: "tower",
+      defenderSide: "black",
     };
     expect(describeMove(input)).toBe(
       "Red Sapper attacked Blue Tower from A4 to A5: Blue Tower falls, Red Sapper advances.",
@@ -372,6 +383,7 @@ describe("describeMove", () => {
       fromRemoved: true,
       toRemoved: false,
       defender: "knight",
+      defenderSide: "white",
     };
     expect(describeMove(input)).toBe(
       "Blue Militia attacked Red Knight from A4 to A5 and falls; Red Knight holds.",
@@ -387,9 +399,26 @@ describe("describeMove", () => {
       fromRemoved: true,
       toRemoved: true,
       defender: "champion",
+      defenderSide: "black",
     };
     expect(describeMove(input)).toBe(
       "Red Assassin attacked Blue Champion from A4 to A5: both fall.",
+    );
+  });
+
+  it("names the defender's actual side, even when it matches the mover's own (a friendly-piece capture the record allows)", () => {
+    const input: MoveAnnouncementInput = {
+      side: "white",
+      mover: "sapper",
+      from,
+      to,
+      fromRemoved: false,
+      toRemoved: true,
+      defender: "tower",
+      defenderSide: "white",
+    };
+    expect(describeMove(input)).toBe(
+      "Red Sapper attacked Red Tower from A4 to A5: Red Tower falls, Red Sapper advances.",
     );
   });
 
@@ -403,6 +432,7 @@ describe("describeMove", () => {
         fromRemoved: false,
         toRemoved: false,
         defender: null,
+        defenderSide: null,
       },
       {
         side: "black",
@@ -412,6 +442,7 @@ describe("describeMove", () => {
         fromRemoved: false,
         toRemoved: true,
         defender: "tower",
+        defenderSide: "white",
       },
     ];
     for (const input of inputs) {

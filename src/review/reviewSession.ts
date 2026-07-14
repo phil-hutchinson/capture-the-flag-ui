@@ -200,6 +200,10 @@ function moveAnnouncementInput(session: ReviewSession, move: ReplayedPly) {
     fromRemoved: move.move.fromRemoved,
     toRemoved: move.move.toRemoved,
     defender: defender === undefined ? null : defender.pieceType,
+    // The defender's *actual* side - never assumed to be the mover's
+    // opponent, since the replayer never checks that (a friendly-piece
+    // capture is internally consistent and is accepted).
+    defenderSide: defender === undefined ? null : defender.side,
   };
 }
 
