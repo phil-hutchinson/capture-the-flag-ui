@@ -853,7 +853,43 @@ status line names the right round and side; clicking a board square does nothing
 
 ### Step 12 — The move list
 
-Status: pending
+Status: committed
+
+Notes: Added `src/review/MoveList.tsx` + `MoveList.css`, wired into
+`ReviewScreen.tsx`'s `app__layout` as the right-hand-column sibling of
+`app__board-column` (the same slot `Tray` occupies in the hot-seat layout).
+The flat, ply-ordered `record.moves` (`ReplayedPly[]`, `replay.ts`) is
+grouped into rounds by a small pure helper in the component file itself
+(`groupIntoRounds` — no new shared module, since the grouping is purely
+presentational and used nowhere else); each round renders a round-number
+label plus a red-move button and a blue-move button (or an empty placeholder
+span when a round's blue move doesn't exist yet — only possible on the final
+round of a game that ends on red's move). Each button shows the move's own
+recorded token (`ReplayedPly.token`, e.g. `A4-A5x`) verbatim, per the step's
+"show the moves in the record's own notation" instruction, and calls
+`onSelectMove` with the move's 0-based index into `record.moves`, which
+`ReviewScreen.tsx` forwards to `reviewSession.ts`'s `jumpToMove` (added in
+Step 10, previously unused). The move that produced the currently shown
+position is derived in `ReviewScreen.tsx` as `session.cursor > 0 ?
+session.cursor - 1 : null` and passed down as `currentMoveIndex`; `MoveList`
+marks the matching button with both a `.move-list__move--current` class and
+`aria-current="step"`, and scrolls it into view (`scrollIntoView({ block:
+"nearest" })` in a `useEffect` keyed on `currentMoveIndex`) as the controls
+step through the game, per the step's "keeps it in view" requirement. Every
+move is an ordinary `<button>` in normal Tab order, so it is keyboard-
+reachable without a roving-tabindex grid (there is no 2D navigation to
+support here, unlike the board). `MoveList.css` mirrors `Tray.css`'s button
+chrome and `15rem` minimum column width, with an internal `max-height` +
+`overflow-y: auto` on the round list so a long game scrolls within its own
+column rather than growing the page. No deviation from the plan's described
+behavior. Automated checks (`npm run typecheck`, `npm run lint`, `npm test` —
+463 tests, unchanged since this is pure UI wiring over the already-tested
+`reviewSession.ts`) all pass, as does `npm run build`; `npm run format:check`
+still reports its four pre-existing, unrelated markdown warnings (confirmed
+via `git stash` to predate this step — `doc/plan/00000006-.../*.md` and this
+story's own `story.md`/`implementation-plan.md`), untouched by this step.
+This step's own verification (Gate B, part 2) is manual and is left to the
+owner, per the pipeline's division of labor.
 
 Add `src/review/MoveList.tsx` (+ CSS) in the review screen's right-hand column
 (where the `Tray` sits in the hot-seat layout): the game's rounds as recorded —

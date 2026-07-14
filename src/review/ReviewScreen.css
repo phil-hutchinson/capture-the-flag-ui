@@ -1,8 +1,9 @@
 /* The review screen's shell (Step 9's first cut - just the "Back to start"
-   button; Step 11 adds the status line below, in the same slot
+   button; Step 11 added the status line below, in the same slot
    `PlayStatus.css` occupies in the hot-seat layout; Step 12 adds the move
-   list; Step 13 extends the status line with the recorded result). Mirrors
-   the button chrome `ImportScreen.css` / `GameResult.css` already establish. */
+   list, `MoveList.css`, in the right-hand column; Step 13 extends the status
+   line with the recorded result). Mirrors the button chrome
+   `ImportScreen.css` / `GameResult.css` already establish. */
 
 .review-screen__back {
   font: inherit;

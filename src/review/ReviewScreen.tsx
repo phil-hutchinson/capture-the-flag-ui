@@ -1,14 +1,17 @@
 // The review screen (story 00000014). Step 9 landed its first cut: only the
 // recorded game's opening position on the shared inert board, a heading and
-// a way back to the start screen. Step 11 adds the reviewer's own state (the
+// a way back to the start screen. Step 11 added the reviewer's own state (the
 // cursor over the replayed game, `reviewSession.ts`, Step 10): the step/jump
 // controls (`ReviewControls.tsx`), a status line naming where the cursor is
 // in the game (round and side - the same slot `PlayStatus` occupies in the
 // hot-seat layout), and the last-move highlight on the board
-// (`FullBoard.tsx`'s `lastMove` prop, Step 7). No move list yet (Step 12) and
-// no recorded result yet (Step 13, which will replace/extend the status line
-// at the final position) - the board stays inert throughout: no square is
-// activatable, nothing is selectable or movable.
+// (`FullBoard.tsx`'s `lastMove` prop, Step 7). Step 12 adds the move list
+// (`MoveList.tsx`) in the right-hand column, the same slot `Tray` occupies in
+// the hot-seat layout: the game's rounds as recorded, each move a button that
+// jumps the cursor straight to the position after it. No recorded result yet
+// (Step 13, which will replace/extend the status line at the final position)
+// - the board stays inert throughout: no square is activatable, nothing is
+// selectable or movable.
 //
 // Board orientation is always red's perspective - per story.md's "board
 // orientation" decision, a review has no hand-off and nothing secret, so
@@ -31,6 +34,7 @@ import {
   isAtEnd,
   isAtStart,
   jumpToEnd,
+  jumpToMove,
   jumpToStart,
   lastMove,
   stepBack,
@@ -38,6 +42,7 @@ import {
   type ReviewSession,
 } from "./reviewSession.ts";
 import { ReviewControls } from "./ReviewControls.tsx";
+import { MoveList } from "./MoveList.tsx";
 
 export interface ReviewScreenProps {
   /** The fully replayed recorded game (`readRecord.ts`'s success result). */
@@ -58,6 +63,7 @@ export function ReviewScreen({ record, onBack }: ReviewScreenProps) {
   }, []);
 
   const move = lastMove(session);
+  const currentMoveIndex = session.cursor > 0 ? session.cursor - 1 : null;
 
   return (
     <main className="app">
@@ -89,6 +95,13 @@ export function ReviewScreen({ record, onBack }: ReviewScreenProps) {
             onJumpToEnd={() => setSession(jumpToEnd(session))}
           />
         </div>
+        <MoveList
+          moves={session.record.moves}
+          currentMoveIndex={currentMoveIndex}
+          onSelectMove={(moveIndex) =>
+            setSession(jumpToMove(session, moveIndex))
+          }
+        />
       </div>
     </main>
   );
