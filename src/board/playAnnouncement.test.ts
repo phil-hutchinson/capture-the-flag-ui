@@ -46,6 +46,8 @@ const sq = (column: Square["column"], row: Square["row"]): Square => ({
 
 describe("describeActivation - selecting a piece", () => {
   it("announces the piece and its legal-destination count", () => {
+    // Unencumbered (no enemy anywhere on the board), so the count includes
+    // both the one- and two-square options in all four directions: 8.
     const session = startSession(
       initialGameState([
         ["D5", "white", "infantry"],
@@ -56,19 +58,24 @@ describe("describeActivation - selecting a piece", () => {
     const selected = activateSquare(session, sq("D", 5));
 
     expect(describeActivation(session, selected, sq("D", 5))).toBe(
-      "Red Infantry selected, 4 moves available.",
+      "Red Infantry selected, 8 moves available.",
     );
   });
 
   it("uses singular wording for exactly one available move", () => {
-    // Boxed in by friendly pieces on three sides (never attack targets), one
-    // empty neighbor: exactly one plain move and no attacks.
+    // Boxed in by friendly pieces on three sides (never attack targets, and
+    // never a source of encumbrance), one empty neighbor. A diagonal enemy
+    // at C4 encumbers the piece (within its eight surrounding squares) but
+    // is not itself an attack target (attacks are orthogonal only) - so this
+    // is exactly one plain move (E5) and no attacks, with the two-square
+    // option withheld everywhere by the encumbrance.
     const session = startSession(
       initialGameState([
         ["D5", "white", "infantry"],
         ["C5", "white", "militia"],
         ["D4", "white", "militia"],
         ["D6", "white", "militia"],
+        ["C4", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
@@ -134,14 +141,19 @@ describe("describeActivation - selecting a piece", () => {
     const afterMove = activateSquare(moved, sq("D", 4));
     const selected = activateSquare(afterMove, sq("D", 9));
 
+    // D9's only nearby piece (White's infantry) has moved away to D4, so D9
+    // is unencumbered: 8 moves (one- and two-square, all four directions).
     expect(describeActivation(afterMove, selected, sq("D", 9))).toBe(
-      "Blue Militia selected, 4 moves available.",
+      "Blue Militia selected, 8 moves available.",
     );
   });
 });
 
 describe("describeActivation - switching selection", () => {
   it("announces the newly selected piece, not the previous one", () => {
+    // Every mobile piece type moves identically in 1.2 - no extended range
+    // for any type - so an unencumbered piece in open space, regardless of
+    // type, has 8 moves (one- and two-square, all four directions).
     const session = startSession(
       initialGameState([
         ["D5", "white", "infantry"],
@@ -154,7 +166,7 @@ describe("describeActivation - switching selection", () => {
     const switchedToH5 = activateSquare(selectedD5, sq("H", 5));
 
     expect(describeActivation(selectedD5, switchedToH5, sq("H", 5))).toBe(
-      "Red Skirmisher selected, 12 moves available.",
+      "Red Skirmisher selected, 8 moves available.",
     );
   });
 });

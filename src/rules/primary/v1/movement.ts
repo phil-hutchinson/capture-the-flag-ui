@@ -1,6 +1,6 @@
-// Movement and attack-target rule logic for ruleset PRIMARY:1.1, Phase 2
-// §4.2-4.3 (companion capture-the-flag repository, `doc/ruleset/rules.md`,
-// the single source of truth).
+// Movement and attack-target rule logic for ruleset 1.2, §4.2-4.3 (companion
+// capture-the-flag repository, `doc/ruleset/rules.md`, the single source of
+// truth).
 //
 // This module is pure rule logic - no React, no screen orientation - and
 // computes, for a piece at a given origin:
@@ -8,16 +8,25 @@
 // - `legalDestinations` - the empty-square moves it may make (an empty,
 //   on-board, non-lake square reached without crossing a lake or another
 //   piece, and never diagonally);
-// - `legalAttacks` (story 00000005 Step 3) - the enemy-occupied squares it
-//   may legally attack (moving onto them resolves combat - see combat.ts -
-//   rather than a plain relocation).
+// - `legalAttacks` - the enemy-occupied squares it may legally attack (moving
+//   onto them resolves combat - see combat.ts - rather than a plain
+//   relocation).
 //
 // The two are kept deliberately distinct - an enemy-occupied square is never
 // a `legalDestinations` result and an empty square is never a `legalAttacks`
 // result - so callers (and the UI) can tell moves and attacks apart without
 // re-deriving intent.
 //
-// Builds only on story 00000001's board geometry (board.ts), piece catalog
+// Every mobile piece type (all but Tower and Flag) moves the same way: one
+// square orthogonally, always available; and, when *unencumbered* - no enemy
+// piece in any of its eight surrounding squares (orthogonal or diagonal),
+// judged at its current square before it moves - an additional two squares
+// orthogonally in a straight line, provided the one-away intermediate square
+// is empty and not a lake. The far square may be empty (a move) or hold an
+// enemy (an attack). There are no other move ranges, charges, or per-type
+// special cases in 1.2.
+//
+// Builds only on the board geometry (board.ts), the piece catalog
 // (pieces.ts), and `BoardState` (gameState.ts); it has no further
 // dependencies.
 
@@ -32,10 +41,10 @@ import {
   type Side,
   type Square,
 } from "./board.ts";
-import type { BoardState, PlacedPiece } from "./gameState.ts";
+import type { BoardState } from "./gameState.ts";
 import type { PieceTypeId } from "./pieces.ts";
 
-/** The four orthogonal directions a piece may step in, as column/row deltas. */
+/** The four orthogonal directions a piece may step or attack in, as column/row deltas. */
 const ORTHOGONAL_DIRECTIONS: readonly { dc: number; dr: number }[] = [
   { dc: 0, dr: 1 },
   { dc: 0, dr: -1 },
@@ -43,14 +52,32 @@ const ORTHOGONAL_DIRECTIONS: readonly { dc: number; dr: number }[] = [
   { dc: -1, dr: 0 },
 ];
 
+/** The eight squares surrounding a square (orthogonal and diagonal), used only
+ * to judge encumbrance - never as move or attack directions themselves. */
+const SURROUNDING_DIRECTIONS: readonly { dc: number; dr: number }[] = [
+  { dc: -1, dr: -1 },
+  { dc: 0, dr: -1 },
+  { dc: 1, dr: -1 },
+  { dc: -1, dr: 0 },
+  { dc: 1, dr: 0 },
+  { dc: -1, dr: 1 },
+  { dc: 0, dr: 1 },
+  { dc: 1, dr: 1 },
+];
+
 const COLUMN_INDEX: Readonly<Record<Column, number>> = Object.fromEntries(
   COLUMNS.map((column, index) => [column, index]),
 ) as Record<Column, number>;
 
-/** The square one step from `square` in direction `dc`/`dr`, or `null` if off-board. */
-function step(square: Square, dc: number, dr: number): Square | null {
-  const columnIndex = COLUMN_INDEX[square.column] + dc;
-  const row = (square.row + dr) as Row;
+/** The square `distance` steps from `square` in direction `dc`/`dr`, or `null` if off-board. */
+function step(
+  square: Square,
+  dc: number,
+  dr: number,
+  distance: number,
+): Square | null {
+  const columnIndex = COLUMN_INDEX[square.column] + dc * distance;
+  const row = (square.row + dr * distance) as Row;
   if (columnIndex < 0 || columnIndex >= COLUMNS.length) {
     return null;
   }
@@ -65,13 +92,8 @@ function isEmpty(board: BoardState, square: Square): boolean {
   return !isLake(square) && board[squareKey(square)] === undefined;
 }
 
-/** The maximum number of squares a piece may travel in a straight line, per §4.2. */
-function maxRange(pieceType: PieceTypeId): number {
-  return pieceType === "skirmisher" ? 3 : 1;
-}
-
 /**
- * True if the piece type never moves at all (Tower, Flag - §4.2, §2.2). All
+ * True if the piece type never moves at all (Tower, Flag - §2.2, §4.2). All
  * other piece types move at least one square orthogonally.
  */
 function isImmobile(pieceType: PieceTypeId): boolean {
@@ -79,14 +101,35 @@ function isImmobile(pieceType: PieceTypeId): boolean {
 }
 
 /**
+ * True if the piece belonging to `side` at `origin` is *unencumbered* - no
+ * enemy piece occupies any of its eight surrounding squares (orthogonal or
+ * diagonal), judged at `origin` before it moves (§4.2). An unencumbered piece
+ * additionally offers a two-square move/attack in each orthogonal direction.
+ */
+function isUnencumbered(board: BoardState, origin: Square, side: Side): boolean {
+  for (const { dc, dr } of SURROUNDING_DIRECTIONS) {
+    const neighbor = step(origin, dc, dr, 1);
+    if (neighbor === null) {
+      continue;
+    }
+    const occupant = board[squareKey(neighbor)];
+    if (occupant !== undefined && occupant.side !== side) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * The legal empty-square destinations for the piece on `origin`, given
  * `board`. Returns an empty array if `origin` is empty or holds an immobile
- * piece (Tower or Flag). Every other piece type may step one orthogonally
- * adjacent empty, non-lake, on-board square in each of the four directions;
- * a Skirmisher may travel up to three squares in a clear straight line,
- * stopping the moment it would enter a lake or an occupied square (that
- * blocking square is never itself a destination). Never diagonal, never
- * off-board.
+ * piece (Tower or Flag). Every mobile piece may step one square orthogonally
+ * into an empty, non-lake, on-board square in each of the four directions;
+ * an unencumbered piece (§4.2 - no enemy in any of its eight surrounding
+ * squares) may additionally reach the square two away in a straight line,
+ * provided the one-away intermediate square is empty and not a lake and the
+ * far square is itself empty, non-lake, and on-board. Never diagonal, never
+ * off-board, never through or onto a lake, never onto an occupied square.
  */
 export function legalDestinations(board: BoardState, origin: Square): Square[] {
   const occupant = board[squareKey(origin)];
@@ -94,73 +137,37 @@ export function legalDestinations(board: BoardState, origin: Square): Square[] {
     return [];
   }
 
-  const range = maxRange(occupant.pieceType);
+  const unencumbered = isUnencumbered(board, origin, occupant.side);
   const destinations: Square[] = [];
   for (const { dc, dr } of ORTHOGONAL_DIRECTIONS) {
-    for (let distance = 1; distance <= range; distance += 1) {
-      const next = step(origin, dc * distance, dr * distance);
-      if (next === null || !isEmpty(board, next)) {
-        break;
-      }
-      destinations.push(next);
+    const near = step(origin, dc, dr, 1);
+    if (near === null || !isEmpty(board, near)) {
+      continue;
     }
+    destinations.push(near);
+
+    if (!unencumbered) {
+      continue;
+    }
+    const far = step(origin, dc, dr, 2);
+    if (far === null || !isEmpty(board, far)) {
+      continue;
+    }
+    destinations.push(far);
   }
   return destinations;
 }
 
-/** The furthest distance (in squares, along a clear straight line) a piece
- * type may attack, per §4.3: a Knight's charge and a Skirmisher's rush both
- * reach 3; every other piece type attacks only an adjacent (1-square)
- * square. */
-function maxAttackDistance(pieceType: PieceTypeId): number {
-  return pieceType === "knight" || pieceType === "skirmisher" ? 3 : 1;
-}
-
-/**
- * True if the piece occupying an attack ray's first blocking square,
- * `occupant`, is a legal attack target for a piece of `pieceType` and `side`
- * attacking at `distance` squares away. Never a friendly piece - that
- * includes a friendly Flag, which (being immobile) is never itself an
- * attacker but is a legal target for the enemy (story 00000006 - capturing
- * it wins the game, see combat.ts's Flag defender case). A Knight may not
- * charge (attack at distance 2 or 3) a Halberdier - it must attack one from
- * adjacent, per §4.3's anti-charge rule - but every other combination of
- * piece type, distance, and enemy type is a legal target (including a
- * Knight's adjacent attack on a Halberdier, a Knight's charge onto an enemy
- * Flag, and a Skirmisher's rush onto any enemy type, including the Flag).
- */
-function isLegalAttackTarget(
-  occupant: PlacedPiece,
-  side: Side,
-  pieceType: PieceTypeId,
-  distance: number,
-): boolean {
-  if (occupant.side === side) {
-    return false;
-  }
-  if (
-    pieceType === "knight" &&
-    distance >= 2 &&
-    occupant.pieceType === "halberdier"
-  ) {
-    return false;
-  }
-  return true;
-}
-
 /**
  * The enemy-occupied squares the piece on `origin` may legally attack, given
- * `board`, keyed in the absolute White frame. Returns an empty array if
- * `origin` is empty or holds an immobile piece (Tower or Flag - neither ever
- * attacks). Every other piece type may attack an orthogonally adjacent enemy
- * square in each of the four directions; a Knight or Skirmisher may instead
- * reach up to 3 squares in a clear straight line (a Knight's charge, a
- * Skirmisher's rush), stopping at - and only offering as a target - the
- * first piece encountered along the ray (a lake also stops the ray, but is
- * never itself a target, since a lake never holds a piece). A Knight may not
- * charge (distance >= 2) onto a Halberdier. An **enemy** Flag is offered like
- * any other enemy piece (story 00000006 - capturing it wins the game); a
- * **friendly** Flag is never a target. Never diagonal, never off-board.
+ * `board`. Returns an empty array if `origin` is empty or holds an immobile
+ * piece (Tower or Flag - neither ever attacks). Every mobile piece may attack
+ * an orthogonally adjacent enemy square in each of the four directions; an
+ * unencumbered piece (§4.2) may additionally attack the enemy-occupied square
+ * two away in a straight line, provided the one-away intermediate square is
+ * empty and not a lake. An enemy Flag is offered like any other enemy piece
+ * (capturing it wins the game); a friendly piece is never a target. Never
+ * diagonal, never off-board, never through or onto a lake.
  */
 export function legalAttacks(board: BoardState, origin: Square): Square[] {
   const occupant = board[squareKey(origin)];
@@ -168,23 +175,32 @@ export function legalAttacks(board: BoardState, origin: Square): Square[] {
     return [];
   }
 
-  const { side, pieceType } = occupant;
-  const maxDistance = maxAttackDistance(pieceType);
+  const { side } = occupant;
+  const unencumbered = isUnencumbered(board, origin, side);
   const attacks: Square[] = [];
   for (const { dc, dr } of ORTHOGONAL_DIRECTIONS) {
-    for (let distance = 1; distance <= maxDistance; distance += 1) {
-      const next = step(origin, dc * distance, dr * distance);
-      if (next === null || isLake(next)) {
-        break;
+    const near = step(origin, dc, dr, 1);
+    if (near !== null) {
+      const nearOccupant = board[squareKey(near)];
+      if (
+        nearOccupant !== undefined &&
+        !isLake(near) &&
+        nearOccupant.side !== side
+      ) {
+        attacks.push(near);
       }
-      const blocker = board[squareKey(next)];
-      if (blocker === undefined) {
-        continue;
-      }
-      if (isLegalAttackTarget(blocker, side, pieceType, distance)) {
-        attacks.push(next);
-      }
-      break;
+    }
+
+    if (!unencumbered || near === null || !isEmpty(board, near)) {
+      continue;
+    }
+    const far = step(origin, dc, dr, 2);
+    if (far === null || isLake(far)) {
+      continue;
+    }
+    const farOccupant = board[squareKey(far)];
+    if (farOccupant !== undefined && farOccupant.side !== side) {
+      attacks.push(far);
     }
   }
   return attacks;
@@ -193,11 +209,10 @@ export function legalAttacks(board: BoardState, origin: Square): Square[] {
 /**
  * True if `side` has at least one legal ply anywhere on `board` - a plain
  * move (`legalDestinations`) or an attack (`legalAttacks`) - with any of its
- * own pieces. This is the primitive story 00000006's game-end detection
- * (`outcome.ts`) needs for §6.3 "no legal move": a side that can only attack
- * is *not* stuck (any adjacent enemy piece is always a legal, if
- * sacrificial, attack), so both destination sets must be considered, unlike
- * the story 00000004-era `hasAnyLegalNonAttackMove` this replaces.
+ * own pieces. This is the primitive the game-end detection (`outcome.ts`)
+ * needs for §5's "no legal move": a side that can only attack is *not*
+ * stuck (any adjacent enemy piece is always a legal, if sacrificial, attack),
+ * so both destination sets must be considered.
  */
 export function hasAnyLegalPly(board: BoardState, side: Side): boolean {
   for (const square of allSquares()) {

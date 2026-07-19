@@ -137,7 +137,28 @@ test`. All pass, with no remaining reference to `primary/v1_1` anywhere in
 
 ### Step 2 — Movement: one-square baseline plus the unencumbered two-square move
 
-Status: pending
+Status: committed
+
+Notes: Rewrote `movement.ts` to the 1.2 rules (single one-square baseline for
+every mobile piece type, plus a two-square orthogonal option gated on
+encumbrance judged over all eight surrounding squares at the origin) and
+rewrote `movement.test.ts` using only rank-stable fixtures
+(champion/knight/militia/tower/flag), per the cross-step constraint.
+Deviation from the plan: the plan's "combat, endings, and the session/
+announcement layers already consume `legalDestinations`/`legalAttacks` by
+shape, so they are unaffected" turned out to be true only for the functions'
+*shape*, not for downstream tests with hard-coded exact-destination
+assertions — `playSession.test.ts` and `playAnnouncement.test.ts` had several
+fixtures (open-field pieces with no adjacent enemy) whose expected destination
+counts/sets implicitly assumed the old single-square-only baseline and a
+type-specific Skirmisher range. Updated those fixtures/expectations to the
+real 1.2 behavior (adding a diagonal (non-orthogonal) enemy where a test
+needed to force encumbrance without introducing a spurious attack target, and
+correcting expected destination counts/sets and one "2-square away" no-op
+fixture to a genuinely-illegal diagonal square) rather than leaving the build
+red; no rule-engine behavior outside `movement.ts` changed. `npm run
+typecheck`, `npm run lint`, and `npm run test` (468 tests, full suite) are all
+green.
 
 Rewrite `src/rules/primary/v1/movement.ts` to the 1.2 movement rules and
 rewrite `movement.test.ts` to match:

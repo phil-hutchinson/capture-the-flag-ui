@@ -4,6 +4,11 @@ import type { BoardState, PlacedPiece } from "./gameState.ts";
 import { hasAnyLegalPly, legalAttacks, legalDestinations } from "./movement.ts";
 import type { PieceTypeId } from "./pieces.ts";
 
+// Fixtures in this file use only pieces whose id and rank are identical in
+// both the 1.1 and 1.2 rosters (champion, knight, militia, tower, flag) - see
+// the implementation plan's cross-step test constraint - so they remain
+// valid unchanged through the roster swap (Step 5).
+
 /** Builds a `BoardState` from a list of `[squareKey, side, pieceType]` triples. */
 function board(
   pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
@@ -20,52 +25,111 @@ function sortedKeys(squares: readonly Square[]): string[] {
   return squares.map((s) => `${s.column}${s.row}`).sort();
 }
 
-describe("legalDestinations (ruleset PRIMARY:1.1, empty-square moves only)", () => {
-  it("gives a baseline piece its four orthogonal empties in open space", () => {
-    const state = board([["D5", "white", "infantry"]]);
+describe("legalDestinations (ruleset 1.2, empty-square moves only)", () => {
+  it("gives an unencumbered piece its four one-square and four two-square orthogonal empties in open space", () => {
+    const state = board([["D5", "white", "champion"]]);
     const destinations = legalDestinations(state, { column: "D", row: 5 });
-    expect(sortedKeys(destinations)).toEqual(["C5", "D4", "D6", "E5"].sort());
+    expect(sortedKeys(destinations)).toEqual(
+      ["C5", "E5", "D4", "D6", "B5", "F5", "D3", "D7"].sort(),
+    );
   });
 
-  it("prunes off-board directions at a corner", () => {
-    const state = board([["A1", "white", "infantry"]]);
+  it("prunes off-board directions at a corner, for both the one- and two-square options", () => {
+    const state = board([["A1", "white", "champion"]]);
     const destinations = legalDestinations(state, { column: "A", row: 1 });
-    expect(sortedKeys(destinations)).toEqual(["A2", "B1"].sort());
+    expect(sortedKeys(destinations)).toEqual(["A2", "B1", "A3", "C1"].sort());
   });
 
-  it("prunes off-board directions at an edge", () => {
-    const state = board([["A5", "white", "infantry"]]);
-    const destinations = legalDestinations(state, { column: "A", row: 5 });
-    expect(sortedKeys(destinations)).toEqual(["A4", "A6", "B5"].sort());
+  it("limits a piece with an adjacent enemy to its one-square steps only (encumbered)", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["D6", "black", "militia"], // adjacent enemy - encumbers the champion
+    ]);
+    const destinations = legalDestinations(state, { column: "D", row: 5 });
+    // D6 is occupied (an attack target, not a destination); no two-square
+    // options anywhere, since encumbrance is judged once at the origin.
+    expect(sortedKeys(destinations)).toEqual(["C5", "D4", "E5"].sort());
   });
 
-  it("excludes an adjacent lake square as a destination", () => {
+  it("offers the two-square option again once the enemy is no longer adjacent (unencumbered)", () => {
+    // The enemy militia is two squares away (D7), not in any of D5's eight
+    // surrounding squares, so the champion is unencumbered.
+    const state = board([
+      ["D5", "white", "champion"],
+      ["D7", "black", "militia"],
+    ]);
+    const destinations = legalDestinations(state, { column: "D", row: 5 });
+    // D6 (the intermediate square) is offered as a plain one-square move;
+    // D7 itself is occupied by an enemy, so it is never in this array (it is
+    // offered separately, as an attack - see legalAttacks below).
+    expect(sortedKeys(destinations)).toEqual(
+      ["C5", "E5", "D4", "D6", "B5", "F5", "D3"].sort(),
+    );
+    expect(destinations.some((s) => s.column === "D" && s.row === 7)).toBe(
+      false,
+    );
+  });
+
+  it("blocks the two-square option through an occupied intermediate square, without losing other directions", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["D6", "white", "militia"], // friendly, blocks the intermediate square
+    ]);
+    const destinations = legalDestinations(state, { column: "D", row: 5 });
+    // Still unencumbered (a friendly piece never encumbers), so the other
+    // three directions keep both their one- and two-square options; D6 is
+    // occupied (excluded) and D7 is unreachable through it.
+    expect(sortedKeys(destinations)).toEqual(
+      ["C5", "E5", "D4", "B5", "F5", "D3"].sort(),
+    );
+  });
+
+  it("excludes an adjacent lake square as a destination and blocks the two-square option through it", () => {
     // A6 is not itself a lake (column A is not a lake column), but its
     // neighbor B6 is (lake columns B, C, F, G, J, K on rows 6-7).
-    const state = board([["A6", "white", "infantry"]]);
+    const state = board([["A6", "white", "champion"]]);
     const destinations = legalDestinations(state, { column: "A", row: 6 });
-    expect(sortedKeys(destinations)).toEqual(["A5", "A7"].sort());
-    expect(destinations.some((s) => s.column === "B" && s.row === 6)).toBe(
+    // Up/down keep both one- and two-square options; rightward into the
+    // lake is fully blocked (no B6, no C6 - the lake is never a legal
+    // intermediate square).
+    expect(sortedKeys(destinations)).toEqual(["A5", "A7", "A4", "A8"].sort());
+    expect(destinations.some((s) => s.column === "B")).toBe(false);
+    expect(destinations.some((s) => s.column === "C")).toBe(false);
+  });
+
+  it("excludes a two-square destination when the far square is a lake, even with a clear intermediate square", () => {
+    // C is a lake column; C6/C7 are lake squares. From C4, moving down: C5
+    // (row 5) is a clear intermediate, but C6 (row 6) is a lake.
+    const state = board([["C4", "white", "champion"]]);
+    const destinations = legalDestinations(state, { column: "C", row: 4 });
+    expect(destinations.some((s) => s.column === "C" && s.row === 5)).toBe(
+      true,
+    );
+    expect(destinations.some((s) => s.column === "C" && s.row === 6)).toBe(
       false,
     );
   });
 
   it("excludes an adjacent square occupied by a friendly piece", () => {
     const state = board([
-      ["D5", "white", "infantry"],
+      ["D5", "white", "champion"],
       ["D6", "white", "militia"],
     ]);
     const destinations = legalDestinations(state, { column: "D", row: 5 });
-    expect(sortedKeys(destinations)).toEqual(["C5", "D4", "E5"].sort());
+    expect(destinations.some((s) => s.column === "D" && s.row === 6)).toBe(
+      false,
+    );
   });
 
   it("excludes an adjacent square occupied by an enemy piece", () => {
     const state = board([
-      ["D5", "white", "infantry"],
+      ["D5", "white", "champion"],
       ["D6", "black", "militia"],
     ]);
     const destinations = legalDestinations(state, { column: "D", row: 5 });
-    expect(sortedKeys(destinations)).toEqual(["C5", "D4", "E5"].sort());
+    expect(destinations.some((s) => s.column === "D" && s.row === 6)).toBe(
+      false,
+    );
   });
 
   it("gives Tower no destinations", () => {
@@ -84,7 +148,7 @@ describe("legalDestinations (ruleset PRIMARY:1.1, empty-square moves only)", () 
   });
 
   it("never returns a diagonal destination", () => {
-    const state = board([["E9", "black", "skirmisher"]]);
+    const state = board([["E9", "black", "knight"]]);
     const destinations = legalDestinations(state, { column: "E", row: 9 });
     for (const destination of destinations) {
       const sameColumn = destination.column === "E";
@@ -95,84 +159,23 @@ describe("legalDestinations (ruleset PRIMARY:1.1, empty-square moves only)", () 
     }
   });
 
-  it("lets a Skirmisher reach up to 3 squares in a clear straight line, in every direction", () => {
-    const state = board([["E9", "black", "skirmisher"]]);
-    const destinations = legalDestinations(state, { column: "E", row: 9 });
-    expect(sortedKeys(destinations)).toEqual(
-      [
-        "E6",
-        "E7",
-        "E8", // up
-        "E10",
-        "E11",
-        "E12", // down
-        "B9",
-        "C9",
-        "D9", // left
-        "F9",
-        "G9",
-        "H9", // right
-      ].sort(),
-    );
-  });
-
-  it("stops a Skirmisher's ray short when it would enter a lake, excluding the lake square", () => {
-    // C is a lake column; C6 and C7 are lake squares. From C9 moving toward
-    // row 1, C8 (distance 1) is clear, C7 (distance 2) is a lake.
-    const state = board([["C9", "black", "skirmisher"]]);
-    const destinations = legalDestinations(state, { column: "C", row: 9 });
-    const upward = destinations.filter((s) => s.column === "C" && s.row < 9);
-    expect(sortedKeys(upward)).toEqual(["C8"]);
-  });
-
-  it("stops a Skirmisher's ray short when blocked by a piece, excluding the blocker and everything past it", () => {
-    const state = board([
-      ["H5", "white", "skirmisher"],
-      ["J5", "black", "militia"], // blocker at distance 2 to the right
-    ]);
-    const destinations = legalDestinations(state, { column: "H", row: 5 });
-    const rightward = destinations.filter((s) => s.row === 5 && s.column > "H");
-    expect(sortedKeys(rightward)).toEqual(["I5"]);
-    expect(rightward.some((s) => s.column === "J" || s.column === "K")).toBe(
-      false,
-    );
-  });
-
-  it("lets a Skirmisher reach exactly 1 square when blocked immediately", () => {
-    const state = board([
-      ["H5", "white", "skirmisher"],
-      ["I5", "black", "militia"], // blocker at distance 1
-    ]);
-    const destinations = legalDestinations(state, { column: "H", row: 5 });
-    const rightward = destinations.filter((s) => s.row === 5 && s.column > "H");
-    expect(rightward).toEqual([]);
-  });
-
-  it("lets a Skirmisher reach exactly 2 squares when blocked at distance 3", () => {
-    const state = board([
-      ["E9", "black", "skirmisher"],
-      ["H9", "black", "militia"], // friendly blocker at distance 3
-    ]);
-    const destinations = legalDestinations(state, { column: "E", row: 9 });
-    const rightward = destinations.filter((s) => s.row === 9 && s.column > "E");
-    expect(sortedKeys(rightward)).toEqual(["F9", "G9"].sort());
-  });
-
-  it("limits a Knight moving without attacking to one square, like a baseline piece", () => {
+  it("moves a Knight the same as any other piece type - one square baseline, two when unencumbered", () => {
     const state = board([["D5", "white", "knight"]]);
     const destinations = legalDestinations(state, { column: "D", row: 5 });
-    expect(sortedKeys(destinations)).toEqual(["C5", "D4", "D6", "E5"].sort());
+    expect(sortedKeys(destinations)).toEqual(
+      ["C5", "E5", "D4", "D6", "B5", "F5", "D3", "D7"].sort(),
+    );
   });
 });
 
 describe("hasAnyLegalPly", () => {
   it("is true when at least one of the side's pieces has a legal destination", () => {
-    const state = board([["D5", "white", "infantry"]]);
+    const state = board([["D5", "white", "champion"]]);
     expect(hasAnyLegalPly(state, "white")).toBe(true);
   });
 
   it("is false for a side with no pieces on the board", () => {
-    const state = board([["D5", "black", "infantry"]]);
+    const state = board([["D5", "black", "champion"]]);
     expect(hasAnyLegalPly(state, "white")).toBe(false);
   });
 
@@ -180,7 +183,7 @@ describe("hasAnyLegalPly", () => {
     // Boxed in on every non-attack direction by friendly pieces/the edge,
     // but with an adjacent enemy to attack.
     const state = board([
-      ["A1", "white", "infantry"],
+      ["A1", "white", "champion"],
       ["A2", "white", "militia"], // friendly, blocks the only other empty direction
       ["B1", "black", "militia"], // adjacent enemy - a legal, sacrificial attack
     ]);
@@ -195,7 +198,7 @@ describe("hasAnyLegalPly", () => {
     // and defeat the point of this fixture), with no enemy piece anywhere on
     // the board to attack.
     const state = board([
-      ["A1", "white", "infantry"],
+      ["A1", "white", "champion"],
       ["A2", "white", "tower"],
       ["B1", "white", "tower"],
     ]);
@@ -203,10 +206,10 @@ describe("hasAnyLegalPly", () => {
   });
 });
 
-describe("legalAttacks (ruleset PRIMARY:1.1, enemy-occupied attack targets)", () => {
+describe("legalAttacks (ruleset 1.2, enemy-occupied attack targets)", () => {
   it("offers a baseline piece exactly its adjacent enemy squares", () => {
     const state = board([
-      ["D5", "white", "infantry"],
+      ["D5", "white", "champion"],
       ["D6", "black", "militia"], // adjacent enemy - offered
       ["D4", "white", "militia"], // adjacent friendly - excluded
       ["C5", "black", "militia"], // adjacent enemy - offered
@@ -216,18 +219,9 @@ describe("legalAttacks (ruleset PRIMARY:1.1, enemy-occupied attack targets)", ()
     expect(sortedKeys(attacks)).toEqual(["C5", "D6"].sort());
   });
 
-  it("offers an adjacent enemy Flag as an attack target for a baseline piece", () => {
+  it("offers an adjacent enemy Flag as an attack target", () => {
     const state = board([
-      ["D5", "white", "infantry"],
-      ["D6", "black", "flag"],
-    ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
-    expect(sortedKeys(attacks)).toEqual(["D6"]);
-  });
-
-  it("offers an adjacent enemy Flag as an attack target for an Assassin", () => {
-    const state = board([
-      ["D5", "white", "assassin"],
+      ["D5", "white", "champion"],
       ["D6", "black", "flag"],
     ]);
     const attacks = legalAttacks(state, { column: "D", row: 5 });
@@ -236,197 +230,52 @@ describe("legalAttacks (ruleset PRIMARY:1.1, enemy-occupied attack targets)", ()
 
   it("never offers a friendly Flag as an attack target", () => {
     const state = board([
-      ["D5", "white", "infantry"],
+      ["D5", "white", "champion"],
       ["D6", "white", "flag"],
     ]);
     const attacks = legalAttacks(state, { column: "D", row: 5 });
     expect(attacks).toEqual([]);
   });
 
-  it("offers a Knight a charge onto an enemy Flag at distance 2 and 3 over a clear line", () => {
-    const twoAway = board([
-      ["D5", "white", "knight"],
-      ["D7", "black", "flag"], // D6 clear between them
-    ]);
-    expect(sortedKeys(legalAttacks(twoAway, { column: "D", row: 5 }))).toEqual([
-      "D7",
-    ]);
-
-    const threeAway = board([
-      ["D5", "white", "knight"],
-      ["D8", "black", "flag"], // D6, D7 clear between them
-    ]);
-    expect(
-      sortedKeys(legalAttacks(threeAway, { column: "D", row: 5 })),
-    ).toEqual(["D8"]);
-  });
-
-  it("cuts a Knight's charge onto a Flag short at a blocking piece", () => {
+  it("offers a two-square line ending on an enemy as an attack when unencumbered", () => {
     const state = board([
-      ["D5", "white", "knight"],
-      ["D6", "black", "militia"], // blocker at distance 1
-      ["D7", "black", "flag"], // would-be charge target at distance 2
-    ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
-    expect(sortedKeys(attacks)).toEqual(["D6"]);
-  });
-
-  it("cuts a Knight's charge onto a Flag short at a lake", () => {
-    // B is a lake column; B6/B7 are lake squares.
-    const state = board([
-      ["B5", "white", "knight"],
-      ["B8", "black", "flag"],
-    ]);
-    const attacks = legalAttacks(state, { column: "B", row: 5 });
-    expect(attacks.some((s) => s.column === "B" && s.row === 8)).toBe(false);
-  });
-
-  it("offers a Skirmisher a rush onto an enemy Flag at distance 1, 2, and 3 over a clear line", () => {
-    const oneAway = board([
-      ["E9", "black", "skirmisher"],
-      ["E8", "white", "flag"],
-    ]);
-    expect(sortedKeys(legalAttacks(oneAway, { column: "E", row: 9 }))).toEqual([
-      "E8",
-    ]);
-
-    const threeAway = board([
-      ["E9", "black", "skirmisher"],
-      ["E6", "white", "flag"],
-    ]);
-    expect(
-      sortedKeys(legalAttacks(threeAway, { column: "E", row: 9 })),
-    ).toEqual(["E6"]);
-  });
-
-  it("cuts a Skirmisher's rush onto a Flag short at a blocking piece", () => {
-    const state = board([
-      ["H5", "white", "skirmisher"],
-      ["J5", "black", "militia"], // blocker at distance 2
-      ["K5", "black", "flag"], // beyond the blocker - unreachable
-    ]);
-    const attacks = legalAttacks(state, { column: "H", row: 5 });
-    const rightward = attacks.filter((s) => s.row === 5 && s.column > "H");
-    expect(sortedKeys(rightward)).toEqual(["J5"]);
-  });
-
-  it("offers a Knight its adjacent enemy in an ordinary attack", () => {
-    const state = board([
-      ["D5", "white", "knight"],
-      ["D6", "black", "militia"],
-    ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
-    expect(sortedKeys(attacks)).toEqual(["D6"]);
-  });
-
-  it("offers a Knight a 2-square charge onto an enemy over a clear line", () => {
-    const state = board([
-      ["D5", "white", "knight"],
-      ["D7", "black", "militia"], // D6 clear between them
+      ["D5", "white", "champion"],
+      ["D7", "black", "militia"], // D6 clear between them, no other enemy nearby
     ]);
     const attacks = legalAttacks(state, { column: "D", row: 5 });
     expect(sortedKeys(attacks)).toEqual(["D7"]);
   });
 
-  it("offers a Knight a 3-square charge onto an enemy over a clear line", () => {
+  it("does not offer a two-square attack through an occupied intermediate square", () => {
     const state = board([
-      ["D5", "white", "knight"],
-      ["D8", "black", "militia"], // D6, D7 clear between them
+      ["D5", "white", "champion"],
+      ["D6", "black", "militia"], // blocker at distance 1 - itself an ordinary attack target
+      ["D7", "black", "militia"], // would-be two-square target at distance 2
     ]);
     const attacks = legalAttacks(state, { column: "D", row: 5 });
-    expect(sortedKeys(attacks)).toEqual(["D8"]);
-  });
-
-  it("never offers a Knight a charge onto an empty square", () => {
-    const state = board([["D5", "white", "knight"]]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
-    expect(attacks).toEqual([]);
-  });
-
-  it("never offers a Knight a charge through a blocking piece", () => {
-    const state = board([
-      ["D5", "white", "knight"],
-      ["D6", "black", "militia"], // blocker at distance 1
-      ["D7", "black", "militia"], // would-be charge target at distance 2
-    ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
-    // The distance-1 blocker is itself an ordinary attack target; the
-    // distance-2 square is never reachable past it.
     expect(sortedKeys(attacks)).toEqual(["D6"]);
   });
 
-  it("never offers a Knight a charge through a lake", () => {
-    // B is a lake column; B6/B7 are lake squares. From B5, a charge toward
-    // row 8 or beyond must cross the lake at B6/B7.
+  it("does not offer a two-square attack through a lake intermediate square", () => {
+    // B is a lake column; B6/B7 are lake squares.
     const state = board([
-      ["B5", "white", "knight"],
+      ["B5", "white", "champion"],
       ["B8", "black", "militia"],
     ]);
     const attacks = legalAttacks(state, { column: "B", row: 5 });
     expect(attacks.some((s) => s.column === "B" && s.row === 8)).toBe(false);
   });
 
-  it("never offers a Knight a charge onto a Halberdier, while the same Halberdier is offered when adjacent", () => {
-    const chargeState = board([
-      ["D5", "white", "knight"],
-      ["D7", "black", "halberdier"], // D6 clear - would be a 2-square charge
-    ]);
-    expect(legalAttacks(chargeState, { column: "D", row: 5 })).toEqual([]);
-
-    const adjacentState = board([
-      ["D5", "white", "knight"],
-      ["D6", "black", "halberdier"],
-    ]);
-    const attacks = legalAttacks(adjacentState, { column: "D", row: 5 });
-    expect(sortedKeys(attacks)).toEqual(["D6"]);
-  });
-
-  it("offers a Skirmisher enemies at 1, 2, and 3 squares in a clear line", () => {
-    const oneAway = board([
-      ["E9", "black", "skirmisher"],
-      ["E8", "white", "militia"],
-    ]);
-    expect(sortedKeys(legalAttacks(oneAway, { column: "E", row: 9 }))).toEqual([
-      "E8",
-    ]);
-
-    const twoAway = board([
-      ["E9", "black", "skirmisher"],
-      ["E7", "white", "militia"],
-    ]);
-    expect(sortedKeys(legalAttacks(twoAway, { column: "E", row: 9 }))).toEqual([
-      "E7",
-    ]);
-
-    const threeAway = board([
-      ["E9", "black", "skirmisher"],
-      ["E6", "white", "militia"],
-    ]);
-    expect(
-      sortedKeys(legalAttacks(threeAway, { column: "E", row: 9 })),
-    ).toEqual(["E6"]);
-  });
-
-  it("cuts a Skirmisher's attack ray short at a lake", () => {
-    // C is a lake column; C6/C7 are lake squares. From C9 toward row 1,
-    // C8 (distance 1) is clear, C7 (distance 2) is a lake.
+  it("withholds the two-square attack once an adjacent enemy encumbers the piece", () => {
     const state = board([
-      ["C9", "black", "skirmisher"],
-      ["C5", "white", "militia"], // beyond the lake - unreachable
+      ["D5", "white", "champion"],
+      ["C5", "black", "militia"], // adjacent enemy - encumbers the champion
+      ["D7", "black", "militia"], // otherwise a clear two-square line
     ]);
-    const attacks = legalAttacks(state, { column: "C", row: 9 });
-    expect(attacks.filter((s) => s.column === "C")).toEqual([]);
-  });
-
-  it("cuts a Skirmisher's attack ray short at a blocking piece, offering only that piece if it is an enemy", () => {
-    const state = board([
-      ["H5", "white", "skirmisher"],
-      ["J5", "black", "militia"], // blocker at distance 2
-      ["K5", "black", "militia"], // beyond the blocker - unreachable
-    ]);
-    const attacks = legalAttacks(state, { column: "H", row: 5 });
-    const rightward = attacks.filter((s) => s.row === 5 && s.column > "H");
-    expect(sortedKeys(rightward)).toEqual(["J5"]);
+    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    // Only the adjacent enemy is offered; the far one is unreachable while
+    // encumbered.
+    expect(sortedKeys(attacks)).toEqual(["C5"]);
   });
 
   it("gives Tower no attack targets", () => {
@@ -452,7 +301,7 @@ describe("legalAttacks (ruleset PRIMARY:1.1, enemy-occupied attack targets)", ()
 
   it("never returns a diagonal attack target", () => {
     const state = board([
-      ["E9", "black", "skirmisher"],
+      ["E9", "black", "knight"],
       ["D8", "white", "militia"], // diagonally adjacent - must never be offered
       ["F10", "white", "militia"], // diagonally adjacent - must never be offered
     ]);

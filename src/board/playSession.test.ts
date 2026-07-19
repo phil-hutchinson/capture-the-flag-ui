@@ -169,9 +169,11 @@ describe("activatableSquares - a piece selected", () => {
 
     // Own movable pieces: D5 (the selected piece itself - this is what makes
     // reactivating it to deselect reachable) and H5. Plus D5's own legal
-    // destinations (C5, D4, D6 - E5 is occupied by the Tower).
+    // destinations: D9 is too far away to encumber D5, so it is unencumbered
+    // and offers both squares in each open direction (C5/B5, D4/D3, D6/D7 -
+    // E5 is occupied by the Tower, blocking that whole direction).
     expect(sortedKeys(activatableSquares(selected))).toEqual(
-      ["D5", "H5", "C5", "D4", "D6"].sort(),
+      ["D5", "H5", "C5", "B5", "D4", "D3", "D6", "D7"].sort(),
     );
   });
 
@@ -204,8 +206,10 @@ describe("activateSquare - selecting a piece", () => {
     );
     const next = activateSquare(session, sq("D", 5));
     expect(next.selection).toEqual(sq("D", 5));
+    // No enemy anywhere on the board, so D5 is unencumbered and offers both
+    // squares in every open direction.
     expect(sortedKeys(actionableSquares(next))).toEqual(
-      ["C5", "D4", "D6", "E5"].sort(),
+      ["C5", "B5", "D4", "D3", "D6", "D7", "E5", "F5"].sort(),
     );
   });
 
@@ -286,8 +290,9 @@ describe("activateSquare - moving", () => {
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
-    // D3 is two squares away - not a legal destination for a baseline piece.
-    const next = activateSquare(selected, sq("D", 3));
+    // E4 is diagonally adjacent - never a legal destination, under either
+    // the one- or two-square move rules (both are strictly orthogonal).
+    const next = activateSquare(selected, sq("E", 4));
 
     expect(next).toEqual(selected);
     expect(next.selection).toEqual(sq("D", 5));
@@ -318,9 +323,11 @@ describe("activateSquare - switching selection", () => {
     const switchedToH5 = activateSquare(selectedD5, sq("H", 5));
     expect(switchedToH5.selection).toEqual(sq("H", 5));
     expect(switchedToH5.play).toBe(selectedD5.play);
-    // Actionable squares now reflect H5's destinations, not D5's.
+    // Actionable squares now reflect H5's destinations, not D5's - H5 is
+    // unencumbered (no enemy on the board), so both squares in every
+    // direction are offered.
     expect(sortedKeys(actionableSquares(switchedToH5))).toEqual(
-      ["G5", "H4", "H6", "I5"].sort(),
+      ["G5", "F5", "H4", "H3", "H6", "H7", "I5", "J5"].sort(),
     );
   });
 
