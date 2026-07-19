@@ -1,6 +1,6 @@
 /* Countdown warnings banner (Step 11). Mirrors PlayStatus.css's / GameResult
    .css's chrome per item, with an amber accent border - the same amber used
-   for PlayBoard.css's legal-destination fill - as an additional, non-color-
+   for FullBoard.css's legal-destination fill - as an additional, non-color-
    only cue; the "Warning:" label and full sentence text always carry the
    meaning on their own. */
 

@@ -38,7 +38,7 @@ logic and rule state**, and live with the other per-version rule logic under
   capture is combat's simplest case: the attacker always wins, no rank
   comparison, no support.
 - **§6.2 Unbreachable Flag.** A player **wins immediately** when **both** hold:
-  (1) every one of the **opponent's** Sappers is *unavailable* — captured, or
+  (1) every one of the **opponent's** Sappers is _unavailable_ — captured, or
   currently unable to structurally reach any of **this player's** Towers; and
   (2) **this player's own Flag is fully enclosed** by intact Towers and the
   board edge, so no non-Sapper enemy piece could ever reach it. Enclosure can
@@ -52,7 +52,7 @@ logic and rule state**, and live with the other per-version rule logic under
   treating **lakes and every intact Tower and Flag of either side** as
   **impassable walls**, and **ignoring all mobile pieces**.
 - **§6.3 No legal move.** A player who has no legal ply at all on their turn
-  (no legal move *and* no legal attack, with any of their pieces) **loses
+  (no legal move _and_ no legal attack, with any of their pieces) **loses
   immediately**. Passing is never allowed.
 - **§6.4 Inactivity.** Each player has a personal counter starting at 0. **Any
   attack you make** — winning, trade (mutual loss), or sacrifice — resets **your**
@@ -106,7 +106,7 @@ loss** (6.4 precedes 6.5).
 These are the operational definitions the reference engine uses
 (`capture_the_flag/reachability.py`), and the ones to implement:
 
-- **Blocked squares** (the walls for *both* checks): every **lake** square, plus
+- **Blocked squares** (the walls for _both_ checks): every **lake** square, plus
   every square holding an intact **Tower or Flag of either side**. All mobile
   pieces are **ignored** (they never block, and they are never blocked by other
   mobile pieces) — because a mobile piece's legal movement is blocked by exactly
@@ -121,10 +121,10 @@ These are the operational definitions the reference engine uses
 - **Sappers available (for side S)**: **true** iff at least one of S's Sappers can
   structurally reach at least one **opponent Tower**, where the target Tower
   square counts as reachable even though it is itself a wall (a Tower is a wall to
-  move *through*, not to arrive *at*). A side with **no Sappers left** has none
+  move _through_, not to arrive _at_). A side with **no Sappers left** has none
   available.
 - **Side S wins by §6.2** iff `S's own flag enclosed` **and** `not (opponent's
-  sappers available)`.
+sappers available)`.
 
 ### Record file format (confirmed at plan time against the companion repository's `doc/ruleset/technical-notes.md`)
 
@@ -132,13 +132,13 @@ These are the operational definitions the reference engine uses
   `Ruleset` are **always written**.
 - `Result` uses PGN values: **`1-0`** (White wins), **`0-1`** (Black wins),
   **`1/2-1/2`** (draw), **`*`** (ongoing/unknown). Note White = Side A = **Red**,
-  Black = Side B = **Blue** (the record uses White/Black; the *UI* uses
+  Black = Side B = **Blue** (the record uses White/Black; the _UI_ uses
   Red/Blue).
 - `ResultReason` is free text. The technical notes' own examples are the strings
   to use: **`Flag Captured`**, **`Unbreachable Flag`**, **`No Legal Move`**,
   **`Inactivity`**, **`No Progress`**. The notes give no example for an **agreed
   draw**; the **owner has fixed it as `Agreement`** (2026-07-11), matching the
-  one-word style of the confirmed strings. This string is *not* in the companion
+  one-word style of the confirmed strings. This string is _not_ in the companion
   repository's notes and is to be raised upstream so both codebases agree.
 - **`ResultReason` is omitted entirely while a game is ongoing** (owner's
   decision, 2026-07-11): an ongoing record carries `[Result "*"]` and **no**
@@ -171,7 +171,7 @@ Rule layer, `src/rules/primary/v1_1/`:
   `isLegalAttackTarget`. **`legalAttacks` currently excludes the Flag** — Step 2
   changes that.
 - `combat.ts` — `CombatResult` (`"attackerWins" | "attackerLoses" |
-  "mutualLoss"`), `CombatOutcome` (`result`, `attacker`, `defender`, `square`,
+"mutualLoss"`), `CombatOutcome` (`result`, `attacker`, `defender`, `square`,
   `capture` — true when the **defender fell**, i.e. attacker-wins or mutual-loss
   — and `archerSupport`), and `resolveCombat(board, from, to)`. **No Flag
   defender case exists yet** — Step 2 adds it.
@@ -179,7 +179,7 @@ Rule layer, `src/rules/primary/v1_1/`:
   `moves: readonly string[]`), `startPlay(initial)`,
   `applyMove(state, from, to) → { state, outcome }` where `outcome` is
   `PlyOutcome` = `({ kind: "attack" } & CombatOutcome) | { kind: "move"; piece;
-  square }`, and `renderGameRecord(state)` (currently emits only a `[Ruleset]`
+square }`, and `renderGameRecord(state)` (currently emits only a `[Ruleset]`
   tag, then the position block of `initialBoard`, then rounds of plain `A2A3`
   moves). `applyMove` is immutable and throws on an illegal move (a
   programming-invariant guard — the UI never offers one).
@@ -253,7 +253,7 @@ Session/UI layer, `src/board/`:
   `play.result`; nothing recomputes detection for itself.
 - **An agreed draw is a state transition, not a detected condition.** `play.ts`
   exposes an `agreeDraw(state)` that returns a state whose `result` is the
-  agreed draw. The draw *offer/accept/decline* dance is interaction state and
+  agreed draw. The draw _offer/accept/decline_ dance is interaction state and
   lives in `playSession.ts`, not in the rule layer.
 - **The board goes inert through the existing sets.** When the game is over (or
   a draw offer is awaiting an answer), `actionableSquares` and
@@ -433,7 +433,7 @@ third kind of ply.
   other rule stays exactly as it is — a **friendly** Flag is still never a
   target, the Flag is still immobile and still has no attacks of its own, and the
   Knight's anti-charge restriction still applies only to a **Halberdier** (a
-  Knight *may* charge a Flag).
+  Knight _may_ charge a Flag).
 - `src/rules/primary/v1_1/combat.ts` — add the **Flag defender** case to
   `resolveCombat`: attacking a Flag is always **`attackerWins`**, whatever the
   attacker (including an Assassin, and including a Sapper), with **no rank
@@ -522,7 +522,7 @@ did.
   illegal move, still returns `{ state, outcome }`.
 
 Note the deliberate asymmetry between the two clocks and get it right: a
-**complete sacrifice** resets *both* players' inactivity counters but does
+**complete sacrifice** resets _both_ players' inactivity counters but does
 **not** reset progress; a **mutual loss** resets both inactivity counters **and**
 progress; a **winning attack** resets only the mover's inactivity counter and
 resets progress.
@@ -619,7 +619,7 @@ that decides whether — and how — the game has ended, and wire it into
   player's own inactivity counter ≥ 50 → active player **loses** (unreachable in
   normal play; implemented for completeness). Otherwise **ongoing**. Define the
   two limits (50, 80) as named constants in this module.
-- The **50 / 80 limits are the rule constants**; the *warning thresholds* (10 own
+- The **50 / 80 limits are the rule constants**; the _warning thresholds_ (10 own
   moves, 20 combined moves) are presentation and belong to Step 8 — do not put
   them here.
 
@@ -717,7 +717,7 @@ file format's result header tags alongside the existing `Ruleset` tag, in PGN
 
 Map from Step 4's `GameOutcome` (its reason identifiers and winner side). Keep
 everything else about the render unchanged: the position block still renders
-`initialBoard` (the *starting* position, never the current one), and the move
+`initialBoard` (the _starting_ position, never the current one), and the move
 sequence still uses the plain **`A2A3`** form in numbered rounds, with **no**
 combat markers and **no** entry of any kind for a draw offer, decline, or
 agreement.
@@ -777,7 +777,7 @@ state model — this extends `PlaySession`.
 
 - **`PlaySession` gains a pending draw offer**: the side that has offered a draw
   and is awaiting the opponent's answer, or `null` (e.g. `drawOffer: Side |
-  null`, `null` from `startSession`). The offer does **not** change
+null`, `null` from `startSession`). The offer does **not** change
   `play.sideToMove` — §6.6: an offer never replaces or skips a move.
 - **Inertness.** When the game is over (`session.play.result.kind !== "ongoing"`)
   **or** a draw offer is pending, `actionableSquares` and `activatableSquares`
@@ -870,7 +870,7 @@ information is pushed to assistive technology.
   who won (**Red** / **Blue**) or that it is a **draw**, and why. Use the six
   reasons in plain player language — e.g. Flag captured, unbreachable Flag, no
   legal move, inactivity, no progress, agreement — with the rules' piece names and
-  the word "move", never "ply". Keep the description of *what the ply did* (the
+  the word "move", never "ply". Keep the description of _what the ply did_ (the
   existing plain-move and attack wording, including the combat outcome) and
   append the ending, so a player who did not see the board change hears both.
   A Flag capture is an attack in the existing wording and should read naturally
@@ -944,12 +944,12 @@ module only decides how they are computed and phrased.
 
 - **Inactivity warning** — shown to a player when **10 or fewer** of **their own**
   moves remain before their 50-move inactivity loss (i.e. `50 - theirCounter <=
-  10`), and only **while it is their turn** (per in-scope item 4: "that player
+10`), and only **while it is their turn** (per in-scope item 4: "that player
   sees a warning while it is their turn"). It must state **how many moves remain**
   and that **an attack resets it**.
 - **No-progress warning** — shown when **20 or fewer** moves (by **both players
   combined**) remain before the 80-move no-progress draw (i.e. `80 - progress <=
-  20`). It applies to **both** players — it is shown on every turn once in range —
+20`). It applies to **both** players — it is shown on every turn once in range —
   and must state the **remaining count**.
 - Report each warning as structured data (which warning, the remaining count) plus
   its **player-facing sentence** (Red/Blue, "move" not "ply", no jargon), so the
@@ -1024,8 +1024,7 @@ actually win.
   or Enter/Space, while cells stay focusable and readable.
 - Also handle the **ending with no ply**: a §6.2 win can already hold when Phase 2
   starts. `App.tsx` starts the play session in `handleConfirm`; if the freshly
-  started session is already finished, push the standalone result sentence (Step
-  7) into the announcement state so it is announced, and the panel renders
+  started session is already finished, push the standalone result sentence (Step 7) into the announcement state so it is announced, and the panel renders
   immediately.
 - The word "move" (never "ply"), colors Red/Blue, rules' piece names.
 
@@ -1044,7 +1043,7 @@ needs a specific adjacency), and enter Phase 2. Confirm:
 - an **Archer stationed directly behind the Flag does not save it** (the capture is
   still a win, not a trade);
 - the **final position stays visible** — the result panel does not cover the board
-   — and the **board goes inert**: no piece can be selected, no move can be made,
+  — and the **board goes inert**: no piece can be selected, no move can be made,
   by mouse or keyboard.
 
 ---
@@ -1140,15 +1139,14 @@ verify.**
 That false alarm exposed a real gap in coverage, so this step also adds
 `src/board/playWarnings.game.test.ts` (13 tests): `playWarnings.test.ts` only
 ever built counter fixtures by hand, so nothing proved a real stalling game
-ever *reaches* those counter values. The new tests replay whole games through
+ever _reaches_ those counter values. The new tests replay whole games through
 `applyMove` and assert on the warnings at each ply. They also pin down a
 rules consequence that is easy to mistake for a bug and that the plan's Gate C
 wording did not anticipate: **a mutual shuffle can never produce the
 inactivity loss.** Both sides making plain moves raises the shared progress
 counter every ply, so the no-progress draw fires at 80 combined plies while
 each side's own inactivity counter has only reached 40 - the no-progress
-warning is the only one ever seen. Reaching the inactivity warning (counter
-40) and loss (50) at all requires the *opponent* to keep capturing, since a
+warning is the only one ever seen. Reaching the inactivity warning (counter 40) and loss (50) at all requires the _opponent_ to keep capturing, since a
 capture resets the shared progress counter and keeps the draw away; the
 capture must be a clean win (`attackerWins`), as a sacrificial attack also
 resets the stalling side's counter and undoes the stall. Both endings are now
@@ -1204,8 +1202,8 @@ through the engine - warning at 20 remaining, counting down, draw at
 
 **Correction to this step's tester note below:** the occasional complete
 sacrifice it prescribes (to hold the inactivity counters down while progress
-climbs) is **not needed**. The no-progress draw fires at 80 *combined* plies, at
-which point each side has made only 40 of *their own* plies - ten short of
+climbs) is **not needed**. The no-progress draw fires at 80 _combined_ plies, at
+which point each side has made only 40 of _their own_ plies - ten short of
 `INACTIVITY_LIMIT`. A plain mutual shuffle therefore always reaches the draw
 without any risk of an inactivity loss pre-empting it (pinned by the
 "never raises an inactivity warning" test in `playWarnings.game.test.ts`). The
@@ -1279,15 +1277,15 @@ warnings), and `npm run build` all pass.
 
 **Owner decision at Gate E - board perspective during a pending offer
 (reverses this step's bullet below, and `story.md` is updated to match).**
-The step as written said the board's orientation must *not* change while an
+The step as written said the board's orientation must _not_ change while an
 offer is pending, on the grounds that `sideToMove` is unchanged and the
 prompt names both sides. In hot-seat play that is wrong: the offer hands the
-*physical* board to the opponent, who must answer Accept or Decline while
+_physical_ board to the opponent, who must answer Accept or Decline while
 looking at the offerer's view of the board. The owner called this at Gate E
 and chose the rule below; orientation and turn are now understood as separate
 questions.
 
-  Board perspective = **pending offer ? the responder : `sideToMove`.**
+Board perspective = **pending offer ? the responder : `sideToMove`.**
 
 Implemented as `viewSide(session)` in `playSession.ts` (the session layer, not
 the component, so it is testable in the `node` environment);
@@ -1360,14 +1358,14 @@ symmetry, the draw case, and the negative case are therefore all confirmed in
 the UI.
 
 One real **coverage gap** was found and filled while preparing the gate. The
-*reveal* half of §6.2 was already tested (`play.test.ts`: a walled Flag plus no
-enemy Sapper, detected before any ply), but the *in-play* half - a ply capturing
+_reveal_ half of §6.2 was already tested (`play.test.ts`: a walled Flag plus no
+enemy Sapper, detected before any ply), but the _in-play_ half - a ply capturing
 the opponent's **last available Sapper** ending the game on the spot - was not
 covered anywhere. `play.test.ts` gains
 "ends the game the moment a ply captures the opponent's last available Sapper
 (§6.2 in play)": White's Flag is sealed behind its own Towers while Black's
 single Sapper stands in the open with a clear path to a White Tower (so it is
-*available* and the game is ongoing at the reveal); White captures it, and
+_available_ and the game is ongoing at the reveal); White captures it, and
 White wins immediately by unbreachable Flag - without the Flag itself ever
 being threatened. Suite now 344 tests.
 
@@ -1419,14 +1417,14 @@ were exercised (`Flag Captured`, `No Progress`, `Agreement`).
 
 - **`Inactivity`** (the reason Gate G names explicitly), which also pins the
   easily-inverted detail that a White stall-out records as **`0-1`** - the side
-  whose counter ran out is the *loser*;
+  whose counter ran out is the _loser_;
 - **`Unbreachable Flag`**, detected at the reveal, so the tags are written with
   an empty move sequence;
 - **`No Legal Move`**, the side to move boxed in by its own Towers.
 
 Suite now 347 tests. Writing the last of those surfaced how easily §6.2 is
 triggered unintentionally: the first fixture placed two spare Towers beside
-Black's Flag, quietly *enclosing* it, so the game ended at the reveal by
+Black's Flag, quietly _enclosing_ it, so the game ended at the reveal by
 unbreachable Flag instead of by no-legal-move. Worth knowing for anyone
 building §6.3 fixtures later.
 
@@ -1464,7 +1462,7 @@ an attack target, the countdown warnings, the result and reason, and the New
 game action all announced, and focus visible and untrapped throughout.
 
 The known rough edge flagged in this step - the end-of-game panel sitting
-*above* the board in DOM order, so the New game button is reached with
+_above_ the board in DOM order, so the New game button is reached with
 **Shift+Tab** after a game-ending activation on a board cell - was checked and
 did **not** bite in practice. The contingency fix (moving focus to a
 `tabIndex={-1}` heading on the panel when the game ends) was therefore **not**
@@ -1519,7 +1517,7 @@ played start to finish, with replay and the AI opponent still to come.
 Deliberately **no** rule mechanics, counter values, or jargon (no "ply", no
 section numbers, no "unbreachable Flag" - "impossible to reach" instead): the
 rules document in the companion repository remains the single source of truth,
-so the README says what a player can *do*, not what the rules *are*.
+so the README says what a player can _do_, not what the rules _are_.
 Verification: `npm run typecheck`, `npm run lint`, `npm test` (347 tests),
 `npm run format:check`, and `npm run build` all pass.
 

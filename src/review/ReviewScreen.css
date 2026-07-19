@@ -1,0 +1,46 @@
+/* The review screen's shell (Step 9's first cut - just the "Back to start"
+   button; Step 11 added the status line below, in the same slot
+   `PlayStatus.css` occupies in the hot-seat layout; Step 12 adds the move
+   list, `MoveList.css`, in the right-hand column; Step 13 extends the status
+   line with the recorded result). Mirrors the button chrome
+   `ImportScreen.css` / `GameResult.css` already establish. */
+
+.review-screen__back {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* Mirrors PlayStatus.css's chrome - the review's status line occupies the
+   same visual slot the hot-seat game's turn indicator does. A column of
+   (up to) two lines: where the cursor is in the game, and - only at the
+   final position, and only when the record's tags claim one (Step 13) - the
+   recorded result underneath it. */
+.review-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  font-weight: bold;
+}
+
+.review-status__position,
+.review-status__result {
+  margin: 0;
+}
+
+/* Distinguishes the record's claim from the plain "where you are" line above
+   it, without relying on color alone - the sentence text itself always says
+   "The record says:" (`reviewText.ts`'s `describeRecordedResult`). */
+.review-status__result {
+  font-style: italic;
+}

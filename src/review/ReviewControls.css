@@ -1,0 +1,29 @@
+/* Review controls: step/jump buttons beneath the board (Step 11). Mirrors
+   PlacementControls.css's button chrome so the review screen's controls read
+   as the same family of control as the hot-seat game's. */
+
+.review-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.review-controls__button {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* aria-disabled, not the native `disabled` attribute: the button stays
+   focusable (and in the tab order) at either end of the game, so keyboard
+   focus is never dropped to <body> - see ReviewControls.tsx's module
+   comment. */
+.review-controls__button[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.4;
+}
