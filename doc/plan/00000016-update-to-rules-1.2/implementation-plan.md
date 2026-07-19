@@ -786,7 +786,29 @@ correctly. Also run `npm run typecheck && npm run lint && npm run test`.
 
 ### Step 10 — README accuracy check
 
-Status: pending
+Status: committed
+
+Notes: `README.md` did describe now-wrong things and was updated: the army
+size (48 → 25 pieces) and its flavor text (dropped "an assassin", a retired
+piece); the placement description (filling every home square → choosing
+where among your squares to place a 25-piece army, since placement is now
+sparse); the "each rank with its own strengths" phrase (dropped — 1.2 removed
+per-rank special abilities, all ranked pieces move and fight alike); the
+win/lose/draw paragraph (dropped the removed Unbreachable Flag win and the
+removed per-player inactivity *loss*/progress-draw wording, replaced with the
+single shared 50-move-without-a-capture inactivity draw and its warning); and
+"The rules" section's claim that the app "keeps older rule versions around so
+that games recorded under an earlier ruleset can always be replayed
+correctly," which is no longer true (`PRIMARY:1.1` records are rejected as an
+unknown ruleset per this story's policy) — reworded to state the game is in
+active pre-release development and a recording only plays back correctly
+under the ruleset version it was made with. No deviation from the plan; used
+manual review rather than the `/update-readme` command, since the diff to
+check against spans nine already-committed steps and the story/plan
+themselves state precisely what changed. `npm run typecheck`, `npm run
+lint`, and `npm run test` (428 tests, full suite) are all green; re-read the
+whole file after editing to confirm every remaining piece-count, placement,
+ending, and rules-version reference matches shipped 1.2 behavior.
 
 Review `README.md` against the changes in this story and update it if anything
 it describes is now wrong — in particular any mention of the piece roster
