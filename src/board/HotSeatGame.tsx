@@ -393,10 +393,11 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
       const gameState = buildInitialGameState(next.white, next.black);
       const freshPlaySession = startSession(gameState);
       setPlaySession(freshPlaySession);
-      // Story 00000006, Step 9: placement is unrestricted, so the
-      // Unbreachable Flag condition (§6.2) can already hold at the reveal,
-      // before either player has made a single move - no activation occurs
-      // to drive `describeActivation`, so announce the result directly here.
+      // Story 00000006, Step 9: placement is unrestricted, so a game-ending
+      // condition (e.g. the side to move having no legal move) can in theory
+      // already hold at the reveal, before either player has made a single
+      // move - no activation occurs to drive `describeActivation`, so
+      // announce the result directly here.
       if (freshPlaySession.play.result.kind !== "ongoing") {
         setPlayAnnouncement(describeResult(freshPlaySession.play.result));
       }

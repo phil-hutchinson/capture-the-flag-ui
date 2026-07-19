@@ -572,7 +572,37 @@ renamed pieces and the swapped rank numerals correct on their tiles. Also run
 
 ### Step 7 — Play-through wording and the removed-mechanics copy sweep
 
-Status: pending
+Status: committed
+
+Notes (Gate B): Owner played through and verified two-square moves and
+encumbrance, equal-rank/Tower/Flag combat, the formation bonus in both
+the attacking and defending directions, no removed ability firing, and
+the announcements. Passed.
+
+Notes: `playAnnouncement.ts` (and its test file) already carried the correct
+1.2 wording from Steps 3-4's fallout — piece selection announces a combined
+one-/two-square/attack move count, plain moves and attacks read generically
+("moved to", "advances"/"holds"/"both fall") without naming any removed
+ability, and the ending clauses only cover the four surviving
+`GameEndReason`s — so no further change was needed there. Swept the rest of
+`src/` (`grep` for charge/rush/support/Archer/Sapper/Assassin/Unbreachable/
+Skirmisher/dual-clock language) and found two stale doc-comment leftovers
+from before the roster/rules swap, both fixed: `HotSeatGame.tsx`'s comment
+citing the removed "Unbreachable Flag condition (§6.2)" as the reason a
+game-ending check runs at the reveal, reworded to the general 1.2 reason (a
+side to move having no legal move already at reveal); and
+`AccessibleGrid.tsx`'s doc-comment example announcement, which still named
+the retired "Skirmisher" piece, changed to "Foot Soldier". No player-facing
+UI string (as opposed to code comments) referenced any removed mechanic —
+Steps 3-4 had already cleaned those live. Confirmed no removed ability
+(charge, rush, support, Sapper-only Tower destruction, Assassin rules) is
+reachable in `combat.ts`/`movement.ts`, matching Steps 2-3's rewrites.
+Deviation from the plan: none — the wording was already correct; this step's
+work was the sweep-and-verify plus two doc-comment fixes it turned up.
+`npm run typecheck`, `npm run lint`, and `npm run test` (425 tests, full
+suite) are all green. Manual Gate B (playing a full game and confirming the
+two-square offer, formation trades, Tower trades, and screen-reader wording
+in the running app) is left for the orchestrator per the pipeline.
 
 Finish the player-facing wording for 1.2 play and confirm movement and combat
 behave correctly in the running app.
