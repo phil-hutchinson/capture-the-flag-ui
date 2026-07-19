@@ -29,7 +29,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import "../App.css";
 import "./ImportScreen.css";
 import { readRecord } from "../rules/readRecord.ts";
-import type { ReplayedRecord } from "../rules/primary/v1_1/replay.ts";
+import type { ReplayedRecord } from "../rules/primary/v1/replay.ts";
 import { describeRejection } from "./reviewText.ts";
 
 /**

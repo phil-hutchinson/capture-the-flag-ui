@@ -28,12 +28,12 @@
 //
 // No React dependency - pure over `PlayState` (play.ts).
 
-import type { Side } from "../rules/primary/v1_1/board.ts";
+import type { Side } from "../rules/primary/v1/board.ts";
 import {
   INACTIVITY_LIMIT,
   PROGRESS_LIMIT,
-} from "../rules/primary/v1_1/outcome.ts";
-import type { PlayState } from "../rules/primary/v1_1/play.ts";
+} from "../rules/primary/v1/outcome.ts";
+import type { PlayState } from "../rules/primary/v1/play.ts";
 import { sideColorName } from "./sideNames.ts";
 
 /** How many of a player's own moves may remain before the inactivity warning appears (story-fixed). */

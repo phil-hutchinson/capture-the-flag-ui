@@ -3,14 +3,14 @@ import type {
   BoardState,
   InitialGameState,
   PlacedPiece,
-} from "../rules/primary/v1_1/gameState.ts";
-import { RULESET_TAG } from "../rules/primary/v1_1/gameState.ts";
+} from "../rules/primary/v1/gameState.ts";
+import { RULESET_TAG } from "../rules/primary/v1/gameState.ts";
 import {
   INACTIVITY_LIMIT,
   PROGRESS_LIMIT,
-} from "../rules/primary/v1_1/outcome.ts";
-import type { PieceTypeId } from "../rules/primary/v1_1/pieces.ts";
-import { startPlay, type PlayState } from "../rules/primary/v1_1/play.ts";
+} from "../rules/primary/v1/outcome.ts";
+import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
+import { startPlay, type PlayState } from "../rules/primary/v1/play.ts";
 import { computeCountdownWarnings } from "./playWarnings.ts";
 
 /** Builds an `InitialGameState` from a list of `[squareKey, side, pieceType]` triples. */

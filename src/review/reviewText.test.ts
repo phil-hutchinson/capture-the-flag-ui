@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { PositionBlockError } from "../rules/primary/v1_1/gameState.ts";
-import type { RecordFileError } from "../rules/primary/v1_1/recordFile.ts";
-import type { ReplayError } from "../rules/primary/v1_1/replay.ts";
+import type { PositionBlockError } from "../rules/primary/v1/gameState.ts";
+import type { RecordFileError } from "../rules/primary/v1/recordFile.ts";
+import type { ReplayError } from "../rules/primary/v1/replay.ts";
 import type { ReadRecordError } from "../rules/readRecord.ts";
 import {
   describeMove,

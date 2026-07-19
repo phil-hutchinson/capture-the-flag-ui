@@ -3,7 +3,7 @@ import { StartScreen } from "./app/StartScreen.tsx";
 import { HotSeatGame } from "./board/HotSeatGame.tsx";
 import { ImportScreen } from "./review/ImportScreen.tsx";
 import { ReviewScreen } from "./review/ReviewScreen.tsx";
-import type { ReplayedRecord } from "./rules/primary/v1_1/replay.ts";
+import type { ReplayedRecord } from "./rules/primary/v1/replay.ts";
 
 // The app shell (story 00000014, Step 8): which of the app's four screens is
 // showing, held as a discriminated union in `useState` - no router library,

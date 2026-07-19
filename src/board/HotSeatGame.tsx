@@ -40,8 +40,8 @@ import { PlayStatus } from "./PlayStatus.tsx";
 import { computeCountdownWarnings } from "./playWarnings.ts";
 import { PlayWarnings } from "./PlayWarnings.tsx";
 import { Tray } from "./Tray.tsx";
-import { squareKey, type Square } from "../rules/primary/v1_1/board.ts";
-import { buildInitialGameState } from "../rules/primary/v1_1/gameState.ts";
+import { squareKey, type Square } from "../rules/primary/v1/board.ts";
+import { buildInitialGameState } from "../rules/primary/v1/gameState.ts";
 import {
   autoFill,
   clear,
@@ -53,8 +53,8 @@ import {
   progress,
   returnToTray,
   swap,
-} from "../rules/primary/v1_1/placement.ts";
-import type { PieceTypeId } from "../rules/primary/v1_1/pieces.ts";
+} from "../rules/primary/v1/placement.ts";
+import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
 import "../App.css";
 import "./HotSeatGame.css";
 

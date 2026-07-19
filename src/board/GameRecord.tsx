@@ -14,7 +14,7 @@ import { useEffect, useMemo } from "react";
 import {
   renderGameRecord,
   type PlayState,
-} from "../rules/primary/v1_1/play.ts";
+} from "../rules/primary/v1/play.ts";
 import "./GameRecord.css";
 
 export interface GameRecordProps {

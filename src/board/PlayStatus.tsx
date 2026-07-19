@@ -13,7 +13,7 @@
 // flipped board the responder is looking at, so while an offer is pending
 // this adds "- draw offer pending" rather than hiding the turn information.
 
-import type { Side } from "../rules/primary/v1_1/board.ts";
+import type { Side } from "../rules/primary/v1/board.ts";
 import { sideColorName } from "./sideNames.ts";
 import "./PlayStatus.css";
 

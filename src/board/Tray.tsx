@@ -10,12 +10,12 @@
 // disabled - there is nothing left of it to place.
 
 import { PieceIcon } from "../art/PieceIcon.tsx";
-import type { Side } from "../rules/primary/v1_1/board.ts";
+import type { Side } from "../rules/primary/v1/board.ts";
 import {
   pieceCatalogEntries,
   type Inventory,
   type PieceTypeId,
-} from "../rules/primary/v1_1/pieces.ts";
+} from "../rules/primary/v1/pieces.ts";
 import "./Tray.css";
 
 export interface TrayProps {

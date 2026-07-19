@@ -56,18 +56,18 @@ import {
   squareKey,
   type Side,
   type Square,
-} from "../rules/primary/v1_1/board.ts";
-import type { PlacedPiece } from "../rules/primary/v1_1/gameState.ts";
+} from "../rules/primary/v1/board.ts";
+import type { PlacedPiece } from "../rules/primary/v1/gameState.ts";
 import {
   legalAttacks,
   legalDestinations,
-} from "../rules/primary/v1_1/movement.ts";
+} from "../rules/primary/v1/movement.ts";
 import type {
   GameEndReason,
   GameOutcome,
-} from "../rules/primary/v1_1/outcome.ts";
-import { PIECE_CATALOG } from "../rules/primary/v1_1/pieces.ts";
-import type { PlyOutcome } from "../rules/primary/v1_1/play.ts";
+} from "../rules/primary/v1/outcome.ts";
+import { PIECE_CATALOG } from "../rules/primary/v1/pieces.ts";
+import type { PlyOutcome } from "../rules/primary/v1/play.ts";
 import type { PlaySession } from "./playSession.ts";
 import { sideColorName } from "./sideNames.ts";
 

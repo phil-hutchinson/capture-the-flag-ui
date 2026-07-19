@@ -4,7 +4,7 @@
 // Reading a record is version-sensitive: the position block's piece letters
 // and the move notation belong to a specific ruleset version, so the actual
 // parsing lives with that version's rule code
-// (`src/rules/primary/v1_1/recordFile.ts` for `PRIMARY:1.1`). This module
+// (`src/rules/primary/v1/recordFile.ts` for `PRIMARY:1.1`). This module
 // knows only the *set* of ruleset versions this app can read: it looks just
 // far enough into the file to find the `Ruleset` tag, and either delegates to
 // that version's reader or rejects the file as one this app doesn't know how
@@ -20,13 +20,13 @@
 import {
   parseRecordFile,
   type RecordFileError,
-} from "./primary/v1_1/recordFile.ts";
-import { RULESET_TAG } from "./primary/v1_1/gameState.ts";
+} from "./primary/v1/recordFile.ts";
+import { RULESET_TAG } from "./primary/v1/gameState.ts";
 import {
   replayRecord,
   type ReplayedRecord,
   type ReplayError,
-} from "./primary/v1_1/replay.ts";
+} from "./primary/v1/replay.ts";
 
 /**
  * Everything that can go wrong before a version-specific reader even gets a

@@ -34,12 +34,12 @@
 // given, never a board) and reuses `recordedResultAt` so the announcement and
 // the status line's visible text (`ReviewScreen.tsx`) always agree.
 
-import { squareKey } from "../rules/primary/v1_1/board.ts";
-import type { BoardState } from "../rules/primary/v1_1/gameState.ts";
+import { squareKey } from "../rules/primary/v1/board.ts";
+import type { BoardState } from "../rules/primary/v1/gameState.ts";
 import type {
   ReplayedPly,
   ReplayedRecord,
-} from "../rules/primary/v1_1/replay.ts";
+} from "../rules/primary/v1/replay.ts";
 import {
   describeMove,
   describePosition,

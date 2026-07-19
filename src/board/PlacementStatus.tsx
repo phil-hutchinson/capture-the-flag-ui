@@ -10,8 +10,8 @@
 // layout and hands off to the next player - Confirm stays disabled until the
 // active player's army is complete.
 
-import type { Side } from "../rules/primary/v1_1/board.ts";
-import type { PlacementProgress } from "../rules/primary/v1_1/placement.ts";
+import type { Side } from "../rules/primary/v1/board.ts";
+import type { PlacementProgress } from "../rules/primary/v1/placement.ts";
 import { sideColorName } from "./sideNames.ts";
 import "./PlacementStatus.css";
 

@@ -27,7 +27,7 @@
 // button itself.
 
 import { useEffect, useRef } from "react";
-import type { GameOutcome } from "../rules/primary/v1_1/outcome.ts";
+import type { GameOutcome } from "../rules/primary/v1/outcome.ts";
 import { describeResult } from "./playAnnouncement.ts";
 import "./GameResult.css";
 

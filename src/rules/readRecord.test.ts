@@ -3,7 +3,7 @@ import {
   renderPositionBlock,
   RULESET_TAG,
   type InitialGameState,
-} from "./primary/v1_1/gameState.ts";
+} from "./primary/v1/gameState.ts";
 import { readRecord } from "./readRecord.ts";
 
 const GAME_STATE: InitialGameState = {
@@ -15,7 +15,7 @@ const GAME_STATE: InitialGameState = {
 const POSITION_BLOCK = renderPositionBlock(GAME_STATE);
 
 describe("readRecord - version dispatch", () => {
-  it("delegates a PRIMARY:1.1 record to the v1_1 reader", () => {
+  it("delegates a PRIMARY:1.1 record to the v1 reader", () => {
     const text = ['[Ruleset "PRIMARY:1.1"]', POSITION_BLOCK].join("\n\n");
 
     const result = readRecord(text);

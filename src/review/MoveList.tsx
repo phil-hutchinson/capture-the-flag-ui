@@ -21,7 +21,7 @@
 
 import { useEffect, useRef } from "react";
 import "./MoveList.css";
-import type { ReplayedPly } from "../rules/primary/v1_1/replay.ts";
+import type { ReplayedPly } from "../rules/primary/v1/replay.ts";
 import { sideColorName } from "../board/sideNames.ts";
 import { moveLabel } from "./reviewText.ts";
 

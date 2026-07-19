@@ -53,22 +53,22 @@ import {
   squareKey,
   type Side,
   type Square,
-} from "../rules/primary/v1_1/board.ts";
+} from "../rules/primary/v1/board.ts";
 import type {
   BoardState,
   InitialGameState,
-} from "../rules/primary/v1_1/gameState.ts";
+} from "../rules/primary/v1/gameState.ts";
 import {
   legalAttacks,
   legalDestinations,
-} from "../rules/primary/v1_1/movement.ts";
+} from "../rules/primary/v1/movement.ts";
 import {
   agreeDraw,
   applyMove,
   startPlay,
   type PlayState,
   type PlyOutcome,
-} from "../rules/primary/v1_1/play.ts";
+} from "../rules/primary/v1/play.ts";
 
 /**
  * The Phase-2 session's state: the current `PlayState`, the active player's

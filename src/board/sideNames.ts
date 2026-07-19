@@ -10,7 +10,7 @@
 // (`otherSide`) has its own single home instead: `board.ts`, since it is a
 // rule-layer concept (`play.ts`/`outcome.ts` need it too, not just the UI).
 
-import type { Side } from "../rules/primary/v1_1/board.ts";
+import type { Side } from "../rules/primary/v1/board.ts";
 
 /** Player-facing color name for a side. Never "White"/"Black" - those are internal-only. */
 export function sideColorName(side: Side): string {

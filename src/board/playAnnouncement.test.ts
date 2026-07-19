@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { Square } from "../rules/primary/v1_1/board.ts";
-import { RULESET_TAG } from "../rules/primary/v1_1/gameState.ts";
+import type { Square } from "../rules/primary/v1/board.ts";
+import { RULESET_TAG } from "../rules/primary/v1/gameState.ts";
 import type {
   BoardState,
   InitialGameState,
   PlacedPiece,
-} from "../rules/primary/v1_1/gameState.ts";
-import type { GameOutcome } from "../rules/primary/v1_1/outcome.ts";
-import type { PieceTypeId } from "../rules/primary/v1_1/pieces.ts";
-import type { PlayState } from "../rules/primary/v1_1/play.ts";
+} from "../rules/primary/v1/gameState.ts";
+import type { GameOutcome } from "../rules/primary/v1/outcome.ts";
+import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
+import type { PlayState } from "../rules/primary/v1/play.ts";
 import {
   describeActivation,
   describeDrawAccepted,

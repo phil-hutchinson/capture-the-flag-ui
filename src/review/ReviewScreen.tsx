@@ -40,7 +40,7 @@ import "../App.css";
 import "./ReviewScreen.css";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
 import { FullBoard } from "../board/FullBoard.tsx";
-import type { ReplayedRecord } from "../rules/primary/v1_1/replay.ts";
+import type { ReplayedRecord } from "../rules/primary/v1/replay.ts";
 import {
   createReviewSession,
   currentBoard,

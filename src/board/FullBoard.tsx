@@ -54,12 +54,12 @@ import {
   squareKey,
   type Side,
   type Square,
-} from "../rules/primary/v1_1/board.ts";
+} from "../rules/primary/v1/board.ts";
 import type {
   BoardState,
   PlacedPiece,
-} from "../rules/primary/v1_1/gameState.ts";
-import { PIECE_CATALOG } from "../rules/primary/v1_1/pieces.ts";
+} from "../rules/primary/v1/gameState.ts";
+import { PIECE_CATALOG } from "../rules/primary/v1/pieces.ts";
 import {
   AccessibleGrid,
   type GridCellDescriptor,

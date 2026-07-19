@@ -13,8 +13,8 @@
 import {
   PIECE_CATALOG,
   type PieceTypeId,
-} from "../rules/primary/v1_1/pieces.ts";
-import type { Side } from "../rules/primary/v1_1/board.ts";
+} from "../rules/primary/v1/pieces.ts";
+import type { Side } from "../rules/primary/v1/board.ts";
 import pieceSpriteSheet from "./pieceSprites.svg?raw";
 
 /** Symbol id (in pieceSprites.svg) for each piece type. */
