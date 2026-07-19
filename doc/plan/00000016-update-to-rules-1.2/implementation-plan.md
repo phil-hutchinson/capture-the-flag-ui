@@ -381,7 +381,42 @@ producible anywhere.
 
 ### Step 5 — The 1.2 army: new piece catalog, sparse placement, ruleset tag
 
-Status: pending
+Status: committed
+
+Notes: Replaced `pieces.ts`'s catalog with the 25-piece 1.2 roster (`RankCode`
+simplified to `1|2|3|4|5|6|null`, `PositionBlockSymbol` to `1`-`6`/`T`/`F`);
+set `gameState.ts`'s `RULESET_TAG` to `"1.2:PRE-RELEASE"` and generalized the
+completeness-guard error text to `ARMY_SIZE`; rewrote `placement.ts`'s
+`autoFill` to place Towers first (via a new internal `pickTowerSquares` helper
+that retries random shuffles until it finds Tower squares satisfying the
+no-adjacent-Towers rule, checked against both already-placed and
+newly-chosen Towers) and then a random subset of the remaining empty squares
+for the non-Tower remainder, and added the `towersLegallyPlaced` predicate for
+Step 6's confirm gate; updated `PieceIcon.tsx`'s sprite mapping to the new
+union (`masterOfArms`->`p-marshal`, `footSoldier`->`p-infantry`, retired ids
+dropped, sprite sheet itself untouched). Rewrote every test file the plan
+named for piece-id/tag literals (`pieces.test.ts`, `gameState.test.ts`,
+`placement.test.ts`, `recordFile.test.ts`, `replay.test.ts`,
+`placementSession.test.ts`, `playAnnouncement.test.ts`, `playSession.test.ts`,
+`reviewSession.test.ts`, `reviewText.test.ts`) onto 1.2 piece ids (generally
+`infantry`->`footSoldier`, `lordMarshal`->`masterOfArms`, and retired ids
+`sapper`/`assassin`/`skirmisher` swapped for an arbitrary valid 1.2 id such as
+`champion`/`knight` where the test only needed *some* mobile/ranked piece),
+updating rank-dependent comments (`infantry`'s old rank 4 -> `footSoldier`'s
+rank 5) and display-name strings to match. Deleted the four `PRIMARY:1.1`
+sample record files and `readRecord.samples.test.ts` per the plan; left
+`unknown-ruleset.txt` in place (a pure tag-mismatch fixture, now unused but
+harmless, per the plan's conditional wording) since Step 8 restores reader
+coverage with synthetic fixtures. Deviation from the plan text: also updated
+`readRecord.test.ts`'s hard-coded `"PRIMARY:1.1"` literal to
+`"1.2:PRE-RELEASE"` even though that file wasn't in the plan's explicit
+rewrite list, because its dispatch test compares against the real
+`RULESET_TAG` and would otherwise fail now that the tag changed; this is
+necessary fallout of the tag change, not scope expansion. `npm run
+typecheck`, `npm run lint`, and `npm run test` (425 tests, full suite) are all
+green; `npm run format:check` shows no new formatting issues (the files this
+step touched were reformatted with `prettier --write`; the remaining warnings
+are all in files this step did not touch, pre-existing before this step).
 
 Swap the roster and everything the roster touches. This is the step where the
 `PieceTypeId` union changes, so it necessarily ripples across the codebase.

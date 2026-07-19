@@ -40,7 +40,7 @@ describe("updateActivePlacement", () => {
     const session = newSession();
     const square = homeSquares("white")[0];
     const next = updateActivePlacement(session, (state) =>
-      place(state, square, "sapper"),
+      place(state, square, "champion"),
     );
     expect(next.white.placements.size).toBe(1);
     expect(next.black).toBe(session.black);

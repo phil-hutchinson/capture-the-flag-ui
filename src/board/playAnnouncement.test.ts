@@ -50,7 +50,7 @@ describe("describeActivation - selecting a piece", () => {
     // both the one- and two-square options in all four directions: 8.
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
@@ -58,7 +58,7 @@ describe("describeActivation - selecting a piece", () => {
     const selected = activateSquare(session, sq("D", 5));
 
     expect(describeActivation(session, selected, sq("D", 5))).toBe(
-      "Red Infantry selected, 8 moves available.",
+      "Red Foot Soldier selected, 8 moves available.",
     );
   });
 
@@ -71,7 +71,7 @@ describe("describeActivation - selecting a piece", () => {
     // option withheld everywhere by the encumbrance.
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["C5", "white", "militia"],
         ["D4", "white", "militia"],
         ["D6", "white", "militia"],
@@ -83,7 +83,7 @@ describe("describeActivation - selecting a piece", () => {
     const selected = activateSquare(session, sq("D", 5));
 
     expect(describeActivation(session, selected, sq("D", 5))).toBe(
-      "Red Infantry selected, 1 move available.",
+      "Red Foot Soldier selected, 1 move available.",
     );
   });
 
@@ -92,7 +92,7 @@ describe("describeActivation - selecting a piece", () => {
     // plus 3 attack targets = 4 moves available.
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["C5", "black", "militia"],
         ["D4", "black", "militia"],
         ["D6", "black", "militia"],
@@ -103,7 +103,7 @@ describe("describeActivation - selecting a piece", () => {
     const selected = activateSquare(session, sq("D", 5));
 
     expect(describeActivation(session, selected, sq("D", 5))).toBe(
-      "Red Infantry selected, 4 moves available.",
+      "Red Foot Soldier selected, 4 moves available.",
     );
   });
 
@@ -112,7 +112,7 @@ describe("describeActivation - selecting a piece", () => {
     // but 4 legal attack targets, so the count must not read "0 moves".
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["C5", "black", "militia"],
         ["E5", "black", "militia"],
         ["D4", "black", "militia"],
@@ -124,14 +124,14 @@ describe("describeActivation - selecting a piece", () => {
     const selected = activateSquare(session, sq("D", 5));
 
     expect(describeActivation(session, selected, sq("D", 5))).toBe(
-      "Red Infantry selected, 4 moves available.",
+      "Red Foot Soldier selected, 4 moves available.",
     );
   });
 
   it("announces Blue's piece by color when Black is to move", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D9", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
@@ -141,7 +141,7 @@ describe("describeActivation - selecting a piece", () => {
     const afterMove = activateSquare(moved, sq("D", 4));
     const selected = activateSquare(afterMove, sq("D", 9));
 
-    // D9's only nearby piece (White's infantry) has moved away to D4, so D9
+    // D9's only nearby piece (White's footSoldier) has moved away to D4, so D9
     // is unencumbered: 8 moves (one- and two-square, all four directions).
     expect(describeActivation(afterMove, selected, sq("D", 9))).toBe(
       "Blue Militia selected, 8 moves available.",
@@ -156,8 +156,8 @@ describe("describeActivation - switching selection", () => {
     // type, has 8 moves (one- and two-square, all four directions).
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
-        ["H5", "white", "skirmisher"],
+        ["D5", "white", "footSoldier"],
+        ["H5", "white", "knight"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
@@ -166,7 +166,7 @@ describe("describeActivation - switching selection", () => {
     const switchedToH5 = activateSquare(selectedD5, sq("H", 5));
 
     expect(describeActivation(selectedD5, switchedToH5, sq("H", 5))).toBe(
-      "Red Skirmisher selected, 8 moves available.",
+      "Red Knight selected, 8 moves available.",
     );
   });
 });
@@ -175,7 +175,7 @@ describe("describeActivation - moving", () => {
   it("announces the mover, its destination, and whose turn it now is", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D9", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
@@ -185,14 +185,14 @@ describe("describeActivation - moving", () => {
     const moved = activateSquare(selected, sq("D", 4));
 
     expect(describeActivation(selected, moved, sq("D", 4))).toBe(
-      "Red Infantry moved to D4. Blue to move.",
+      "Red Foot Soldier moved to D4. Blue to move.",
     );
   });
 
   it("announces a Black move handing the turn back to Red", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D9", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
@@ -215,7 +215,7 @@ describe("describeActivation - combat outcomes", () => {
   it("announces an attacker-wins result: who fought, who fell, whose turn", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D4", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
@@ -230,7 +230,7 @@ describe("describeActivation - combat outcomes", () => {
     const resolved = activateSquare(selected, sq("D", 4));
 
     expect(describeActivation(selected, resolved, sq("D", 4))).toBe(
-      "Red Infantry attacked Blue Militia at D4: Blue Militia falls, Red Infantry advances. Blue to move.",
+      "Red Foot Soldier attacked Blue Militia at D4: Blue Militia falls, Red Foot Soldier advances. Blue to move.",
     );
   });
 
@@ -238,7 +238,7 @@ describe("describeActivation - combat outcomes", () => {
     const session = startSession(
       initialGameState([
         ["D5", "white", "militia"],
-        ["D4", "black", "infantry"],
+        ["D4", "black", "footSoldier"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
@@ -247,15 +247,15 @@ describe("describeActivation - combat outcomes", () => {
     const resolved = activateSquare(selected, sq("D", 4));
 
     expect(describeActivation(selected, resolved, sq("D", 4))).toBe(
-      "Red Militia attacked Blue Infantry at D4 and falls; Blue Infantry holds. Blue to move.",
+      "Red Militia attacked Blue Foot Soldier at D4 and falls; Blue Foot Soldier holds. Blue to move.",
     );
   });
 
   it("announces a mutual-loss result: who fought, both fell, whose turn", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
-        ["D4", "black", "infantry"],
+        ["D5", "white", "footSoldier"],
+        ["D4", "black", "footSoldier"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
         // A second, otherwise-uninvolved Black piece so Black still has a
@@ -268,14 +268,14 @@ describe("describeActivation - combat outcomes", () => {
     const resolved = activateSquare(selected, sq("D", 4));
 
     expect(describeActivation(selected, resolved, sq("D", 4))).toBe(
-      "Red Infantry attacked Blue Infantry at D4: both fall. Blue to move.",
+      "Red Foot Soldier attacked Blue Foot Soldier at D4: both fall. Blue to move.",
     );
   });
 
   it("announces a Black attack handing the turn back to Red", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D9", "black", "militia"],
         ["D10", "white", "halberdier"],
         ["A1", "white", "flag"],
@@ -299,7 +299,7 @@ describe("describeActivation - deselecting", () => {
   it("announces the piece being deselected", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
@@ -308,7 +308,7 @@ describe("describeActivation - deselecting", () => {
     const deselected = activateSquare(selected, sq("D", 5));
 
     expect(describeActivation(selected, deselected, sq("D", 5))).toBe(
-      "Red Infantry deselected.",
+      "Red Foot Soldier deselected.",
     );
   });
 });
@@ -316,7 +316,7 @@ describe("describeActivation - deselecting", () => {
 describe("describeActivation - no-op activation", () => {
   it("returns an empty string when nothing changed", () => {
     const session = startSession(
-      initialGameState([["D5", "white", "infantry"]]),
+      initialGameState([["D5", "white", "footSoldier"]]),
     );
     // Not reachable through the UI (only actionable cells can be activated),
     // but the helper degrades gracefully rather than throwing or fabricating
@@ -398,24 +398,24 @@ describe("describeActivation - game-ending ply", () => {
   it("announces a No Legal Move win, replacing the 'to move' clause with the result", () => {
     const { before, after } = endingSession(
       { kind: "ongoing" },
-      ["A1", "white", "infantry"],
+      ["A1", "white", "footSoldier"],
       sq("A", 2),
       { kind: "win", winner: "white", reason: "noLegalMove" },
     );
     expect(describeActivation(before, after, sq("A", 2))).toBe(
-      "Red Infantry moved to A2. Red wins — Blue has no legal move left.",
+      "Red Foot Soldier moved to A2. Red wins — Blue has no legal move left.",
     );
   });
 
   it("announces an Inactivity draw", () => {
     const { before, after } = endingSession(
       { kind: "ongoing" },
-      ["L12", "black", "infantry"],
+      ["L12", "black", "footSoldier"],
       sq("L", 11),
       { kind: "draw", reason: "inactivity" },
     );
     expect(describeActivation(before, after, sq("L", 11))).toBe(
-      "Blue Infantry moved to L11. The game is a draw — by inactivity.",
+      "Blue Foot Soldier moved to L11. The game is a draw — by inactivity.",
     );
   });
 });

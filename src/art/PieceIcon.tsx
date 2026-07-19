@@ -10,25 +10,23 @@
 // Terrain (the p-lake symbol) is not a piece type, so it is not drawn by
 // PieceIcon; consumers reference it directly via `LAKE_SYMBOL_ID`.
 
-import {
-  PIECE_CATALOG,
-  type PieceTypeId,
-} from "../rules/primary/v1/pieces.ts";
+import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v1/pieces.ts";
 import type { Side } from "../rules/primary/v1/board.ts";
 import pieceSpriteSheet from "./pieceSprites.svg?raw";
 
-/** Symbol id (in pieceSprites.svg) for each piece type. */
+/**
+ * Symbol id (in pieceSprites.svg) for each piece type. `masterOfArms` (the
+ * rename of `lordMarshal`) and `footSoldier` (the rename of `infantry`) keep
+ * their 1.1 sprites; the retired ids' sprites (`p-skirmisher`, `p-archer`,
+ * `p-sapper`, `p-assassin`) stay in the sprite sheet, unreferenced here.
+ */
 const SYMBOL_ID_BY_PIECE_TYPE: Readonly<Record<PieceTypeId, string>> = {
-  lordMarshal: "p-marshal",
+  masterOfArms: "p-marshal",
   champion: "p-champion",
   knight: "p-knight",
-  infantry: "p-infantry",
   halberdier: "p-halberdier",
+  footSoldier: "p-infantry",
   militia: "p-militia",
-  skirmisher: "p-skirmisher",
-  archer: "p-archer",
-  sapper: "p-sapper",
-  assassin: "p-assassin",
   tower: "p-tower",
   flag: "p-flag",
 };
@@ -66,7 +64,7 @@ export interface PieceIconProps {
 
 /**
  * Renders one piece's symbol, colored for the given side, with the piece's
- * one-character rank code (the position-block symbol: `1`-`9`, `A`, `T`, `F`)
+ * one-character rank code (the position-block symbol: `1`-`6`, `T`, `F`)
  * pinned in the top-left corner as a quick rank reminder. The corner numeral
  * is separate overlay markup, not part of the `<symbol>`, so it is drawn here
  * alongside the `<use>`; `currentColor` makes it track the side color set on

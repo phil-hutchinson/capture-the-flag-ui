@@ -3,7 +3,7 @@ import type { BoardState, PlacedPiece } from "./gameState.ts";
 import type { ParsedRecord, RecordedPly } from "./recordFile.ts";
 import { replayRecord, type ReplayedRecord } from "./replay.ts";
 
-const WHITE_PIECE: PlacedPiece = { side: "white", pieceType: "sapper" };
+const WHITE_PIECE: PlacedPiece = { side: "white", pieceType: "champion" };
 const BLACK_PIECE: PlacedPiece = { side: "black", pieceType: "tower" };
 
 /** Builds one `RecordedPly` from shorthand, defaulting ply/round to a single round-1 move by White. */
@@ -18,7 +18,7 @@ function record(
   startingBoard: BoardState,
   moves: readonly RecordedPly[],
 ): ParsedRecord {
-  return { tags: { ruleset: "PRIMARY:1.1" }, startingBoard, moves };
+  return { tags: { ruleset: "1.2:PRE-RELEASE" }, startingBoard, moves };
 }
 
 function replayed(record: ParsedRecord): ReplayedRecord {
@@ -101,10 +101,10 @@ describe("replayRecord - the four move shapes", () => {
   });
 });
 
-describe("replayRecord - no special casing for the Sapper or the Flag", () => {
-  it("a Sapper taking a Tower replays as an ordinary S-Dx move", () => {
+describe("replayRecord - no special casing for any attacker or the Flag", () => {
+  it("any piece taking a Tower replays as an ordinary S-Dx move", () => {
     const board: BoardState = {
-      A1: { side: "white", pieceType: "sapper" },
+      A1: { side: "white", pieceType: "champion" },
       A2: { side: "black", pieceType: "tower" },
     };
     const game = replayed(
@@ -121,7 +121,7 @@ describe("replayRecord - no special casing for the Sapper or the Flag", () => {
       ]),
     );
     expect(game.positions[1]).toEqual({
-      A2: { side: "white", pieceType: "sapper" },
+      A2: { side: "white", pieceType: "champion" },
     });
   });
 

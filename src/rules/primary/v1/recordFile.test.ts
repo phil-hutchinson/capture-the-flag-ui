@@ -18,8 +18,8 @@ const GAME_STATE: InitialGameState = {
   ruleset: RULESET_TAG,
   board: {
     A1: { side: "white", pieceType: "flag" },
-    L1: { side: "white", pieceType: "lordMarshal" },
-    F12: { side: "black", pieceType: "assassin" },
+    L1: { side: "white", pieceType: "masterOfArms" },
+    F12: { side: "black", pieceType: "champion" },
     A12: { side: "black", pieceType: "tower" },
   },
 };
@@ -51,7 +51,7 @@ const BLACK_MOVE_2 = renderMoveToken({
 });
 
 function header(extraLines: readonly string[] = []): string {
-  return ['[Ruleset "PRIMARY:1.1"]', ...extraLines].join("\n");
+  return ['[Ruleset "1.2:PRE-RELEASE"]', ...extraLines].join("\n");
 }
 
 function fullRounds(): string {
@@ -76,7 +76,7 @@ describe("parseRecordFile - a full valid record", () => {
 
     const record = parsed(parseRecordFile(text));
     expect(record.tags).toEqual({
-      ruleset: "PRIMARY:1.1",
+      ruleset: "1.2:PRE-RELEASE",
       result: "1-0",
       resultReason: "Flag Captured",
     });
@@ -141,7 +141,7 @@ describe("parseRecordFile - a full valid record", () => {
     ].join("\n\n");
 
     const record = parsed(parseRecordFile(text));
-    expect(record.tags).toEqual({ ruleset: "PRIMARY:1.1" });
+    expect(record.tags).toEqual({ ruleset: "1.2:PRE-RELEASE" });
   });
 
   it("accepts a freely wrapped move sequence", () => {
@@ -200,7 +200,7 @@ describe("parseRecordFile - header rejections", () => {
 
   it("rejects a duplicate Ruleset tag", () => {
     const text = [
-      header(['[Ruleset "PRIMARY:1.1"]']),
+      header(['[Ruleset "1.2:PRE-RELEASE"]']),
       POSITION_BLOCK,
       fullRounds(),
     ].join("\n\n");

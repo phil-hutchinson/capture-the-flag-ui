@@ -1,4 +1,4 @@
-// Versioned initial game-state serialization for ruleset PRIMARY:1.1.
+// Versioned initial game-state serialization for ruleset 1.2:PRE-RELEASE.
 //
 // Once both players have completed placement, the two `PlacementState`s
 // (Step 3) are combined into a single, versioned `InitialGameState` artifact:
@@ -22,15 +22,19 @@ import {
   type Side,
   type Square,
 } from "./board.ts";
-import { PIECE_CATALOG, PIECE_TYPES, type PieceTypeId } from "./pieces.ts";
+import {
+  ARMY_SIZE,
+  PIECE_CATALOG,
+  PIECE_TYPES,
+  type PieceTypeId,
+} from "./pieces.ts";
 import { isComplete, type PlacementState } from "./placement.ts";
 
 /**
- * The `NAME:VERSION` ruleset tag every serialized artifact carries, per
- * `technical-notes.md`'s "Record file format" `Ruleset` tag. `PRIMARY` is
- * currently the only ruleset name/variant.
+ * The `VERSION:NAME` ruleset tag every serialized artifact carries, per
+ * `technical-notes.md`'s "Record file format" `Ruleset` tag.
  */
-export const RULESET_TAG = "PRIMARY:1.1";
+export const RULESET_TAG = "1.2:PRE-RELEASE";
 
 /** One placed piece on the board: which side owns it and what type it is. */
 export interface PlacedPiece {
@@ -80,7 +84,7 @@ export function buildInitialGameState(
   }
   if (!isComplete(white) || !isComplete(black)) {
     throw new Error(
-      "buildInitialGameState: both armies must be complete (48/48 placed) before serializing.",
+      `buildInitialGameState: both armies must be complete (${ARMY_SIZE}/${ARMY_SIZE} placed) before serializing.`,
     );
   }
 

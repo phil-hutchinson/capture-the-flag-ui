@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { homeSquares } from "./board.ts";
-import { pieceCatalogEntries } from "./pieces.ts";
+import { ARMY_SIZE, pieceCatalogEntries } from "./pieces.ts";
 import { autoFill, emptyPlacement, type PlacementState } from "./placement.ts";
 import {
   buildInitialGameState,
@@ -25,13 +25,13 @@ function completeArmy(side: "white" | "black", seed: number): PlacementState {
   return autoFill(emptyPlacement(side), seededRandom(seed));
 }
 
-describe("buildInitialGameState (ruleset PRIMARY:1.1)", () => {
+describe("buildInitialGameState (ruleset 1.2:PRE-RELEASE)", () => {
   it("tags the artifact with the ruleset version", () => {
     const white = completeArmy("white", 1);
     const black = completeArmy("black", 2);
     const gameState = buildInitialGameState(white, black);
 
-    expect(gameState.ruleset).toBe("PRIMARY:1.1");
+    expect(gameState.ruleset).toBe("1.2:PRE-RELEASE");
     expect(gameState.ruleset).toBe(RULESET_TAG);
   });
 
@@ -45,23 +45,35 @@ describe("buildInitialGameState (ruleset PRIMARY:1.1)", () => {
     ) as InitialGameState;
     expect(roundTripped).toEqual(gameState);
 
-    // Every White home square in the artifact matches the source placement,
-    // and vice versa - nothing was dropped, duplicated, or mislabeled.
+    // Every placed White/Black square in the artifact matches the source
+    // placement, and vice versa - nothing was dropped, duplicated, or
+    // mislabeled. A home square the source left empty (sparse placement -
+    // only 25 of 48 home squares are ever filled) is absent from the board.
     for (const square of homeSquares("white")) {
       const key = `${square.column}${square.row}`;
       const placed = roundTripped.board[key];
+      const expectedType = white.placements.get(key);
+      if (expectedType === undefined) {
+        expect(placed).toBeUndefined();
+        continue;
+      }
       expect(placed?.side).toBe("white");
-      expect(placed?.pieceType).toBe(white.placements.get(key));
+      expect(placed?.pieceType).toBe(expectedType);
     }
     for (const square of homeSquares("black")) {
       const key = `${square.column}${square.row}`;
       const placed = roundTripped.board[key];
+      const expectedType = black.placements.get(key);
+      if (expectedType === undefined) {
+        expect(placed).toBeUndefined();
+        continue;
+      }
       expect(placed?.side).toBe("black");
-      expect(placed?.pieceType).toBe(black.placements.get(key));
+      expect(placed?.pieceType).toBe(expectedType);
     }
 
-    // No square outside either side's 48 home squares is ever populated.
-    expect(Object.keys(roundTripped.board)).toHaveLength(96);
+    // Each side places exactly ARMY_SIZE pieces (25 of 48 home squares).
+    expect(Object.keys(roundTripped.board)).toHaveLength(2 * ARMY_SIZE);
   });
 
   it("rejects a White state and Black state passed in the wrong slots", () => {
@@ -94,28 +106,28 @@ describe("buildInitialGameState (ruleset PRIMARY:1.1)", () => {
   });
 });
 
-describe("renderPositionBlock (ruleset PRIMARY:1.1)", () => {
+describe("renderPositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
   it("renders a hand-constructed placement to the exact expected block", () => {
     // A small, deliberately sparse board (not a full army) so the expected
     // block below can be verified by inspection square-by-square:
-    //   A1  = White Flag        -> [F]
-    //   L1  = White Lord Marshal -> [1]
-    //   F12 = Black Assassin    -> *A*
-    //   A12 = Black Tower       -> *T*
+    //   A1  = White Flag           -> [F]
+    //   L1  = White Master-of-Arms -> [1]
+    //   F12 = Black Champion       -> *2*
+    //   A12 = Black Tower          -> *T*
     // every other square is either empty (---) or one of the three 2x2 lakes
     // on rows 6-7 (XXX), per the `O L L O O L L O O L L O` pattern.
     const gameState: InitialGameState = {
       ruleset: RULESET_TAG,
       board: {
         A1: { side: "white", pieceType: "flag" },
-        L1: { side: "white", pieceType: "lordMarshal" },
-        F12: { side: "black", pieceType: "assassin" },
+        L1: { side: "white", pieceType: "masterOfArms" },
+        F12: { side: "black", pieceType: "champion" },
         A12: { side: "black", pieceType: "tower" },
       },
     };
 
     const expected = [
-      "*T* --- --- --- --- *A* --- --- --- --- --- ---",
+      "*T* --- --- --- --- *2* --- --- --- --- --- ---",
       "--- --- --- --- --- --- --- --- --- --- --- ---",
       "--- --- --- --- --- --- --- --- --- --- --- ---",
       "--- --- --- --- --- --- --- --- --- --- --- ---",
@@ -166,7 +178,7 @@ describe("renderPositionBlock (ruleset PRIMARY:1.1)", () => {
   });
 });
 
-describe("parsePositionBlock (ruleset PRIMARY:1.1)", () => {
+describe("parsePositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
   /** A full-army position block, rendered from two deterministic autoFill armies. */
   function fullBoardBlock(): { board: BoardState; block: string } {
     const white = completeArmy("white", 900);

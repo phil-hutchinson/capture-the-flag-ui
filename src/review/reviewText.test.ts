@@ -279,7 +279,9 @@ describe("describeRecordedResult", () => {
       result: "1/2-1/2",
       resultReason: "Inactivity",
     });
-    expect(message).toBe("The record says: The game is a draw — by inactivity.");
+    expect(message).toBe(
+      "The record says: The game is a draw — by inactivity.",
+    );
   });
 
   it("quotes an unrecognized reason verbatim instead of dropping it", () => {
@@ -347,7 +349,7 @@ describe("describeMove", () => {
   it("names a quiet move by color, piece and squares, with no removal clause", () => {
     const input: MoveAnnouncementInput = {
       side: "white",
-      mover: "infantry",
+      mover: "footSoldier",
       from,
       to,
       fromRemoved: false,
@@ -355,13 +357,13 @@ describe("describeMove", () => {
       defender: null,
       defenderSide: null,
     };
-    expect(describeMove(input)).toBe("Red Infantry moved from A4 to A5.");
+    expect(describeMove(input)).toBe("Red Foot Soldier moved from A4 to A5.");
   });
 
   it("names an attacker-wins move: the defender falls, the attacker advances", () => {
     const input: MoveAnnouncementInput = {
       side: "white",
-      mover: "sapper",
+      mover: "champion",
       from,
       to,
       fromRemoved: false,
@@ -370,7 +372,7 @@ describe("describeMove", () => {
       defenderSide: "black",
     };
     expect(describeMove(input)).toBe(
-      "Red Sapper attacked Blue Tower from A4 to A5: Blue Tower falls, Red Sapper advances.",
+      "Red Champion attacked Blue Tower from A4 to A5: Blue Tower falls, Red Champion advances.",
     );
   });
 
@@ -393,7 +395,7 @@ describe("describeMove", () => {
   it("names a mutual-loss move: both fall", () => {
     const input: MoveAnnouncementInput = {
       side: "white",
-      mover: "assassin",
+      mover: "masterOfArms",
       from,
       to,
       fromRemoved: true,
@@ -402,14 +404,14 @@ describe("describeMove", () => {
       defenderSide: "black",
     };
     expect(describeMove(input)).toBe(
-      "Red Assassin attacked Blue Champion from A4 to A5: both fall.",
+      "Red Master-of-Arms attacked Blue Champion from A4 to A5: both fall.",
     );
   });
 
   it("names the defender's actual side, even when it matches the mover's own (a friendly-piece capture the record allows)", () => {
     const input: MoveAnnouncementInput = {
       side: "white",
-      mover: "sapper",
+      mover: "champion",
       from,
       to,
       fromRemoved: false,
@@ -418,7 +420,7 @@ describe("describeMove", () => {
       defenderSide: "white",
     };
     expect(describeMove(input)).toBe(
-      "Red Sapper attacked Red Tower from A4 to A5: Red Tower falls, Red Sapper advances.",
+      "Red Champion attacked Red Tower from A4 to A5: Red Tower falls, Red Champion advances.",
     );
   });
 
@@ -426,7 +428,7 @@ describe("describeMove", () => {
     const inputs: readonly MoveAnnouncementInput[] = [
       {
         side: "white",
-        mover: "infantry",
+        mover: "footSoldier",
         from,
         to,
         fromRemoved: false,
@@ -436,7 +438,7 @@ describe("describeMove", () => {
       },
       {
         side: "black",
-        mover: "sapper",
+        mover: "champion",
         from,
         to,
         fromRemoved: false,

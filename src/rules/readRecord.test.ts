@@ -15,13 +15,13 @@ const GAME_STATE: InitialGameState = {
 const POSITION_BLOCK = renderPositionBlock(GAME_STATE);
 
 describe("readRecord - version dispatch", () => {
-  it("delegates a PRIMARY:1.1 record to the v1 reader", () => {
-    const text = ['[Ruleset "PRIMARY:1.1"]', POSITION_BLOCK].join("\n\n");
+  it("delegates a 1.2:PRE-RELEASE record to the v1 reader", () => {
+    const text = ['[Ruleset "1.2:PRE-RELEASE"]', POSITION_BLOCK].join("\n\n");
 
     const result = readRecord(text);
     expect(result.kind).toBe("parsed");
     if (result.kind === "parsed") {
-      expect(result.record.tags.ruleset).toBe("PRIMARY:1.1");
+      expect(result.record.tags.ruleset).toBe("1.2:PRE-RELEASE");
       expect(result.record.positions).toEqual([GAME_STATE.board]);
       expect(result.record.moves).toEqual([]);
     }
@@ -57,9 +57,10 @@ describe("readRecord - version dispatch", () => {
   });
 
   it("surfaces the delegated reader's own structural errors", () => {
-    const text = ['[Ruleset "PRIMARY:1.1"]', "not a valid position block"].join(
-      "\n\n",
-    );
+    const text = [
+      '[Ruleset "1.2:PRE-RELEASE"]',
+      "not a valid position block",
+    ].join("\n\n");
 
     const result = readRecord(text);
     expect(result.kind).toBe("error");
@@ -72,9 +73,11 @@ describe("readRecord - version dispatch", () => {
     // A move from an empty square: the file parses cleanly (it is
     // structurally a valid record) but cannot be replayed to the end - so
     // reading it is a rejection, not a part-loaded game.
-    const text = ['[Ruleset "PRIMARY:1.1"]', POSITION_BLOCK, "1. B1-B2"].join(
-      "\n\n",
-    );
+    const text = [
+      '[Ruleset "1.2:PRE-RELEASE"]',
+      POSITION_BLOCK,
+      "1. B1-B2",
+    ].join("\n\n");
 
     const result = readRecord(text);
     expect(result.kind).toBe("error");
