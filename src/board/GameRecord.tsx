@@ -11,10 +11,7 @@
 // recorded-game replay will build on; it does not implement replay itself.
 
 import { useEffect, useMemo } from "react";
-import {
-  renderGameRecord,
-  type PlayState,
-} from "../rules/primary/v1/play.ts";
+import { renderGameRecord, type PlayState } from "../rules/primary/v1/play.ts";
 import "./GameRecord.css";
 
 export interface GameRecordProps {

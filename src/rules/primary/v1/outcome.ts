@@ -37,10 +37,7 @@ export const INACTIVITY_LIMIT = 50;
  * parse a sentence to know why the game ended.
  */
 export type GameEndReason =
-  | "flagCapture"
-  | "noLegalMove"
-  | "inactivity"
-  | "agreement";
+  "flagCapture" | "noLegalMove" | "inactivity" | "agreement";
 
 /**
  * Whether - and how - a game has ended: still `"ongoing"`, a `"win"` for one

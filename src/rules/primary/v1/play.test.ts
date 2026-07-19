@@ -392,7 +392,7 @@ describe("applyMove - the shared inactivity counter (§5.3)", () => {
     expect(next.inactivityCounter).toBe(0);
   });
 
-  it("a complete sacrifice (attacker loses, nothing removed) still raises the counter by 1", () => {
+  it("a complete sacrifice (attacker loses, the attacker is removed) resets the counter to 0", () => {
     const initial = initialGameState([
       ["D5", "white", "militia"], // rank 6
       ["D4", "black", "champion"], // rank 2
@@ -409,7 +409,7 @@ describe("applyMove - the shared inactivity counter (§5.3)", () => {
     );
 
     expect(outcome).toMatchObject({ result: "attackerLoses", capture: false });
-    expect(next.inactivityCounter).toBe(8);
+    expect(next.inactivityCounter).toBe(0);
   });
 
   it("a mutual loss (pieces removed) resets the counter to 0", () => {

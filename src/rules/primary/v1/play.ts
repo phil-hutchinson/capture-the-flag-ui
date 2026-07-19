@@ -201,12 +201,12 @@ export function applyMove(
   }
 
   // The single shared inactivity counter (rules.md §5.3): a plain move never
-  // removes a piece, so it always raises the counter; an attack raises it
-  // only when nothing was removed (`attackerLoses`, the only `capture:
-  // false` result) and resets it to 0 whenever a piece was removed
-  // (`attackerWins` or `mutualLoss` - including a Tower trade, which is
-  // always a `mutualLoss`).
-  const removedAPiece = outcome.kind === "attack" && outcome.capture;
+  // removes a piece, so it always raises the counter; an attack always
+  // removes at least one piece - the attacker, the defender, or both - so it
+  // always resets the counter to 0 (including a complete sacrifice, where
+  // only the attacker falls, and a Tower trade, which is always a
+  // `mutualLoss`).
+  const removedAPiece = outcome.kind === "attack";
   const inactivityCounter = removedAPiece ? 0 : state.inactivityCounter + 1;
 
   const nextSideToMove = otherSide(state.sideToMove);

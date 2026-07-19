@@ -106,7 +106,11 @@ function isImmobile(pieceType: PieceTypeId): boolean {
  * diagonal), judged at `origin` before it moves (§4.2). An unencumbered piece
  * additionally offers a two-square move/attack in each orthogonal direction.
  */
-function isUnencumbered(board: BoardState, origin: Square, side: Side): boolean {
+function isUnencumbered(
+  board: BoardState,
+  origin: Square,
+  side: Side,
+): boolean {
   for (const { dc, dr } of SURROUNDING_DIRECTIONS) {
     const neighbor = step(origin, dc, dr, 1);
     if (neighbor === null) {

@@ -210,7 +210,7 @@ export interface PlacementProgress {
   readonly total: number;
 }
 
-/** Placement progress as `{ placed, total }`, e.g. for a "42 / 48 placed" readout. */
+/** Placement progress as `{ placed, total }`, e.g. for a "12 / 25 placed" readout. */
 export function progress(state: PlacementState): PlacementProgress {
   return { placed: placedCount(state), total: ARMY_SIZE };
 }

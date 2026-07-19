@@ -195,9 +195,9 @@ describe("countdown warning over a real game", () => {
       // the warning threshold (10 remaining).
       const state = stallWithCaptureFor(CAPTURE_PLY + 40);
       expect(state.inactivityCounter).toBe(40);
-      expect(
-        computeCountdownWarnings(state).inactivity?.movesRemaining,
-      ).toBe(10);
+      expect(computeCountdownWarnings(state).inactivity?.movesRemaining).toBe(
+        10,
+      );
     });
 
     it("eventually ends in a shared inactivity draw, counted from the reset", () => {

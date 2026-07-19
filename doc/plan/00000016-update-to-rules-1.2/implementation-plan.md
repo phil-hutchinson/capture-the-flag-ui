@@ -147,7 +147,7 @@ rewrote `movement.test.ts` using only rank-stable fixtures
 Deviation from the plan: the plan's "combat, endings, and the session/
 announcement layers already consume `legalDestinations`/`legalAttacks` by
 shape, so they are unaffected" turned out to be true only for the functions'
-*shape*, not for downstream tests with hard-coded exact-destination
+_shape_, not for downstream tests with hard-coded exact-destination
 assertions — `playSession.test.ts` and `playAnnouncement.test.ts` had several
 fixtures (open-field pieces with no adjacent enemy) whose expected destination
 counts/sets implicitly assumed the old single-square-only baseline and a
@@ -172,7 +172,7 @@ rewrite `movement.test.ts` to match:
   `legalAttacks` keep their existing shapes (arrays of `Square`, kept disjoint:
   empty squares are destinations, enemy squares are attack targets).
 - **Unencumbered two-square move:** add the notion that a piece is
-  *unencumbered* when no enemy piece occupies any of its eight surrounding
+  _unencumbered_ when no enemy piece occupies any of its eight surrounding
   squares (orthogonal or diagonal), judged at the piece's current square. An
   unencumbered mobile piece additionally offers, in each of the four
   orthogonal directions, the square **two** away — as a destination if that far
@@ -318,6 +318,14 @@ so `RESULT_REASON` still has a recognized-reason case to exercise. `npm run
 typecheck`, `npm run lint`, and `npm run test` (418 tests, full suite) are all
 green.
 
+Peer-review correction (owner decision): this step's wording above narrowed
+the reset rule to "a winning attack, a mutual loss, or a tower trade,"
+missing that a complete sacrifice (`attackerLoses`) also removes a piece (the
+attacker) and must reset the counter too. Per rules §5.3/§4.3 and story.md
+scope item 5, the counter resets on **any** attack, since every 1.2 attack
+removes at least one piece. `play.ts` and `play.test.ts` were corrected
+accordingly (peer review comments #1/#2).
+
 Rewrite the game-end layer to rules §5 and remove the machinery that only
 served the deleted conditions:
 
@@ -401,7 +409,7 @@ named for piece-id/tag literals (`pieces.test.ts`, `gameState.test.ts`,
 `reviewSession.test.ts`, `reviewText.test.ts`) onto 1.2 piece ids (generally
 `infantry`->`footSoldier`, `lordMarshal`->`masterOfArms`, and retired ids
 `sapper`/`assassin`/`skirmisher` swapped for an arbitrary valid 1.2 id such as
-`champion`/`knight` where the test only needed *some* mobile/ranked piece),
+`champion`/`knight` where the test only needed _some_ mobile/ranked piece),
 updating rank-dependent comments (`infantry`'s old rank 4 -> `footSoldier`'s
 rank 5) and display-name strings to match. Deleted the four `PRIMARY:1.1`
 sample record files and `readRecord.samples.test.ts` per the plan; left
@@ -423,7 +431,7 @@ Swap the roster and everything the roster touches. This is the step where the
 
 - **`src/rules/primary/v1/pieces.ts`:** replace the catalog with the 1.2
   roster. `PieceTypeId` = `masterOfArms | champion | knight | halberdier |
-  footSoldier | militia | tower | flag`. Ranks: Master-of-Arms 1, Champion 2,
+footSoldier | militia | tower | flag`. Ranks: Master-of-Arms 1, Champion 2,
   Knight 3, Halberdier 4, Foot Soldier 5, Militia 6; Tower/Flag rank `null`.
   Symbols: `1`–`6` accordingly, `T`, `F`. `quantityPerSide`: 3 for each ranked
   type, 6 Towers, 1 Flag → `ARMY_SIZE` computes to **25**. Simplify `RankCode`
@@ -722,7 +730,7 @@ change needed. Found and fixed one real regression in
 `PlacementStatus.tsx`: the new Tower-adjacency warning
 (`towerAdjacencyBlocked`) was a `role="status"` `<p>` that only mounted into
 the DOM when the warning became true, which risks assistive technology
-missing the *first* announcement (the DOM node, including its live-region
+missing the _first_ announcement (the DOM node, including its live-region
 role, appears at the same instant as the text it should announce) - exactly
 the failure mode `PlayWarnings.tsx`'s own header comment (Step 4) documents
 and deliberately avoids by keeping its wrapper permanently mounted. Restructured
@@ -795,7 +803,7 @@ where among your squares to place a 25-piece army, since placement is now
 sparse); the "each rank with its own strengths" phrase (dropped — 1.2 removed
 per-rank special abilities, all ranked pieces move and fight alike); the
 win/lose/draw paragraph (dropped the removed Unbreachable Flag win and the
-removed per-player inactivity *loss*/progress-draw wording, replaced with the
+removed per-player inactivity _loss_/progress-draw wording, replaced with the
 single shared 50-move-without-a-capture inactivity draw and its warning); and
 "The rules" section's claim that the app "keeps older rule versions around so
 that games recorded under an earlier ruleset can always be replayed

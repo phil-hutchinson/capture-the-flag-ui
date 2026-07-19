@@ -103,9 +103,7 @@ describe("computeCountdownWarnings", () => {
       ...ongoingState(),
       inactivityCounter: INACTIVITY_LIMIT - 1,
     };
-    expect(computeCountdownWarnings(state).inactivity?.movesRemaining).toBe(
-      1,
-    );
+    expect(computeCountdownWarnings(state).inactivity?.movesRemaining).toBe(1);
   });
 
   it("shows no warning at all once the game is over, even with the counter deep in range", () => {

@@ -53,10 +53,7 @@ import type {
   GameEndReason,
   GameOutcome,
 } from "../rules/primary/v1/outcome.ts";
-import {
-  PIECE_CATALOG,
-  type PieceTypeId,
-} from "../rules/primary/v1/pieces.ts";
+import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v1/pieces.ts";
 import type { ReadRecordError } from "../rules/readRecord.ts";
 import { describeResult } from "../board/playAnnouncement.ts";
 import { sideColorName } from "../board/sideNames.ts";

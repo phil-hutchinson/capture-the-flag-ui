@@ -113,8 +113,7 @@ Soldier"), and use the word "move" (never "ply").
    rules) are removed.
 5. **Endings.** Flag capture wins; a player with no legal move loses; a
    single shared inactivity counter rises by one on every move that removes
-   no piece, resets to zero on any removal, and ends the game as a draw at
-   50. Draw by agreement is unchanged. The Unbreachable Flag win, the
+   no piece, resets to zero on any removal, and ends the game as a draw at 50. Draw by agreement is unchanged. The Unbreachable Flag win, the
    per-player inactivity loss and the progress counter are removed, along
    with the reachability machinery that existed to serve them.
 6. **The rules module becomes `v1`.** The folder rename, with imports,

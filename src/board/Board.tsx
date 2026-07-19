@@ -16,10 +16,7 @@ import {
   type Side,
   type Square,
 } from "../rules/primary/v1/board.ts";
-import {
-  pieceAt,
-  type PlacementState,
-} from "../rules/primary/v1/placement.ts";
+import { pieceAt, type PlacementState } from "../rules/primary/v1/placement.ts";
 import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
 import { visibleColumns, visibleRows, type RowBand } from "./boardView.ts";
 import "./Board.css";

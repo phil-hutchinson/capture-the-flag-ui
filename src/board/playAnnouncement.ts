@@ -34,10 +34,10 @@
 // This module also exposes `describeResult`, a small standalone function
 // rendering the result-and-reason sentence directly from a `GameOutcome` -
 // used above for a game-ending ply, and by `App.tsx` (Step 9) to announce an
-// ending detected with **no** ply at all (a §6.2 win already holding at the
-// Phase 2 reveal) - and the draw-offer flow's three transition sentences
-// (offer, decline, accept - rules.md §6.6), for `App.tsx` to push into the
-// same live region alongside the ply narrative.
+// ending detected with **no** ply at all (the side to move having no legal
+// move already holding at the Phase 2 reveal) - and the draw-offer flow's
+// three transition sentences (offer, decline, accept - rules.md §5.4), for
+// `App.tsx` to push into the same live region alongside the ply narrative.
 //
 // Whichever of the above just happened, whose-turn (and now whose-victory)
 // wording is appended in exactly one place - this remains the *only* spot
@@ -137,14 +137,14 @@ function drawReasonClause(reason: GameEndReason): string {
 /**
  * The player-facing result-and-reason sentence for a finished `GameOutcome`
  * (e.g. "Red wins - Flag captured." / "Blue wins - Red ran out of moves
- * without attacking." / "The game is a draw - No progress."). Returns the
+ * without attacking." / "The game is a draw - by inactivity."). Returns the
  * empty string for `{ kind: "ongoing" }` (not itself an ending to announce);
  * callers only call this once `result.kind !== "ongoing"`. Standalone from
  * `describeActivation` so it can render the same wording both as the
  * trailing clause of a game-ending ply's announcement and on its own - for
- * an ending detected with no ply (a §6.2 win already holding at the Phase 2
- * reveal - see `App.tsx`, Step 9) and for accepting a draw offer (see
- * `describeDrawAccepted` below).
+ * an ending detected with no ply (the side to move having no legal move
+ * already holding at the Phase 2 reveal - see `App.tsx`, Step 9) and for
+ * accepting a draw offer (see `describeDrawAccepted` below).
  */
 export function describeResult(result: GameOutcome): string {
   if (result.kind === "win") {

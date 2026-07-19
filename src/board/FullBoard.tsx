@@ -55,10 +55,7 @@ import {
   type Side,
   type Square,
 } from "../rules/primary/v1/board.ts";
-import type {
-  BoardState,
-  PlacedPiece,
-} from "../rules/primary/v1/gameState.ts";
+import type { BoardState, PlacedPiece } from "../rules/primary/v1/gameState.ts";
 import { PIECE_CATALOG } from "../rules/primary/v1/pieces.ts";
 import {
   AccessibleGrid,
