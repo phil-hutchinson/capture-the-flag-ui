@@ -272,24 +272,6 @@ describe("describeActivation - combat outcomes", () => {
     );
   });
 
-  it("mentions Archer support when it flips the result to mutual loss", () => {
-    const session = startSession(
-      initialGameState([
-        ["D5", "white", "lordMarshal"],
-        ["D4", "black", "halberdier"],
-        ["D3", "black", "archer"],
-        ["A1", "white", "flag"],
-        ["L12", "black", "flag"],
-      ]),
-    );
-    const selected = activateSquare(session, sq("D", 5));
-    const resolved = activateSquare(selected, sq("D", 4));
-
-    expect(describeActivation(selected, resolved, sq("D", 4))).toBe(
-      "Red Lord Marshal attacked Blue Halberdier at D4: both fall. Archer support turns the attack back. Blue to move.",
-    );
-  });
-
   it("announces a Black attack handing the turn back to Red", () => {
     const session = startSession(
       initialGameState([

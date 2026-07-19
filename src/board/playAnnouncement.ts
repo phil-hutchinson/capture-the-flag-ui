@@ -231,10 +231,7 @@ function pieceDescription(session: PlaySession, square: Square): string {
  * the game (story 00000006 - e.g. a Flag capture). Reads the combatants off
  * `outcome` itself, not off either board, since the fallen piece (and, on an
  * attacker-wins result, the attacker's *origin*) can no longer be looked up
- * after the ply applied. Mentions Archer support only when it fired (it
- * always accompanies a `mutualLoss` result - see `resolveCombat`), as a short
- * trailing clause, so the primary who-fought/who-fell sentence is not
- * overloaded.
+ * after the ply applied.
  */
 function describeAttack(
   outcome: Extract<PlyOutcome, { kind: "attack" }>,
@@ -243,9 +240,6 @@ function describeAttack(
   const attackerName = describePiece(outcome.attacker);
   const defenderName = describePiece(outcome.defender);
   const squareName = squareKey(outcome.square);
-  const supportClause = outcome.archerSupport
-    ? " Archer support turns the attack back."
-    : "";
 
   switch (outcome.result) {
     case "attackerWins":
@@ -253,7 +247,7 @@ function describeAttack(
     case "attackerLoses":
       return `${attackerName} attacked ${defenderName} at ${squareName} and falls; ${defenderName} holds. ${trailingClause}`;
     case "mutualLoss":
-      return `${attackerName} attacked ${defenderName} at ${squareName}: both fall.${supportClause} ${trailingClause}`;
+      return `${attackerName} attacked ${defenderName} at ${squareName}: both fall. ${trailingClause}`;
     default:
       return outcome.result satisfies never;
   }

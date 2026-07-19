@@ -17,44 +17,44 @@ function board(
 
 const D5: Square = { column: "D", row: 5 };
 const D6: Square = { column: "D", row: 6 };
-const D7: Square = { column: "D", row: 7 };
-const D8: Square = { column: "D", row: 8 };
 
-describe("resolveCombat (ruleset PRIMARY:1.1, base rank table & non-Archer special cases)", () => {
+// Fixtures below use only pieces whose id and rank are identical in both the
+// 1.1 and 1.2 rosters (champion rank 2, knight rank 3, militia rank 6, tower,
+// flag) - see the implementation plan's cross-step test constraint - since
+// the roster swap itself is Step 5.
+
+describe("resolveCombat (ruleset 1.2, base rank table)", () => {
   it("has the lower-numbered attacker win against a higher-numbered defender", () => {
     const state = board([
       ["D5", "white", "champion"], // rank 2
-      ["D6", "black", "infantry"], // rank 4
+      ["D6", "black", "militia"], // rank 6
     ]);
     const outcome = resolveCombat(state, D5, D6);
     expect(outcome.result).toBe("attackerWins");
     expect(outcome.capture).toBe(true);
-    expect(outcome.archerSupport).toBe(false);
     expect(outcome.attacker).toEqual({ side: "white", pieceType: "champion" });
-    expect(outcome.defender).toEqual({ side: "black", pieceType: "infantry" });
+    expect(outcome.defender).toEqual({ side: "black", pieceType: "militia" });
     expect(outcome.square).toEqual(D6);
   });
 
   it("has the higher-numbered attacker lose against a lower-numbered defender (a sacrifice)", () => {
     const state = board([
-      ["D5", "white", "infantry"], // rank 4
+      ["D5", "white", "militia"], // rank 6
       ["D6", "black", "champion"], // rank 2
     ]);
     const outcome = resolveCombat(state, D5, D6);
     expect(outcome.result).toBe("attackerLoses");
     expect(outcome.capture).toBe(false);
-    expect(outcome.archerSupport).toBe(false);
   });
 
-  it("is mutual loss between two equal-rank pieces (rank 4)", () => {
+  it("is mutual loss between two equal-rank pieces (rank 3)", () => {
     const state = board([
-      ["D5", "white", "infantry"],
-      ["D6", "black", "infantry"],
+      ["D5", "white", "knight"],
+      ["D6", "black", "knight"],
     ]);
     const outcome = resolveCombat(state, D5, D6);
     expect(outcome.result).toBe("mutualLoss");
     expect(outcome.capture).toBe(true);
-    expect(outcome.archerSupport).toBe(false);
   });
 
   it("is mutual loss between two equal-rank pieces (rank 6)", () => {
@@ -66,171 +66,42 @@ describe("resolveCombat (ruleset PRIMARY:1.1, base rank table & non-Archer speci
     expect(outcome.result).toBe("mutualLoss");
     expect(outcome.capture).toBe(true);
   });
+});
 
-  it("has a Knight charge (distance 2) against a Knight win outright", () => {
+describe("resolveCombat (ruleset 1.2, Tower trade and Flag capture)", () => {
+  it("has any piece attacking a Tower trade with it (mutual loss)", () => {
     const state = board([
-      ["D5", "white", "knight"],
-      ["D7", "black", "knight"],
-    ]);
-    const outcome = resolveCombat(state, D5, D7);
-    expect(outcome.result).toBe("attackerWins");
-    expect(outcome.capture).toBe(true);
-  });
-
-  it("has a Knight charge (distance 3) against a Knight win outright", () => {
-    const state = board([
-      ["D5", "white", "knight"],
-      ["D8", "black", "knight"],
-    ]);
-    const outcome = resolveCombat(state, D5, D8);
-    expect(outcome.result).toBe("attackerWins");
-  });
-
-  it("is mutual loss for an adjacent (non-charge) Knight-vs-Knight attack", () => {
-    const state = board([
-      ["D5", "white", "knight"],
-      ["D6", "black", "knight"],
+      ["D5", "white", "militia"], // rank 6, weakest ranked piece
+      ["D6", "black", "tower"],
     ]);
     const outcome = resolveCombat(state, D5, D6);
     expect(outcome.result).toBe("mutualLoss");
-  });
-
-  it("has an adjacent Knight attack on a Halberdier win normally (rank 3 over rank 5)", () => {
-    const state = board([
-      ["D5", "white", "knight"],
-      ["D6", "black", "halberdier"],
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
     expect(outcome.capture).toBe(true);
   });
 
-  it("has an attacking Assassin win against a numbered piece", () => {
+  it("has a strong piece attacking a Tower still trade with it (mutual loss, no rank privilege)", () => {
     const state = board([
-      ["D5", "white", "assassin"],
-      ["D6", "black", "infantry"],
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
-  });
-
-  it("has an attacking Assassin win against a stronger (lower-ranked) piece", () => {
-    const state = board([
-      ["D5", "white", "assassin"],
-      ["D6", "black", "lordMarshal"], // rank 1
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
-  });
-
-  it("has an attacking Assassin win against another Assassin", () => {
-    const state = board([
-      ["D5", "white", "assassin"],
-      ["D6", "black", "assassin"],
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
-  });
-
-  it("has an attacking Assassin lose against a Tower (the guaranteed win does not extend to Towers)", () => {
-    const state = board([
-      ["D5", "white", "assassin"],
+      ["D5", "white", "champion"], // rank 2, strongest available fixture
       ["D6", "black", "tower"],
     ]);
     const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerLoses");
-    expect(outcome.capture).toBe(false);
-  });
-
-  it("has a numbered piece attacking an Assassin win (the Assassin always loses when attacked)", () => {
-    const state = board([
-      ["D5", "white", "infantry"],
-      ["D6", "black", "assassin"],
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.result).toBe("mutualLoss");
     expect(outcome.capture).toBe(true);
   });
 
-  it("has a Sapper attacking an Assassin win (the Assassin always loses when attacked)", () => {
-    const state = board([
-      ["D5", "white", "sapper"],
-      ["D6", "black", "assassin"],
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
-  });
-
-  it("has a Sapper destroy a Tower (attacker wins)", () => {
-    const state = board([
-      ["D5", "white", "sapper"],
-      ["D6", "black", "tower"],
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
-    expect(outcome.capture).toBe(true);
-  });
-
-  it("has a non-Sapper (Militia) attacking a Tower lose (a complete sacrifice, Tower stands)", () => {
+  it("has any piece attacking the Flag win outright, no rank comparison", () => {
     const state = board([
       ["D5", "white", "militia"],
-      ["D6", "black", "tower"],
+      ["D6", "black", "flag"],
     ]);
     const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerLoses");
-    expect(outcome.capture).toBe(false);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.capture).toBe(true);
   });
 
-  it("has a non-Sapper (Champion) attacking a Tower lose (a complete sacrifice, Tower stands)", () => {
+  it("has a strong piece attacking the Flag win outright too", () => {
     const state = board([
       ["D5", "white", "champion"],
-      ["D6", "black", "tower"],
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerLoses");
-    expect(outcome.capture).toBe(false);
-  });
-
-  it("has a Militia attacking a Flag win outright, no rank comparison", () => {
-    const state = board([
-      ["D5", "white", "militia"],
-      ["D6", "black", "flag"],
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
-    expect(outcome.capture).toBe(true);
-    expect(outcome.archerSupport).toBe(false);
-  });
-
-  it("has an Assassin attacking a Flag win outright", () => {
-    const state = board([
-      ["D5", "white", "assassin"],
-      ["D6", "black", "flag"],
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
-    expect(outcome.capture).toBe(true);
-  });
-
-  it("has a charging Knight attacking a Flag win outright, adjacent and at distance", () => {
-    const adjacent = board([
-      ["D5", "white", "knight"],
-      ["D6", "black", "flag"],
-    ]);
-    expect(resolveCombat(adjacent, D5, D6).result).toBe("attackerWins");
-
-    const charging = board([
-      ["D5", "white", "knight"],
-      ["D7", "black", "flag"],
-    ]);
-    const outcome = resolveCombat(charging, D5, D7);
-    expect(outcome.result).toBe("attackerWins");
-    expect(outcome.capture).toBe(true);
-  });
-
-  it("has a Sapper attacking a Flag win outright", () => {
-    const state = board([
-      ["D5", "white", "sapper"],
       ["D6", "black", "flag"],
     ]);
     const outcome = resolveCombat(state, D5, D6);
@@ -239,166 +110,130 @@ describe("resolveCombat (ruleset PRIMARY:1.1, base rank table & non-Archer speci
   });
 });
 
-const C4: Square = { column: "C", row: 4 };
-const C5: Square = { column: "C", row: 5 }; // one step beyond, C6, is a lake square
-const D3: Square = { column: "D", row: 3 };
-const D4: Square = { column: "D", row: 4 };
-const D11: Square = { column: "D", row: 11 };
-const D12: Square = { column: "D", row: 12 };
-
-describe("resolveCombat (ruleset PRIMARY:1.1, Archer defensive support)", () => {
-  it("flips an ordinary 1-square attacker-wins result to mutual loss when a friendly Archer stands directly behind the defender", () => {
+describe("resolveCombat (ruleset 1.2, formation bonus)", () => {
+  it("turns a one-rank-weaker attacker's clean loss into a mutual loss when it has an adjacent equal-rank ally", () => {
     const state = board([
-      ["D5", "white", "champion"], // rank 2
-      ["D6", "black", "infantry"], // rank 4, would lose outright
-      ["D7", "black", "archer"], // one square beyond D6 on the attack line
+      ["D5", "white", "knight"], // rank 3, one rank weaker than the defender
+      ["D6", "black", "champion"], // rank 2
+      ["C5", "white", "knight"], // adjacent (diagonal) ally, equal rank to the attacker
     ]);
     const outcome = resolveCombat(state, D5, D6);
     expect(outcome.result).toBe("mutualLoss");
     expect(outcome.capture).toBe(true);
-    expect(outcome.archerSupport).toBe(true);
   });
 
-  it("flips a Knight charge (distance 2) attacker-wins result to mutual loss with the same trigger-square geometry", () => {
+  it("without the ally, the same one-rank-weaker attacker simply loses", () => {
     const state = board([
-      ["D4", "white", "knight"], // rank 3
-      ["D6", "black", "halberdier"], // rank 5, would lose outright
-      ["D7", "black", "archer"], // one square beyond D6, continuing the charge's direction of travel
-    ]);
-    const outcome = resolveCombat(state, D4, D6);
-    expect(outcome.result).toBe("mutualLoss");
-    expect(outcome.archerSupport).toBe(true);
-  });
-
-  it("flips a Skirmisher rush (distance 3) attacker-wins result to mutual loss with the same trigger-square geometry", () => {
-    const state = board([
-      ["D3", "white", "skirmisher"], // rank 7
-      ["D6", "black", "sapper"], // rank 9, would lose outright
-      ["D7", "black", "archer"], // one square beyond D6, continuing the rush's direction of travel
-    ]);
-    const outcome = resolveCombat(state, D3, D6);
-    expect(outcome.result).toBe("mutualLoss");
-    expect(outcome.archerSupport).toBe(true);
-  });
-
-  it("extends support to a supported Tower, trading it with the Sapper demolishing it", () => {
-    const state = board([
-      ["D5", "white", "sapper"],
-      ["D6", "black", "tower"],
-      ["D7", "black", "archer"],
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("mutualLoss");
-    expect(outcome.capture).toBe(true);
-    expect(outcome.archerSupport).toBe(true);
-  });
-
-  it("does not make an attacking Assassin immune to support (mutual loss, the Assassin also falls)", () => {
-    const state = board([
-      ["D5", "white", "assassin"],
-      ["D6", "black", "infantry"],
-      ["D7", "black", "archer"],
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("mutualLoss");
-    expect(outcome.archerSupport).toBe(true);
-  });
-
-  it("does not fire when the friendly Archer is adjacent to the defender but off the attack line", () => {
-    const state = board([
-      ["D5", "white", "champion"],
-      ["D6", "black", "infantry"],
-      ["C6", "black", "archer"], // adjacent to the defender, but not on the D5->D6 line
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
-    expect(outcome.archerSupport).toBe(false);
-  });
-
-  it("does not fire when the trigger square is off-board", () => {
-    const state = board([
-      ["D11", "white", "champion"],
-      ["D12", "black", "infantry"], // the board's last row - one step further doesn't exist
-    ]);
-    const outcome = resolveCombat(state, D11, D12);
-    expect(outcome.result).toBe("attackerWins");
-    expect(outcome.archerSupport).toBe(false);
-  });
-
-  it("does not fire when the trigger square is a lake", () => {
-    const state = board([
-      ["C4", "white", "champion"],
-      ["C5", "black", "infantry"], // one step beyond, C6, is a lake square
-    ]);
-    const outcome = resolveCombat(state, C4, C5);
-    expect(outcome.result).toBe("attackerWins");
-    expect(outcome.archerSupport).toBe(false);
-  });
-
-  it("does not fire when the piece on the trigger square is an Archer of the attacker's side", () => {
-    const state = board([
-      ["D5", "white", "champion"],
-      ["D6", "black", "infantry"],
-      ["D7", "white", "archer"], // the attacker's own Archer, not the defender's
-    ]);
-    const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
-    expect(outcome.archerSupport).toBe(false);
-  });
-
-  it("does not evaluate support when the base result is already attacker-loses", () => {
-    const state = board([
-      ["D5", "white", "infantry"], // rank 4
-      ["D6", "black", "champion"], // rank 2, wins outright
-      ["D7", "black", "archer"], // present, but support only helps a losing defense
+      ["D5", "white", "knight"], // rank 3
+      ["D6", "black", "champion"], // rank 2
     ]);
     const outcome = resolveCombat(state, D5, D6);
     expect(outcome.result).toBe("attackerLoses");
-    expect(outcome.archerSupport).toBe(false);
+    expect(outcome.capture).toBe(false);
   });
 
-  it("is never Archer-supported when the defender is a Flag - a Militia's ordinary attack still wins outright", () => {
+  it("turns a one-rank-weaker defender's clean capture into a mutual loss when it has an adjacent equal-rank ally", () => {
     const state = board([
-      ["D5", "white", "militia"],
-      ["D6", "black", "flag"],
-      ["D7", "black", "archer"], // one square beyond D6 on the attack line - never fires for a Flag
+      ["D5", "white", "champion"], // rank 2
+      ["D6", "black", "knight"], // rank 3, one rank weaker than the attacker
+      ["E6", "black", "knight"], // adjacent ally, equal rank to the defender
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("mutualLoss");
+    expect(outcome.capture).toBe(true);
+  });
+
+  it("without the ally, the same one-rank-weaker defender is simply captured", () => {
+    const state = board([
+      ["D5", "white", "champion"], // rank 2
+      ["D6", "black", "knight"], // rank 3
     ]);
     const outcome = resolveCombat(state, D5, D6);
     expect(outcome.result).toBe("attackerWins");
     expect(outcome.capture).toBe(true);
-    expect(outcome.archerSupport).toBe(false);
   });
 
-  it("is never Archer-supported when the defender is a Flag - a charging Knight still wins outright", () => {
+  it("judges the attacker's formation from its origin square, before the move - an ally beside only the defender's square does not count", () => {
+    // D7 is adjacent to the defender's square (D6) but not to the
+    // attacker's origin (D5) - since formation is judged for the attacker
+    // from `from`, this ally (of the attacker's own side) does not grant it.
     const state = board([
-      ["D4", "white", "knight"],
-      ["D6", "black", "flag"],
-      ["D7", "black", "archer"], // one square beyond D6, continuing the charge's direction of travel
-    ]);
-    const outcome = resolveCombat(state, D4, D6);
-    expect(outcome.result).toBe("attackerWins");
-    expect(outcome.archerSupport).toBe(false);
-  });
-
-  it("is never Archer-supported when the defender is a Flag - an attacking Assassin still wins outright", () => {
-    const state = board([
-      ["D5", "white", "assassin"],
-      ["D6", "black", "flag"],
-      ["D7", "black", "archer"],
+      ["D5", "white", "knight"], // rank 3, one rank weaker than the defender
+      ["D6", "black", "champion"], // rank 2
+      ["D7", "white", "knight"], // adjacent to D6, not to D5
     ]);
     const outcome = resolveCombat(state, D5, D6);
-    expect(outcome.result).toBe("attackerWins");
-    expect(outcome.archerSupport).toBe(false);
+    expect(outcome.result).toBe("attackerLoses");
   });
 
-  it("does not evaluate support when the base result is already mutual loss", () => {
+  it("does not apply formation when the rank gap is zero (equal rank stays a plain mutual loss)", () => {
     const state = board([
-      ["D5", "white", "infantry"],
-      ["D6", "black", "infantry"], // equal rank, mutual loss regardless
-      ["D7", "black", "archer"],
+      ["D5", "white", "militia"],
+      ["D6", "black", "militia"],
+      ["C5", "white", "militia"], // adjacent equal-rank ally to the attacker
     ]);
     const outcome = resolveCombat(state, D5, D6);
     expect(outcome.result).toBe("mutualLoss");
-    expect(outcome.archerSupport).toBe(false);
+  });
+
+  it("does not apply formation when the rank gap is two or more, even with an adjacent equal-rank ally", () => {
+    const state = board([
+      ["D5", "white", "champion"], // rank 2
+      ["D6", "black", "militia"], // rank 6, a four-rank gap
+      ["E6", "black", "militia"], // adjacent equal-rank ally to the defender
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerWins");
+    expect(outcome.capture).toBe(true);
+  });
+
+  it("does not apply formation to a Tower defender (the Tower trade always fires regardless of any adjacent piece)", () => {
+    const state = board([
+      ["D5", "white", "militia"],
+      ["D6", "black", "tower"],
+      ["E6", "black", "militia"], // adjacent to the Tower, irrelevant - Towers have no rank
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("mutualLoss");
+  });
+
+  it("does not apply formation to a Flag defender (capturing the Flag always wins outright)", () => {
+    const state = board([
+      ["D5", "white", "champion"], // one rank stronger than a knight would be, but irrelevant here
+      ["D6", "black", "flag"],
+      ["E6", "black", "knight"], // adjacent, irrelevant - the Flag has no rank
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerWins");
+  });
+
+  it("recognises an orthogonally adjacent ally, not only a diagonal one", () => {
+    const state = board([
+      ["D5", "white", "knight"], // rank 3
+      ["D6", "black", "champion"], // rank 2
+      ["D4", "white", "knight"], // orthogonally adjacent ally to the attacker's origin
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("mutualLoss");
+  });
+
+  it("does not grant formation from an ally two squares away", () => {
+    const state = board([
+      ["D5", "white", "knight"], // rank 3
+      ["D6", "black", "champion"], // rank 2
+      ["D3", "white", "knight"], // two squares from D5 - not adjacent
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerLoses");
+  });
+
+  it("does not grant formation from an enemy piece of equal rank standing adjacent", () => {
+    const state = board([
+      ["D5", "white", "knight"], // rank 3
+      ["D6", "black", "champion"], // rank 2
+      ["C5", "black", "knight"], // equal rank, but belongs to the defender's side
+    ]);
+    const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerLoses");
   });
 });

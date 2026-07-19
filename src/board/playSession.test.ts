@@ -489,7 +489,6 @@ describe("attacks - activating a target", () => {
       defender: { side: "black", pieceType: "militia" },
       square: sq("E", 5),
       capture: true,
-      archerSupport: false,
     });
   });
 

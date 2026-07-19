@@ -206,7 +206,6 @@ describe("applyMove", () => {
         defender: { side: "black", pieceType: "militia" },
         square: { column: "D", row: 4 },
         capture: true,
-        archerSupport: false,
       });
     });
 
@@ -238,7 +237,6 @@ describe("applyMove", () => {
         defender: { side: "black", pieceType: "champion" },
         square: { column: "D", row: 4 },
         capture: false,
-        archerSupport: false,
       });
     });
 
@@ -267,7 +265,6 @@ describe("applyMove", () => {
         defender: { side: "black", pieceType: "militia" },
         square: { column: "D", row: 4 },
         capture: true,
-        archerSupport: false,
       });
     });
 
@@ -439,7 +436,10 @@ describe("applyMove counters (§6.4/§6.5)", () => {
       { column: "D", row: 4 },
     );
 
-    expect(outcome).toMatchObject({ result: "attackerWins", capture: true });
+    // 1.2 combat: any attacker attacking a Tower trades with it (mutual
+    // loss), not just a Sapper - this fixture predates the Step 3 combat
+    // rewrite and is retitled/rewritten wholesale in Step 4.
+    expect(outcome).toMatchObject({ result: "mutualLoss", capture: true });
     expect(next.progressCounter).toBe(0);
   });
 

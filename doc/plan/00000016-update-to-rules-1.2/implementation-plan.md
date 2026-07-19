@@ -207,7 +207,31 @@ are never destinations.
 
 ### Step 3 — Combat: rank, equal-rank trade, tower trade, flag capture, formation bonus
 
-Status: pending
+Status: committed
+
+Notes: Rewrote `combat.ts` to the 1.2 rules (rank table with equal-rank
+mutual loss; a Tower defender is always a mutual loss for any attacker; a
+Flag defender always falls; the formation bonus - judged for the attacker
+from `from` and the defender from `to`, only at an exact one-rank gap, only
+for the weaker side - turns a clean win/loss into a mutual loss) and dropped
+`CombatOutcome.archerSupport` (no replacement field; the plan allowed
+dropping it). Rewrote `combat.test.ts` with rank-stable fixtures only
+(champion/knight/militia/tower/flag), per the cross-step constraint.
+`playAnnouncement.ts`'s `describeAttack` no longer reads `archerSupport`; a
+mutual-loss attack now simply announces "both fall." Deviations from the
+plan text (all mechanical fallout of removing the field/mechanic, needed to
+keep the build green, not scope expansion): (1) removed the
+`archerSupport: false` assertions from `play.test.ts` (3 places) and
+`playSession.test.ts` (1 place), whose `CombatOutcome` fixtures no longer
+have that field; (2) fixed one pre-existing `play.test.ts` assertion
+("treats a Sapper destroying a Tower as a capture") that hard-coded the old
+1.1 "Sapper alone destroys a Tower" result - now correctly `mutualLoss` under
+1.2's any-attacker Tower trade (that whole counters-model test file is
+rewritten wholesale in Step 4; this is a minimal value fix to keep it green
+in the meantime); (3) deleted `playAnnouncement.test.ts`'s "mentions Archer
+support" test, since the mechanic it exercised no longer exists. `npm run
+typecheck`, `npm run lint`, and `npm run test` (452 tests, full suite) are
+all green.
 
 Rewrite `src/rules/primary/v1/combat.ts` to the 1.2 combat rules and rewrite
 `combat.test.ts` to match:

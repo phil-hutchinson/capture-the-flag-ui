@@ -1,14 +1,16 @@
-// Combat resolution rule logic for ruleset PRIMARY:1.1, Phase 2 §4.3
-// (companion capture-the-flag repository, `doc/ruleset/rules.md`, the single
-// source of truth).
+// Combat resolution rule logic for ruleset 1.2, §4.3 (companion
+// capture-the-flag repository, `doc/ruleset/rules.md`, the single source of
+// truth).
 //
 // Attacking is moving a piece onto an enemy-occupied square (movement.ts's
-// `legalAttacks`, story 00000005 Step 3, decides *which* squares qualify).
-// This module resolves what happens once an attack is chosen: the rank
-// table, equal-rank mutual loss, every non-Archer special case (Knight
-// charge, Assassin, Sapper vs. Tower, Halberdier anti-charge), and the
-// Archer's defensive-support override, which can flip an "attacker wins"
-// base result into mutual loss.
+// `legalAttacks` decides *which* squares qualify). This module resolves what
+// happens once an attack is chosen: the rank table, equal-rank mutual loss,
+// the Tower trade (any attacker trades with a Tower), the Flag capture (an
+// outright win), and the **formation bonus** - a friendly piece of equal
+// rank standing beside a piece turns what would otherwise be a clean loss,
+// for the weaker side only, into a mutual loss. There are no other special
+// cases in 1.2: no charge, no rush, no defensive support, no Sapper-only
+// tower destruction, no Assassin rules.
 //
 // This module is pure rule logic - no React - and builds only on the board
 // geometry (board.ts), the piece catalog (pieces.ts), and `BoardState`
@@ -16,10 +18,11 @@
 
 import {
   COLUMNS,
-  isLake,
+  ROWS,
   squareKey,
   type Column,
   type Row,
+  type Side,
   type Square,
 } from "./board.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
@@ -29,11 +32,10 @@ import { PIECE_CATALOG } from "./pieces.ts";
 export type CombatResult = "attackerWins" | "attackerLoses" | "mutualLoss";
 
 /**
- * A fully resolved encounter: which pieces fought, where, what happened, and
- * whether Archer defensive support changed the outcome. Carries enough for
- * the UI announcement (story 00000005 Step 6) and for story 00000006's
- * game-end detection (flag capture, the inactivity/progress counters) to
- * consume without a rewrite.
+ * A fully resolved encounter: which pieces fought, where, and what happened.
+ * Carries enough for the UI announcement and for `outcome.ts`'s game-end
+ * detection (flag capture, the shared inactivity counter) to consume without
+ * a rewrite.
  */
 export interface CombatOutcome {
   /** Which of the three outcomes occurred. */
@@ -46,168 +48,88 @@ export interface CombatOutcome {
   readonly square: Square;
   /** True when the defender fell (attacker wins or mutual loss). */
   readonly capture: boolean;
-  /** True when Archer defensive support fired, flipping an attacker-wins
-   * base result into mutual loss (see `resolveCombat`). */
-  readonly archerSupport: boolean;
 }
 
 const COLUMN_INDEX: Readonly<Record<Column, number>> = Object.fromEntries(
   COLUMNS.map((column, index) => [column, index]),
 ) as Record<Column, number>;
 
-/**
- * The straight-line distance, in squares, between two colinear squares (the
- * count of squares between `from` and `to` along their shared row or
- * column). A legal attack's `from`/`to` are always colinear - see
- * `legalAttacks` (Step 3) - so only one of the two deltas is ever non-zero.
- */
-function distance(from: Square, to: Square): number {
-  const columnDelta = Math.abs(
-    COLUMN_INDEX[to.column] - COLUMN_INDEX[from.column],
-  );
-  const rowDelta = Math.abs(to.row - from.row);
-  return Math.max(columnDelta, rowDelta);
-}
+/** The eight squares surrounding a square (orthogonal and diagonal), used
+ * only to judge the formation bonus. */
+const SURROUNDING_DIRECTIONS: readonly { dc: number; dr: number }[] = [
+  { dc: -1, dr: -1 },
+  { dc: 0, dr: -1 },
+  { dc: 1, dr: -1 },
+  { dc: -1, dr: 0 },
+  { dc: 1, dr: 0 },
+  { dc: -1, dr: 1 },
+  { dc: 0, dr: 1 },
+  { dc: 1, dr: 1 },
+];
 
-/**
- * The non-Archer base result of `attacker` (on `from`) attacking `defender`
- * (on `to`), per rules.md §4.3's rank table and special cases:
- *
- * - Flag defending: always falls (attacker wins), whatever the attacker -
- *   §6.1's flag capture, combat's simplest case. No rank comparison, and
- *   (per `resolveCombat`) never Archer-supported.
- * - Assassin attacking: always wins, including Assassin-vs-Assassin -
- *   *except* attacking a Tower, where the Assassin is destroyed instead.
- *   (A Flag defender is handled above, before this case is reached, so an
- *   attacking Assassin also always wins against a Flag.)
- * - Assassin defending (against a non-Assassin attacker): the attacker
- *   always wins.
- * - Tower defending: only a Sapper destroys it (attacker wins); any other
- *   attacker is removed while the Tower stands (attacker loses).
- * - Knight vs. Knight: a charge (distance >= 2) wins outright for the
- *   attacker; an adjacent (distance 1) attack is mutual loss.
- * - Otherwise, two numbered pieces: the lower rank number wins; equal rank
- *   is mutual loss.
- */
-function baseResult(
-  attacker: PlacedPiece,
-  defender: PlacedPiece,
-  from: Square,
-  to: Square,
-): CombatResult {
-  if (defender.pieceType === "flag") {
-    return "attackerWins";
-  }
-
-  if (attacker.pieceType === "assassin") {
-    return defender.pieceType === "tower" ? "attackerLoses" : "attackerWins";
-  }
-
-  if (defender.pieceType === "assassin") {
-    return "attackerWins";
-  }
-
-  if (defender.pieceType === "tower") {
-    return attacker.pieceType === "sapper" ? "attackerWins" : "attackerLoses";
-  }
-
-  if (attacker.pieceType === "knight" && defender.pieceType === "knight") {
-    const isCharge = distance(from, to) >= 2;
-    return isCharge ? "attackerWins" : "mutualLoss";
-  }
-
-  const attackerRank = PIECE_CATALOG[attacker.pieceType].rankCode;
-  const defenderRank = PIECE_CATALOG[defender.pieceType].rankCode;
-  if (typeof attackerRank !== "number" || typeof defenderRank !== "number") {
-    // Every other case (Assassin, Tower, Flag) is handled above; a legal
-    // attack never reaches here with anything but two numbered pieces.
-    throw new Error(
-      `resolveCombat: unexpected rank codes for ${attacker.pieceType} (${String(attackerRank)}) vs ${defender.pieceType} (${String(defenderRank)}).`,
-    );
-  }
-  if (attackerRank < defenderRank) {
-    return "attackerWins";
-  }
-  if (attackerRank > defenderRank) {
-    return "attackerLoses";
-  }
-  return "mutualLoss";
-}
-
-/**
- * The square one step beyond `defenderSquare`, continuing in the direction
- * `dc`/`dr` (the attacker's unit direction of travel) - the Archer support
- * trigger square. Returns `null` if that square is off-board.
- */
-function squareBeyond(
-  defenderSquare: Square,
-  dc: number,
-  dr: number,
-): Square | null {
-  const columnIndex = COLUMN_INDEX[defenderSquare.column] + dc;
-  const row = defenderSquare.row + dr;
+/** The square one step from `square` in direction `dc`/`dr`, or `null` if off-board. */
+function step(square: Square, dc: number, dr: number): Square | null {
+  const columnIndex = COLUMN_INDEX[square.column] + dc;
+  const row = square.row + dr;
   if (columnIndex < 0 || columnIndex >= COLUMNS.length) {
     return null;
   }
-  if (row < 1 || row > 12) {
+  if (!ROWS.includes(row as Row)) {
     return null;
   }
   return { column: COLUMNS[columnIndex], row: row as Row };
 }
 
 /**
- * True if Archer defensive support fires for `defender` (on `to`) against
- * `attacker` (moving from `from`), per rules.md §4.3: a friendly piece
- * adjacent to an Archer loses a defensive combat, and the Archer stands
- * directly opposite the attacker - one square beyond the defender,
- * continuing the attacker's exact straight-line direction of travel (the
- * same geometry for a 1-square attack, a 2-3 square charge, or a rush).
- * Does not fire if that trigger square is off-board, a lake, or does not
- * hold an Archer belonging to the defender's side. Evaluated purely from
- * the defender's side, so it never fires for a piece that is itself
- * attacking (a bystander effect, not an Archer combat buff).
+ * True if a piece of `side` and `rank` standing on `square` has the
+ * **formation bonus** per rules.md §4.3: a friendly piece of equal rank
+ * occupies one of its eight surrounding squares (orthogonal or diagonal).
+ * Only ranked pieces (Tower and Flag have no rank) ever have the bonus.
  */
-function archerSupportFires(
+function hasFormationBonus(
   board: BoardState,
-  from: Square,
-  to: Square,
-  defender: PlacedPiece,
+  square: Square,
+  side: Side,
+  rank: number,
 ): boolean {
-  const dc = Math.sign(COLUMN_INDEX[to.column] - COLUMN_INDEX[from.column]);
-  const dr = Math.sign(to.row - from.row);
-  const triggerSquare = squareBeyond(to, dc, dr);
-  if (triggerSquare === null || isLake(triggerSquare)) {
-    return false;
+  for (const { dc, dr } of SURROUNDING_DIRECTIONS) {
+    const neighbor = step(square, dc, dr);
+    if (neighbor === null) {
+      continue;
+    }
+    const occupant = board[squareKey(neighbor)];
+    if (
+      occupant !== undefined &&
+      occupant.side === side &&
+      PIECE_CATALOG[occupant.pieceType].rankCode === rank
+    ) {
+      return true;
+    }
   }
-  const occupant = board[squareKey(triggerSquare)];
-  return (
-    occupant !== undefined &&
-    occupant.side === defender.side &&
-    occupant.pieceType === "archer"
-  );
+  return false;
 }
 
 /**
  * Resolves the encounter for the piece on `from` attacking the enemy piece
- * on `to`, per rules.md §4.3. Infers whether the attack is a Knight's
- * **charge** from the geometry (attacker is a Knight and the straight-line
- * distance from `from` to `to` is >= 2) - callers never pass a charge flag.
- * Implements the full ruleset-1.1 rank table, every non-Archer special case,
- * and the Archer's defensive-support override: when the base result is
- * **attacker wins**, a friendly Archer standing one square beyond the
- * defender on the attacker's exact line of travel flips the result to
- * **mutual loss** (the attacker also falls; the supporting Archer is a
- * bystander and is not removed). Support extends to a supported Tower
- * (which then trades with the Sapper demolishing it) and does not make an
- * attacking Assassin immune - both follow automatically, since each starts
- * as an attacker-wins base result that support flips to mutual. The **Flag
- * is never Archer-supported** (§6.1, story 00000006) - an Archer standing
- * behind the Flag never flips a Flag capture into a trade, however the
- * geometry lines up.
+ * on `to`, per rules.md §4.3:
+ *
+ * - A **Flag** defending always falls - the attacker wins outright, whatever
+ *   attacked it (§6.1, flag capture).
+ * - A **Tower** defending is always a mutual loss - any attacker trades with
+ *   it.
+ * - Otherwise both pieces are ranked: the lower rank number (stronger) wins;
+ *   equal rank is a mutual loss. The **formation bonus** then applies: judged
+ *   for the attacker from its origin square (`from`, before it moves) and
+ *   for the defender from its own square (`to`, at the moment it is
+ *   attacked). When the two ranks differ by exactly one, the weaker piece
+ *   (higher rank number) - if it has the formation bonus - turns its clean
+ *   loss into a mutual loss. This only ever turns a would-be clean win/loss
+ *   into a mutual loss; it never applies at a rank gap of zero or two-or-more,
+ *   and it never turns a mutual loss back into a win.
  *
  * A legal attack always has a piece on both `from` and `to` (see
- * `legalAttacks`, Step 3); this is a programming-invariant function like
- * `applyMove` and throws if either square is empty.
+ * `legalAttacks`); this is a programming-invariant function like `applyMove`
+ * and throws if either square is empty.
  */
 export function resolveCombat(
   board: BoardState,
@@ -227,12 +149,7 @@ export function resolveCombat(
     );
   }
 
-  const base = baseResult(attacker, defender, from, to);
-  const archerSupport =
-    base === "attackerWins" &&
-    defender.pieceType !== "flag" &&
-    archerSupportFires(board, from, to, defender);
-  const result = archerSupport ? "mutualLoss" : base;
+  const result = baseResult(board, attacker, defender, from, to);
 
   return {
     result,
@@ -240,6 +157,67 @@ export function resolveCombat(
     defender,
     square: to,
     capture: result !== "attackerLoses",
-    archerSupport,
   };
+}
+
+/**
+ * The full combat result for `attacker` (on `from`) attacking `defender` (on
+ * `to`) - the rank table, the Tower and Flag special cases, and the
+ * formation-bonus adjustment. See `resolveCombat`'s doc comment for the
+ * rules; this is a free function only so the two concerns (looking up the
+ * pieces vs. resolving them) stay separately readable.
+ */
+function baseResult(
+  board: BoardState,
+  attacker: PlacedPiece,
+  defender: PlacedPiece,
+  from: Square,
+  to: Square,
+): CombatResult {
+  if (defender.pieceType === "flag") {
+    return "attackerWins";
+  }
+
+  if (defender.pieceType === "tower") {
+    return "mutualLoss";
+  }
+
+  const attackerRank = PIECE_CATALOG[attacker.pieceType].rankCode;
+  const defenderRank = PIECE_CATALOG[defender.pieceType].rankCode;
+  if (typeof attackerRank !== "number" || typeof defenderRank !== "number") {
+    // Tower and Flag are handled above (as defenders); Tower never attacks
+    // (it never moves), so a legal attack never reaches here with anything
+    // but two ranked pieces.
+    throw new Error(
+      `resolveCombat: unexpected rank codes for ${attacker.pieceType} (${String(attackerRank)}) vs ${defender.pieceType} (${String(defenderRank)}).`,
+    );
+  }
+
+  if (attackerRank === defenderRank) {
+    return "mutualLoss";
+  }
+
+  if (attackerRank < defenderRank) {
+    // Attacker is stronger - wins outright, unless the one-rank-weaker
+    // defender has the formation bonus.
+    const defenderIsOneRankWeaker = defenderRank === attackerRank + 1;
+    if (
+      defenderIsOneRankWeaker &&
+      hasFormationBonus(board, to, defender.side, defenderRank)
+    ) {
+      return "mutualLoss";
+    }
+    return "attackerWins";
+  }
+
+  // Attacker is weaker - loses outright, unless it is exactly one rank
+  // weaker and has the formation bonus itself (judged from its origin).
+  const attackerIsOneRankWeaker = attackerRank === defenderRank + 1;
+  if (
+    attackerIsOneRankWeaker &&
+    hasFormationBonus(board, from, attacker.side, attackerRank)
+  ) {
+    return "mutualLoss";
+  }
+  return "attackerLoses";
 }
