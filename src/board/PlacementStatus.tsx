@@ -18,6 +18,15 @@
 // button being disabled is not enough on its own - `towerAdjacencyBlocked`
 // additionally surfaces a plain-language, visible explanation the player can
 // act on, so the reason Confirm won't work is never a mystery.
+//
+// Story 00000016, Step 9 (accessibility pass): the warning's wrapping
+// `role="status"` element stays mounted at all times - even when
+// `towerAdjacencyBlocked` is false and it renders no text - following
+// `PlayWarnings.tsx`'s established live-region pattern, so assistive
+// technology has already registered it as a live region before the warning
+// first appears. Toggling the whole element in and out of the DOM (as an
+// earlier version of this component did) risks the first announcement being
+// missed.
 
 import type { Side } from "../rules/primary/v1/board.ts";
 import type { PlacementProgress } from "../rules/primary/v1/placement.ts";
@@ -73,12 +82,18 @@ export function PlacementStatus({
       >
         Confirm
       </button>
-      {towerAdjacencyBlocked && (
-        <p className="placement-status__tower-warning" role="status">
-          Two of your Towers are next to each other - no two Towers may touch,
-          even diagonally. Move one apart to finish.
-        </p>
-      )}
+      <div
+        className="placement-status__tower-warning-region"
+        role="status"
+        aria-live="polite"
+      >
+        {towerAdjacencyBlocked && (
+          <p className="placement-status__tower-warning">
+            Two of your Towers are next to each other - no two Towers may touch,
+            even diagonally. Move one apart to finish.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

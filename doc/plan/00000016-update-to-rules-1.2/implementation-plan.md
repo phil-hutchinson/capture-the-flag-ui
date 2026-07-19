@@ -704,7 +704,68 @@ automated tests; the gate spot-checks the draw itself).
 
 ### Step 9 — Accessibility pass
 
-Status: pending
+Status: committed
+
+Notes (Gate D): By owner decision, the gate was scoped to the play
+phase: the placement board has never had keyboard support (story
+00000002 was never implemented), so keyboard placement is not a
+regression of this story and stays with story 00000002. Owner verified
+keyboard-only play (including a two-square move and a trade), the
+screen-reader announcements with the new piece names and outcomes, and
+the Tower-adjacency warning announcement. Passed.
+
+Notes: Audited every player-facing surface Steps 6-8 touched or introduced.
+**Placement (Step 6):** the tray (`Tray.tsx`) and controls
+(`PlacementControls.tsx`) already read correctly from `PIECE_CATALOG`
+(Master-of-Arms, Foot Soldier, etc. with the swapped rank numerals) with no
+change needed. Found and fixed one real regression in
+`PlacementStatus.tsx`: the new Tower-adjacency warning
+(`towerAdjacencyBlocked`) was a `role="status"` `<p>` that only mounted into
+the DOM when the warning became true, which risks assistive technology
+missing the *first* announcement (the DOM node, including its live-region
+role, appears at the same instant as the text it should announce) - exactly
+the failure mode `PlayWarnings.tsx`'s own header comment (Step 4) documents
+and deliberately avoids by keeping its wrapper permanently mounted. Restructured
+`PlacementStatus.tsx` to the same pattern: a `role="status" aria-live="polite"`
+wrapper div (`__tower-warning-region`) stays mounted at all times, rendering
+its child `<p>` only when `towerAdjacencyBlocked` is true; updated
+`PlacementStatus.css` to move the flex-basis onto the always-present wrapper
+and the visible border/padding chrome onto the conditionally-rendered `<p>`,
+so an empty wrapper still takes no visible space. **Play phase (Steps 7-8):**
+`playAnnouncement.ts` (selection counts, plain moves, attacks, mutual-loss/
+Tower-trade wording, the four surviving `GameEndReason`s) and `PlayWarnings.tsx`
+(the single shared inactivity banner, already using the always-mounted
+live-region pattern) were re-checked directly and read correctly for the 1.2
+content; no further change was needed there (Steps 4 and 7 already fixed
+their wording). `GameResult.tsx`/`DrawOffer.tsx`/`PlayStatus.tsx` are
+unmodified by Steps 6-8 and were spot-checked for continued correctness, with
+no issues found.
+**Significant finding, out of scope to fix here:** the Phase-1 placement
+board (`Board.tsx`, used by `HotSeatGame.tsx`) has **no keyboard interaction
+at all** - its squares are plain `<div onClick>` elements with no `tabIndex`,
+`role`, or key handler, unlike the Phase-2 board (`FullBoard.tsx`/
+`AccessibleGrid.tsx`), which is fully keyboard-operable. This predates story
+00000016 entirely: story 00000002 ("Accessible placement board") was meant to
+add exactly this, but its folder contains only a `story.md` stub - no
+implementation plan and no commits ever touched `Board.tsx` to add
+keyboard/ARIA support (confirmed via `git log -- src/board/Board.tsx`, which
+shows only its story 00000001 creation and story 00000016 Step 1's mechanical
+import-path rename). Consequently there is no "established keyboard...
+pattern" for placement for this step to preserve, and building one would be a
+new interaction pattern, which this step's own instructions rule out
+("Verification (manual - Gate D)... No new interaction patterns are added").
+Flagging this for the orchestrator/owner: Gate D's "complete placement...by
+keyboard alone" cannot currently pass, for reasons unrelated to this story's
+1.2 changes - the play-phase half of Gate D (a stretch of play including a
+two-square move and a trade) should be keyboard-operable, since `PlayBoard`/
+`FullBoard` already carry the established, working pattern this step
+confirmed keeps pace with the new content. `npm run typecheck`, `npm run
+lint`, and `npm run test` (428 tests, full suite) are all green; `npm run
+build` also succeeds; `npm run format:check` shows no new warnings in files
+this step touched (`PlacementStatus.tsx` was reformatted with `prettier
+--write` as part of this step's own edit; the remaining warnings are all in
+files this step did not touch, pre-existing before this step). Manual Gate D
+is left for the orchestrator per the pipeline, with the caveat above.
 
 With the rule and wording changes in place, verify the keyboard and
 screen-reader experience keeps pace with the new names and mechanics, and fix
