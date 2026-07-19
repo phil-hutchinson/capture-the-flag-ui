@@ -277,9 +277,9 @@ describe("describeRecordedResult", () => {
   it("maps 1/2-1/2 with a recognized reason to describeResult's draw wording", () => {
     const message = describeRecordedResult({
       result: "1/2-1/2",
-      resultReason: "No Progress",
+      resultReason: "Inactivity",
     });
-    expect(message).toBe("The record says: The game is a draw — No progress.");
+    expect(message).toBe("The record says: The game is a draw — by inactivity.");
   });
 
   it("quotes an unrecognized reason verbatim instead of dropping it", () => {
@@ -318,7 +318,7 @@ describe("describeRecordedResult", () => {
   it("yields no result sentence when Result is * (ongoing/unknown)", () => {
     expect(describeRecordedResult({ result: "*" })).toBeNull();
     expect(
-      describeRecordedResult({ result: "*", resultReason: "No Progress" }),
+      describeRecordedResult({ result: "*", resultReason: "Inactivity" }),
     ).toBeNull();
   });
 

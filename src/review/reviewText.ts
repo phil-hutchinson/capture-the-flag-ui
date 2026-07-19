@@ -254,10 +254,8 @@ const RESULT_WINNER: Readonly<Record<string, Side | "draw">> = {
 /** The engine's `ResultReason` strings (plus this app's own `Agreement`), matched case-insensitively, mapped onto `outcome.ts`'s stable `GameEndReason` identifiers. */
 const RESULT_REASON: Readonly<Record<string, GameEndReason>> = {
   "flag captured": "flagCapture",
-  "unbreachable flag": "unbreachableFlag",
   "no legal move": "noLegalMove",
   inactivity: "inactivity",
-  "no progress": "noProgress",
   agreement: "agreement",
 };
 

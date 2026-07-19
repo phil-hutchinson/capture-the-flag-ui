@@ -1,25 +1,23 @@
-// Countdown warnings driven through a *real* game (story 00000006, Step 11).
+// Countdown warning driven through a *real* game.
 //
 // `playWarnings.test.ts` unit-tests `computeCountdownWarnings` against
-// hand-built counter fixtures - it sets `inactivityCounters` and
-// `progressCounter` directly. That proves the thresholds and the wording, but
-// it cannot show that a player stalling at the board ever actually *reaches*
-// those counter values: the counters there never come from real plies.
+// hand-built counter fixtures - it sets `inactivityCounter` directly. That
+// proves the threshold and the wording, but it cannot show that a stalled
+// game ever actually *reaches* those counter values, or that a capture
+// partway through really resets it: the counter there never comes from real
+// plies.
 //
-// These tests close that gap by replaying whole games through `applyMove` and
-// asserting on the warnings the UI would render at each ply. They pin down the
-// two endings a stall can produce, which are easy to conflate:
+// These tests close that gap by replaying whole games through `applyMove`
+// and asserting on the warning the UI would render at each ply. Because 1.2
+// has a single shared inactivity counter (rules.md §5.3, no per-player loss
+// and no separate progress counter), a mutual stall always ends in the same
+// **inactivity draw** at `INACTIVITY_LIMIT` (50 quiet plies, from either side
+// or both combined) - there is only one ending to pin down here, plus the
+// counter's reset the moment either side removes a piece.
 //
-//  - **Both sides shuffling** ends in the shared **no-progress draw** at
-//    `PROGRESS_LIMIT` (80 combined plies). The inactivity loss is *unreachable*
-//    this way - each side's own counter only reaches 40 by the time the draw
-//    fires - so only the no-progress warning is ever seen.
-//  - The **inactivity loss** at `INACTIVITY_LIMIT` (50 of one side's own plies)
-//    needs the opponent to keep *capturing*, since a capture resets the shared
-//    progress counter and so keeps the no-progress draw from ending the game
-//    first. The capture must be a clean win (`attackerWins`): a *sacrificial*
-//    attack would also reset the stalling side's counter (play.ts) and undo the
-//    stall.
+// Fixtures in this file use only pieces whose id and rank are identical in
+// both the 1.1 and 1.2 catalogs (champion, knight, militia, flag) - see this
+// story's implementation-plan.md "Cross-step test constraint".
 
 import { describe, expect, it } from "vitest";
 import type { Column, Row, Square } from "../rules/primary/v1/board.ts";
@@ -29,10 +27,7 @@ import type {
   PlacedPiece,
 } from "../rules/primary/v1/gameState.ts";
 import { RULESET_TAG } from "../rules/primary/v1/gameState.ts";
-import {
-  INACTIVITY_LIMIT,
-  PROGRESS_LIMIT,
-} from "../rules/primary/v1/outcome.ts";
+import { INACTIVITY_LIMIT } from "../rules/primary/v1/outcome.ts";
 import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
 import {
   applyMove,
@@ -62,8 +57,8 @@ function play(state: PlayState, ply: string): PlayState {
     .state;
 }
 
-describe("countdown warnings over a real game", () => {
-  describe("both sides shuffling (the no-progress draw)", () => {
+describe("countdown warning over a real game", () => {
+  describe("both sides shuffling (the shared inactivity draw)", () => {
     /**
      * Two Flags plus one mobile piece per side, far apart and unable to
      * interfere with each other: white shuffles D5<->D6, black shuffles
@@ -74,7 +69,7 @@ describe("countdown warnings over a real game", () => {
         initialGameState([
           ["A1", "white", "flag"],
           ["L12", "black", "flag"],
-          ["D5", "white", "infantry"],
+          ["D5", "white", "champion"],
           ["D9", "black", "militia"],
         ]),
       );
@@ -99,97 +94,74 @@ describe("countdown warnings over a real game", () => {
 
     it("shows no warning early in the game", () => {
       const warnings = computeCountdownWarnings(stallFor(10));
-      expect(warnings.noProgress).toBeNull();
       expect(warnings.inactivity).toBeNull();
     });
 
-    it("first warns with 20 combined moves remaining, at ply 60", () => {
-      expect(computeCountdownWarnings(stallFor(59)).noProgress).toBeNull();
+    it("first warns with 10 combined moves remaining, at ply 40", () => {
+      expect(computeCountdownWarnings(stallFor(39)).inactivity).toBeNull();
 
-      const warning = computeCountdownWarnings(stallFor(60)).noProgress;
-      expect(warning?.movesRemaining).toBe(20);
-      expect(warning?.message).toContain("20 moves remain");
+      const warning = computeCountdownWarnings(stallFor(40)).inactivity;
+      expect(warning?.movesRemaining).toBe(10);
+      expect(warning?.message).toContain("10 moves remain");
       expect(warning?.message).toContain("draw");
     });
 
     it("counts the warning down by one with each further move", () => {
       expect(
-        computeCountdownWarnings(stallFor(61)).noProgress?.movesRemaining,
-      ).toBe(19);
+        computeCountdownWarnings(stallFor(41)).inactivity?.movesRemaining,
+      ).toBe(9);
       expect(
-        computeCountdownWarnings(stallFor(70)).noProgress?.movesRemaining,
-      ).toBe(10);
+        computeCountdownWarnings(stallFor(45)).inactivity?.movesRemaining,
+      ).toBe(5);
       expect(
-        computeCountdownWarnings(stallFor(79)).noProgress?.movesRemaining,
+        computeCountdownWarnings(stallFor(49)).inactivity?.movesRemaining,
       ).toBe(1);
     });
 
-    it("ends in a no-progress draw once the shared limit is reached", () => {
-      const state = stallFor(PROGRESS_LIMIT);
-      expect(state.progressCounter).toBe(PROGRESS_LIMIT);
-      expect(state.result).toEqual({ kind: "draw", reason: "noProgress" });
+    it("ends in a shared inactivity draw once the limit is reached", () => {
+      const state = stallFor(INACTIVITY_LIMIT);
+      expect(state.inactivityCounter).toBe(INACTIVITY_LIMIT);
+      expect(state.result).toEqual({ kind: "draw", reason: "inactivity" });
     });
 
-    it("shows no warnings at all once the game has ended", () => {
-      const warnings = computeCountdownWarnings(stallFor(PROGRESS_LIMIT));
-      expect(warnings.noProgress).toBeNull();
+    it("shows no warning at all once the game has ended", () => {
+      const warnings = computeCountdownWarnings(stallFor(INACTIVITY_LIMIT));
       expect(warnings.inactivity).toBeNull();
-    });
-
-    it("never raises an inactivity warning: the shared draw always fires first", () => {
-      // The point of this test: a mutual shuffle cannot reach the inactivity
-      // loss. At the draw, each side's own counter has only reached 40 - ten
-      // short of INACTIVITY_LIMIT - and the warning is only ever shown to the
-      // side to move, whose counter is lower still.
-      for (let ply = 0; ply <= PROGRESS_LIMIT; ply++) {
-        expect(computeCountdownWarnings(stallFor(ply)).inactivity).toBeNull();
-      }
-      const state = stallFor(PROGRESS_LIMIT);
-      expect(state.inactivityCounters).toEqual({ white: 40, black: 40 });
     });
   });
 
-  describe("one side shuffling while the other captures (the inactivity loss)", () => {
+  describe("a capture partway through resets the counter", () => {
     /**
-     * White stalls (shuffling its Infantry D5<->D6) while black's Lord Marshal
-     * has a white Militia to capture at D7. The capture is what makes the
-     * inactivity loss reachable at all: it resets the shared progress counter,
-     * so the no-progress draw never fires, while a clean win (Lord Marshal,
-     * rank 1, over Militia, rank 6 - combat.ts) leaves white's own inactivity
-     * counter untouched, so white's stall keeps counting up to the loss.
+     * White stalls (shuffling its Champion D5<->D6) while black's Knight has
+     * a white Militia to capture at D7. Black otherwise shuffles a spare
+     * Militia H9<->H8. The Knight (rank 3) cleanly beats the Militia
+     * (rank 6, combat.ts) and then stays on D7, so nothing further is ever
+     * attacked.
      */
     function capturingGame(): PlayState {
       return startPlay(
         initialGameState([
           ["A1", "white", "flag"],
           ["L12", "black", "flag"],
-          ["D5", "white", "infantry"],
+          ["D5", "white", "champion"],
           ["D7", "white", "militia"],
-          ["D8", "black", "lordMarshal"],
-          ["H9", "black", "skirmisher"],
+          ["D8", "black", "knight"],
+          ["H9", "black", "militia"],
         ]),
       );
     }
 
-    /**
-     * Replays the stall for `plies` plies: white always shuffles D5<->D6, while
-     * black shuffles a spare Skirmisher H9<->H8 and, on ply 40, has its Lord
-     * Marshal take the Militia on D7. The Lord Marshal then *stays* on D7 (black
-     * goes back to shuffling the Skirmisher), so it remains a standing attack
-     * target for white's Infantry on D6 - which is what lets a later test have
-     * the stalling player break their own stall with an attack.
-     *
-     * One capture is enough to keep the draw away: it resets the progress
-     * counter to 0 at ply 40, and white's 50th stalling ply lands at ply 99, by
-     * which point the counter has only climbed back to 59 - under
-     * PROGRESS_LIMIT, so the no-progress draw never pre-empts the inactivity
-     * loss.
-     */
-    const CAPTURE_PLY = 40;
+    /** An even ply number, so it always lands on black's turn (see loop below). */
+    const CAPTURE_PLY = 20;
 
-    function stallAgainstCapturesFor(plies: number): PlayState {
+    /**
+     * Replays the stall for `plies` plies: white always shuffles D5<->D6;
+     * black shuffles a spare Militia H9<->H8 except on `CAPTURE_PLY`, when
+     * its Knight takes the Militia on D7 instead.
+     */
+    function stallWithCaptureFor(plies: number): PlayState {
       let state = capturingGame();
-      let skirmisher = "H9";
+      let spare = "H9";
       for (let ply = 1; ply <= plies; ply++) {
         const own = Math.floor((ply - 1) / 2);
         if (state.sideToMove === "white") {
@@ -200,87 +172,38 @@ describe("countdown warnings over a real game", () => {
           state = play(state, "D8D7");
           continue;
         }
-        const to = skirmisher === "H9" ? "H8" : "H9";
-        state = play(state, skirmisher + to);
-        skirmisher = to;
+        const to = spare === "H9" ? "H8" : "H9";
+        state = play(state, spare + to);
+        spare = to;
       }
       return state;
     }
 
-    it("captures instead of drawing: the progress counter resets, so no no-progress warning ever appears", () => {
-      const state = stallAgainstCapturesFor(99);
-      expect(state.progressCounter).toBeLessThan(PROGRESS_LIMIT);
-      expect(computeCountdownWarnings(state).noProgress).toBeNull();
+    it("raises the counter through the quiet plies leading up to the capture", () => {
+      const beforeCapture = stallWithCaptureFor(CAPTURE_PLY - 1);
+      expect(beforeCapture.inactivityCounter).toBe(CAPTURE_PLY - 1);
     });
 
-    it("warns the stalling player, on their turn, at 10 of their own moves remaining", () => {
-      // White's 40th stalling ply is ply 79; black replies on ply 80, and it is
-      // white to move with their counter at 40 - ten of their own moves left.
-      const state = stallAgainstCapturesFor(80);
-      expect(state.sideToMove).toBe("white");
-      expect(state.inactivityCounters.white).toBe(40);
-
-      const warning = computeCountdownWarnings(state).inactivity;
-      expect(warning?.side).toBe("white");
-      expect(warning?.movesRemaining).toBe(10);
-      expect(warning?.message).toContain("Red");
-      expect(warning?.message).toContain("10 moves remain");
-      expect(warning?.message).toContain("an attack resets this count");
+    it("resets the counter to 0 at the capture, clearing any warning", () => {
+      const afterCapture = stallWithCaptureFor(CAPTURE_PLY);
+      expect(afterCapture.inactivityCounter).toBe(0);
+      expect(computeCountdownWarnings(afterCapture).inactivity).toBeNull();
     });
 
-    it("does not warn one move earlier (11 of their own moves remaining)", () => {
-      const state = stallAgainstCapturesFor(78);
-      expect(state.sideToMove).toBe("white");
-      expect(state.inactivityCounters.white).toBe(39);
-      expect(computeCountdownWarnings(state).inactivity).toBeNull();
-    });
-
-    it("counts down by one with each further stalling move", () => {
+    it("counts back up from the reset toward a new warning", () => {
+      // 40 further quiet plies after the capture puts the counter at 40 -
+      // the warning threshold (10 remaining).
+      const state = stallWithCaptureFor(CAPTURE_PLY + 40);
+      expect(state.inactivityCounter).toBe(40);
       expect(
-        computeCountdownWarnings(stallAgainstCapturesFor(82)).inactivity
-          ?.movesRemaining,
-      ).toBe(9);
-      expect(
-        computeCountdownWarnings(stallAgainstCapturesFor(90)).inactivity
-          ?.movesRemaining,
-      ).toBe(5);
-      expect(
-        computeCountdownWarnings(stallAgainstCapturesFor(96)).inactivity
-          ?.movesRemaining,
-      ).toBe(2);
+        computeCountdownWarnings(state).inactivity?.movesRemaining,
+      ).toBe(10);
     });
 
-    it("shows the warning only on the stalling player's own turn", () => {
-      // Mid-warning, but with black to move: the counter is unchanged, yet no
-      // warning is shown - it is addressed to the player who can act on it.
-      const state = stallAgainstCapturesFor(81);
-      expect(state.sideToMove).toBe("black");
-      expect(state.inactivityCounters.white).toBe(41);
-      expect(computeCountdownWarnings(state).inactivity).toBeNull();
-    });
-
-    it("clears the warning when the stalling player finally attacks", () => {
-      // White, deep in the warning, attacks instead of shuffling: white's
-      // Infantry on D6 takes black's Lord Marshal on D7. The attack resets
-      // white's own inactivity counter, so the warning disappears at once.
-      const warned = stallAgainstCapturesFor(90);
-      expect(computeCountdownWarnings(warned).inactivity).not.toBeNull();
-      expect(warned.sideToMove).toBe("white");
-
-      const attacked = play(warned, "D6D7");
-      expect(attacked.inactivityCounters.white).toBe(0);
-      expect(computeCountdownWarnings(attacked).inactivity).toBeNull();
-    });
-
-    it("loses the game for the stalling player on their 50th move, naming the other player the winner", () => {
-      const state = stallAgainstCapturesFor(99);
-      expect(state.inactivityCounters.white).toBe(INACTIVITY_LIMIT);
-      expect(state.result).toEqual({
-        kind: "win",
-        winner: "black",
-        reason: "inactivity",
-      });
-      expect(computeCountdownWarnings(state).inactivity).toBeNull();
+    it("eventually ends in a shared inactivity draw, counted from the reset", () => {
+      const state = stallWithCaptureFor(CAPTURE_PLY + INACTIVITY_LIMIT);
+      expect(state.inactivityCounter).toBe(INACTIVITY_LIMIT);
+      expect(state.result).toEqual({ kind: "draw", reason: "inactivity" });
     });
   });
 });

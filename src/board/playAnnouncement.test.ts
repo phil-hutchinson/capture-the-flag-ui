@@ -361,8 +361,7 @@ describe("describeActivation - game-ending ply", () => {
       board: board([piece]),
       sideToMove: side,
       moves: [],
-      inactivityCounters: { white: 0, black: 0 },
-      progressCounter: 0,
+      inactivityCounter: 0,
       result: initialResult,
     };
     const destinationKey = `${destination.column}${destination.row}`;
@@ -396,61 +395,39 @@ describe("describeActivation - game-ending ply", () => {
     };
   }
 
-  it("announces an Unbreachable Flag win, replacing the 'to move' clause with the result", () => {
+  it("announces a No Legal Move win, replacing the 'to move' clause with the result", () => {
     const { before, after } = endingSession(
       { kind: "ongoing" },
       ["A1", "white", "infantry"],
       sq("A", 2),
-      { kind: "win", winner: "white", reason: "unbreachableFlag" },
+      { kind: "win", winner: "white", reason: "noLegalMove" },
     );
     expect(describeActivation(before, after, sq("A", 2))).toBe(
-      "Red Infantry moved to A2. Red wins — Blue can no longer reach Red's flag.",
+      "Red Infantry moved to A2. Red wins — Blue has no legal move left.",
     );
   });
 
-  it("announces an Inactivity win", () => {
+  it("announces an Inactivity draw", () => {
     const { before, after } = endingSession(
       { kind: "ongoing" },
       ["L12", "black", "infantry"],
       sq("L", 11),
-      { kind: "win", winner: "black", reason: "inactivity" },
+      { kind: "draw", reason: "inactivity" },
     );
     expect(describeActivation(before, after, sq("L", 11))).toBe(
-      "Blue Infantry moved to L11. Blue wins — Red ran out of moves without attacking.",
-    );
-  });
-
-  it("announces a No Progress draw", () => {
-    const { before, after } = endingSession(
-      { kind: "ongoing" },
-      ["A1", "white", "infantry"],
-      sq("A", 2),
-      { kind: "draw", reason: "noProgress" },
-    );
-    expect(describeActivation(before, after, sq("A", 2))).toBe(
-      "Red Infantry moved to A2. The game is a draw — No progress.",
+      "Blue Infantry moved to L11. The game is a draw — by inactivity.",
     );
   });
 });
 
 describe("describeResult", () => {
-  it("renders a win for Red with each reason, naming Blue as the losing side where the reason needs a subject", () => {
+  it("renders a win for Red with each win reason, naming Blue as the losing side where the reason needs a subject", () => {
     expect(
       describeResult({ kind: "win", winner: "white", reason: "flagCapture" }),
     ).toBe("Red wins — Flag captured.");
     expect(
-      describeResult({
-        kind: "win",
-        winner: "white",
-        reason: "unbreachableFlag",
-      }),
-    ).toBe("Red wins — Blue can no longer reach Red's flag.");
-    expect(
       describeResult({ kind: "win", winner: "white", reason: "noLegalMove" }),
     ).toBe("Red wins — Blue has no legal move left.");
-    expect(
-      describeResult({ kind: "win", winner: "white", reason: "inactivity" }),
-    ).toBe("Red wins — Blue ran out of moves without attacking.");
   });
 
   it("renders a win for Blue, naming Red as the losing side", () => {
@@ -458,26 +435,13 @@ describe("describeResult", () => {
       describeResult({ kind: "win", winner: "black", reason: "flagCapture" }),
     ).toBe("Blue wins — Flag captured.");
     expect(
-      describeResult({
-        kind: "win",
-        winner: "black",
-        reason: "unbreachableFlag",
-      }),
-    ).toBe("Blue wins — Red can no longer reach Blue's flag.");
-    expect(
       describeResult({ kind: "win", winner: "black", reason: "noLegalMove" }),
     ).toBe("Blue wins — Red has no legal move left.");
-    expect(
-      describeResult({ kind: "win", winner: "black", reason: "inactivity" }),
-    ).toBe("Blue wins — Red ran out of moves without attacking.");
   });
 
   it("renders a draw with each remaining reason", () => {
-    expect(describeResult({ kind: "draw", reason: "noProgress" })).toBe(
-      "The game is a draw — No progress.",
-    );
-    expect(describeResult({ kind: "draw", reason: "unbreachableFlag" })).toBe(
-      "The game is a draw — Neither side can reach the other's flag anymore.",
+    expect(describeResult({ kind: "draw", reason: "inactivity" })).toBe(
+      "The game is a draw — by inactivity.",
     );
     expect(describeResult({ kind: "draw", reason: "agreement" })).toBe(
       "The game is a draw — Agreement.",

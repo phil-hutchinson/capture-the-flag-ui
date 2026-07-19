@@ -286,7 +286,37 @@ instead of being captured; a two-rank gap is unaffected by formation.
 
 ### Step 4 — Endings: single shared inactivity draw, no-legal-move, flag capture
 
-Status: pending
+Status: committed
+
+Notes: Rewrote `outcome.ts` (`computeOutcome(board, activeSide,
+inactivityCounter)`, three-case precedence, `GameEndReason` now `flagCapture
+| noLegalMove | inactivity | agreement`, single `INACTIVITY_LIMIT = 50`) and
+deleted `reachability.ts`/`reachability.test.ts`. Rewrote `play.ts`
+(`PlayState.inactivityCounter: number` replaces the per-side record and the
+progress counter; `applyMove` resets it to 0 exactly when the ply's
+`CombatOutcome.capture` is true, else +1; `renderResultReasonValue` drops the
+two removed reasons). Collapsed `playWarnings.ts`/`PlayWarnings.tsx` to a
+single side-agnostic inactivity warning (kept the 10-move threshold,
+proportionally the same fraction of the new 50-move limit as the old
+per-player warning was of its own 50-move limit) and rewrote both of its test
+files. Updated `playAnnouncement.ts`'s `reasonLabel`/`winReasonClause`/
+`drawReasonClause` (inactivity is now a draw-only reason, worded "by
+inactivity"; `noLegalMove` is the only win reason left needing a subject
+clause) and `reviewText.ts`'s `RESULT_REASON` map to drop `unbreachableFlag`/
+`noProgress`. Rewrote `outcome.test.ts` and `play.test.ts` to the new
+precedence/counter using only rank-stable fixtures (champion/knight/militia/
+tower/flag), per the cross-step constraint. Deviations from the plan text, all
+mechanical fallout of the reason/counter shape change needed to keep the build
+green, not scope expansion: (1) `playSession.test.ts` (one assertion) and
+`playAnnouncement.test.ts` (the `endingSession` fixture plus its
+Unbreachable-Flag/Inactivity-win/No-Progress-draw tests) referenced the old
+`inactivityCounters`/`progressCounter` fields and the two removed reasons -
+updated to the new field and reworded the three ending tests as a No-Legal-Move
+win and an Inactivity draw, the closest surviving equivalents; (2)
+`reviewText.test.ts`'s two "No Progress" fixtures were changed to "Inactivity"
+so `RESULT_REASON` still has a recognized-reason case to exercise. `npm run
+typecheck`, `npm run lint`, and `npm run test` (418 tests, full suite) are all
+green.
 
 Rewrite the game-end layer to rules §5 and remove the machinery that only
 served the deleted conditions:

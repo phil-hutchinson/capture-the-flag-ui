@@ -694,8 +694,7 @@ describe("draw offer state machine (story 00000006, Step 6)", () => {
     expect(declined.drawOffer).toBeNull();
     expect(declined.play.sideToMove).toBe("white");
     expect(declined.play.moves).toEqual([]);
-    expect(declined.play.inactivityCounters).toEqual({ white: 0, black: 0 });
-    expect(declined.play.progressCounter).toBe(0);
+    expect(declined.play.inactivityCounter).toBe(0);
     expect(actionableSquares(declined)).toEqual(actionableSquares(session));
     expect(activatableSquares(declined)).toEqual(activatableSquares(session));
     // The offering player (White) can then move as usual.

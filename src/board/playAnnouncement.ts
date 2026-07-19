@@ -72,25 +72,21 @@ import type { PlaySession } from "./playSession.ts";
 import { sideColorName } from "./sideNames.ts";
 
 /**
- * Bare, capitalized label for one of `outcome.ts`'s six stable
+ * Bare, capitalized label for one of `outcome.ts`'s four stable
  * `GameEndReason` identifiers - never "ply", the rules' own terms otherwise.
  * Used only where a reason can occur without a losing side to name plainly
  * (see `winReasonClause`/`drawReasonClause` below): a Flag capture already
- * names the fallen Flag's color in the preceding ply description, and a
- * no-progress or agreed draw has no single "loser" to name.
+ * names the fallen Flag's color in the preceding ply description, and an
+ * inactivity or agreed draw has no single "loser" to name.
  */
 function reasonLabel(reason: GameEndReason): string {
   switch (reason) {
     case "flagCapture":
       return "Flag captured";
-    case "unbreachableFlag":
-      return "Unbreachable Flag";
     case "noLegalMove":
       return "No legal move";
     case "inactivity":
       return "Inactivity";
-    case "noProgress":
-      return "No progress";
     case "agreement":
       return "Agreement";
     default:
@@ -100,24 +96,19 @@ function reasonLabel(reason: GameEndReason): string {
 
 /**
  * Player-facing clause completing "{Winner} wins — ..." (no trailing period)
- * for a win outcome. Peer-review fix (Minor 7): names the *losing* side
- * plainly wherever the reason needs a subject to avoid reading as rules
- * jargon - e.g. "Blue can no longer reach Red's flag" rather than
- * "Unbreachable Flag". `noProgress` and `agreement` never occur for a win
- * (`computeOutcome`/`agreeDraw` only ever produce them as draws) - listed
- * only so this switch is exhaustive.
+ * for a win outcome. Names the *losing* side plainly wherever the reason
+ * needs a subject to avoid reading as rules jargon. `inactivity` and
+ * `agreement` never occur for a win in 1.2 - the shared inactivity counter
+ * (rules.md §5.3) only ever produces a *draw*, and `agreeDraw` only ever
+ * produces a draw - listed only so this switch is exhaustive.
  */
 function winReasonClause(winner: Side, reason: GameEndReason): string {
   const loser = sideColorName(otherSide(winner));
   switch (reason) {
-    case "unbreachableFlag":
-      return `${loser} can no longer reach ${sideColorName(winner)}'s flag`;
     case "noLegalMove":
       return `${loser} has no legal move left`;
-    case "inactivity":
-      return `${loser} ran out of moves without attacking`;
     case "flagCapture":
-    case "noProgress":
+    case "inactivity":
     case "agreement":
       return reasonLabel(reason);
     default:
@@ -127,17 +118,15 @@ function winReasonClause(winner: Side, reason: GameEndReason): string {
 
 /**
  * Player-facing clause completing "The game is a draw — ..." (no trailing
- * period) for a draw outcome. `flagCapture`, `noLegalMove`, and `inactivity`
- * never occur for a draw - listed only so this switch is exhaustive.
+ * period) for a draw outcome. `flagCapture` and `noLegalMove` never occur
+ * for a draw - listed only so this switch is exhaustive.
  */
 function drawReasonClause(reason: GameEndReason): string {
   switch (reason) {
-    case "unbreachableFlag":
-      return "Neither side can reach the other's flag anymore";
+    case "inactivity":
+      return "by inactivity";
     case "flagCapture":
     case "noLegalMove":
-    case "inactivity":
-    case "noProgress":
     case "agreement":
       return reasonLabel(reason);
     default:
