@@ -53,6 +53,7 @@ import {
   progress,
   returnToTray,
   swap,
+  towersLegallyPlaced,
 } from "../rules/primary/v1/placement.ts";
 import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
 import "../App.css";
@@ -411,6 +412,13 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
     selection?.kind === "boardSquare"
       ? pieceAt(placement, selection.square)
       : undefined;
+  // Story 00000016, Step 6: Confirm requires both a complete (25-piece) army
+  // and the Tower-adjacency rule (rules §3) being satisfied. The two are
+  // tracked separately so the status bar can tell "not finished yet" apart
+  // from "finished, but two Towers are touching" and show the latter's
+  // explanation only when it applies.
+  const placementComplete = isComplete(placement);
+  const towerRuleOk = towersLegallyPlaced(placement);
 
   return (
     <main className="app">
@@ -433,7 +441,8 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
       <PlacementStatus
         side={activeSide}
         progress={progress(placement)}
-        canConfirm={isComplete(placement)}
+        canConfirm={placementComplete && towerRuleOk}
+        towerAdjacencyBlocked={placementComplete && !towerRuleOk}
         onAutoFill={handleAutoFill}
         onConfirm={handleConfirm}
       />

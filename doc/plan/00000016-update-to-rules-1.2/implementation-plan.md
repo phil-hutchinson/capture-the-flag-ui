@@ -495,7 +495,42 @@ and never places two of a side's Towers adjacently (including diagonally);
 
 ### Step 6 — Placement UI: sparse tray and the Tower-adjacency rule
 
-Status: pending
+Status: committed
+
+Notes (Gate A): Owner verified sparse placement, the Tower-adjacency
+block/unblock with its message, and the reveal's renamed pieces and rank
+numerals. Passed.
+
+Notes: `HotSeatGame.tsx` now computes `placementComplete` (`isComplete`) and
+`towerRuleOk` (`towersLegallyPlaced`, from Step 5) separately and passes
+`canConfirm={placementComplete && towerRuleOk}` plus a new
+`towerAdjacencyBlocked={placementComplete && !towerRuleOk}` prop to
+`PlacementStatus`. `PlacementStatus.tsx` renders a visible, plain-language
+paragraph ("Two of your Towers are next to each other - no two Towers may
+touch, even diagonally. Move one apart to finish.") whenever
+`towerAdjacencyBlocked` is true, alongside the already-disabled Confirm
+button, so the reason is never just an inert control; its header comment and
+`progress` readout description were also corrected from the stale "N / 48
+placed" to "N / 25 placed" with a note that empty home squares are expected,
+not an error. Recovery uses the existing move/swap click grammar unchanged
+(a completed 25-piece army still leaves 23 empty home squares to move a
+Tower into), so no new interaction was added, matching the step's "keep the
+existing interaction otherwise unchanged" instruction. Swept
+`PlacementControls.tsx`, `Tray.tsx`, `Board.tsx`, and `App.tsx` for
+full-army/removed-mechanic language: only `Tray.tsx`'s header comment was
+stale ("12 piece types" from the old 1.1 roster), corrected to "8 piece
+types"; the piece catalog itself, its `PIECE_TYPES`/`ARMY_SIZE`, and every
+other placement copy were already correct from Step 5. Names/numerals
+(Master-of-Arms, Foot Soldier rank 5, Halberdier rank 4, etc.) are confirmed
+correct since they render straight from `PIECE_CATALOG`, unchanged here. No
+deviations from the plan. `npm run typecheck`, `npm run lint`, `npm run test`
+(425 tests, full suite), and `npm run build` are all green; `npm run
+format:check` shows no new warnings in files this step touched (one
+pre-existing wrapping warning in `PlacementStatus.tsx` was resolved by
+`prettier --write` as part of this step's own edit; the remaining
+`format:check` warnings are all in files this step did not touch). Manual
+Gate A (placing both armies, the Tower-adjacency block/unblock, and the
+reveal) is left for the orchestrator per the pipeline.
 
 Wire the new sparse placement and the Tower rule into the hot-seat placement
 screen so a player can place 25 pieces on any 25 of their 48 home squares and

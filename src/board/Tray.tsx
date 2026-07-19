@@ -1,6 +1,7 @@
 // Piece tray / inventory panel (story 00000001, Step 8).
 //
-// Shows every one of the 12 piece types with its real icon (colored for the
+// Shows every one of the 8 piece types (rules 1.2's roster: six ranked types
+// plus Tower and Flag - story 00000016) with its real icon (colored for the
 // active player's side) and a live remaining count, driven by the
 // placement-state model's derived `remaining` inventory (Step 3). Clicking a
 // type with at least one remaining piece selects it (App.tsx then places the

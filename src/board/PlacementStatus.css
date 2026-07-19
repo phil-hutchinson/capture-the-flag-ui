@@ -38,3 +38,18 @@
 .placement-status__confirm {
   font-weight: bold;
 }
+
+/* Story 00000016, Step 6: the Tower-adjacency block message. An amber accent
+   border - the same cue PlayWarnings.css uses for the inactivity countdown -
+   as an additional, non-color-only signal; the sentence text always carries
+   the meaning on its own. Takes its own line via flex-basis, so it never
+   crowds the turn/progress/buttons row above it. */
+.placement-status__tower-warning {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-left: 4px solid rgb(255 183 3);
+  border-radius: 4px;
+  background: var(--parchment);
+}
