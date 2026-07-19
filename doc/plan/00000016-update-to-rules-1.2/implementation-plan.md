@@ -636,7 +636,39 @@ Also run `npm run typecheck && npm run lint && npm run test`.
 
 ### Step 8 — Record layer: synthetic 1.2 reader fixtures and the tag round-trip
 
-Status: pending
+Status: committed
+
+Notes (Gate C): Owner verified the Flag-capture win, the inactivity
+draw at the 50th quiet move (with countdown warning), draw by
+agreement, and the record dump's tag, symbols, and result/reason.
+Passed.
+
+Notes: Added three tests to `src/rules/readRecord.test.ts` (no new files under
+the story folder needed): (1) a version-dispatch test asserting a
+`PRIMARY:1.1`-tagged record is rejected with `unknownRuleset`, alongside the
+already-present `PRIMARY:2.0`/`SOMETHING_ELSE:1.0` cases; (2) a small
+hand-built `1.2:PRE-RELEASE` record (6 pieces spanning every symbol —
+`masterOfArms`/`champion`/`tower`/`flag`/`knight`/`militia` — and 5
+extended-notation moves across 3 rounds covering a quiet move, an
+attacker-wins capture, and a mutual loss, the trailing round carrying only
+White's move) that round-trips through `readRecord` end to end, asserting the
+tags, the 6-position replay array, the exact final board, and the move
+tokens/ply/round numbering; (3) an intentionally malformed synthetic
+`1.2:PRE-RELEASE` record (an occupied destination the move token never marks
+`x`) rejected with `replay`/`unmarkedCapture`. The developer record dump's
+`Ruleset "1.2:PRE-RELEASE"` tag, position-block symbols, and Result/
+ResultReason wording were already covered by Step 4/5's `play.test.ts`
+(`renderGameRecord` describe blocks) and `gameState.test.ts`, so no further
+automated coverage was added there; the manual half of Gate C (playing a
+Flag-capture win, a 50-move inactivity draw, and a draw-by-agreement, then
+eyeballing the record dump in the running app) is left for the orchestrator
+per the pipeline. No deviation from the plan: fixtures are inline in the test
+file (the plan's "either inline... or as committed files" option), matching
+`recordFile.test.ts`'s existing style rather than adding a new samples
+corpus. `npm run typecheck`, `npm run lint`, and `npm run test` (428 tests,
+full suite) are all green; `npm run format:check` shows no new warnings (the
+one it initially flagged in the edited file was resolved with `prettier
+--write`; remaining warnings are all in files this step did not touch).
 
 Restore the reader's fixture coverage with **small synthetic 1.2 records** (the
 story's stated interim: real engine-produced 1.2 records are verified in story
