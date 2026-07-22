@@ -20,9 +20,15 @@ export interface StartScreenProps {
   readonly onPlayAGame: () => void;
   /** Goes to the import screen, to choose a recorded game to watch. */
   readonly onReviewAGame: () => void;
+  /** Starts a fresh game against the computer: choose a side, place, then play. */
+  readonly onPlayAgainstComputer: () => void;
 }
 
-export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
+export function StartScreen({
+  onPlayAGame,
+  onReviewAGame,
+  onPlayAgainstComputer,
+}: StartScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -44,6 +50,18 @@ export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
           <span className="start-screen__choice-title">Play a game</span>
           <span className="start-screen__choice-detail">
             Two players, one device
+          </span>
+        </button>
+        <button
+          type="button"
+          className="start-screen__choice"
+          onClick={onPlayAgainstComputer}
+        >
+          <span className="start-screen__choice-title">
+            Play against the computer
+          </span>
+          <span className="start-screen__choice-detail">
+            Choose a side, place your army, then play
           </span>
         </button>
         <button

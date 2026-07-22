@@ -468,7 +468,85 @@ run `npm run typecheck`, `npm run lint`.
 
 ## Step 5 — New mode: entry, side choice, placement, and the play loop
 
-Status: pending
+Status: committed
+
+Notes: Added a third `StartScreen.tsx` choice ("Play against the computer",
+wired through a new `onPlayAgainstComputer` prop) and a fifth `App.tsx`
+screen kind (`"engine"`, mounting the new `EngineGame`), mirroring how
+`"play"` mounts `HotSeatGame`. Created `src/board/EngineGame.tsx` - the new
+mode's whole loop (side choice, placement for the human's own army only,
+Phase 2 play against the computer) - plus `src/board/EngineSideChoice.tsx`
+(the "Play as red" / "Play as blue" prompt) and their CSS. Placement reuses
+the existing pure `PlacementState` operations (`place`/`move`/`swap`/
+`returnToTray`/`clear`/`autoFill`) and the exact `Board`/`Tray`/
+`PlacementControls`/`PlacementStatus` components hot-seat uses, driven from a
+single `PlacementState` (not the two-player `PlacementSession` wrapper, since
+only the human ever places here - the computer's army is generated silently
+by `autoFill(emptyPlacement(computerSide))` the instant the human confirms,
+never shown before play). `buildInitialGameState`/`startSession` build Phase
+2 exactly as hot-seat does. Turn flow reuses `activateSquare`/`PlaySession`
+unmodified: on the human's turn `EngineGame` behaves exactly like
+`HotSeatGame`'s Phase-2 branch; on the computer's turn, a `useEffect` keyed
+on `[playSession, humanSide]` calls Step 4's `chooseEnginePly` (real
+inference, `Math.random`, no overrides) and applies the result through a new
+`applyEnginePly` helper that drives the *same* `activateSquare` -> `applyMove`
+path a human's two clicks would (select `from`, then activate `to`), so the
+computer's move gets the same announcements, record entry, and game-end
+detection a human's move does. A `cancelled` flag set in the effect's cleanup
+guards both React StrictMode's dev-mode double-invocation and a stale move
+resolving after the player has left mid-thought (confirming
+`LeaveGameDialog` unmounts `EngineGame`, running the cleanup) - the promise
+callback checks it before calling any setter. "The computer is thinking" is
+modeled as a derived boolean (`playSession.play.result.kind === "ongoing" &&
+playSession.play.sideToMove === computerSide`, not a separate piece of
+state), continuously true for the whole span from the turn handing to the
+computer until its move applies; it drives both a small visual paragraph
+("The computer is thinking…", deliberately no live region of its own, to
+avoid double-announcing) and a sentence pushed into the board's one existing
+live region (`playAnnouncement`, the same channel `describeActivation`'s
+ordinary move narrative already uses) at the moment the effect fires, so it
+*is* announced, not merely shown, exactly as the step's own text (not just
+Step 7's) requires. Board orientation is always the human's own side, never
+flipping: extended `PlayBoard.tsx` (not forked - HotSeatGame's own usage is
+byte-for-byte unchanged, since the new props default away) with two new
+optional props, `side?: Side` (overrides `viewSide`/`flipBetweenTurns`
+entirely - needed because `flipBetweenTurns={false}`'s existing "always
+white" semantics cannot express "always the human's side" when the human is
+playing black) and `disabled?: boolean` (zeroes `destinationSquares`/
+`attackSquares`/`activatableSquares` so the human cannot select or move the
+computer's own pieces during its turn, even though `playSession.ts`'s own
+query functions structurally treat them as "the side-to-move's own movable
+pieces" - the same inert pattern the review screen already relies on by
+never passing `activatableSquares` at all). No draw-offer control and no
+"flip between turns" toggle are rendered (neither is imported). "New game"
+(`GameResult`'s shared action) and "Back to start" -> confirm -> re-entering
+the mode both reset all the way back to the side-choice phase (`humanSide`
+to `null`), giving "fresh side choice, fresh placement, fresh random
+computer army" in both cases, not just on a fresh mount.
+
+Deviation from the plan (not a policy change, a wiring correction): the plan
+said to reuse `PlayBoard` unmodified; a small, additive, backward-compatible
+extension to `PlayBoard.tsx` (the two new optional props above) turned out to
+be necessary to satisfy "board orientation is always yours" and "the board
+is inert on the computer's turn" without forking it or `playSession.ts` -
+`PlayBoard` itself is already documented as "a thin adapter [deriving]
+FullBoard's props from a PlaySession," and the review screen already
+establishes the precedent of a second, different adapter (composing
+`FullBoard` directly) for a second, different orientation/inertness policy;
+this instead keeps the one `PlayBoard` adapter but makes its two policy axes
+(orientation, inertness) overridable, which seemed less duplicative than a
+second bespoke adapter. `npm run typecheck`, `npm run lint`, `npm run test`
+(473 tests, unchanged - this step is pure UI wiring with no new pure-logic
+module, per the step's own verification list, which is manual), and
+`npm run build` are all green; `npm run build`'s `dist/` now contains the
+`onnxruntime-web` WASM assets alongside `models/ctf_reference.onnx` for the
+first time (Step 3's tree-shaking note predicted this the moment inference
+became production-reachable). Ran `npx prettier --write` on all new/changed
+files. Confirmed by reading (no browser available in this environment) that
+`HotSeatGame.tsx`'s and `ReviewScreen.tsx`'s own code paths are untouched
+apart from `PlayBoard.tsx`'s additive props. **This step's own verification
+(Gate A, Gate D) is manual and is the owner's to run** (`npm run dev`),
+per the task instructions; not performed here.
 
 Wire the against-the-computer mode into the app as a genuinely playable slice,
 reusing the existing placement and play components (Grounding facts — do not
