@@ -141,7 +141,22 @@ that folder is used by both the encoder (Step 1) and the policy decoder
 
 ## Step 1 — Board-state encoder (encoding v1)
 
-Status: pending
+Status: committed
+
+Notes: Created `src/encoding/eng-nn-1/shared.ts` (the mover-perspective
+coordinate transform `toMoverFrame`, `flatIndex`, `PLANE_PIECE_ORDER` /
+`PIECE_PLANE_INDEX`, and the plane-offset/size constants) and
+`src/encoding/eng-nn-1/encoder.ts` (`encodePosition`, taking a `Position`
+of `{ board, sideToMove, inactivityCounter }` and returning
+`{ data: Float32Array(2592), dims: [1, 18, 12, 12] }`), plus
+`shared.test.ts` and `encoder.test.ts` covering all five verification
+assertions (White mapping, Black 180° rotation with our/their plane swap,
+passable-plane lake exclusion, uniform inactivity plane, and shape/length).
+No deviations from the plan; `npm run typecheck`, `npm run lint`, and
+`npm run test` are all green (445 tests passing, 17 new). Ran
+`npx prettier --write` on the new files to match the repo's formatting
+convention (not explicitly required by this step's verification list, but
+consistent with `npm run format:check` used elsewhere in the pipeline).
 
 Implement the ENG_NN_1 **input encoder**: a pure module under
 `src/encoding/eng-nn-1/` that turns a position — a `BoardState`, the side to
