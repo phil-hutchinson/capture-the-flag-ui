@@ -22,7 +22,7 @@ it stands at plan time (companion repo
   `squareKey`, `allSquares`, `isLake`, `otherSide`, `homeSquares`.
 - `src/rules/primary/v1/pieces.ts` — `PieceTypeId` is
   `"masterOfArms" | "champion" | "knight" | "halberdier" | "footSoldier" |
-  "militia" | "tower" | "flag"`. **Note:** `PIECE_TYPES` order here is *not*
+"militia" | "tower" | "flag"`. **Note:** `PIECE_TYPES` order here is _not_
   the ENG_NN_1 plane order (see below); the encoder needs its own explicit
   plane-index map.
 - `src/rules/primary/v1/gameState.ts` — `BoardState` is
@@ -36,7 +36,7 @@ it stands at plan time (companion repo
   squares orthogonally; the two sets are disjoint.
 - `src/rules/primary/v1/play.ts` — `PlayState`
   (`{ ruleset, initialBoard, board, sideToMove, moves, inactivityCounter,
-  result }`), `startPlay(initial)`, `applyMove(state, from, to)` →
+result }`), `startPlay(initial)`, `applyMove(state, from, to)` →
   `{ state, outcome }`. White moves first. `result` is a `GameOutcome` from
   `outcome.ts`.
 - `src/rules/primary/v1/outcome.ts` — `INACTIVITY_LIMIT = 50` (the draw
@@ -120,7 +120,7 @@ it stands at plan time (companion repo
 ### Encoding lives on its own version axis
 
 Per the story, the encoder mirrors the folder-per-version layout of
-`src/rules/primary/`, but on the *encoding* axis (which versions separately
+`src/rules/primary/`, but on the _encoding_ axis (which versions separately
 from the ruleset). Use `src/encoding/eng-nn-1/` as the encoding-v1 folder
 (named for the spec, `ENG_NN_1`). A shared coordinate/plane-constants module in
 that folder is used by both the encoder (Step 1) and the policy decoder
@@ -182,7 +182,7 @@ Verification (automated): Add `src/encoding/eng-nn-1/*.test.ts` covering
 hand-built positions and run `npm run test`. Assert at minimum: (a) for a White-
 to-move position, a piece on a known square lands in the correct plane and
 `(row, col)` per the White mapping (`tensorRow = boardRow − 1`,
-`tensorCol = columnIndex`); (b) the *same* board with Black to move rotates
+`tensorCol = columnIndex`); (b) the _same_ board with Black to move rotates
 180° (`tensorRow = 12 − boardRow`, `tensorCol = 11 − columnIndex`) and swaps
 the our/their plane groups; (c) the passable plane is 0 exactly on the 12 lake
 squares and 1 elsewhere; (d) the inactivity plane is uniformly
@@ -248,7 +248,7 @@ Verification (automated): Add `*.test.ts` and run `npm run test`. Assert:
 (a) with a hand-built policy that puts all its mass on one legal ply, that ply
 is always chosen; (b) every legal `(from, to)` maps to a distinct, in-range
 flat policy index, and the movement-index/offset table matches the spec for
-both one- and two-square plies in all four directions, for White *and* Black to
+both one- and two-square plies in all four directions, for White _and_ Black to
 move (the Black case exercises the 180° offset sign flip); (c) with a seeded
 `RandomSource`, sampling is deterministic and reproducible; (d) over a spread of
 positions and random seeds the chosen ply is **always** in the engine's legal
@@ -348,6 +348,7 @@ the logged value/policy) is left for the owner's manual gate, as instructed.
 Observed tensor names (captured before this fix, via a throwaway Node-side
 check loading the model directly through `onnxruntime-web/wasm`, unaffected
 by the WASM-serving fix since that check doesn't go through Vite):
+
 - Input: `board`, shape `(1, 18, 12, 12)`.
 - Outputs: `value`, shape `(1, 1)` (1 element); `policy_logits`, shape
   `(1, 8, 12, 12)` (1152 elements).
@@ -489,7 +490,7 @@ unmodified: on the human's turn `EngineGame` behaves exactly like
 `HotSeatGame`'s Phase-2 branch; on the computer's turn, a `useEffect` keyed
 on `[playSession, humanSide]` calls Step 4's `chooseEnginePly` (real
 inference, `Math.random`, no overrides) and applies the result through a new
-`applyEnginePly` helper that drives the *same* `activateSquare` -> `applyMove`
+`applyEnginePly` helper that drives the _same_ `activateSquare` -> `applyMove`
 path a human's two clicks would (select `from`, then activate `to`), so the
 computer's move gets the same announcements, record entry, and game-end
 detection a human's move does. A `cancelled` flag set in the effect's cleanup
@@ -505,7 +506,7 @@ computer until its move applies; it drives both a small visual paragraph
 avoid double-announcing) and a sentence pushed into the board's one existing
 live region (`playAnnouncement`, the same channel `describeActivation`'s
 ordinary move narrative already uses) at the moment the effect fires, so it
-*is* announced, not merely shown, exactly as the step's own text (not just
+_is_ announced, not merely shown, exactly as the step's own text (not just
 Step 7's) requires. Board orientation is always the human's own side, never
 flipping: extended `PlayBoard.tsx` (not forked - HotSeatGame's own usage is
 byte-for-byte unchanged, since the new props default away) with two new
@@ -593,6 +594,7 @@ Depends on: Step 4 (the engine move) and the existing placement/play components.
 
 Verification (manual): Run `npm run dev` and perform **Gate A** and **Gate D**
 from `story.md`:
+
 - Gate A — The start screen shows the third choice. Choosing it lets you pick a
   side and place your army; play then begins with both armies on the board —
   yours as you placed it, the computer's a valid random arrangement with no two
@@ -641,10 +643,10 @@ effect in `EngineGame.tsx` to `Promise.all([chooseEnginePly(...), new
 Promise((resolve) => { timeoutId = setTimeout(resolve, 400); })])` instead of
 awaiting `chooseEnginePly` alone, so an instant answer from the zero-weight
 model still leaves "the computer is thinking" visible for at least 400ms
-(`Promise.all` only waits for the *slower* of the two; a genuinely slow
+(`Promise.all` only waits for the _slower_ of the two; a genuinely slow
 answer is never held back further). `computerThinking` itself needed no new
 state - it stays a boolean derived from `playSession`/`sideToMove` exactly as
-Step 5 left it - because the minimum duration now simply delays *when*
+Step 5 left it - because the minimum duration now simply delays _when_
 `setPlaySession`/`setPlayAnnouncement` are called, not a separate visual
 flag. This does not reopen Step 5's stale-move guard: it is still exactly one
 `.then`/`.catch` pair, `cancelled` is still checked immediately before the
@@ -664,7 +666,7 @@ uses, so all three automatic endings (flag capture, no-legal-move loss, the
 triggered them - no mode-specific ending logic exists to get wrong. The
 illegal/off-board-move invariant is structural, not merely
 statistically-tested: `selectEnginePly`'s candidate set
-(`enumerateLegalPlies`) is built *only* from `legalDestinations`/
+(`enumerateLegalPlies`) is built _only_ from `legalDestinations`/
 `legalAttacks`, never from decoding the policy tensor into candidate squares
 independently, so the network's output can only ever rank or fail to rank an
 already-legal ply - it has no code path capable of producing an illegal or
@@ -708,6 +710,7 @@ Depends on: Step 5 (a playable loop to run to completion).
 
 Verification (manual): Run `npm run dev` and perform **Gate B** and **Gate C**
 from `story.md`:
+
 - Gate B — Play a complete game end to end. On your turn the board behaves as
   in hot-seat. On the computer's turn a "thinking" indicator shows, the board
   is inert, then the computer makes **exactly one legal move** — a plain move,
@@ -725,7 +728,77 @@ Run `npm run typecheck`, `npm run lint`, `npm run test`.
 
 ## Step 7 — Accessibility
 
-Status: pending
+Status: committed
+
+Notes: A close read of `EngineSideChoice.tsx`, `EngineGame.tsx`,
+`PlayBoard.tsx`, `FullBoard.tsx`, `AccessibleGrid.tsx`, and
+`playAnnouncement.ts` against Gate E's four criteria found every one already
+satisfied by Steps 5–6, so **no source file changed this step** - this was a
+verification pass, not an implementation pass. Details:
+
+1. **Side choice keyboard-operable, visible/untrapped focus.**
+   `EngineSideChoice.tsx`'s two choices are already plain `<button
+type="button">` elements (not `<div onClick>`), exactly mirroring
+   `StartScreen.tsx`'s choice buttons - natively focusable, natively
+   activated by Enter/Space, and natively announced with role "button" and
+   their own text as the accessible name. Grepped every `*.css` under `src/`
+   for `outline`: the only hits are in `AccessibleGrid.css` (the board grid's
+   own focus-ring styling), so nothing strips or overrides the browser's
+   default focus ring on `.engine-side-choice__choice` or any other button in
+   this mode - the default outline is visible. Nothing wraps these buttons in
+   a dialog, `tabindex` trap, or keyboard handler that could intercept
+   Tab/Shift+Tab, so focus is untrapped.
+2. **"Computer is thinking" announced via a live region, no double
+   announcement.** `EngineGame.tsx`'s computer-turn effect calls
+   `setPlayAnnouncement("The computer is thinking.")` synchronously the
+   moment it fires, which flows into `PlayBoard` → `FullBoard` →
+   `AccessibleGrid`'s one `role="status" aria-live="polite"` region (the same
+   region `describeActivation`'s ordinary move narrative already uses) -
+   confirmed this is the _only_ live region in the component tree this mode
+   renders (`AccessibleGrid` is the only place `aria-live` appears in
+   `src/board/`). The visible "The computer is thinking…" paragraph
+   (`engine-game__thinking`) carries no `aria-live`/`role` of its own and is
+   `visibility: hidden` (removed from the accessibility tree, not just
+   invisible) whenever it is not the computer's turn - exactly the
+   already-documented "deliberately no live region of its own" design, so the
+   sentence is spoken exactly once.
+3. **Each computer move announced like a human move.** `applyEnginePly`
+   (`EngineGame.tsx`) drives the computer's chosen ply through
+   `activateSquare(before, from)` then `activateSquare(selected, to)` - the
+   identical two-step transition a human's select-then-activate click pair
+   produces - and calls the same `describeActivation(selected, after, to,
+perspective)` a human move uses, whose result is pushed into
+   `playAnnouncement` and reaches the live region exactly as a human move's
+   announcement does. Traced `activateSquare`/`applyMove` in
+   `playSession.ts`: the second call always increases `play.moves.length`,
+   so `describeActivation`'s `moveApplied` branch is what actually fires (not
+   the "selected, N moves available" branch), giving the piece, destination
+   or attack/capture wording, and the trailing "{Color} to move." or
+   game-ending `describeResult` clause - i.e. exactly the same sentence shape
+   a human's finished move gets, only skipping the intermediate "piece
+   selected" chirp a human's _first_ click produces (which a computer move
+   has no equivalent of, by design - it never has a "half-made" selection
+   state visible to the player).
+4. **Focus lands sensibly on entering the mode.** `EngineGame.tsx` already
+   has a `useEffect(() => { headingRef.current?.focus(); }, [])` focusing its
+   own `<h1 tabIndex={-1}>` on mount, added in Step 5 and copied verbatim
+   from `StartScreen.tsx`/`HotSeatGame.tsx`'s identical pattern. Since the
+   side-choice phase is what first renders on mount, this already covers "the
+   side-choice entry"; it deliberately does not re-fire between phases
+   (side-choice → placement → play), mirroring `HotSeatGame.tsx`'s own
+   comment that a phase change within one mounted component is not a screen
+   change.
+
+No genuine gap was found to fill, so this step's only action was the audit
+above (this is the scenario the step's own task description anticipated:
+"Look closely at what's ALREADY correct from Steps 5–6 ... and only add
+what's genuinely missing"). `npm run typecheck`, `npm run lint`, `npm run
+test` (481 tests, unchanged), and `npm run build` are all green, run without
+any source edits. `npm run format:check` flags this story's own `story.md`
+and `implementation-plan.md` (pre-existing, unrelated to this step); no
+`src/` file needed `prettier --write`. **Gate E (a keyboard-only walkthrough
+and a screen-reader pass) is manual and is the owner's to run** - see the
+report accompanying this step for exactly what to check.
 
 Extend the established grid and live-region patterns so the new mode is fully
 keyboard-operable and conveyed to assistive technology: the side choice is a

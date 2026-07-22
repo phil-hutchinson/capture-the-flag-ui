@@ -64,7 +64,7 @@ ruleset, difficulty, and search — on top of the plumbing this story lays down.
   self-contained rather than dependent on a hidden, gitignored `.local/` file,
   and the file is tiny. It is a throwaway placeholder — expected to be
   **deleted or replaced** once real trained models arrive. Whether and how
-  *real* models are stored (committed directly, Git LFS, or fetched at
+  _real_ models are stored (committed directly, Git LFS, or fetched at
   deploy) is **not decided here** — the models may grow, the design is still
   settling, and that call belongs to the follow-up. See Out of scope.
 - **The app shell** (`App.tsx`) already switches between four screens
@@ -227,7 +227,7 @@ deliberately excluded here:
   reviewer's job on a saved file, still gated on the save-to-file story.
 - **Choosing among several models**, loading a model by URL, or any
   networking/backend.
-- **The go-forward model-storage policy.** How *real* trained models (which
+- **The go-forward model-storage policy.** How _real_ trained models (which
   may be larger than this placeholder) are stored and served — committed
   directly, Git LFS, or fetched at deploy — is left open on purpose. This
   story only commits the tiny zero-weight reference so it stands alone; the
@@ -275,7 +275,7 @@ Presentation and structure only — the policy above is fixed:
   static hosting (a `public/` copy step vs the bundler's asset handling), and
   confirming **onnxruntime-web** as the inference dependency under the
   project's "major, well-maintained libraries only" policy. (That the
-  reference model *is* committed is settled; only the how-served mechanics are
+  reference model _is_ committed is settled; only the how-served mechanics are
   open — the storage policy for future real models is out of scope, above.)
 - **Confirm the ENG_NN_1 tensor details** against the spec as it stands at
   plan time — plane order, the two coordinate mappings, the movement-index
