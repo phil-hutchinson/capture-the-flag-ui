@@ -25,7 +25,18 @@ import {
   legalAttacks,
   legalDestinations,
 } from "../../rules/primary/v1/movement.ts";
-import { flatIndex, toMoverFrame, type TensorCoords } from "./shared.ts";
+import {
+  flatIndex,
+  MOVEMENT_INDEX_COUNT,
+  POLICY_LENGTH,
+  toMoverFrame,
+  type TensorCoords,
+} from "./shared.ts";
+
+// Re-exported for existing callers/tests that import these shape constants
+// from the decoder; `shared.ts` is the single source of truth (see Finding 1
+// of the peer review).
+export { MOVEMENT_INDEX_COUNT, POLICY_LENGTH };
 
 /**
  * A source of numbers in `[0, 1)`, matching the shape of `Math.random`.
@@ -41,12 +52,6 @@ export interface Ply {
   readonly from: Square;
   readonly to: Square;
 }
-
-/** Number of policy movement planes: the one- and two-square orthogonal offsets, per ENG_NN_1. */
-export const MOVEMENT_INDEX_COUNT = 8;
-
-/** Flat length of the `(8, 12, 12)` policy array. */
-export const POLICY_LENGTH = MOVEMENT_INDEX_COUNT * 12 * 12;
 
 /**
  * The tensor-frame `(dRow, dCol)` offset for each of the 8 movement indices,

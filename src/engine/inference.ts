@@ -21,31 +21,21 @@ import * as ort from "onnxruntime-web/wasm";
 import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.wasm?url";
 import ortMjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.mjs?url";
 import { encodePosition, type Position } from "../encoding/eng-nn-1/encoder.ts";
+import { POLICY_LENGTH } from "../encoding/eng-nn-1/shared.ts";
 
 /** Where Vite serves the bundled reference model (`public/models/`). */
 const MODEL_URL = "/models/ctf_reference.onnx";
 
-/** The policy head's flat length: 8 movement indices * 12 rows * 12 cols. */
-const POLICY_LENGTH = 8 * 12 * 12;
-
 /** The value head is always a single scalar. */
 const VALUE_LENGTH = 1;
 
-// Import onnxruntime-web's WASM runtime files as Vite assets (`?url`) rather
-// than self-hosting a copy under public/: onnxruntime-web dynamically
-// `import()`s the .mjs loader, which Vite forbids for files served out of
-// public/ (and the dev server sends it with no MIME type), so it must be an
-// asset Vite itself resolves, hashes, and serves/copies into dist/.
-ort.env.wasm.wasmPaths = { wasm: ortWasmUrl, mjs: ortMjsUrl };
-// Single-threaded: a static file host can't be assumed to send the
-// COOP/COEP headers cross-origin isolation (and therefore SharedArrayBuffer,
-// which multi-threaded WASM needs) requires. See story.md's "Static-host
-// friendly".
-ort.env.wasm.numThreads = 1;
-
 /** The network's raw output for one position: the value scalar and the length-1152 policy logits. */
 export interface EngineEvaluation {
-  /** The value head's scalar, in `[-1, 1]`, from the position's side-to-move's perspective. */
+  /**
+   * The value head's scalar, in `[-1, 1]`, from the position's
+   * side-to-move's perspective. Intentionally produced but unused by this
+   * story's raw-policy baseline; retained for the follow-up's tree search.
+   */
   readonly value: number;
   /** The policy head's raw logits, flat length 1152, in `(movementIndex, row, col)` order. */
   readonly policy: Float32Array;
@@ -55,7 +45,22 @@ let sessionPromise: Promise<ort.InferenceSession> | undefined;
 
 /** Loads (once, cached) and returns the reference model's inference session. */
 function loadSession(): Promise<ort.InferenceSession> {
-  sessionPromise ??= ort.InferenceSession.create(MODEL_URL);
+  if (sessionPromise === undefined) {
+    // Import onnxruntime-web's WASM runtime files as Vite assets (`?url`)
+    // rather than self-hosting a copy under public/: onnxruntime-web
+    // dynamically `import()`s the .mjs loader, which Vite forbids for files
+    // served out of public/ (and the dev server sends it with no MIME
+    // type), so it must be an asset Vite itself resolves, hashes, and
+    // serves/copies into dist/.
+    ort.env.wasm.wasmPaths = { wasm: ortWasmUrl, mjs: ortMjsUrl };
+    // Single-threaded: a static file host can't be assumed to send the
+    // COOP/COEP headers cross-origin isolation (and therefore
+    // SharedArrayBuffer, which multi-threaded WASM needs) requires. See
+    // story.md's "Static-host friendly".
+    ort.env.wasm.numThreads = 1;
+
+    sessionPromise = ort.InferenceSession.create(MODEL_URL);
+  }
   return sessionPromise;
 }
 

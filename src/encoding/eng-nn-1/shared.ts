@@ -25,6 +25,18 @@ export const PLANE_COUNT = 18;
 /** Flat length of the (18, 12, 12) input tensor. */
 export const INPUT_LENGTH = PLANE_COUNT * TENSOR_SIZE * TENSOR_SIZE;
 
+/**
+ * Number of policy movement planes: the one- and two-square orthogonal
+ * offsets, per ENG_NN_1. The single source of truth for the policy head's
+ * shape - both the decoder (`decoder.ts`) and the in-browser inference
+ * boundary (`src/engine/inference.ts`) import it from here rather than
+ * re-deriving it, so a future encoding-shape change only needs one edit.
+ */
+export const MOVEMENT_INDEX_COUNT = 8;
+
+/** Flat length of the `(8, 12, 12)` policy array. */
+export const POLICY_LENGTH = MOVEMENT_INDEX_COUNT * TENSOR_SIZE * TENSOR_SIZE;
+
 /** Plane 0 of the mover's own 8 piece planes (planes 0-7). */
 export const MOVER_PLANE_OFFSET = 0;
 
