@@ -2,7 +2,7 @@
 // extended for Phase 2 by story 00000004, Step 4).
 //
 // This module has no React dependency: it is a pure mapping from the domain
-// board model (src/rules/primary/v1_1/board.ts) onto what a single player
+// board model (src/rules/primary/v1/board.ts) onto what a single player
 // sees on screen. It knows nothing about pieces, placement, or movement.
 //
 // Per story 00000001's Gate A, the active player sees their own 4 home rows
@@ -25,7 +25,7 @@ import {
   type Column,
   type Row,
   type Side,
-} from "../rules/primary/v1_1/board.ts";
+} from "../rules/primary/v1/board.ts";
 
 /** A visible row's role in the cropped, active-player view. */
 export type RowBand = "home" | "buffer" | "lake-row";

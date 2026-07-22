@@ -40,8 +40,8 @@ import { PlayStatus } from "./PlayStatus.tsx";
 import { computeCountdownWarnings } from "./playWarnings.ts";
 import { PlayWarnings } from "./PlayWarnings.tsx";
 import { Tray } from "./Tray.tsx";
-import { squareKey, type Square } from "../rules/primary/v1_1/board.ts";
-import { buildInitialGameState } from "../rules/primary/v1_1/gameState.ts";
+import { squareKey, type Square } from "../rules/primary/v1/board.ts";
+import { buildInitialGameState } from "../rules/primary/v1/gameState.ts";
 import {
   autoFill,
   clear,
@@ -53,8 +53,9 @@ import {
   progress,
   returnToTray,
   swap,
-} from "../rules/primary/v1_1/placement.ts";
-import type { PieceTypeId } from "../rules/primary/v1_1/pieces.ts";
+  towersLegallyPlaced,
+} from "../rules/primary/v1/placement.ts";
+import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
 import "../App.css";
 import "./HotSeatGame.css";
 
@@ -392,10 +393,11 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
       const gameState = buildInitialGameState(next.white, next.black);
       const freshPlaySession = startSession(gameState);
       setPlaySession(freshPlaySession);
-      // Story 00000006, Step 9: placement is unrestricted, so the
-      // Unbreachable Flag condition (§6.2) can already hold at the reveal,
-      // before either player has made a single move - no activation occurs
-      // to drive `describeActivation`, so announce the result directly here.
+      // Story 00000006, Step 9: placement is unrestricted, so a game-ending
+      // condition (e.g. the side to move having no legal move) can in theory
+      // already hold at the reveal, before either player has made a single
+      // move - no activation occurs to drive `describeActivation`, so
+      // announce the result directly here.
       if (freshPlaySession.play.result.kind !== "ongoing") {
         setPlayAnnouncement(describeResult(freshPlaySession.play.result));
       }
@@ -411,6 +413,13 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
     selection?.kind === "boardSquare"
       ? pieceAt(placement, selection.square)
       : undefined;
+  // Story 00000016, Step 6: Confirm requires both a complete (25-piece) army
+  // and the Tower-adjacency rule (rules §3) being satisfied. The two are
+  // tracked separately so the status bar can tell "not finished yet" apart
+  // from "finished, but two Towers are touching" and show the latter's
+  // explanation only when it applies.
+  const placementComplete = isComplete(placement);
+  const towerRuleOk = towersLegallyPlaced(placement);
 
   return (
     <main className="app">
@@ -433,7 +442,8 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
       <PlacementStatus
         side={activeSide}
         progress={progress(placement)}
-        canConfirm={isComplete(placement)}
+        canConfirm={placementComplete && towerRuleOk}
+        towerAdjacencyBlocked={placementComplete && !towerRuleOk}
         onAutoFill={handleAutoFill}
         onConfirm={handleConfirm}
       />

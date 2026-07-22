@@ -1,9 +1,8 @@
-// Countdown warnings banner (story 00000006, Step 11).
+// Countdown warning banner.
 //
-// Renders Step 8's `CountdownWarnings` (src/board/playWarnings.ts) - zero,
-// one, or both of the inactivity and no-progress warning sentences - in the
-// status area, above the board, alongside `PlayStatus`. Never covers the
-// board.
+// Renders `playWarnings.ts`'s `CountdownWarnings` - the single shared
+// inactivity warning sentence, if in effect - in the status area, above the
+// board, alongside `PlayStatus`. Never covers the board.
 //
 // This is its **own** polite live region (`role="status"
 // aria-live="polite"`), deliberately separate from the board's existing live
@@ -27,25 +26,16 @@ export interface PlayWarningsProps {
   readonly warnings: CountdownWarnings;
 }
 
-/** The countdown warnings banner: zero, one, or both warning sentences. */
+/** The countdown warning banner: the inactivity warning sentence, if in effect. */
 export function PlayWarnings({ warnings }: PlayWarningsProps) {
-  const { inactivity, noProgress } = warnings;
+  const { inactivity } = warnings;
 
   return (
     <div className="play-warnings" role="status" aria-live="polite">
       {inactivity !== null && (
-        <p
-          className="play-warnings__item play-warnings__item--inactivity"
-          data-side={inactivity.side}
-        >
+        <p className="play-warnings__item play-warnings__item--inactivity">
           <span className="play-warnings__label">Warning:</span>{" "}
           {inactivity.message}
-        </p>
-      )}
-      {noProgress !== null && (
-        <p className="play-warnings__item play-warnings__item--no-progress">
-          <span className="play-warnings__label">Warning:</span>{" "}
-          {noProgress.message}
         </p>
       )}
     </div>

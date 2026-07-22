@@ -38,3 +38,28 @@
 .placement-status__confirm {
   font-weight: bold;
 }
+
+/* Story 00000016, Step 6: the Tower-adjacency block message. An amber accent
+   border - the same cue PlayWarnings.css uses for the inactivity countdown -
+   as an additional, non-color-only signal; the sentence text always carries
+   the meaning on its own. Takes its own line via flex-basis, so it never
+   crowds the turn/progress/buttons row above it.
+
+   Story 00000016, Step 9: the flex-basis and visible chrome live on the
+   *region wrapper* (`__tower-warning-region`), which stays mounted (and so
+   stays a flex child) at all times so screen readers register it as a live
+   region before the warning first appears - see PlacementStatus.tsx. When
+   empty it renders no `<p>`, so it takes no visible space despite always
+   being present. */
+.placement-status__tower-warning-region {
+  flex-basis: 100%;
+}
+
+.placement-status__tower-warning {
+  margin: 0;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-left: 4px solid rgb(255 183 3);
+  border-radius: 4px;
+  background: var(--parchment);
+}

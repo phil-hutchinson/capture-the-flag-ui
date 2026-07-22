@@ -1,12 +1,11 @@
-// Phase 2 play-state model & move application for ruleset PRIMARY:1.1.
+// Phase 2 play-state model & move application for ruleset 1.2.
 //
 // A `PlayState` tracks an in-progress Phase-2 game: the current board, whose
 // turn it is to move, and the ordered list of moves made so far in the
 // simple `A2A3` coordinate form (source square immediately followed by
 // destination square, no separator - rules.md §4.4, unchanged for attacks:
-// no combat-resolution markers - see story 00000005's Design decisions).
-// This is the minimum structure recorded-game replay can build on later;
-// this story does not implement replay itself.
+// no combat-resolution markers). This is the minimum structure recorded-game
+// replay can build on later; this story does not implement replay itself.
 //
 // Operations are pure and immutable-style - `applyMove` returns a *new*
 // state rather than mutating its input - matching placement.ts. Because the
@@ -56,13 +55,11 @@ const FIRST_SIDE: Side = "white";
  * record file format's position block, which is always the *starting*
  * position, never the current one), the current board, whose turn it is,
  * every move made so far, in order, as `A2A3` coordinate strings (absolute
- * White frame - see board.ts), the two pieces of §6.4/§6.5 rule state this
- * story adds - each side's personal inactivity counter and the single shared
- * no-progress counter (see `applyMove` for how they evolve) - and the
- * current `GameOutcome` (`result` - outcome.ts, story 00000006 Step 4):
- * whether the game is still ongoing, or how it ended. Everything downstream
- * (the session layer, the UI, the record) reads `result` rather than
- * recomputing detection for itself.
+ * White frame - see board.ts), the single shared inactivity counter (§5.3 -
+ * see `applyMove` for how it evolves), and the current `GameOutcome`
+ * (`result` - outcome.ts): whether the game is still ongoing, or how it
+ * ended. Everything downstream (the session layer, the UI, the record) reads
+ * `result` rather than recomputing detection for itself.
  */
 export interface PlayState {
   readonly ruleset: string;
@@ -70,49 +67,42 @@ export interface PlayState {
   readonly board: BoardState;
   readonly sideToMove: Side;
   readonly moves: readonly string[];
-  readonly inactivityCounters: Readonly<Record<Side, number>>;
-  readonly progressCounter: number;
+  readonly inactivityCounter: number;
   readonly result: GameOutcome;
 }
 
 /**
- * The opening `PlayState` for `initial` (story 00000001's completed-placement
- * artifact): the same board (as both the starting and current board), White
- * (Red) to move first, no moves made yet, the ruleset carried over
- * unchanged, both inactivity counters and the progress counter starting at 0
- * (rules.md §6.4/§6.5), and `result` computed immediately - since placement
- * is unrestricted, the Unbreachable Flag condition (§6.2) can already hold
- * **at the reveal**, before any ply is made.
+ * The opening `PlayState` for `initial` (the completed-placement artifact):
+ * the same board (as both the starting and current board), White (Red) to
+ * move first, no moves made yet, the ruleset carried over unchanged, the
+ * shared inactivity counter starting at 0 (rules.md §5.3), and `result`
+ * computed immediately (always `{ kind: "ongoing" }` at the reveal, since
+ * both Flags are always present and both sides always have a legal ply from
+ * a freshly completed placement - kept as a real call to `computeOutcome`
+ * rather than a hard-coded value so this stays correct if that ever stops
+ * being true).
  */
 export function startPlay(initial: InitialGameState): PlayState {
-  const inactivityCounters = { white: 0, black: 0 };
-  const progressCounter = 0;
+  const inactivityCounter = 0;
   return {
     ruleset: initial.ruleset,
     initialBoard: initial.board,
     board: initial.board,
     sideToMove: FIRST_SIDE,
     moves: [],
-    inactivityCounters,
-    progressCounter,
-    result: computeOutcome(
-      initial.board,
-      FIRST_SIDE,
-      inactivityCounters,
-      progressCounter,
-    ),
+    inactivityCounter,
+    result: computeOutcome(initial.board, FIRST_SIDE, inactivityCounter),
   };
 }
 
 /**
  * The outcome of a single ply applied via `applyMove`: either a resolved
  * combat encounter (`kind: "attack"`, carrying every field of
- * `resolveCombat`'s `CombatOutcome` - combat.ts, story 00000005 Steps 1-2) or,
- * for a plain move onto an empty square, a "just a move" record
- * (`kind: "move"`) naming the piece that moved and the square it moved to -
- * deliberately with no attacker/defender/capture to report, since nothing
- * fought. Callers (the session layer, and story 00000006's game-end
- * detection) discriminate on `kind`.
+ * `resolveCombat`'s `CombatOutcome` - combat.ts) or, for a plain move onto an
+ * empty square, a "just a move" record (`kind: "move"`) naming the piece
+ * that moved and the square it moved to - deliberately with no
+ * attacker/defender/capture to report, since nothing fought. Callers (the
+ * session layer, and the game-end detection above) discriminate on `kind`.
  */
 export type PlyOutcome =
   | ({ readonly kind: "attack" } & CombatOutcome)
@@ -139,13 +129,17 @@ export type PlyOutcome =
  * In every case the side to move flips and the move is appended to
  * `state.moves` in the same plain `A2A3` coordinate string
  * (`squareKey(from) + squareKey(to)`) - no combat-resolution markers, even
- * for an attack.
+ * for an attack. The shared inactivity counter (rules.md §5.3) rises by 1
+ * when the ply removed no piece (`outcome.kind === "move"`, or an attack
+ * whose `capture` is `false`) and resets to 0 the moment any piece is
+ * removed (a winning attack, a mutual loss, or - once Towers exist - a
+ * Tower trade: exactly when `outcome.capture` is `true`).
  *
- * After the counters are updated, `state.result` is recomputed
- * (`computeOutcome`, outcome.ts - story 00000006 Step 4) from the *new*
- * board, the *new* side to move, and the updated counters, so the returned
- * state always reflects whether that ply just ended the game - and, if so,
- * who won (or that it is a draw) and why.
+ * After the counter is updated, `state.result` is recomputed
+ * (`computeOutcome`, outcome.ts) from the *new* board, the *new* side to
+ * move, and the updated counter, so the returned state always reflects
+ * whether that ply just ended the game - and, if so, who won (or that it is
+ * a draw) and why.
  *
  * Rejects (throws) if `state.result` is already a finished game, if `from`
  * does not hold a piece belonging to `state.sideToMove`, or if `to` is
@@ -206,40 +200,14 @@ export function applyMove(
     outcome = { kind: "move", piece, square: to };
   }
 
-  const mover = state.sideToMove;
-  const opponent = otherSide(mover);
-  let moverInactivity = state.inactivityCounters[mover];
-  let opponentInactivity = state.inactivityCounters[opponent];
-  let progressCounter = state.progressCounter;
-
-  if (outcome.kind === "attack") {
-    // Any attack - whatever its result - resets the mover's own inactivity
-    // counter (rules.md §6.4).
-    moverInactivity = 0;
-    // A sacrificial attack - the mover's own attacker falls, complete
-    // (`attackerLoses`) or partial (`mutualLoss`) - also resets the
-    // opponent's counter; a clean win (`attackerWins`) does not.
-    if (outcome.result === "attackerLoses" || outcome.result === "mutualLoss") {
-      opponentInactivity = 0;
-    }
-    // `capture` is true for exactly the two results that remove a
-    // defending piece (attackerWins, mutualLoss - rules.md §6.5); a
-    // complete sacrifice (`attackerLoses`) captures nothing and raises
-    // progress just like a plain move.
-    progressCounter = outcome.capture ? 0 : progressCounter + 1;
-  } else {
-    // A plain move: no attack, so it can never be sacrificial or capture
-    // anything - it raises both the mover's inactivity counter and the
-    // shared progress counter by 1.
-    moverInactivity += 1;
-    progressCounter += 1;
-  }
-
-  const inactivityCounters: Record<Side, number> = {
-    ...state.inactivityCounters,
-    [mover]: moverInactivity,
-    [opponent]: opponentInactivity,
-  };
+  // The single shared inactivity counter (rules.md §5.3): a plain move never
+  // removes a piece, so it always raises the counter; an attack always
+  // removes at least one piece - the attacker, the defender, or both - so it
+  // always resets the counter to 0 (including a complete sacrifice, where
+  // only the attacker falls, and a Tower trade, which is always a
+  // `mutualLoss`).
+  const removedAPiece = outcome.kind === "attack";
+  const inactivityCounter = removedAPiece ? 0 : state.inactivityCounter + 1;
 
   const nextSideToMove = otherSide(state.sideToMove);
 
@@ -249,31 +217,25 @@ export function applyMove(
       board,
       sideToMove: nextSideToMove,
       moves: [...state.moves, fromKey + toKey],
-      inactivityCounters,
-      progressCounter,
-      result: computeOutcome(
-        board,
-        nextSideToMove,
-        inactivityCounters,
-        progressCounter,
-      ),
+      inactivityCounter,
+      result: computeOutcome(board, nextSideToMove, inactivityCounter),
     },
     outcome,
   };
 }
 
 /**
- * Ends `state`'s game immediately as a draw by **agreement** (rules.md
- * §6.6) - the one ending that is *declared*, not detected: `computeOutcome`
- * never produces the `"agreement"` reason. Returns a new state whose
- * `result` is `{ kind: "draw", reason: "agreement" }` and is otherwise
- * **unchanged** - no counter update, no side-to-move flip, no move appended
- * to `state.moves` - since an offer never replaces or skips a move and an
- * agreed draw leaves no trace in the move sequence (see the record layer,
- * Step 5). The draw offer/accept/decline *interaction* (who offered, whether
- * an answer is pending) is session state, not rule state - see
- * `src/board/playSession.ts`, Step 6 - this function only performs the
- * ending itself, once the session layer has decided to call it.
+ * Ends `state`'s game immediately as a draw by **agreement** (rules.md §5) -
+ * the one ending that is *declared*, not detected: `computeOutcome` never
+ * produces the `"agreement"` reason. Returns a new state whose `result` is
+ * `{ kind: "draw", reason: "agreement" }` and is otherwise **unchanged** - no
+ * counter update, no side-to-move flip, no move appended to `state.moves` -
+ * since an offer never replaces or skips a move and an agreed draw leaves no
+ * trace in the move sequence (see the record layer, below). The draw
+ * offer/accept/decline *interaction* (who offered, whether an answer is
+ * pending) is session state, not rule state - see
+ * `src/board/playSession.ts` - this function only performs the ending
+ * itself, once the session layer has decided to call it.
  *
  * Rejects (throws) if the game has already ended - a programming-invariant
  * guard, like `applyMove`'s: the UI never offers a draw once the game is
@@ -307,23 +269,19 @@ function renderResultValue(winner: Side | undefined): string {
 
 /**
  * Maps a `GameEndReason` (outcome.ts's stable identifier) to the record file
- * format's `ResultReason` free text. The first five strings are the
- * companion repository's technical-notes examples verbatim; `"Agreement"` is
- * not in those notes - it is the owner's fixed choice (2026-07-11) for a
- * draw by agreement, to be raised upstream so both codebases agree.
+ * format's `ResultReason` free text. `"Agreement"` is not from the rules
+ * text - it is the owner's fixed choice (2026-07-11, carried over from
+ * ruleset 1.1) for a draw by agreement, to be raised upstream so both
+ * codebases agree.
  */
 function renderResultReasonValue(reason: GameEndReason): string {
   switch (reason) {
     case "flagCapture":
       return "Flag Captured";
-    case "unbreachableFlag":
-      return "Unbreachable Flag";
     case "noLegalMove":
       return "No Legal Move";
     case "inactivity":
       return "Inactivity";
-    case "noProgress":
-      return "No Progress";
     case "agreement":
       return "Agreement";
   }

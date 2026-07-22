@@ -1,11 +1,13 @@
-// Placement state model & core operations for ruleset PRIMARY:1.1.
+// Placement state model & core operations for ruleset 1.2:PRE-RELEASE.
 //
 // A `PlacementState` tracks one player's in-progress army layout: which of
 // that player's own 48 home squares hold a placed piece type, plus the
 // derived remaining-inventory (how many of each type are still in the tray).
-// Operations are pure and immutable-style - each returns a *new* state
-// rather than mutating its input - so the UI (Steps 8-10) can drive them
-// directly and the serializer (Step 5) can read a snapshot safely.
+// Placement is sparse: a complete army is only 25 pieces (`ARMY_SIZE`), so a
+// finished layout leaves 23 of the 48 home squares empty. Operations are pure
+// and immutable-style - each returns a *new* state rather than mutating its
+// input - so the UI (Steps 8-10) can drive them directly and the serializer
+// (Step 5) can read a snapshot safely.
 //
 // All operations structurally reject any square that is not one of the
 // state's own side's home squares (lakes, buffers, and the opponent's zone
@@ -19,9 +21,11 @@
 // fresh-army inventory (Step 2); it has no further dependencies.
 
 import {
+  COLUMNS,
   homeSquares,
   isHomeSquareFor,
   squareKey,
+  type Column,
   type Side,
   type Square,
 } from "./board.ts";
@@ -45,7 +49,7 @@ export interface PlacementState {
   readonly remaining: Inventory;
 }
 
-/** A fresh placement state for `side`: no pieces placed, a full 48-piece tray. */
+/** A fresh placement state for `side`: no pieces placed, a full 25-piece tray. */
 export function emptyPlacement(side: Side): PlacementState {
   return {
     side,
@@ -206,14 +210,52 @@ export interface PlacementProgress {
   readonly total: number;
 }
 
-/** Placement progress as `{ placed, total }`, e.g. for a "42 / 48 placed" readout. */
+/** Placement progress as `{ placed, total }`, e.g. for a "12 / 25 placed" readout. */
 export function progress(state: PlacementState): PlacementProgress {
   return { placed: placedCount(state), total: ARMY_SIZE };
 }
 
-/** True only once every one of the 48 home squares holds a placed piece. */
+/**
+ * True only once all `ARMY_SIZE` (25) pieces have been placed. Placement is
+ * sparse - a complete army fills 25 of a side's 48 home squares, leaving the
+ * other 23 intentionally empty.
+ */
 export function isComplete(state: PlacementState): boolean {
   return placedCount(state) === ARMY_SIZE;
+}
+
+/** The index of `column` within `COLUMNS` (A=0 .. L=11), for adjacency arithmetic. */
+function columnIndex(column: Column): number {
+  return COLUMNS.indexOf(column);
+}
+
+/** True if `a` and `b` are the same square or share an edge/corner (orthogonally or diagonally adjacent). */
+function isAdjacentOrSame(a: Square, b: Square): boolean {
+  const columnDelta = Math.abs(columnIndex(a.column) - columnIndex(b.column));
+  const rowDelta = Math.abs(a.row - b.row);
+  return columnDelta <= 1 && rowDelta <= 1;
+}
+
+/**
+ * True only when none of `state.side`'s currently-placed Towers sit
+ * orthogonally or diagonally adjacent to another of that side's Towers (rules
+ * §3's placement-only Tower rule). True whenever the side has placed fewer
+ * than two Towers. Used by the UI (Step 6) to gate placement confirmation -
+ * this is a placement-time rule only; Towers never move, so it is never
+ * re-checked during play.
+ */
+export function towersLegallyPlaced(state: PlacementState): boolean {
+  const towerSquares = homeSquares(state.side).filter(
+    (square) => pieceAt(state, square) === "tower",
+  );
+  for (let i = 0; i < towerSquares.length; i += 1) {
+    for (let j = i + 1; j < towerSquares.length; j += 1) {
+      if (isAdjacentOrSame(towerSquares[i], towerSquares[j])) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 /**
@@ -234,14 +276,65 @@ function shuffle<T>(items: readonly T[], random: RandomSource): T[] {
 }
 
 /**
- * Fills every one of `state`'s currently-empty home squares with a randomly
- * chosen remaining piece type, leaving already-placed pieces untouched.
- * Never touches lakes, buffers, or the opponent's zone (only ever operates on
- * `state.side`'s own home squares), and always respects remaining counts -
- * every remaining piece is placed exactly once. Because the number of
- * remaining pieces always equals the number of empty home squares (a
- * `PlacementState` invariant), starting from a complete-army inventory this
- * always fully completes the board.
+ * Chooses `count` squares from `candidates` for the remaining Towers to
+ * place, such that none of them ends up orthogonally or diagonally adjacent
+ * to another of this side's Towers - either one of `alreadyPlacedTowers` or
+ * one chosen alongside it here. Tries several random shuffles of `candidates`
+ * (an independent set of this size is easy to find among 48 home squares for
+ * up to 6 Towers, so a handful of attempts suffices in practice) before
+ * giving up. Returns the chosen squares and the remainder of `candidates`
+ * (the squares not chosen), so the caller can place non-Tower pieces on what
+ * is left.
+ */
+function pickTowerSquares(
+  candidates: readonly Square[],
+  count: number,
+  alreadyPlacedTowers: readonly Square[],
+  random: RandomSource,
+): { chosen: Square[]; remaining: Square[] } {
+  if (count === 0) {
+    return { chosen: [], remaining: [...candidates] };
+  }
+
+  const MAX_ATTEMPTS = 500;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+    const shuffled = shuffle(candidates, random);
+    const chosen: Square[] = [];
+    const committed: Square[] = [...alreadyPlacedTowers];
+
+    for (const candidate of shuffled) {
+      if (chosen.length === count) break;
+      if (!committed.some((tower) => isAdjacentOrSame(tower, candidate))) {
+        chosen.push(candidate);
+        committed.push(candidate);
+      }
+    }
+
+    if (chosen.length === count) {
+      const chosenKeys = new Set(chosen.map(squareKey));
+      const remaining = candidates.filter(
+        (square) => !chosenKeys.has(squareKey(square)),
+      );
+      return { chosen, remaining };
+    }
+  }
+
+  throw new Error(
+    "autoFill: could not find Tower squares satisfying the no-adjacent-Towers rule.",
+  );
+}
+
+/**
+ * Places every one of `state`'s remaining pieces onto a randomly chosen
+ * subset of `state`'s currently-empty home squares - not every empty square,
+ * since placement is sparse (rules §3): only `ARMY_SIZE` (25) of a side's 48
+ * home squares ever hold a piece. Already-placed pieces are left untouched,
+ * and only `state.side`'s own home squares are ever touched (never lakes,
+ * buffers, or the opponent's zone). The remaining Towers are placed first, so
+ * that neither they nor any already-placed Tower ends up orthogonally or
+ * diagonally adjacent to another of this side's Towers (rules §3's Tower
+ * rule); the remaining non-Tower pieces then fill a random subset of what is
+ * left.
  *
  * `random` defaults to `Math.random` (real randomness for the UI); pass a
  * seeded `RandomSource` for deterministic, reproducible results in tests.
@@ -260,13 +353,30 @@ export function autoFill(
       piecesToPlace.push(id);
     }
   }
+  const towersToPlace = piecesToPlace.filter((id) => id === "tower").length;
+  const nonTowerPieces = shuffle(
+    piecesToPlace.filter((id) => id !== "tower"),
+    random,
+  );
 
-  const shuffledSquares = shuffle(emptySquares, random);
-  const shuffledPieces = shuffle(piecesToPlace, random);
+  const alreadyPlacedTowers = homeSquares(state.side).filter(
+    (square) => pieceAt(state, square) === "tower",
+  );
+
+  const { chosen: towerSquares, remaining: squaresAfterTowers } =
+    pickTowerSquares(emptySquares, towersToPlace, alreadyPlacedTowers, random);
+
+  const nonTowerSquares = shuffle(squaresAfterTowers, random).slice(
+    0,
+    nonTowerPieces.length,
+  );
 
   let result = state;
-  for (let i = 0; i < shuffledSquares.length; i += 1) {
-    result = place(result, shuffledSquares[i], shuffledPieces[i]);
+  for (const square of towerSquares) {
+    result = place(result, square, "tower");
+  }
+  for (let i = 0; i < nonTowerSquares.length; i += 1) {
+    result = place(result, nonTowerSquares[i], nonTowerPieces[i]);
   }
   return result;
 }

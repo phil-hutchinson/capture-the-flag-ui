@@ -11,11 +11,8 @@
 // equivalent.
 
 import { PieceIcon } from "../art/PieceIcon.tsx";
-import type { Side } from "../rules/primary/v1_1/board.ts";
-import {
-  PIECE_CATALOG,
-  type PieceTypeId,
-} from "../rules/primary/v1_1/pieces.ts";
+import type { Side } from "../rules/primary/v1/board.ts";
+import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v1/pieces.ts";
 import "./PlacementControls.css";
 
 export interface PlacementControlsProps {

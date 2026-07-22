@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { Square } from "../rules/primary/v1_1/board.ts";
-import { RULESET_TAG } from "../rules/primary/v1_1/gameState.ts";
+import type { Square } from "../rules/primary/v1/board.ts";
+import { RULESET_TAG } from "../rules/primary/v1/gameState.ts";
 import type {
   BoardState,
   InitialGameState,
   PlacedPiece,
-} from "../rules/primary/v1_1/gameState.ts";
-import type { PieceTypeId } from "../rules/primary/v1_1/pieces.ts";
+} from "../rules/primary/v1/gameState.ts";
+import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
 import {
   acceptDraw,
   actionableSquares,
@@ -50,7 +50,7 @@ const sq = (column: Square["column"], row: Square["row"]): Square => ({
 describe("startSession", () => {
   it("starts with White to move, nothing selected, and no resolved outcome", () => {
     const session = startSession(
-      initialGameState([["D5", "white", "infantry"]]),
+      initialGameState([["D5", "white", "footSoldier"]]),
     );
     expect(session.play.sideToMove).toBe("white");
     expect(session.selection).toBeNull();
@@ -62,7 +62,7 @@ describe("actionableSquares - nothing selected", () => {
   it("offers exactly the side-to-move's own movable pieces", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["E5", "white", "tower"], // own, but immobile - excluded
         ["D9", "black", "militia"], // opponent - excluded
         ["A1", "white", "flag"],
@@ -73,7 +73,7 @@ describe("actionableSquares - nothing selected", () => {
   });
 
   it("yields an empty actionable set (without throwing) when the side to move has neither a legal move nor a legal attack", () => {
-    // White's infantry is boxed in on every side by *friendly* Towers, so it
+    // White's footSoldier is boxed in on every side by *friendly* Towers, so it
     // has zero legal destinations (all four neighbours occupied) and zero
     // legal attacks (attacks only ever target an enemy - a friendly-occupied
     // square is never a target). The Towers are themselves immobile. White
@@ -89,7 +89,7 @@ describe("actionableSquares - nothing selected", () => {
     // never throws - holds.
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["C5", "white", "tower"],
         ["E5", "white", "tower"],
         ["D4", "white", "tower"],
@@ -107,7 +107,7 @@ describe("activatableSquares - nothing selected", () => {
   it("matches actionableSquares: exactly the side-to-move's own movable pieces", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["E5", "white", "tower"], // own, but immobile - excluded
         ["D9", "black", "militia"], // opponent - excluded
         ["A1", "white", "flag"],
@@ -120,7 +120,7 @@ describe("activatableSquares - nothing selected", () => {
   it("excludes an immobile own piece (Tower/Flag) even though it belongs to the side to move", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["E5", "white", "tower"],
         ["F5", "white", "flag"],
         ["L12", "black", "flag"],
@@ -132,7 +132,7 @@ describe("activatableSquares - nothing selected", () => {
   it("excludes an opponent's piece", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D9", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
@@ -144,7 +144,7 @@ describe("activatableSquares - nothing selected", () => {
   it("excludes an empty non-destination square", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
@@ -157,8 +157,8 @@ describe("activatableSquares - a piece selected", () => {
   it("is the side's own movable pieces (including the selected one) union the selected piece's legal destinations", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
-        ["H5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
+        ["H5", "white", "footSoldier"],
         ["D9", "black", "militia"],
         ["E5", "white", "tower"], // own, immobile - excluded
         ["A1", "white", "flag"],
@@ -169,16 +169,18 @@ describe("activatableSquares - a piece selected", () => {
 
     // Own movable pieces: D5 (the selected piece itself - this is what makes
     // reactivating it to deselect reachable) and H5. Plus D5's own legal
-    // destinations (C5, D4, D6 - E5 is occupied by the Tower).
+    // destinations: D9 is too far away to encumber D5, so it is unencumbered
+    // and offers both squares in each open direction (C5/B5, D4/D3, D6/D7 -
+    // E5 is occupied by the Tower, blocking that whole direction).
     expect(sortedKeys(activatableSquares(selected))).toEqual(
-      ["D5", "H5", "C5", "D4", "D6"].sort(),
+      ["D5", "H5", "C5", "B5", "D4", "D3", "D6", "D7"].sort(),
     );
   });
 
   it("still excludes an immobile own piece and an opponent's piece", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["H5", "white", "tower"],
         ["D9", "black", "militia"],
         ["A1", "white", "flag"],
@@ -197,22 +199,24 @@ describe("activateSquare - selecting a piece", () => {
   it("selecting an own movable piece exposes exactly its legal destinations", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
     );
     const next = activateSquare(session, sq("D", 5));
     expect(next.selection).toEqual(sq("D", 5));
+    // No enemy anywhere on the board, so D5 is unencumbered and offers both
+    // squares in every open direction.
     expect(sortedKeys(actionableSquares(next))).toEqual(
-      ["C5", "D4", "D6", "E5"].sort(),
+      ["C5", "B5", "D4", "D3", "D6", "D7", "E5", "F5"].sort(),
     );
   });
 
   it("selecting an opponent's piece exposes nothing and does not select", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D9", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
@@ -227,7 +231,7 @@ describe("activateSquare - selecting a piece", () => {
   it("selecting an immobile own piece (Tower) exposes nothing and does not select", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["E5", "white", "tower"],
       ]),
     );
@@ -239,7 +243,7 @@ describe("activateSquare - selecting a piece", () => {
   it("activating the same selected piece again deselects it", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
@@ -257,7 +261,7 @@ describe("activateSquare - moving", () => {
   it("activating a legal destination applies the move, flips the side, and clears the selection", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D9", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
@@ -271,7 +275,7 @@ describe("activateSquare - moving", () => {
     expect(moved.play.board["D5"]).toBeUndefined();
     expect(moved.play.board["D4"]).toEqual({
       side: "white",
-      pieceType: "infantry",
+      pieceType: "footSoldier",
     });
     expect(moved.play.moves).toEqual(["D5D4"]);
   });
@@ -279,15 +283,16 @@ describe("activateSquare - moving", () => {
   it("activating a non-destination while a piece is selected is a no-op", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D9", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
     );
     const selected = activateSquare(session, sq("D", 5));
-    // D3 is two squares away - not a legal destination for a baseline piece.
-    const next = activateSquare(selected, sq("D", 3));
+    // E4 is diagonally adjacent - never a legal destination, under either
+    // the one- or two-square move rules (both are strictly orthogonal).
+    const next = activateSquare(selected, sq("E", 4));
 
     expect(next).toEqual(selected);
     expect(next.selection).toEqual(sq("D", 5));
@@ -295,7 +300,7 @@ describe("activateSquare - moving", () => {
 
   it("activating an empty square with nothing selected is a no-op", () => {
     const session = startSession(
-      initialGameState([["D5", "white", "infantry"]]),
+      initialGameState([["D5", "white", "footSoldier"]]),
     );
     const next = activateSquare(session, sq("H", 8));
     expect(next).toEqual(session);
@@ -306,8 +311,8 @@ describe("activateSquare - switching selection", () => {
   it("activating a different own movable piece switches the selection to it", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
-        ["H5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
+        ["H5", "white", "footSoldier"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
@@ -318,16 +323,18 @@ describe("activateSquare - switching selection", () => {
     const switchedToH5 = activateSquare(selectedD5, sq("H", 5));
     expect(switchedToH5.selection).toEqual(sq("H", 5));
     expect(switchedToH5.play).toBe(selectedD5.play);
-    // Actionable squares now reflect H5's destinations, not D5's.
+    // Actionable squares now reflect H5's destinations, not D5's - H5 is
+    // unencumbered (no enemy on the board), so both squares in every
+    // direction are offered.
     expect(sortedKeys(actionableSquares(switchedToH5))).toEqual(
-      ["G5", "H4", "H6", "I5"].sort(),
+      ["G5", "F5", "H4", "H3", "H6", "H7", "I5", "J5"].sort(),
     );
   });
 
   it("activating an immobile own piece (Tower) while a piece is selected is still a no-op", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["H5", "white", "tower"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
@@ -344,7 +351,7 @@ describe("activateSquare - switching selection", () => {
 describe("activateSquare - turn alternation across a sequence", () => {
   it("strictly alternates sides across several moves", () => {
     const initial = initialGameState([
-      ["D5", "white", "infantry"],
+      ["D5", "white", "footSoldier"],
       ["D9", "black", "militia"],
       ["A1", "white", "flag"],
       ["L12", "black", "flag"],
@@ -371,12 +378,12 @@ describe("activateSquare - turn alternation across a sequence", () => {
 
 describe("attacks - selectability", () => {
   it("a piece with no legal moves but a legal attack is still selectable", () => {
-    // D5's infantry is boxed in on three sides by friendly Towers, so it has
+    // D5's footSoldier is boxed in on three sides by friendly Towers, so it has
     // zero legal *moves* - but E5 holds an enemy Militia, so it has one legal
     // attack. It must still appear as selectable.
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["C5", "white", "tower"],
         ["D4", "white", "tower"],
         ["D6", "white", "tower"],
@@ -394,7 +401,7 @@ describe("attacks - offered alongside moves, distinguishable", () => {
   it("exposes attack targets in the actionable/activatable sets and the attackTargets accessor, distinct from move targets", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D9", "black", "militia"], // out of range - neither a move nor an attack target
         ["E5", "black", "champion"], // adjacent enemy - an attack target, not a move
         ["A1", "white", "flag"],
@@ -417,7 +424,7 @@ describe("attacks - offered alongside moves, distinguishable", () => {
   it("attackTargets is empty when nothing is selected", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["E5", "black", "militia"],
       ]),
     );
@@ -427,7 +434,7 @@ describe("attacks - offered alongside moves, distinguishable", () => {
   it("a friendly-occupied square is never offered as a move or attack target", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["E5", "white", "tower"],
       ]),
     );
@@ -439,7 +446,7 @@ describe("attacks - offered alongside moves, distinguishable", () => {
   it("an enemy Flag square is offered as an attack target (story 00000006 - the Flag is now capturable)", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["E5", "black", "flag"],
         ["A1", "white", "flag"],
       ]),
@@ -458,7 +465,7 @@ describe("attacks - activating a target", () => {
   it("applies the attack, flips the side, clears the selection, and records the resolved outcome", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"], // rank 4
+        ["D5", "white", "footSoldier"], // rank 5
         ["E5", "black", "militia"], // rank 6 - weaker, so the attacker wins
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
@@ -472,25 +479,24 @@ describe("attacks - activating a target", () => {
     expect(attacked.play.board["D5"]).toBeUndefined();
     expect(attacked.play.board["E5"]).toEqual({
       side: "white",
-      pieceType: "infantry",
+      pieceType: "footSoldier",
     });
     expect(attacked.play.moves).toEqual(["D5E5"]);
     expect(attacked.lastOutcome).toEqual({
       kind: "attack",
       result: "attackerWins",
-      attacker: { side: "white", pieceType: "infantry" },
+      attacker: { side: "white", pieceType: "footSoldier" },
       defender: { side: "black", pieceType: "militia" },
       square: sq("E", 5),
       capture: true,
-      archerSupport: false,
     });
   });
 
   it("records a mutual-loss outcome (both pieces removed) for an equal-rank attack", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"], // rank 4
-        ["E5", "black", "infantry"], // rank 4 - equal, mutual loss
+        ["D5", "white", "footSoldier"], // rank 5
+        ["E5", "black", "footSoldier"], // rank 5 - equal, mutual loss
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
@@ -510,7 +516,7 @@ describe("attacks - activating a target", () => {
   it("a plain move (not an attack) records a non-combat outcome", () => {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
@@ -520,7 +526,7 @@ describe("attacks - activating a target", () => {
 
     expect(moved.lastOutcome).toEqual({
       kind: "move",
-      piece: { side: "white", pieceType: "infantry" },
+      piece: { side: "white", pieceType: "footSoldier" },
       square: sq("D", 4),
     });
   });
@@ -529,7 +535,7 @@ describe("attacks - activating a target", () => {
 describe("attacks - turn alternation with attacks mixed in", () => {
   it("strictly alternates sides across a sequence mixing a plain move and an attack", () => {
     const initial = initialGameState([
-      ["D5", "white", "infantry"],
+      ["D5", "white", "footSoldier"],
       ["D7", "black", "militia"],
       ["A1", "white", "flag"],
       ["L12", "black", "flag"],
@@ -544,12 +550,12 @@ describe("attacks - turn alternation with attacks mixed in", () => {
     expect(session.selection).toBeNull();
     expect(session.lastOutcome).toEqual({
       kind: "move",
-      piece: { side: "white", pieceType: "infantry" },
+      piece: { side: "white", pieceType: "footSoldier" },
       square: sq("D", 6),
     });
 
     // Black attacks White's now-adjacent piece. Militia (rank 6) attacking
-    // Infantry (rank 4): the defender is stronger, so the attacker loses.
+    // Foot Soldier (rank 5): the defender is stronger, so the attacker loses.
     session = activateSquare(session, sq("D", 7));
     expect(sortedKeys(attackTargets(session))).toEqual(["D6"]);
     session = activateSquare(session, sq("D", 6));
@@ -560,7 +566,7 @@ describe("attacks - turn alternation with attacks mixed in", () => {
     expect(session.play.board["D7"]).toBeUndefined();
     expect(session.play.board["D6"]).toEqual({
       side: "white",
-      pieceType: "infantry",
+      pieceType: "footSoldier",
     });
     expect(session.lastOutcome).toMatchObject({
       kind: "attack",
@@ -571,7 +577,7 @@ describe("attacks - turn alternation with attacks mixed in", () => {
 
 describe("game over: the board is inert (story 00000006, Step 6)", () => {
   /**
-   * A session whose game has already ended: White's Infantry captures
+   * A session whose game has already ended: White's Foot Soldier captures
    * Black's Flag (offered as an attack target since story 00000006's Step
    * 2), which is an immediate `flagCapture` win for White (Step 4). Also
    * carries a spare piece for each side (Black's Militia at H8, White's
@@ -582,7 +588,7 @@ describe("game over: the board is inert (story 00000006, Step 6)", () => {
   function finishedSession(): PlaySession {
     const session = startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D4", "black", "flag"],
         ["A1", "white", "flag"],
         ["H8", "black", "militia"],
@@ -636,7 +642,7 @@ describe("draw offer state machine (story 00000006, Step 6)", () => {
   function ongoingSession(): PlaySession {
     return startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D9", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
@@ -688,8 +694,7 @@ describe("draw offer state machine (story 00000006, Step 6)", () => {
     expect(declined.drawOffer).toBeNull();
     expect(declined.play.sideToMove).toBe("white");
     expect(declined.play.moves).toEqual([]);
-    expect(declined.play.inactivityCounters).toEqual({ white: 0, black: 0 });
-    expect(declined.play.progressCounter).toBe(0);
+    expect(declined.play.inactivityCounter).toBe(0);
     expect(actionableSquares(declined)).toEqual(actionableSquares(session));
     expect(activatableSquares(declined)).toEqual(activatableSquares(session));
     // The offering player (White) can then move as usual.
@@ -737,7 +742,7 @@ describe("viewSide - whose perspective the board is drawn from", () => {
   function ongoingSession(): PlaySession {
     return startSession(
       initialGameState([
-        ["D5", "white", "infantry"],
+        ["D5", "white", "footSoldier"],
         ["D9", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
@@ -819,7 +824,7 @@ describe("viewSide - whose perspective the board is drawn from", () => {
 function finishedSessionForDrawTests(): PlaySession {
   const session = startSession(
     initialGameState([
-      ["D5", "white", "infantry"],
+      ["D5", "white", "footSoldier"],
       ["D4", "black", "flag"],
       ["A1", "white", "flag"],
     ]),

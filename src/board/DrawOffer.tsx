@@ -49,7 +49,7 @@
 // exactly as normal from here. See the effect below.
 
 import { useEffect, useRef } from "react";
-import type { Side } from "../rules/primary/v1_1/board.ts";
+import type { Side } from "../rules/primary/v1/board.ts";
 import { describeDrawOffer } from "./playAnnouncement.ts";
 import "./DrawOffer.css";
 

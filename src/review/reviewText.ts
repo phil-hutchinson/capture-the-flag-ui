@@ -41,22 +41,19 @@
 // Always "move", never "ply"; always Red/Blue via `sideColorName`, never
 // White/Black.
 
-import type { Side, Square } from "../rules/primary/v1_1/board.ts";
-import { squareKey } from "../rules/primary/v1_1/board.ts";
+import type { Side, Square } from "../rules/primary/v1/board.ts";
+import { squareKey } from "../rules/primary/v1/board.ts";
 import type {
   RecordFileError,
   RecordFileTags,
-} from "../rules/primary/v1_1/recordFile.ts";
-import type { PositionBlockError } from "../rules/primary/v1_1/gameState.ts";
-import type { ReplayError } from "../rules/primary/v1_1/replay.ts";
+} from "../rules/primary/v1/recordFile.ts";
+import type { PositionBlockError } from "../rules/primary/v1/gameState.ts";
+import type { ReplayError } from "../rules/primary/v1/replay.ts";
 import type {
   GameEndReason,
   GameOutcome,
-} from "../rules/primary/v1_1/outcome.ts";
-import {
-  PIECE_CATALOG,
-  type PieceTypeId,
-} from "../rules/primary/v1_1/pieces.ts";
+} from "../rules/primary/v1/outcome.ts";
+import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v1/pieces.ts";
 import type { ReadRecordError } from "../rules/readRecord.ts";
 import { describeResult } from "../board/playAnnouncement.ts";
 import { sideColorName } from "../board/sideNames.ts";
@@ -254,10 +251,8 @@ const RESULT_WINNER: Readonly<Record<string, Side | "draw">> = {
 /** The engine's `ResultReason` strings (plus this app's own `Agreement`), matched case-insensitively, mapped onto `outcome.ts`'s stable `GameEndReason` identifiers. */
 const RESULT_REASON: Readonly<Record<string, GameEndReason>> = {
   "flag captured": "flagCapture",
-  "unbreachable flag": "unbreachableFlag",
   "no legal move": "noLegalMove",
   inactivity: "inactivity",
-  "no progress": "noProgress",
   agreement: "agreement",
 };
 

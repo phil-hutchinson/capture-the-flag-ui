@@ -1,122 +1,71 @@
-// Countdown warnings for the two Phase-2 rule-state clocks (rules.md
-// §6.4/§6.5), story 00000006 Step 8.
+// Countdown warning for the single shared inactivity clock (rules.md §5.3).
 //
-// `PlayState` (play.ts) already carries each side's inactivity counter and
-// the shared progress counter; `outcome.ts` already knows the limits at
-// which they end the game (`INACTIVITY_LIMIT` = 50, `PROGRESS_LIMIT` = 80).
-// This module adds nothing to rule state or rule logic - it is a thin,
-// pure, presentation-only layer that decides *when* a counter is close
-// enough to warn about and *what to say*, so the UI (Step 11's banner
-// component) only has to render text it does not have to compose, and so
-// the wording is unit-testable in this project's `node` Vitest environment.
+// `PlayState` (play.ts) already carries the shared inactivity counter;
+// `outcome.ts` already knows the limit at which it ends the game as a draw
+// (`INACTIVITY_LIMIT` = 50). This module adds nothing to rule state or rule
+// logic - it is a thin, pure, presentation-only layer that decides *when*
+// the counter is close enough to warn about and *what to say*, so the UI
+// (`PlayWarnings.tsx`) only has to render text it does not have to compose,
+// and so the wording is unit-testable in this project's `node` Vitest
+// environment.
 //
-// The two warning thresholds are fixed by the story, not open to redesign
-// here:
+// The warning is **side-agnostic**: 1.2 has no per-player inactivity loss
+// (that mechanic is gone with ruleset 1.1), only the single shared draw, so
+// the warning is shown identically to both players regardless of whose turn
+// it is, once **10 or fewer** combined moves remain before the shared
+// 50-move inactivity draw (the counter at 40 or above) - it must state how
+// many moves remain and that any move that removes a piece resets it.
 //
-//  - an **inactivity** warning, shown to a player only while it is their
-//    turn, once **10 or fewer** of their own moves remain before their
-//    50-move inactivity loss (their counter at 40 or above) - it must state
-//    how many moves remain and that an attack resets it;
-//  - a **no-progress** warning, shown to both players once **20 or fewer**
-//    combined moves remain before the shared 80-move no-progress draw (the
-//    progress counter at 60 or above) - it must state the remaining count.
-//
-// Both warnings disappear the moment the game is over (`play.result.kind !==
-// "ongoing"`), and each disappears independently the moment its own counter
-// resets (an attack, for inactivity; a capture, for progress) or the game
-// ends before the threshold is reached.
+// The warning disappears the moment the game is over (`play.result.kind !==
+// "ongoing"`) or the counter resets (any move that removes a piece).
 //
 // No React dependency - pure over `PlayState` (play.ts).
 
-import type { Side } from "../rules/primary/v1_1/board.ts";
-import {
-  INACTIVITY_LIMIT,
-  PROGRESS_LIMIT,
-} from "../rules/primary/v1_1/outcome.ts";
-import type { PlayState } from "../rules/primary/v1_1/play.ts";
-import { sideColorName } from "./sideNames.ts";
+import { INACTIVITY_LIMIT } from "../rules/primary/v1/outcome.ts";
+import type { PlayState } from "../rules/primary/v1/play.ts";
 
-/** How many of a player's own moves may remain before the inactivity warning appears (story-fixed). */
+/** How many combined moves may remain before the inactivity warning appears (story-fixed). */
 const INACTIVITY_WARNING_THRESHOLD = 10;
 
-/** How many combined moves may remain before the no-progress warning appears (story-fixed). */
-const PROGRESS_WARNING_THRESHOLD = 20;
-
 /**
- * The inactivity countdown warning (rules.md §6.4), shown only to the player
- * whose turn it is, once 10 or fewer of *their own* moves remain before
- * their personal counter reaches `INACTIVITY_LIMIT` and they lose.
+ * The inactivity countdown warning (rules.md §5.3), shown to both players
+ * alike once 10 or fewer combined moves remain before the shared counter
+ * reaches `INACTIVITY_LIMIT` and the game is a draw.
  */
 export interface InactivityWarning {
   readonly kind: "inactivity";
-  /** The side this warning is for - always the side to move. */
-  readonly side: Side;
-  /** How many of this side's own moves remain before the loss. */
-  readonly movesRemaining: number;
-  /** Player-facing sentence: names the color, the count, and that an attack resets it. */
-  readonly message: string;
-}
-
-/**
- * The no-progress countdown warning (rules.md §6.5), shown to both players
- * alike once 20 or fewer combined moves remain before the shared counter
- * reaches `PROGRESS_LIMIT` and the game is a draw.
- */
-export interface NoProgressWarning {
-  readonly kind: "noProgress";
   /** How many combined moves remain before the draw. */
   readonly movesRemaining: number;
-  /** Player-facing sentence: names the count. */
+  /** Player-facing sentence: names the count and that a capture resets it. */
   readonly message: string;
 }
 
-/** Zero, one, or both of the countdown warnings currently in effect for `play`. */
+/** Zero or one countdown warning currently in effect for `play`. */
 export interface CountdownWarnings {
   readonly inactivity: InactivityWarning | null;
-  readonly noProgress: NoProgressWarning | null;
 }
 
 /**
- * Computes the countdown warnings currently in effect for `play`. Returns
- * `{ inactivity: null, noProgress: null }` once the game has ended
- * (`play.result.kind !== "ongoing"`) - a finished game has no clocks left to
- * warn about.
- *
- * The inactivity warning only ever names `play.sideToMove` - the same
- * counter, examined on the *other* side's turn, produces no warning (per
- * in-scope item 4: "that player sees a warning while it is their turn"). The
- * no-progress warning is side-agnostic and appears identically regardless of
- * whose turn it is.
+ * Computes the countdown warning currently in effect for `play`. Returns
+ * `{ inactivity: null }` once the game has ended (`play.result.kind !==
+ * "ongoing"`) - a finished game has no clock left to warn about.
  */
 export function computeCountdownWarnings(play: PlayState): CountdownWarnings {
   if (play.result.kind !== "ongoing") {
-    return { inactivity: null, noProgress: null };
+    return { inactivity: null };
   }
 
-  const side = play.sideToMove;
-  const inactivityMovesRemaining =
-    INACTIVITY_LIMIT - play.inactivityCounters[side];
+  const movesRemaining = INACTIVITY_LIMIT - play.inactivityCounter;
   const inactivity: InactivityWarning | null =
-    inactivityMovesRemaining <= INACTIVITY_WARNING_THRESHOLD
+    movesRemaining <= INACTIVITY_WARNING_THRESHOLD
       ? {
           kind: "inactivity",
-          side,
-          movesRemaining: inactivityMovesRemaining,
-          message: describeInactivityWarning(side, inactivityMovesRemaining),
+          movesRemaining,
+          message: describeInactivityWarning(movesRemaining),
         }
       : null;
 
-  const progressMovesRemaining = PROGRESS_LIMIT - play.progressCounter;
-  const noProgress: NoProgressWarning | null =
-    progressMovesRemaining <= PROGRESS_WARNING_THRESHOLD
-      ? {
-          kind: "noProgress",
-          movesRemaining: progressMovesRemaining,
-          message: describeNoProgressWarning(progressMovesRemaining),
-        }
-      : null;
-
-  return { inactivity, noProgress };
+  return { inactivity };
 }
 
 /** Player-facing "N move(s)" - singular for exactly one, plural otherwise. */
@@ -125,18 +74,10 @@ function moveWord(count: number): string {
 }
 
 /**
- * The inactivity warning's sentence, naming the at-risk side, the remaining
- * count, and that an attack of theirs resets the count (rules.md §6.4).
+ * The inactivity warning's sentence, naming the remaining combined count and
+ * that removing a piece resets it (rules.md §5.3). Applies to both players
+ * alike, so it names no side.
  */
-function describeInactivityWarning(side: Side, movesRemaining: number): string {
-  const color = sideColorName(side);
-  return `${color}, only ${movesRemaining} ${moveWord(movesRemaining)} remain before you lose to inactivity — an attack resets this count.`;
-}
-
-/**
- * The no-progress warning's sentence, naming the remaining combined count
- * (rules.md §6.5). Applies to both players alike, so it names no side.
- */
-function describeNoProgressWarning(movesRemaining: number): string {
-  return `Only ${movesRemaining} ${moveWord(movesRemaining)} remain (combined) before the game is a draw by no progress.`;
+function describeInactivityWarning(movesRemaining: number): string {
+  return `Only ${movesRemaining} ${moveWord(movesRemaining)} remain (combined) before the game is a draw by inactivity — removing a piece resets this count.`;
 }

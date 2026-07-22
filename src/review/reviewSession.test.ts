@@ -1,16 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type {
-  BoardState,
-  PlacedPiece,
-} from "../rules/primary/v1_1/gameState.ts";
+import type { BoardState, PlacedPiece } from "../rules/primary/v1/gameState.ts";
 import type {
   ParsedRecord,
   RecordedPly,
-} from "../rules/primary/v1_1/recordFile.ts";
+} from "../rules/primary/v1/recordFile.ts";
 import {
   replayRecord,
   type ReplayedRecord,
-} from "../rules/primary/v1_1/replay.ts";
+} from "../rules/primary/v1/replay.ts";
 import {
   createReviewSession,
   currentBoard,
@@ -28,9 +25,12 @@ import {
   type ReviewSession,
 } from "./reviewSession.ts";
 
-const WHITE_ATTACKER: PlacedPiece = { side: "white", pieceType: "sapper" };
+const WHITE_ATTACKER: PlacedPiece = { side: "white", pieceType: "champion" };
 const BLACK_DEFENDER: PlacedPiece = { side: "black", pieceType: "tower" };
-const BLACK_WANDERER: PlacedPiece = { side: "black", pieceType: "infantry" };
+const BLACK_WANDERER: PlacedPiece = {
+  side: "black",
+  pieceType: "footSoldier",
+};
 
 /** A small hand-built three-move game: a capture, a quiet move by the other side, then a quiet move continuing from the capture. */
 function buildGame(): ReplayedRecord {
@@ -78,7 +78,7 @@ function buildGame(): ReplayedRecord {
     },
   ];
   const parsed: ParsedRecord = {
-    tags: { ruleset: "PRIMARY:1.1" },
+    tags: { ruleset: "1.2:PRE-RELEASE" },
     startingBoard,
     moves,
   };
@@ -93,7 +93,7 @@ function buildGameWithResult(): ReplayedRecord {
   return {
     ...game,
     tags: {
-      ruleset: "PRIMARY:1.1",
+      ruleset: "1.2:PRE-RELEASE",
       result: "1-0",
       resultReason: "Flag Captured",
     },
@@ -284,28 +284,28 @@ describe("describeStepAnnouncement", () => {
   it("announces a capture move, naming both pieces, the squares, and where the cursor now is", () => {
     const session = jumpToMove(createReviewSession(buildGame()), 0);
     expect(describeStepAnnouncement(session)).toBe(
-      "Red Sapper attacked Blue Tower from A1 to A2: Blue Tower falls, Red Sapper advances. Move 1 of 3 — round 1, red",
+      "Red Champion attacked Blue Tower from A1 to A2: Blue Tower falls, Red Champion advances. Move 1 of 3 — round 1, red",
     );
   });
 
   it("announces a quiet move by naming the mover and the squares, with no removal clause", () => {
     const session = jumpToMove(createReviewSession(buildGame()), 1);
     expect(describeStepAnnouncement(session)).toBe(
-      "Blue Infantry moved from B12 to B11. Move 2 of 3 — round 1, blue",
+      "Blue Foot Soldier moved from B12 to B11. Move 2 of 3 — round 1, blue",
     );
   });
 
   it("appends the recorded result at the final position, when the record claims one", () => {
     const session = jumpToEnd(createReviewSession(buildGameWithResult()));
     expect(describeStepAnnouncement(session)).toBe(
-      "Red Sapper moved from A2 to A3. Move 3 of 3 — round 2, red The record says: Red wins — Flag captured.",
+      "Red Champion moved from A2 to A3. Move 3 of 3 — round 2, red The record says: Red wins — Flag captured.",
     );
   });
 
   it("omits the result clause at the final position when the record claims none", () => {
     const session = jumpToEnd(createReviewSession(buildGame()));
     expect(describeStepAnnouncement(session)).toBe(
-      "Red Sapper moved from A2 to A3. Move 3 of 3 — round 2, red",
+      "Red Champion moved from A2 to A3. Move 3 of 3 — round 2, red",
     );
   });
 

@@ -34,10 +34,10 @@
 // This module also exposes `describeResult`, a small standalone function
 // rendering the result-and-reason sentence directly from a `GameOutcome` -
 // used above for a game-ending ply, and by `App.tsx` (Step 9) to announce an
-// ending detected with **no** ply at all (a §6.2 win already holding at the
-// Phase 2 reveal) - and the draw-offer flow's three transition sentences
-// (offer, decline, accept - rules.md §6.6), for `App.tsx` to push into the
-// same live region alongside the ply narrative.
+// ending detected with **no** ply at all (the side to move having no legal
+// move already holding at the Phase 2 reveal) - and the draw-offer flow's
+// three transition sentences (offer, decline, accept - rules.md §5.4), for
+// `App.tsx` to push into the same live region alongside the ply narrative.
 //
 // Whichever of the above just happened, whose-turn (and now whose-victory)
 // wording is appended in exactly one place - this remains the *only* spot
@@ -56,41 +56,37 @@ import {
   squareKey,
   type Side,
   type Square,
-} from "../rules/primary/v1_1/board.ts";
-import type { PlacedPiece } from "../rules/primary/v1_1/gameState.ts";
+} from "../rules/primary/v1/board.ts";
+import type { PlacedPiece } from "../rules/primary/v1/gameState.ts";
 import {
   legalAttacks,
   legalDestinations,
-} from "../rules/primary/v1_1/movement.ts";
+} from "../rules/primary/v1/movement.ts";
 import type {
   GameEndReason,
   GameOutcome,
-} from "../rules/primary/v1_1/outcome.ts";
-import { PIECE_CATALOG } from "../rules/primary/v1_1/pieces.ts";
-import type { PlyOutcome } from "../rules/primary/v1_1/play.ts";
+} from "../rules/primary/v1/outcome.ts";
+import { PIECE_CATALOG } from "../rules/primary/v1/pieces.ts";
+import type { PlyOutcome } from "../rules/primary/v1/play.ts";
 import type { PlaySession } from "./playSession.ts";
 import { sideColorName } from "./sideNames.ts";
 
 /**
- * Bare, capitalized label for one of `outcome.ts`'s six stable
+ * Bare, capitalized label for one of `outcome.ts`'s four stable
  * `GameEndReason` identifiers - never "ply", the rules' own terms otherwise.
  * Used only where a reason can occur without a losing side to name plainly
  * (see `winReasonClause`/`drawReasonClause` below): a Flag capture already
- * names the fallen Flag's color in the preceding ply description, and a
- * no-progress or agreed draw has no single "loser" to name.
+ * names the fallen Flag's color in the preceding ply description, and an
+ * inactivity or agreed draw has no single "loser" to name.
  */
 function reasonLabel(reason: GameEndReason): string {
   switch (reason) {
     case "flagCapture":
       return "Flag captured";
-    case "unbreachableFlag":
-      return "Unbreachable Flag";
     case "noLegalMove":
       return "No legal move";
     case "inactivity":
       return "Inactivity";
-    case "noProgress":
-      return "No progress";
     case "agreement":
       return "Agreement";
     default:
@@ -100,24 +96,19 @@ function reasonLabel(reason: GameEndReason): string {
 
 /**
  * Player-facing clause completing "{Winner} wins — ..." (no trailing period)
- * for a win outcome. Peer-review fix (Minor 7): names the *losing* side
- * plainly wherever the reason needs a subject to avoid reading as rules
- * jargon - e.g. "Blue can no longer reach Red's flag" rather than
- * "Unbreachable Flag". `noProgress` and `agreement` never occur for a win
- * (`computeOutcome`/`agreeDraw` only ever produce them as draws) - listed
- * only so this switch is exhaustive.
+ * for a win outcome. Names the *losing* side plainly wherever the reason
+ * needs a subject to avoid reading as rules jargon. `inactivity` and
+ * `agreement` never occur for a win in 1.2 - the shared inactivity counter
+ * (rules.md §5.3) only ever produces a *draw*, and `agreeDraw` only ever
+ * produces a draw - listed only so this switch is exhaustive.
  */
 function winReasonClause(winner: Side, reason: GameEndReason): string {
   const loser = sideColorName(otherSide(winner));
   switch (reason) {
-    case "unbreachableFlag":
-      return `${loser} can no longer reach ${sideColorName(winner)}'s flag`;
     case "noLegalMove":
       return `${loser} has no legal move left`;
-    case "inactivity":
-      return `${loser} ran out of moves without attacking`;
     case "flagCapture":
-    case "noProgress":
+    case "inactivity":
     case "agreement":
       return reasonLabel(reason);
     default:
@@ -127,17 +118,15 @@ function winReasonClause(winner: Side, reason: GameEndReason): string {
 
 /**
  * Player-facing clause completing "The game is a draw — ..." (no trailing
- * period) for a draw outcome. `flagCapture`, `noLegalMove`, and `inactivity`
- * never occur for a draw - listed only so this switch is exhaustive.
+ * period) for a draw outcome. `flagCapture` and `noLegalMove` never occur
+ * for a draw - listed only so this switch is exhaustive.
  */
 function drawReasonClause(reason: GameEndReason): string {
   switch (reason) {
-    case "unbreachableFlag":
-      return "Neither side can reach the other's flag anymore";
+    case "inactivity":
+      return "by inactivity";
     case "flagCapture":
     case "noLegalMove":
-    case "inactivity":
-    case "noProgress":
     case "agreement":
       return reasonLabel(reason);
     default:
@@ -148,14 +137,14 @@ function drawReasonClause(reason: GameEndReason): string {
 /**
  * The player-facing result-and-reason sentence for a finished `GameOutcome`
  * (e.g. "Red wins - Flag captured." / "Blue wins - Red ran out of moves
- * without attacking." / "The game is a draw - No progress."). Returns the
+ * without attacking." / "The game is a draw - by inactivity."). Returns the
  * empty string for `{ kind: "ongoing" }` (not itself an ending to announce);
  * callers only call this once `result.kind !== "ongoing"`. Standalone from
  * `describeActivation` so it can render the same wording both as the
  * trailing clause of a game-ending ply's announcement and on its own - for
- * an ending detected with no ply (a §6.2 win already holding at the Phase 2
- * reveal - see `App.tsx`, Step 9) and for accepting a draw offer (see
- * `describeDrawAccepted` below).
+ * an ending detected with no ply (the side to move having no legal move
+ * already holding at the Phase 2 reveal - see `App.tsx`, Step 9) and for
+ * accepting a draw offer (see `describeDrawAccepted` below).
  */
 export function describeResult(result: GameOutcome): string {
   if (result.kind === "win") {
@@ -231,10 +220,7 @@ function pieceDescription(session: PlaySession, square: Square): string {
  * the game (story 00000006 - e.g. a Flag capture). Reads the combatants off
  * `outcome` itself, not off either board, since the fallen piece (and, on an
  * attacker-wins result, the attacker's *origin*) can no longer be looked up
- * after the ply applied. Mentions Archer support only when it fired (it
- * always accompanies a `mutualLoss` result - see `resolveCombat`), as a short
- * trailing clause, so the primary who-fought/who-fell sentence is not
- * overloaded.
+ * after the ply applied.
  */
 function describeAttack(
   outcome: Extract<PlyOutcome, { kind: "attack" }>,
@@ -243,9 +229,6 @@ function describeAttack(
   const attackerName = describePiece(outcome.attacker);
   const defenderName = describePiece(outcome.defender);
   const squareName = squareKey(outcome.square);
-  const supportClause = outcome.archerSupport
-    ? " Archer support turns the attack back."
-    : "";
 
   switch (outcome.result) {
     case "attackerWins":
@@ -253,7 +236,7 @@ function describeAttack(
     case "attackerLoses":
       return `${attackerName} attacked ${defenderName} at ${squareName} and falls; ${defenderName} holds. ${trailingClause}`;
     case "mutualLoss":
-      return `${attackerName} attacked ${defenderName} at ${squareName}: both fall.${supportClause} ${trailingClause}`;
+      return `${attackerName} attacked ${defenderName} at ${squareName}: both fall. ${trailingClause}`;
     default:
       return outcome.result satisfies never;
   }

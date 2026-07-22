@@ -6,8 +6,8 @@ import {
   newSession,
   updateActivePlacement,
 } from "./placementSession.ts";
-import { autoFill, place } from "../rules/primary/v1_1/placement.ts";
-import { homeSquares } from "../rules/primary/v1_1/board.ts";
+import { autoFill, place } from "../rules/primary/v1/placement.ts";
+import { homeSquares } from "../rules/primary/v1/board.ts";
 
 describe("newSession", () => {
   it("starts with White active and both boards empty", () => {
@@ -40,7 +40,7 @@ describe("updateActivePlacement", () => {
     const session = newSession();
     const square = homeSquares("white")[0];
     const next = updateActivePlacement(session, (state) =>
-      place(state, square, "sapper"),
+      place(state, square, "champion"),
     );
     expect(next.white.placements.size).toBe(1);
     expect(next.black).toBe(session.black);

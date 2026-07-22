@@ -61,7 +61,7 @@ export interface AccessibleGridProps {
   readonly onActivate: (position: GridPosition) => void;
   /**
    * Text pushed into the grid's polite live region, e.g. "Selected
-   * Skirmisher at D5. 6 legal destinations." The consumer owns the wording
+   * Foot Soldier at D5. 6 legal destinations." The consumer owns the wording
    * and updates it on every screen-reader-relevant change.
    */
   readonly announcement?: string;

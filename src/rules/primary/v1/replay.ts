@@ -1,4 +1,4 @@
-// The replayer for ruleset PRIMARY:1.1 - the import dry run.
+// The replayer for ruleset 1.2:PRE-RELEASE - the import dry run.
 //
 // Given a parsed record (`recordFile.ts`), replays every recorded move
 // against the starting board and produces the whole game as materialized
@@ -15,7 +15,7 @@
 //   1. Remove the piece on `D` if `D` is marked `x`.
 //   2. If `S` is marked `x`, remove the piece on `S` (it does not move).
 //      Otherwise move the piece from `S` to `D`.
-// A Sapper taking a Tower and a piece taking the Flag are ordinary `S-Dx`
+// A piece taking a Tower and a piece taking the Flag are ordinary `S-Dx`
 // moves - there is no special casing for either, and nothing else (ranks,
 // reachability, support, legality) is ever consulted.
 //
