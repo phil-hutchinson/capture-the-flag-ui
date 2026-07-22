@@ -871,3 +871,117 @@ Verification (manual): Re-read `README.md` against the shipped behavior and
 confirm every claim about the against-the-computer mode is accurate and
 player-appropriate. Run `npm run typecheck`, `npm run lint`, `npm run test`,
 and `npm run format:check`.
+
+---
+
+## Step 9 — Animate the computer's move
+
+Status: pending
+
+Added during sign-off (post-review) in response to owner feedback: the
+computer's move is hard to follow because it appears instantly, and the board
+is small with small squares (the full 12x12 grid; `--square` is
+`clamp(28px, 6vmin, 64px)` — see `FullBoard.css`). Give the **computer's**
+move a short sliding animation so the eye can follow the piece from its origin
+to its destination. **Owner-fixed decisions for this step (do not reopen):**
+
+- **Scope: the computer's moves only.** The human's own moves still apply
+  instantly (the human just made them and already knows what moved). So the
+  single trigger point is `EngineGame.tsx`'s computer-turn effect — the
+  `Promise.all([chooseEnginePly(...), minimumDisplay]).then(...)` callback that
+  currently calls `applyEnginePly` and sets state. Hot-seat and review modes
+  are **out of scope** and must be byte-for-byte unaffected.
+- **Duration: 0.4s (400 ms) to begin with.** Put it in a single named constant
+  so it is trivial to tune later. It is deliberately a touch slower than a
+  typical animation because the squares are small.
+
+What to implement:
+
+1. **A slide overlay in `FullBoard.tsx` (additive, default-off).** Add an
+   optional prop — e.g. `animatedMove?: { from: Square; to: Square }`. When it
+   is set, `FullBoard` renders a single `aria-hidden` piece sprite (reuse
+   `PieceIcon`, the same sprite the cells use) positioned over the grid that
+   slides from the `from` cell to the `to` cell, and it **suppresses the real
+   piece on the `to` square** for the duration so the sliding sprite and the
+   settled piece are never both visible (the slide runs *after* the move is
+   applied — see point 3 — so the moved piece is at `to` in `board`; read the
+   moving piece from `board[to]`). When the prop is absent (hot-seat, review,
+   and the human's own turn) `FullBoard` renders exactly as it does today —
+   this is the same additive, default-off pattern Step 5 used for `PlayBoard`'s
+   `side`/`disabled` props. The overlay is purely visual: it carries no
+   semantics for assistive technology (the move is already announced through
+   the live region — do not announce it a second time here).
+   - **Geometry.** The grid has no gaps: 12 columns/rows each exactly
+     `var(--square)`, a 2px board border, 1px cell borders (`FullBoard.css`,
+     `AccessibleGrid.css`). Position the overlay by the moving piece's **display
+     indices** (the board is oriented to `side`; `fullBoardRows(side)` /
+     `visibleColumns(side)` in `boardView.ts` give the row/column display order,
+     so the same square is a different cell index for a red vs. blue human —
+     use the already-computed `rows`/`columns` arrays, do not assume absolute
+     coordinates). Either measure the real cell rectangles
+     (`getBoundingClientRect`) or drive the offset off `var(--square)` in CSS
+     custom properties — whichever lands the sprite **exactly** on the
+     destination cell at rest (no visible jump when the overlay is removed and
+     the real piece reappears). Prefer a pure CSS transition/keyframe over a
+     JS-driven per-frame loop.
+   - **Reduced motion.** Honor `prefers-reduced-motion: reduce`: when the user
+     prefers reduced motion, do not animate — apply the move instantly as today
+     (no slide, no artificial delay). Implement this so it genuinely skips the
+     motion (a CSS media query that zeroes the animation is fine, but make sure
+     the board still ends in the correct settled state and the board is not
+     needlessly held inert).
+2. **Keep the board inert during the slide.** While the computer's piece is
+   sliding, the human must not be able to click or key a move. Extend the
+   `disabled` condition passed to `PlayBoard` so it is true while the slide is
+   playing as well as while the computer is thinking (today it is
+   `computerThinking` only). `PlayBoard` already threads `disabled` straight to
+   `FullBoard`; thread the new `animatedMove` prop through `PlayBoard` the same
+   way (additive, default-off, documented like the existing `side`/`disabled`
+   props).
+3. **Sequence it in `EngineGame.tsx` without breaking the Step 5/6 guards.**
+   The stale-move / StrictMode double-invoke protection (the `cancelled` flag
+   and the cleared `timeoutId`) and the "exactly one evaluation per computer
+   turn" invariant must survive unchanged. Recommended low-risk sequencing
+   ("apply-first, then slide"): in the resolved `.then`, apply the move exactly
+   as today (`applyEnginePly` → `setPlaySession`/`setPlayAnnouncement`, so the
+   announcement, `GameRecord` entry, and game-end detection all fire at the
+   same moment they do now), **and** set a new animation state holding
+   `{ from, to }`; then start a 400 ms timer that clears the animation state.
+   The board reads `disabled = computerThinking || animating`, and
+   `animatedMove` is passed only while animating. The new timer must be tracked
+   and `clearTimeout`-ed in the effect's cleanup alongside the existing one, and
+   the animation state cleared, so leaving mid-slide (unmount) or a superseded
+   StrictMode invocation never leaves a dangling timer or a stuck overlay — the
+   same discipline `MIN_THINKING_DISPLAY_MS` already follows. If
+   `prefers-reduced-motion` is set, skip the animation state entirely (instant,
+   as today). Use `transitionend`/`animationend` instead of a matched timer if
+   it is cleaner, but if so keep a safety timeout and the same cleanup
+   discipline. Do **not** move the move's application to the end of the slide
+   unless you find apply-first genuinely cannot land the sprite correctly;
+   applying at the end would reopen the carefully-guarded apply/announce timing.
+   A capture removing the enemy piece at the start of the slide (rather than at
+   the moment of landing) is acceptable.
+
+Keep any nontrivial geometry math (e.g. a square → display-index helper) as a
+small pure function so it can be reasoned about, but do not add React component
+tests (the codebase has none by convention). No README change is warranted:
+the README already says you play "a full game against the computer" (Step 8);
+this step only changes how a move is presented, not any claim the README makes
+— confirm that and leave it unchanged.
+
+Depends on: Steps 5 and 6 (the working computer-turn effect and its timing
+guards that this extends). Independent of the encoder/decoder/inference steps.
+
+Verification (manual): Run `npm run dev`, play against the computer, and
+confirm: (a) on the computer's turn its piece visibly **slides** from its
+origin square to its destination over ~0.4s and comes to rest exactly on the
+destination square, with no flicker or jump when it settles, and no duplicate
+piece; (b) this happens for plain one-square moves, two-square moves, and
+attacks/captures, and near the board edges and the flag, for a human playing
+**red** and a human playing **blue** (the slide must go the right direction in
+both orientations); (c) the board is inert while the piece slides (a click or
+Enter mid-slide does nothing) and becomes interactive again once it settles;
+(d) with the OS "reduce motion" setting on, the move applies instantly with no
+slide and play is unaffected; (e) the human's own moves are still instant; (f)
+hot-seat and review modes are visually unchanged. Run `npm run typecheck`,
+`npm run lint`, `npm run test`, and `npm run build`.
