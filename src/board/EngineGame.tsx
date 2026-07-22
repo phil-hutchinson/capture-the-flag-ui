@@ -390,6 +390,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
       setSelection(null);
       setPlaySession(null);
       setPlayAnnouncement("");
+      setAnimatedMove(null);
     };
 
     const { result } = playSession.play;

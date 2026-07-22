@@ -155,7 +155,11 @@ result ("Red wins", "the computer (blue) wins"), like the other modes.
    computer's turn the board is inert, a brief "the computer is thinking"
    indicator shows, and then the computer's chosen move is applied through the
    **same `applyMove` path** the human uses — same announcements, same record,
-   same game-end detection.
+   same game-end detection. The computer's move then animates: the piece
+   slides from its start to its destination (about a third of a second),
+   with the squares along the way lit up the same way your own legal moves
+   are, so the move is easy to follow. (Added during sign-off, in response to
+   owner feedback.)
 8. **Endings.** Flag capture, no-legal-move loss, and the 50-move inactivity
    draw all end the game as in hot-seat, and the result screen names the
    winner by color (you or the computer). There is no draw-offer control.
