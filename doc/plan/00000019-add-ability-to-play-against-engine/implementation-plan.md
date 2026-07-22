@@ -405,7 +405,37 @@ Also run `npm run build` and confirm the model and WASM assets appear in
 
 ## Step 4 — Engine move selection (async, drives the engine)
 
-Status: pending
+Status: committed
+
+Notes: Created `src/engine/enginePlayer.ts` (`chooseEnginePly(play, evaluate?,
+random?)`), the async seam Step 5's play loop will call on the computer's
+turn. It takes a `PlayState` directly (per the plan's "given a `PlayState`"
+option), extracts the `{ board, sideToMove, inactivityCounter }` triple as a
+`Position`, awaits exactly one call to the injectable `PositionEvaluator`
+(type `(position: Position) => EngineEvaluation | Promise<EngineEvaluation>`,
+defaulting to Step 3's real `evaluatePosition`), and passes the returned
+policy straight to Step 2's `selectEnginePly` alongside `play.board`,
+`play.sideToMove`, and the injectable `RandomSource` (default `Math.random`).
+It never applies the move itself. Added `src/engine/enginePlayer.test.ts`
+covering all three required assertions plus two extra checks: (a) a
+hand-built all-mass-on-one-ply policy resolves to that exact legal ply; (b)
+over 25 ongoing mid-game positions (5 seeded `autoFill` armies x 5 ply-depths,
+built by playing random-but-legal plies via `applyMove` independently of the
+module under test, filtered to those still `"ongoing"` with a legal ply,
+confirmed to cover both sides to move) x 5 pseudo-random fake policies x 5
+seeds, the resolved ply is always in the independently recomputed legal set
+and both its `from`/`to` squares are on-board; (c) two calls with the same
+seeded `RandomSource` and the same fake policy resolve to the same ply. The
+two extras: the evaluator is called exactly once per `chooseEnginePly` call
+(a counter, guarding the "exactly one evaluation per move" invariant), and an
+`async` evaluator that actually awaits a `Promise` works identically to a
+sync one. No deviations from the plan. `npm run typecheck`, `npm run lint`,
+and `npm run test` are all green (473 tests passing, 5 new); importing
+`enginePlayer.ts` (and therefore `inference.ts`, for the default evaluator)
+in the Node/vitest test environment worked without touching WASM, since
+`onnxruntime-web`'s `InferenceSession.create` is only reached through
+`loadSession()`, which no test triggers (all tests pass a fake evaluator).
+Ran `npx prettier --write` on both new files.
 
 Implement the async engine-player function (e.g. under `src/engine/`) that ties
 inference (Step 3) to decode/mask/sample (Step 2): given a `PlayState` (or the
