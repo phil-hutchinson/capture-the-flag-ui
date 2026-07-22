@@ -22,3 +22,11 @@
   margin: 0;
   font-style: italic;
 }
+
+/* Keep the indicator's line of space reserved when it is not the computer's
+   turn, so the board does not bounce as the message appears and disappears.
+   `visibility: hidden` preserves the layout box and removes the text from the
+   accessibility tree. */
+.engine-game__thinking--reserved {
+  visibility: hidden;
+}

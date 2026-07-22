@@ -50,6 +50,15 @@
 // `playSession.ts`) and the rule-layer catalog, so it is unit-tested in the
 // project's `node` Vitest environment like the rest of the rule/session
 // layer.
+//
+// `ResultPerspective` (story 00000019, Step 6) is the sole addition for the
+// against-the-computer mode: an optional parameter to `describeResult` and
+// `describeActivation`, naming whichever side is *not* the human as "the
+// computer (color)" instead of by color alone (e.g. "The computer (blue)
+// wins" / "the computer (blue) has no legal move left"), matching
+// hot-seat's plain color naming for the human's own side ("Red wins").
+// Every existing caller (hot-seat, review) omits it and is byte-for-byte
+// unaffected - only `EngineGame.tsx` passes one.
 
 import {
   otherSide,
@@ -70,6 +79,45 @@ import { PIECE_CATALOG } from "../rules/primary/v1/pieces.ts";
 import type { PlyOutcome } from "../rules/primary/v1/play.ts";
 import type { PlaySession } from "./playSession.ts";
 import { sideColorName } from "./sideNames.ts";
+
+/**
+ * Names the human's own side against-the-computer mode (story 00000019).
+ * When a result sentence needs to name a side that is *not* the human, it is
+ * always named "the computer (color)" rather than by color alone - the
+ * human is always named by color, exactly as hot-seat names both sides.
+ * Omitted (the default, `undefined`) by every caller outside the
+ * against-the-computer mode, which leaves this module's output exactly as
+ * before.
+ */
+export interface ResultPerspective {
+  readonly humanSide: Side;
+}
+
+/**
+ * Capitalizes the first character of `text`, leaving the rest untouched.
+ * `participantLabel` below already returns a capitalized name for a human
+ * side (`sideColorName` is always a capitalized color); this only matters
+ * for "the computer (color)", which starts lowercase since it normally
+ * appears mid-sentence (naming the *losing* side in a reason clause) and
+ * needs capitalizing only when it opens the sentence (naming the *winning*
+ * side).
+ */
+function capitalizeFirst(text: string): string {
+  return text.length === 0 ? text : text[0].toUpperCase() + text.slice(1);
+}
+
+/**
+ * The player-facing name for `side` in a result sentence: its plain color
+ * name, unless `perspective` is given and `side` is not the human's, in
+ * which case it is always named "the computer (color)" instead (lowercase -
+ * see `capitalizeFirst` above for the one place that needs it capitalized).
+ */
+function participantLabel(side: Side, perspective?: ResultPerspective): string {
+  if (perspective === undefined || side === perspective.humanSide) {
+    return sideColorName(side);
+  }
+  return `the computer (${sideColorName(side).toLowerCase()})`;
+}
 
 /**
  * Bare, capitalized label for one of `outcome.ts`'s four stable
@@ -97,13 +145,19 @@ function reasonLabel(reason: GameEndReason): string {
 /**
  * Player-facing clause completing "{Winner} wins — ..." (no trailing period)
  * for a win outcome. Names the *losing* side plainly wherever the reason
- * needs a subject to avoid reading as rules jargon. `inactivity` and
- * `agreement` never occur for a win in 1.2 - the shared inactivity counter
- * (rules.md §5.3) only ever produces a *draw*, and `agreeDraw` only ever
- * produces a draw - listed only so this switch is exhaustive.
+ * needs a subject to avoid reading as rules jargon - "the computer" rather
+ * than its color when `perspective` says the loser is not the human (story
+ * 00000019). `inactivity` and `agreement` never occur for a win in 1.2 - the
+ * shared inactivity counter (rules.md §5.3) only ever produces a *draw*, and
+ * `agreeDraw` only ever produces a draw - listed only so this switch is
+ * exhaustive.
  */
-function winReasonClause(winner: Side, reason: GameEndReason): string {
-  const loser = sideColorName(otherSide(winner));
+function winReasonClause(
+  winner: Side,
+  reason: GameEndReason,
+  perspective?: ResultPerspective,
+): string {
+  const loser = participantLabel(otherSide(winner), perspective);
   switch (reason) {
     case "noLegalMove":
       return `${loser} has no legal move left`;
@@ -145,10 +199,23 @@ function drawReasonClause(reason: GameEndReason): string {
  * an ending detected with no ply (the side to move having no legal move
  * already holding at the Phase 2 reveal - see `App.tsx`, Step 9) and for
  * accepting a draw offer (see `describeDrawAccepted` below).
+ *
+ * `perspective` (story 00000019, Step 6) names whichever side is not the
+ * human as "the computer (color)" instead of by color alone, e.g. "The
+ * computer (blue) wins — Flag captured." / "Red wins — the computer (blue)
+ * has no legal move left." Omitted (the default) everywhere outside the
+ * against-the-computer mode, leaving hot-seat's and the reviewer's wording
+ * unchanged.
  */
-export function describeResult(result: GameOutcome): string {
+export function describeResult(
+  result: GameOutcome,
+  perspective?: ResultPerspective,
+): string {
   if (result.kind === "win") {
-    return `${sideColorName(result.winner)} wins — ${winReasonClause(result.winner, result.reason)}.`;
+    const winnerLabel = capitalizeFirst(
+      participantLabel(result.winner, perspective),
+    );
+    return `${winnerLabel} wins — ${winReasonClause(result.winner, result.reason, perspective)}.`;
   }
   if (result.kind === "draw") {
     return `The game is a draw — ${drawReasonClause(result.reason)}.`;
@@ -254,19 +321,24 @@ function describeAttack(
  * trailing "{Color} to move." clause - wrong, since nobody is to move - is
  * replaced with the result-and-reason sentence (`describeResult`), so a
  * player who did not see the board change hears both what the ply did and
- * how the game ended.
+ * how the game ended. `perspective` (story 00000019, Step 6) is passed
+ * straight through to that `describeResult` call, so a game-ending ply in
+ * the against-the-computer mode names "the computer" the same way a result
+ * detected with no ply does; the ordinary "{Color} to move." clause is
+ * unaffected (never adapted - only the winner phrasing changes).
  */
 export function describeActivation(
   before: PlaySession,
   after: PlaySession,
   square: Square,
+  perspective?: ResultPerspective,
 ): string {
   const moveApplied = after.play.moves.length > before.play.moves.length;
   if (moveApplied) {
     const trailingClause =
       after.play.result.kind === "ongoing"
         ? `${sideColorName(after.play.sideToMove)} to move.`
-        : describeResult(after.play.result);
+        : describeResult(after.play.result, perspective);
     const outcome = after.lastOutcome;
     if (outcome !== null && outcome.kind === "attack") {
       return describeAttack(outcome, trailingClause);

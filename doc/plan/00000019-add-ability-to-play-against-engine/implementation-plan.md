@@ -611,7 +611,83 @@ typecheck`, `npm run lint`, `npm run test`.
 
 ## Step 6 — A full game and its endings
 
-Status: pending
+Status: committed
+
+Notes: Winner phrasing - added an optional `ResultPerspective` (`{ humanSide:
+Side }`) parameter to `playAnnouncement.ts`'s `describeResult` and
+`describeActivation` (threaded through to the internal `describeResult` call
+for a game-ending ply), plus a small `participantLabel`/`capitalizeFirst`
+pair: a side that is not `perspective.humanSide` is always named "the
+computer (color)" (e.g. "The computer (blue) wins — Flag captured." / "Red
+wins — the computer (blue) has no legal move left."); the human's own side is
+still named by plain color, exactly as hot-seat names both sides. Both
+parameters default to `undefined`, which reproduces the exact prior output -
+every existing caller (`HotSeatGame.tsx`, `reviewText.ts`) omits it and is
+unaffected (confirmed by full `describeResult`/`describeActivation` test
+suite passing unchanged plus a read of both call sites - neither was
+touched). Added a matching optional `perspective` prop to `GameResult.tsx`,
+passed straight to its own `describeResult` call, so the panel's visible
+summary always matches what the live region already announced.
+`EngineGame.tsx` now builds one `perspective` object per render (`{
+humanSide }`) and passes it to every `describeActivation`/`describeResult`/
+`GameResult` call, including the human's own moves (so a human ply that
+happens to end the game - e.g. capturing the computer's Flag, or leaving the
+computer with no legal move - is worded identically to a computer ply that
+ends the game) and the placement-reveal edge case in `handleConfirm`.
+
+Thinking-indicator minimum-visible duration - added a
+`MIN_THINKING_DISPLAY_MS = 400` constant and changed the computer's-turn
+effect in `EngineGame.tsx` to `Promise.all([chooseEnginePly(...), new
+Promise((resolve) => { timeoutId = setTimeout(resolve, 400); })])` instead of
+awaiting `chooseEnginePly` alone, so an instant answer from the zero-weight
+model still leaves "the computer is thinking" visible for at least 400ms
+(`Promise.all` only waits for the *slower* of the two; a genuinely slow
+answer is never held back further). `computerThinking` itself needed no new
+state - it stays a boolean derived from `playSession`/`sideToMove` exactly as
+Step 5 left it - because the minimum duration now simply delays *when*
+`setPlaySession`/`setPlayAnnouncement` are called, not a separate visual
+flag. This does not reopen Step 5's stale-move guard: it is still exactly one
+`.then`/`.catch` pair, `cancelled` is still checked immediately before the
+first setter call inside it, and the new `setTimeout` is tracked in
+`timeoutId` and explicitly `clearTimeout`-ed in the effect's cleanup
+alongside `cancelled = true`, so a superseded turn (StrictMode's double
+invocation, or the player leaving mid-thought) never leaves a dangling timer
+or a late state update.
+
+Endings - read `outcome.ts`, `decoder.ts` (`selectEnginePly`), and
+`enginePlayer.ts` (`chooseEnginePly`) end to end to reason through a full
+game rather than just re-running the existing suite: `applyEnginePly`
+(unchanged since Step 5) drives the computer's chosen ply through the exact
+same `activateSquare` -> `applyMove` -> `computeOutcome` path a human ply
+uses, so all three automatic endings (flag capture, no-legal-move loss, the
+50-move inactivity draw) fire identically regardless of which side's ply
+triggered them - no mode-specific ending logic exists to get wrong. The
+illegal/off-board-move invariant is structural, not merely
+statistically-tested: `selectEnginePly`'s candidate set
+(`enumerateLegalPlies`) is built *only* from `legalDestinations`/
+`legalAttacks`, never from decoding the policy tensor into candidate squares
+independently, so the network's output can only ever rank or fail to rank an
+already-legal ply - it has no code path capable of producing an illegal or
+off-board one, however the (zero-weight, effectively random) policy comes
+out. No defects were found in this reasoning pass, so no rules/decoder/
+engine-player code changed this step. Confirmed by reading `EngineGame.tsx`
+that no `DrawOffer` import or `offerDraw`/`declineDraw`/`acceptDraw` call
+exists anywhere in the mode - there is no draw-offer control, matching
+story.md.
+
+No deviations from the plan. Added `src/board/playAnnouncement.test.ts`
+cases for the new `ResultPerspective` parameter (computer-wins winner
+phrasing, human-wins unaffected phrasing, the no-legal-move loser clause
+naming the computer with its color, the symmetric blue-human case, a draw's
+wording left untouched, omitted-parameter byte-for-byte equivalence, and a
+game-ending `describeActivation` case) rather than any new pure module (Step
+6 introduced no new pure helper beyond the two small private functions
+above, which the existing `describeResult`/`describeActivation` tests
+already exercise through the public API). No React component tests were
+added, per the codebase's existing convention (this step's own verification
+is manual - Gates B and C, the owner's to run). `npm run typecheck`, `npm
+run lint`, `npm run test` (481 tests passing, 8 new), and `npm run build`
+are all green. Ran `npx prettier --write` on all changed files.
 
 With the loop wired (Step 5), verify and finish the game-completion behavior:
 the result screen names the winner by color (e.g. "Red wins", "the computer

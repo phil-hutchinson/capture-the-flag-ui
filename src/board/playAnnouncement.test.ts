@@ -453,6 +453,128 @@ describe("describeResult", () => {
   });
 });
 
+describe("describeResult - against-the-computer perspective (story 00000019, Step 6)", () => {
+  it("names the human by color and the computer as 'the computer (color)' when the computer wins", () => {
+    expect(
+      describeResult(
+        { kind: "win", winner: "black", reason: "flagCapture" },
+        { humanSide: "white" },
+      ),
+    ).toBe("The computer (blue) wins — Flag captured.");
+  });
+
+  it("names the human by color alone when the human wins", () => {
+    expect(
+      describeResult(
+        { kind: "win", winner: "white", reason: "flagCapture" },
+        { humanSide: "white" },
+      ),
+    ).toBe("Red wins — Flag captured.");
+  });
+
+  it("names the computer (with its color) as the loser in the no-legal-move reason clause", () => {
+    expect(
+      describeResult(
+        { kind: "win", winner: "white", reason: "noLegalMove" },
+        { humanSide: "white" },
+      ),
+    ).toBe("Red wins — the computer (blue) has no legal move left.");
+  });
+
+  it("still names the human as the loser by color when the computer wins by no legal move", () => {
+    expect(
+      describeResult(
+        { kind: "win", winner: "black", reason: "noLegalMove" },
+        { humanSide: "white" },
+      ),
+    ).toBe("The computer (blue) wins — Red has no legal move left.");
+  });
+
+  it("works symmetrically when the human plays blue", () => {
+    expect(
+      describeResult(
+        { kind: "win", winner: "white", reason: "flagCapture" },
+        { humanSide: "black" },
+      ),
+    ).toBe("The computer (red) wins — Flag captured.");
+    expect(
+      describeResult(
+        { kind: "win", winner: "black", reason: "flagCapture" },
+        { humanSide: "black" },
+      ),
+    ).toBe("Blue wins — Flag captured.");
+  });
+
+  it("leaves a draw's wording unaffected - no side is named", () => {
+    expect(
+      describeResult(
+        { kind: "draw", reason: "inactivity" },
+        { humanSide: "white" },
+      ),
+    ).toBe("The game is a draw — by inactivity.");
+  });
+
+  it("is byte-for-byte unchanged when perspective is omitted, as every other caller does", () => {
+    expect(
+      describeResult({ kind: "win", winner: "black", reason: "flagCapture" }),
+    ).toBe("Blue wins — Flag captured.");
+  });
+});
+
+describe("describeActivation - against-the-computer perspective (story 00000019, Step 6)", () => {
+  it("names the computer in a game-ending ply's trailing result clause", () => {
+    const { before, after } = (function endingSession() {
+      const piece: [string, PlacedPiece["side"], PieceTypeId] = [
+        "A1",
+        "white",
+        "footSoldier",
+      ];
+      const before: PlayState = {
+        ruleset: RULESET_TAG,
+        initialBoard: board([piece]),
+        board: board([piece]),
+        sideToMove: "white",
+        moves: [],
+        inactivityCounter: 0,
+        result: { kind: "ongoing" },
+      };
+      const after: PlayState = {
+        ...before,
+        board: board([["A2", "white", "footSoldier"]]),
+        sideToMove: "black",
+        moves: ["A1A2"],
+        result: { kind: "win", winner: "white", reason: "noLegalMove" },
+      };
+      return {
+        before: {
+          play: before,
+          selection: sq("A", 1),
+          lastOutcome: null,
+          drawOffer: null,
+        } satisfies PlaySession,
+        after: {
+          play: after,
+          selection: null,
+          lastOutcome: {
+            kind: "move",
+            piece: { side: "white", pieceType: "footSoldier" },
+            square: sq("A", 2),
+          },
+          drawOffer: null,
+        } satisfies PlaySession,
+      };
+    })();
+
+    // The human plays red (white); the computer (blue) is left with no
+    // legal move.
+    expect(
+      describeActivation(before, after, sq("A", 2), { humanSide: "white" }),
+    ).toBe(
+      "Red Foot Soldier moved to A2. Red wins — the computer (blue) has no legal move left.",
+    );
+  });
+});
+
 describe("describeDrawOffer / describeDrawDecline / describeDrawAccepted", () => {
   it("names the offering side and asks the opponent to answer", () => {
     expect(describeDrawOffer("white")).toBe(

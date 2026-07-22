@@ -9,7 +9,11 @@ import { GameResult } from "./GameResult.tsx";
 import { LeaveGameDialog } from "./LeaveGameDialog.tsx";
 import { PlacementControls } from "./PlacementControls.tsx";
 import { PlacementStatus } from "./PlacementStatus.tsx";
-import { describeActivation, describeResult } from "./playAnnouncement.ts";
+import {
+  describeActivation,
+  describeResult,
+  type ResultPerspective,
+} from "./playAnnouncement.ts";
 import { PlayBoard } from "./PlayBoard.tsx";
 import {
   activateSquare,
@@ -74,10 +78,29 @@ import "./EngineGame.css";
 // own side (`PlayBoard`'s new `side` prop, Step 5) - there is no "flip
 // between turns" control in this mode (story.md's "Board orientation is
 // always yours"), and there is no draw-offer control either.
+//
+// Step 6 adds two finishing touches on top of Step 5's working loop:
+//  - Winner phrasing: every `describeResult`/`describeActivation`/
+//    `GameResult` call below passes `perspective` (an object naming
+//    `humanSide`), so the computer is named "the computer (color)" rather
+//    than by color alone, while the human is still named by color exactly
+//    as hot-seat names both sides - see `playAnnouncement.ts`.
+//  - A minimum-visible duration for "the computer is thinking" (below),
+//    so the near-instant zero-weight model doesn't make it flash.
 type Selection =
   | { readonly kind: "trayType"; readonly type: PieceTypeId }
   | { readonly kind: "boardSquare"; readonly square: Square }
   | null;
+
+/**
+ * The shortest time "the computer is thinking" stays visible, in
+ * milliseconds, regardless of how quickly `chooseEnginePly` actually
+ * resolves (near-instantly, with the zero-weight reference model - see
+ * `Promise.all` below). Purely a presentation choice (story.md's "Whether
+ * the 'thinking' indicator has a minimum visible duration", left open at
+ * plan time); does not affect correctness or the timing of anything else.
+ */
+const MIN_THINKING_DISPLAY_MS = 400;
 
 export interface EngineGameProps {
   /**
@@ -132,14 +155,15 @@ export function EngineGame({ onBack }: EngineGameProps) {
     onBack();
   }
 
-  // The computer's ply (story 00000019, Step 5). Fires exactly when it
-  // becomes the computer's turn in an ongoing game - never during the side
-  // choice or placement, never on the human's own turn, never once the game
-  // has ended (the three guards below). `chooseEnginePly` (Step 4) is a
-  // single network evaluation plus a legal-masked sample; it is never
-  // called more than once per computer turn, because the effect's own
-  // dependencies only change again once a ply has actually been applied
-  // (which flips `sideToMove` away from the computer).
+  // The computer's ply (story 00000019, Step 5; minimum-visible-duration
+  // timing added Step 6). Fires exactly when it becomes the computer's turn
+  // in an ongoing game - never during the side choice or placement, never on
+  // the human's own turn, never once the game has ended (the three guards
+  // below). `chooseEnginePly` (Step 4) is a single network evaluation plus a
+  // legal-masked sample; it is never called more than once per computer
+  // turn, because the effect's own dependencies only change again once a ply
+  // has actually been applied (which flips `sideToMove` away from the
+  // computer).
   //
   // Two correctness hazards this guards against:
   //  - React StrictMode double-invokes effects in dev: the `cancelled` flag
@@ -150,6 +174,19 @@ export function EngineGame({ onBack }: EngineGameProps) {
   //    move on before the promise resolves; the same `cancelled` flag (set
   //    on unmount, via the effect's cleanup) means a stale move is never
   //    applied to a session the player is no longer looking at.
+  //
+  // `Promise.all([chooseEnginePly(...), delay(...)])` (Step 6) is the
+  // minimum-visible-duration treatment: the effect waits for *both* the
+  // engine's answer and a fixed minimum timer before applying anything, so
+  // an instant answer from the zero-weight model still leaves "the computer
+  // is thinking" visible for at least `MIN_THINKING_DISPLAY_MS` - a slow
+  // answer is never held back further, since `Promise.all` only ever waits
+  // for the *slower* of the two. This adds no new hazard: it is still one
+  // `.then`/`.catch` pair guarded by the same `cancelled` flag, checked
+  // exactly where it always was, immediately before the first setter call -
+  // a stale result is discarded exactly as before, just possibly a little
+  // later. The timer's own `setTimeout` is cleared on cleanup so a
+  // superseded turn never leaves a dangling timer.
   useEffect(() => {
     if (playSession === null || humanSide === null) {
       return;
@@ -163,15 +200,26 @@ export function EngineGame({ onBack }: EngineGameProps) {
     }
 
     let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const beforeMove = playSession;
+    const perspective: ResultPerspective = { humanSide };
     setPlayAnnouncement("The computer is thinking.");
 
-    chooseEnginePly(beforeMove.play)
-      .then(({ from, to }) => {
+    const minimumDisplay = new Promise<void>((resolve) => {
+      timeoutId = setTimeout(resolve, MIN_THINKING_DISPLAY_MS);
+    });
+
+    Promise.all([chooseEnginePly(beforeMove.play), minimumDisplay])
+      .then(([{ from, to }]) => {
         if (cancelled) {
           return;
         }
-        const { after, announcement } = applyEnginePly(beforeMove, from, to);
+        const { after, announcement } = applyEnginePly(
+          beforeMove,
+          from,
+          to,
+          perspective,
+        );
         setPlaySession(after);
         setPlayAnnouncement(announcement);
       })
@@ -192,6 +240,9 @@ export function EngineGame({ onBack }: EngineGameProps) {
 
     return () => {
       cancelled = true;
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
     };
   }, [playSession, humanSide]);
 
@@ -229,6 +280,13 @@ export function EngineGame({ onBack }: EngineGameProps) {
     const computerThinking =
       playSession.play.result.kind === "ongoing" &&
       playSession.play.sideToMove === computerSide;
+    // Names whichever side is not the human as "the computer" in the result
+    // sentence (story 00000019, Step 6) - passed to every
+    // `describeActivation`/`describeResult`/`GameResult` call below, so a
+    // human ply that happens to end the game (e.g. the human captures the
+    // Flag, or the computer is left with no legal move) is worded exactly
+    // like a computer ply that ends the game.
+    const perspective: ResultPerspective = { humanSide };
 
     // The human's own turn behaves exactly like `HotSeatGame.tsx`'s
     // `handlePlayActivate`: turn a raw grid activation into `activateSquare`
@@ -243,7 +301,9 @@ export function EngineGame({ onBack }: EngineGameProps) {
       }
       const next = activateSquare(playSession, square);
       setPlaySession(next);
-      setPlayAnnouncement(describeActivation(playSession, next, square));
+      setPlayAnnouncement(
+        describeActivation(playSession, next, square, perspective),
+      );
     };
 
     // "New game" (`GameResult`'s shared action) resets all the way back to
@@ -282,21 +342,36 @@ export function EngineGame({ onBack }: EngineGameProps) {
         {result.kind === "ongoing" ? (
           <>
             <PlayStatus sideToMove={playSession.play.sideToMove} />
-            {computerThinking && (
-              // Visual only, deliberately no live region of its own - the
-              // same sentence is already announced exactly once through the
-              // board's own live region above (`setPlayAnnouncement`, in the
-              // effect), so a second live region here would double-speak it
-              // (the same reasoning `GameResult.tsx`'s visible summary
-              // documents for the end-of-game sentence).
-              <p className="engine-game__thinking">The computer is thinking…</p>
-            )}
+            {/* Always rendered so its line of space is reserved whether or not
+                it is the computer's turn - otherwise the board bounces up and
+                down as the indicator appears and disappears each turn. When it
+                is not the computer's turn it is hidden with `visibility:
+                hidden` (which also keeps it out of the accessibility tree).
+                Visual only, deliberately no live region of its own - the same
+                sentence is already announced exactly once through the board's
+                own live region above (`setPlayAnnouncement`, in the effect),
+                so a second live region here would double-speak it (the same
+                reasoning `GameResult.tsx`'s visible summary documents for the
+                end-of-game sentence). */}
+            <p
+              className={
+                computerThinking
+                  ? "engine-game__thinking"
+                  : "engine-game__thinking engine-game__thinking--reserved"
+              }
+            >
+              The computer is thinking…
+            </p>
             <PlayWarnings
               warnings={computeCountdownWarnings(playSession.play)}
             />
           </>
         ) : (
-          <GameResult result={result} onNewGame={handleNewGame} />
+          <GameResult
+            result={result}
+            onNewGame={handleNewGame}
+            perspective={perspective}
+          />
         )}
         <PlayBoard
           session={playSession}
@@ -410,7 +485,9 @@ export function EngineGame({ onBack }: EngineGameProps) {
     // moved - no activation occurs to drive `describeActivation` then, so
     // announce the result directly here.
     if (freshPlaySession.play.result.kind !== "ongoing") {
-      setPlayAnnouncement(describeResult(freshPlaySession.play.result));
+      setPlayAnnouncement(
+        describeResult(freshPlaySession.play.result, { humanSide }),
+      );
     }
   }
 
@@ -489,14 +566,20 @@ export function EngineGame({ onBack }: EngineGameProps) {
  * exactly as `PlaySession`/`playAnnouncement.ts` intend, rather than the
  * intermediate "N moves available" selection sentence a human's first click
  * produces - the player only ever hears the finished move, matching how a
- * human move is announced.
+ * human move is announced. `perspective` (story 00000019, Step 6) is passed
+ * straight through to `describeActivation`, so a computer ply that ends the
+ * game names the computer "the computer (color)" rather than by color alone.
  */
 function applyEnginePly(
   before: PlaySession,
   from: Square,
   to: Square,
+  perspective: ResultPerspective,
 ): { after: PlaySession; announcement: string } {
   const selected = activateSquare(before, from);
   const after = activateSquare(selected, to);
-  return { after, announcement: describeActivation(selected, after, to) };
+  return {
+    after,
+    announcement: describeActivation(selected, after, to, perspective),
+  };
 }

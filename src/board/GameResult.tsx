@@ -25,10 +25,15 @@
 // announcement, for the same reason the result sentence above has none: a
 // screen-reader user tabbing to a button hears its name and role from the
 // button itself.
+//
+// The optional `perspective` prop (story 00000019, Step 6) is the
+// against-the-computer mode's only addition: passed straight through to
+// `describeResult` so the computer is named "the computer (color)" rather
+// than by color alone. Omitted by hot-seat, which is unaffected.
 
 import { useEffect, useRef } from "react";
 import type { GameOutcome } from "../rules/primary/v1/outcome.ts";
-import { describeResult } from "./playAnnouncement.ts";
+import { describeResult, type ResultPerspective } from "./playAnnouncement.ts";
 import "./GameResult.css";
 
 /** A finished `GameOutcome` - callers only render this panel once the game has ended. */
@@ -38,10 +43,22 @@ export interface GameResultProps {
   readonly result: FinishedOutcome;
   /** Starts a fresh game: empty Phase-1 placement for both players. */
   readonly onNewGame: () => void;
+  /**
+   * Names whichever side is not the human as "the computer" (story
+   * 00000019, Step 6), passed straight through to `describeResult` so this
+   * panel's visible summary matches, word for word, whatever the board's
+   * live region already announced when the game ended. Omitted by hot-seat
+   * and the reviewer, which leaves both sides named by color as before.
+   */
+  readonly perspective?: ResultPerspective;
 }
 
 /** The end-of-game panel: the result and reason, replacing `PlayStatus` once the game is over. */
-export function GameResult({ result, onNewGame }: GameResultProps) {
+export function GameResult({
+  result,
+  onNewGame,
+  perspective,
+}: GameResultProps) {
   const winner = result.kind === "win" ? result.winner : null;
   const newGameRef = useRef<HTMLButtonElement>(null);
 
@@ -69,7 +86,9 @@ export function GameResult({ result, onNewGame }: GameResultProps) {
       data-outcome={result.kind}
       data-winner={winner ?? undefined}
     >
-      <span className="game-result__summary">{describeResult(result)}</span>
+      <span className="game-result__summary">
+        {describeResult(result, perspective)}
+      </span>
       <button
         type="button"
         className="game-result__new-game"
