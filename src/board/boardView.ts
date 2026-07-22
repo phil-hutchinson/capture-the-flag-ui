@@ -25,6 +25,7 @@ import {
   type Column,
   type Row,
   type Side,
+  type Square,
 } from "../rules/primary/v1/board.ts";
 
 /** A visible row's role in the cropped, active-player view. */
@@ -81,4 +82,61 @@ export function visibleColumns(side: Side): readonly Column[] {
  */
 export function fullBoardRows(side: Side): readonly Row[] {
   return side === "white" ? [...ROWS].reverse() : ROWS;
+}
+
+/** A square's zero-based screen row/column indices in the full-board view. */
+export interface FullBoardDisplayPosition {
+  readonly row: number;
+  readonly column: number;
+}
+
+/**
+ * Where `square` lands on screen for `side`'s full-board view (story
+ * 00000019, Step 9's move-slide overlay): the zero-based index into
+ * `fullBoardRows(side)`/`visibleColumns(side)`, i.e. the same square is a
+ * different cell index for a red vs. a blue human, so this always goes
+ * through those two functions rather than assuming an absolute coordinate.
+ * `square` is always one of the 144 on-board squares, so both indices are
+ * always found (never -1).
+ */
+export function fullBoardDisplayPosition(
+  side: Side,
+  square: Square,
+): FullBoardDisplayPosition {
+  return {
+    row: fullBoardRows(side).indexOf(square.row),
+    column: visibleColumns(side).indexOf(square.column),
+  };
+}
+
+/**
+ * The squares a move's path touches - its source, its destination, and, for
+ * a two-square move, the single square passed over between them (story
+ * 00000019, Step 9's move-slide highlight). Domain-frame, not display-frame:
+ * unlike `fullBoardDisplayPosition` above, this is the same regardless of
+ * which side is viewing the board, since it only ever looks at `from` and
+ * `to` themselves.
+ *
+ * Every legal ply is one or two squares orthogonally (`movement.ts`), so
+ * `from` and `to` always differ along exactly one axis (row, or column via
+ * `COLUMNS`' index), by 1 or 2 squares. For a two-square move, the in-between
+ * square is simply the square whose row and column index are each the
+ * average of `from`'s and `to`'s; for a one-square move there is nothing
+ * between them, so only `from` and `to` are returned.
+ */
+export function movePathSquares(from: Square, to: Square): readonly Square[] {
+  const fromColumnIndex = COLUMNS.indexOf(from.column);
+  const toColumnIndex = COLUMNS.indexOf(to.column);
+  const rowsApart = Math.abs(to.row - from.row);
+  const columnsApart = Math.abs(toColumnIndex - fromColumnIndex);
+
+  if (rowsApart < 2 && columnsApart < 2) {
+    return [from, to];
+  }
+
+  const between: Square = {
+    row: ((from.row + to.row) / 2) as Row,
+    column: COLUMNS[(fromColumnIndex + toColumnIndex) / 2],
+  };
+  return [from, between, to];
 }

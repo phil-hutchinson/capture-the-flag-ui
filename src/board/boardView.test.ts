@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { fullBoardRows, visibleColumns, visibleRows } from "./boardView.ts";
+import {
+  fullBoardDisplayPosition,
+  fullBoardRows,
+  movePathSquares,
+  visibleColumns,
+  visibleRows,
+} from "./boardView.ts";
 
 describe("visibleRows", () => {
   it("shows White's 4 home rows, the buffer row, and the full near lake row, back rank last", () => {
@@ -141,6 +147,100 @@ describe("fullBoardRows", () => {
       "C",
       "B",
       "A",
+    ]);
+  });
+});
+
+describe("fullBoardDisplayPosition", () => {
+  it("places White's own back-rank corner (A1) at the bottom-left cell", () => {
+    expect(fullBoardDisplayPosition("white", { column: "A", row: 1 })).toEqual({
+      row: 11,
+      column: 0,
+    });
+  });
+
+  it("places White's far corner (L12) at the top-right cell", () => {
+    expect(fullBoardDisplayPosition("white", { column: "L", row: 12 })).toEqual(
+      { row: 0, column: 11 },
+    );
+  });
+
+  it("places Black's own back-rank corner (L12) at the bottom-left cell", () => {
+    expect(fullBoardDisplayPosition("black", { column: "L", row: 12 })).toEqual(
+      { row: 11, column: 0 },
+    );
+  });
+
+  it("places Black's far corner (A1) at the top-right cell", () => {
+    expect(fullBoardDisplayPosition("black", { column: "A", row: 1 })).toEqual({
+      row: 0,
+      column: 11,
+    });
+  });
+
+  it("agrees with fullBoardRows/visibleColumns for an arbitrary square, both sides", () => {
+    const square = { column: "F", row: 7 } as const;
+    for (const side of ["white", "black"] as const) {
+      const position = fullBoardDisplayPosition(side, square);
+      expect(position.row).toBe(fullBoardRows(side).indexOf(square.row));
+      expect(position.column).toBe(visibleColumns(side).indexOf(square.column));
+    }
+  });
+});
+
+describe("movePathSquares", () => {
+  it("returns just from/to for a one-square horizontal move", () => {
+    expect(
+      movePathSquares({ column: "D", row: 4 }, { column: "E", row: 4 }),
+    ).toEqual([
+      { column: "D", row: 4 },
+      { column: "E", row: 4 },
+    ]);
+  });
+
+  it("returns just from/to for a one-square vertical move", () => {
+    expect(
+      movePathSquares({ column: "D", row: 4 }, { column: "D", row: 5 }),
+    ).toEqual([
+      { column: "D", row: 4 },
+      { column: "D", row: 5 },
+    ]);
+  });
+
+  it("includes the in-between square for a two-square horizontal move", () => {
+    expect(
+      movePathSquares({ column: "D", row: 4 }, { column: "F", row: 4 }),
+    ).toEqual([
+      { column: "D", row: 4 },
+      { column: "E", row: 4 },
+      { column: "F", row: 4 },
+    ]);
+  });
+
+  it("includes the in-between square for a two-square vertical move", () => {
+    expect(
+      movePathSquares({ column: "D", row: 4 }, { column: "D", row: 6 }),
+    ).toEqual([
+      { column: "D", row: 4 },
+      { column: "D", row: 5 },
+      { column: "D", row: 6 },
+    ]);
+  });
+
+  it("handles a two-square move in the decreasing direction, both axes", () => {
+    expect(
+      movePathSquares({ column: "F", row: 4 }, { column: "D", row: 4 }),
+    ).toEqual([
+      { column: "F", row: 4 },
+      { column: "E", row: 4 },
+      { column: "D", row: 4 },
+    ]);
+    expect(
+      movePathSquares({ column: "D", row: 6 }, { column: "D", row: 4 }),
+    ).toEqual([
+      { column: "D", row: 6 },
+      { column: "D", row: 5 },
+      { column: "D", row: 4 },
     ]);
   });
 });

@@ -35,7 +35,7 @@
 // are all reachable by mouse and keyboard even though an unselected movable
 // piece shows no highlight.
 
-import type { Square } from "../rules/primary/v1/board.ts";
+import type { Side, Square } from "../rules/primary/v1/board.ts";
 import { FullBoard } from "./FullBoard.tsx";
 import {
   actionableSquares,
@@ -53,9 +53,19 @@ export interface PlayBoardProps {
    * 2), passed straight through to `viewSide`: `true` (today's behavior)
    * flips to whichever side is sitting at the board at each hand-off and
    * while a draw offer is answered; `false` always draws from red's
-   * (`"white"`'s) perspective, throughout Phase 2.
+   * (`"white"`'s) perspective, throughout Phase 2. Ignored when `side` is
+   * given (below). Defaults to `true`.
    */
-  readonly flipBetweenTurns: boolean;
+  readonly flipBetweenTurns?: boolean;
+  /**
+   * Overrides orientation to always draw from this side's perspective,
+   * regardless of whose turn it is or `flipBetweenTurns` (story 00000019:
+   * the against-the-computer mode always shows the human player's own side,
+   * which `flipBetweenTurns`'s hardcoded-to-red `false` case cannot express
+   * when the human is playing blue). When given, `viewSide`/`flipBetweenTurns`
+   * are not consulted at all.
+   */
+  readonly side?: Side;
   /** Called with the domain square of an actionable cell when it is activated. */
   readonly onActivate: (square: Square) => void;
   /**
@@ -65,6 +75,23 @@ export interface PlayBoardProps {
    * transitions via `playAnnouncement.ts`'s `describeActivation`.
    */
   readonly announcement?: string;
+  /**
+   * Presents the board as fully inert - no selection, no destination/attack
+   * highlight, no activatable square - regardless of `session`'s own state
+   * (story 00000019: while it is the computer's turn, its own pieces are
+   * structurally "the side to move's own movable pieces" per
+   * `playSession.ts`, but the human must not be able to act on them).
+   * Defaults to `false` (hot-seat's existing behavior, unchanged).
+   */
+  readonly disabled?: boolean;
+  /**
+   * The computer's just-applied move, mid-slide (story 00000019, Step 9) -
+   * threaded straight through to `FullBoard`'s prop of the same name (see
+   * its own doc comment for the full contract). Additive and default-off,
+   * exactly like `side`/`disabled` above; omitted by hot-seat and review, so
+   * neither is affected.
+   */
+  readonly animatedMove?: { readonly from: Square; readonly to: Square };
 }
 
 /**
@@ -80,29 +107,35 @@ export interface PlayBoardProps {
  */
 export function PlayBoard({
   session,
-  flipBetweenTurns,
+  flipBetweenTurns = true,
+  side: fixedSide,
   onActivate,
   announcement,
+  disabled = false,
+  animatedMove,
 }: PlayBoardProps) {
-  const side = viewSide(session, flipBetweenTurns);
+  const side = fixedSide ?? viewSide(session, flipBetweenTurns);
 
   return (
     <FullBoard
       board={session.play.board}
       side={side}
-      selected={session.selection ?? undefined}
+      selected={disabled ? undefined : (session.selection ?? undefined)}
       // Only a selected piece's legal destinations are highlighted; with
       // nothing selected `actionableSquares` returns own movable pieces,
       // which we deliberately leave unhighlighted (see the module comment).
-      destinationSquares={session.selection ? actionableSquares(session) : []}
+      destinationSquares={
+        disabled || !session.selection ? [] : actionableSquares(session)
+      }
       // The subset of the above that are attacks rather than plain moves
       // (Step 5's `attackTargets` - empty with nothing selected), so
       // `FullBoard` can render and label them distinctly from plain move
       // destinations.
-      attackSquares={attackTargets(session)}
-      activatableSquares={activatableSquares(session)}
+      attackSquares={disabled ? [] : attackTargets(session)}
+      activatableSquares={disabled ? [] : activatableSquares(session)}
       onActivate={onActivate}
       announcement={announcement}
+      animatedMove={animatedMove}
     />
   );
 }

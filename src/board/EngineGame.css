@@ -1,0 +1,32 @@
+/* The against-the-computer game's own "Back to start" control (story
+   00000019, Step 5), placed right after the title exactly where
+   `HotSeatGame.css`'s `.hot-seat-game__back` and `ReviewScreen.css`'s
+   `.review-screen__back` sit in their own screens - the same chrome,
+   duplicated per screen rather than shared, following this repo's existing
+   convention (see `ReviewScreen.css`'s header comment). */
+
+.engine-game__back {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* The "computer is thinking" indicator, shown in the same status slot
+   `PlayStatus` occupies while it is the computer's turn. Visual only - see
+   its render site for why it carries no live region of its own. */
+.engine-game__thinking {
+  margin: 0;
+  font-style: italic;
+}
+
+/* Keep the indicator's line of space reserved when it is not the computer's
+   turn, so the board does not bounce as the message appears and disappears.
+   `visibility: hidden` preserves the layout box and removes the text from the
+   accessibility tree. */
+.engine-game__thinking--reserved {
+  visibility: hidden;
+}
