@@ -84,6 +84,14 @@ export interface PlayBoardProps {
    * Defaults to `false` (hot-seat's existing behavior, unchanged).
    */
   readonly disabled?: boolean;
+  /**
+   * The computer's just-applied move, mid-slide (story 00000019, Step 9) -
+   * threaded straight through to `FullBoard`'s prop of the same name (see
+   * its own doc comment for the full contract). Additive and default-off,
+   * exactly like `side`/`disabled` above; omitted by hot-seat and review, so
+   * neither is affected.
+   */
+  readonly animatedMove?: { readonly from: Square; readonly to: Square };
 }
 
 /**
@@ -104,6 +112,7 @@ export function PlayBoard({
   onActivate,
   announcement,
   disabled = false,
+  animatedMove,
 }: PlayBoardProps) {
   const side = fixedSide ?? viewSide(session, flipBetweenTurns);
 
@@ -126,6 +135,7 @@ export function PlayBoard({
       activatableSquares={disabled ? [] : activatableSquares(session)}
       onActivate={onActivate}
       announcement={announcement}
+      animatedMove={animatedMove}
     />
   );
 }

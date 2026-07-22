@@ -40,6 +40,17 @@
 // the focus ring, so all of them stay visually distinct even if a future
 // caller ever combined them.
 //
+// Story 00000019, Step 9 reuses `--destination` (not a new highlight) for the
+// path of the computer's move while it slides: whenever `animatedMove` is
+// set, every square that move's path touches - its `from`, its `to`, and (for
+// a two-square move) the single square passed over between them, from
+// `movePathSquares` (`boardView.ts`) - is marked with the same amber fill a
+// human's own legal plain-move destinations use, so the path reads clearly on
+// the small board. It is never an attack-style highlight (the computer's own
+// move never reads as one of the human's own attack targets), and it appears
+// only while `animatedMove` is set - the human's own turn, hot-seat, and
+// review are all unaffected, since none of them ever pass `animatedMove`.
+//
 // That visual set is strictly smaller than the set of squares that actually
 // *respond* to activation: the accessible grid's activation gate
 // (`GridCellDescriptor.actionable`) is driven directly by `activatableSquares`,
@@ -48,6 +59,7 @@
 // square stays focusable and its label still describes what occupies it, but
 // none responds to a click or Enter/Space.
 
+import type { CSSProperties } from "react";
 import { PieceIcon, LAKE_SYMBOL_ID } from "../art/PieceIcon.tsx";
 import {
   isLake,
@@ -62,9 +74,36 @@ import {
   type GridCellDescriptor,
 } from "./grid/AccessibleGrid.tsx";
 import type { GridPosition } from "./grid/gridNavigation.ts";
-import { fullBoardRows, visibleColumns } from "./boardView.ts";
+import {
+  fullBoardDisplayPosition,
+  fullBoardRows,
+  movePathSquares,
+  visibleColumns,
+} from "./boardView.ts";
 import { sideColorName } from "./sideNames.ts";
 import "./FullBoard.css";
+
+/**
+ * How long the computer's move takes to visually slide from its origin
+ * square to its destination (story 00000019, Step 9; revised down from an
+ * initial 400ms to one third of a second after the owner's first look at the
+ * slide). The single source of truth for the slide's timing: it drives the
+ * CSS animation below (passed down as the `--slide-duration` custom
+ * property) and is imported, not duplicated, by `EngineGame.tsx`'s timer
+ * that clears `animatedMove` once the slide is done. A touch slower than a
+ * typical UI animation on purpose - the board's squares are small
+ * (`--square: clamp(28px, 6vmin, 64px)`, FullBoard.css).
+ */
+export const MOVE_SLIDE_DURATION_MS = 333;
+
+/** Inline style carrying the slide overlay's CSS custom properties. */
+interface SlideStyle extends CSSProperties {
+  readonly "--slide-to-row": number;
+  readonly "--slide-to-col": number;
+  readonly "--slide-drow": number;
+  readonly "--slide-dcol": number;
+  readonly "--slide-duration": string;
+}
 
 /**
  * Accessible label for one square: its name plus what occupies it, if
@@ -144,6 +183,28 @@ export interface FullBoardProps {
   readonly onActivate?: (square: Square) => void;
   /** Text pushed into the board's polite live region. */
   readonly announcement?: string;
+  /**
+   * The computer's just-applied move, mid-slide (story 00000019, Step 9).
+   * `board` already reflects the move (the moved piece sits at `to`); while
+   * this is set, `FullBoard` suppresses the real piece drawn at `to` and
+   * instead renders a single `aria-hidden` sliding `PieceIcon` overlay that
+   * travels from `from`'s display cell to `to`'s over
+   * `MOVE_SLIDE_DURATION_MS`, landing exactly at rest so no jump is visible
+   * once it settles. It also marks every square the move's path touches
+   * (`from`, `to`, and, for a two-square move, the square passed over between
+   * them - `movePathSquares`, `boardView.ts`) with the same amber
+   * `--destination` fill a human's own legal plain-move destinations use, so
+   * the `to` square shows that fill underneath the arriving piece. Purely
+   * visual - the move is already announced through the live region elsewhere
+   * (`playAnnouncement.ts`), so none of this carries accessible-name/live-
+   * region semantics of its own. Default-off (`undefined`); omitted by
+   * hot-seat, review, and the human's own moves, all of which are unaffected.
+   * Honors `prefers-reduced-motion: reduce` (FullBoard.css) as a
+   * defense-in-depth safety net, though `EngineGame.tsx` is expected to never
+   * set this prop at all when the user prefers reduced motion, so the board
+   * is never needlessly held inert for a slide nobody will see.
+   */
+  readonly animatedMove?: { readonly from: Square; readonly to: Square };
 }
 
 /**
@@ -161,6 +222,7 @@ export function FullBoard({
   activatableSquares = [],
   onActivate,
   announcement,
+  animatedMove,
 }: FullBoardProps) {
   const rows = fullBoardRows(side);
   const columns = visibleColumns(side);
@@ -180,6 +242,25 @@ export function FullBoard({
   const lastMoveKeys = lastMove
     ? new Set([squareKey(lastMove.from), squareKey(lastMove.to)])
     : undefined;
+  // The moved piece is suppressed at its real square (`to`) while it's drawn
+  // instead as the sliding overlay below, so the two are never both visible
+  // at once (story 00000019, Step 9). `board` already reflects the move (it
+  // was applied before the slide begins - see `EngineGame.tsx`), so the piece
+  // to slide is read from `board[to]`, not from anything about `from`.
+  const animatedToKey = animatedMove ? squareKey(animatedMove.to) : undefined;
+  const slidingPiece = animatedMove
+    ? board[squareKey(animatedMove.to)]
+    : undefined;
+  // The path the computer's move is sliding along - `from`, `to`, and (for a
+  // two-square move) the square passed over between them - marked with the
+  // same amber `--destination` fill a human's own legal plain-move
+  // destinations use, for exactly the slide's lifetime (see the module
+  // comment and this component's own `animatedMove` doc comment above).
+  const animatedPathKeys = animatedMove
+    ? new Set(
+        movePathSquares(animatedMove.from, animatedMove.to).map(squareKey),
+      )
+    : undefined;
 
   const cellRows: GridCellDescriptor[][] = rows.map((row) =>
     columns.map((column) => {
@@ -189,14 +270,16 @@ export function FullBoard({
       const piece = board[key];
       const isSelected = key === selectedKey;
       const isAttack = attackKeys.has(key);
-      const isDestination = destinationKeys.has(key);
+      const isDestination =
+        destinationKeys.has(key) || (animatedPathKeys?.has(key) ?? false);
       const isLastMove = lastMoveKeys?.has(key) ?? false;
       const activatable = activatableKeys.has(key);
+      const hidePiece = key === animatedToKey;
 
       return {
         content: (
           <FullBoardCell
-            piece={piece}
+            piece={hidePiece ? undefined : piece}
             lake={lake}
             selected={isSelected}
             destination={isDestination}
@@ -204,6 +287,11 @@ export function FullBoard({
             lastMove={isLastMove}
           />
         ),
+        // The accessible label always describes the real occupant, whether
+        // or not its icon is momentarily hidden for the slide - the overlay
+        // is purely visual and carries no label of its own (see its own
+        // `aria-hidden`, below), so assistive technology is unaffected by
+        // it either way.
         label: squareLabel(
           square,
           piece,
@@ -218,19 +306,56 @@ export function FullBoard({
     }),
   );
 
+  const slideStyle: SlideStyle | undefined =
+    animatedMove && slidingPiece
+      ? (() => {
+          const from = fullBoardDisplayPosition(side, animatedMove.from);
+          const to = fullBoardDisplayPosition(side, animatedMove.to);
+          return {
+            "--slide-to-row": to.row,
+            "--slide-to-col": to.column,
+            "--slide-drow": from.row - to.row,
+            "--slide-dcol": from.column - to.column,
+            "--slide-duration": `${MOVE_SLIDE_DURATION_MS}ms`,
+          };
+        })()
+      : undefined;
+
   return (
-    <AccessibleGrid
-      label="Battlefield"
-      rows={cellRows}
-      className="full-board"
-      announcement={announcement}
-      onActivate={(position: GridPosition) =>
-        onActivate?.({
-          column: columns[position.column],
-          row: rows[position.row],
-        })
-      }
-    />
+    // `.full-board__stage` wraps the grid (rather than the slide overlay
+    // living inside any one square) because a square's own `overflow:
+    // hidden` (FullBoard.css) would clip the sliding piece mid-flight, since
+    // for most of the animation it sits outside its destination square's
+    // box. The stage, not `.full-board` itself, is where `--square` and the
+    // board's border width are declared (FullBoard.css), so the grid and the
+    // overlay always agree on cell geometry from one source.
+    <div className="full-board__stage">
+      <AccessibleGrid
+        label="Battlefield"
+        rows={cellRows}
+        className="full-board"
+        announcement={announcement}
+        onActivate={(position: GridPosition) =>
+          onActivate?.({
+            column: columns[position.column],
+            row: rows[position.row],
+          })
+        }
+      />
+      {slideStyle && slidingPiece && (
+        <div
+          className="full-board__slide-piece"
+          style={slideStyle}
+          aria-hidden="true"
+        >
+          <PieceIcon
+            type={slidingPiece.pieceType}
+            side={slidingPiece.side}
+            className="full-board__slide-piece-icon"
+          />
+        </div>
+      )}
+    </div>
   );
 }
 

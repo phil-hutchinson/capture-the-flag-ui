@@ -4,6 +4,7 @@ import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
 import { chooseEnginePly } from "../engine/enginePlayer.ts";
 import { Board } from "./Board.tsx";
 import { EngineSideChoice } from "./EngineSideChoice.tsx";
+import { MOVE_SLIDE_DURATION_MS } from "./FullBoard.tsx";
 import { GameRecord } from "./GameRecord.tsx";
 import { GameResult } from "./GameResult.tsx";
 import { LeaveGameDialog } from "./LeaveGameDialog.tsx";
@@ -102,6 +103,30 @@ type Selection =
  */
 const MIN_THINKING_DISPLAY_MS = 400;
 
+/**
+ * A move mid-slide (story 00000019, Step 9): the two squares `FullBoard`'s
+ * `animatedMove` prop needs.
+ */
+interface AnimatedMove {
+  readonly from: Square;
+  readonly to: Square;
+}
+
+/**
+ * Whether the player prefers reduced motion (story 00000019, Step 9). When
+ * true, the computer's move applies instantly - the code below never enters
+ * the slide-animation state at all, so the board is never held inert for a
+ * slide nobody will see (FullBoard.css's own `prefers-reduced-motion` media
+ * query is a defense-in-depth safety net for the same preference, in case
+ * this component is ever bypassed). Read fresh on every computer move,
+ * rather than cached once, in case the player changes the setting mid-game.
+ */
+function prefersReducedMotion(): boolean {
+  return (
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
+  );
+}
+
 export interface EngineGameProps {
   /**
    * Returns to the start screen. Called directly from the side-choice phase
@@ -127,6 +152,13 @@ export function EngineGame({ onBack }: EngineGameProps) {
   // rendered further down is deliberately plain, no live region of its own -
   // see its own comment).
   const [playAnnouncement, setPlayAnnouncement] = useState("");
+  // The computer's just-applied move, mid-slide (story 00000019, Step 9) -
+  // `null` whenever nothing is sliding (the common case: the human's own
+  // moves are always instant, and reduced motion skips this state entirely).
+  // Set by the computer-turn effect below immediately after the move is
+  // applied ("apply-first, then slide"); cleared by its own effect further
+  // down once `MOVE_SLIDE_DURATION_MS` has elapsed.
+  const [animatedMove, setAnimatedMove] = useState<AnimatedMove | null>(null);
 
   // Focus moves to this screen's own heading once, on mount - i.e. the
   // moment the player chooses "Play against the computer" from the start
@@ -220,8 +252,20 @@ export function EngineGame({ onBack }: EngineGameProps) {
           to,
           perspective,
         );
+        // Apply-first, then slide (story 00000019, Step 9): the move, its
+        // announcement, `GameRecord` entry, and game-end detection all fire
+        // at the same moment they always have - only *after* that does the
+        // slide-overlay state get set, so it never delays or reorders
+        // anything the Step 5/6 guards above already protect. Skipped
+        // entirely under reduced motion, so the board is never held inert
+        // for a slide nobody will see; the timer that clears this state
+        // again lives in its own effect, below, not here (see that effect's
+        // comment for why).
         setPlaySession(after);
         setPlayAnnouncement(announcement);
+        if (!prefersReducedMotion()) {
+          setAnimatedMove({ from, to });
+        }
       })
       .catch((error: unknown) => {
         if (cancelled) {
@@ -245,6 +289,33 @@ export function EngineGame({ onBack }: EngineGameProps) {
       }
     };
   }, [playSession, humanSide]);
+
+  // The slide overlay's own lifecycle (story 00000019, Step 9): whenever the
+  // computer-turn effect above sets `animatedMove`, this schedules the timer
+  // that clears it again after `MOVE_SLIDE_DURATION_MS`, deliberately in its
+  // *own* effect rather than folded into the computer-turn effect above.
+  // That effect's own cleanup runs again the instant `setPlaySession(after)`
+  // flips `playSession` (one of its dependencies) away from the computer's
+  // turn - which happens moments after `setAnimatedMove` is called, in the
+  // very same `.then()`. Clearing this timer there (or nulling `animatedMove`
+  // there) would race the slide's very first frame, since React runs that
+  // cleanup right alongside the render that just started the slide. Keyed on
+  // `animatedMove` itself instead, this effect's cleanup only ever runs when
+  // the slide genuinely ends - its own timer firing (the ordinary case, a
+  // no-op re-clear), a new slide starting, or the component unmounting
+  // mid-slide - so a superseded slide or an unmount mid-slide never leaves a
+  // dangling timer, and this never leaves the overlay stuck.
+  useEffect(() => {
+    if (animatedMove === null) {
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      setAnimatedMove(null);
+    }, MOVE_SLIDE_DURATION_MS);
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [animatedMove]);
 
   if (humanSide === null) {
     return (
@@ -293,8 +364,10 @@ export function EngineGame({ onBack }: EngineGameProps) {
     // and derive the announcement from the before/after transition. Guarded
     // against the computer's own turn as defense in depth - `PlayBoard`'s
     // `disabled` prop below already withholds every activatable square while
-    // `computerThinking`, so this is never actually reachable then, but a
-    // stray activation must never move the computer's own pieces.
+    // `computerThinking` or while the computer's just-applied move is still
+    // sliding (story 00000019, Step 9's `animatedMove`), so this is never
+    // actually reachable then, but a stray activation must never move the
+    // computer's own pieces.
     const handlePlayActivate = (square: Square) => {
       if (computerThinking) {
         return;
@@ -378,7 +451,8 @@ export function EngineGame({ onBack }: EngineGameProps) {
           side={humanSide}
           announcement={playAnnouncement}
           onActivate={handlePlayActivate}
-          disabled={computerThinking}
+          disabled={computerThinking || animatedMove !== null}
+          animatedMove={animatedMove ?? undefined}
         />
         <GameRecord play={playSession.play} />
       </main>

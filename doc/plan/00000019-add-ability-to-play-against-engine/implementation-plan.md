@@ -876,7 +876,113 @@ and `npm run format:check`.
 
 ## Step 9 — Animate the computer's move
 
-Status: pending
+Status: committed
+
+Notes: Found the working tree already carrying a substantial, uncommitted
+attempt at this exact step (all six files below already modified) when this
+step began - evidently an earlier, interrupted pass, since the plan's own
+Status was still `pending` and no Notes existed. Read it closely rather than
+discarding it: `FullBoard.tsx` already had the additive `animatedMove` prop
+(an `aria-hidden` sliding `PieceIcon` overlay in a new `.full-board__stage`
+wrapper, suppressing the real piece at `to` while it slides) with
+`MOVE_SLIDE_DURATION_MS = 400` as the single named constant;
+`boardView.ts` already had the pure `fullBoardDisplayPosition(side, square)`
+helper (and its tests) built on the existing `fullBoardRows`/`visibleColumns`,
+giving the overlay's `--slide-to-row`/`--slide-to-col`/`--slide-drow`/
+`--slide-dcol` CSS custom properties so a plain `@keyframes` (not a
+transition, and not a JS per-frame loop) animates the offset away to zero,
+landing the sprite exactly on the destination cell with no jump; `FullBoard.css`
+already had the `prefers-reduced-motion: reduce` media query zeroing the
+animation as a defense-in-depth safety net; `PlayBoard.tsx` already threaded
+`animatedMove` straight through, additive and default-off exactly like the
+existing `side`/`disabled` props; and `EngineGame.tsx` already had the
+"apply-first, then slide" sequencing in the computer-turn effect (`animatedMove`
+state set right after `setPlaySession`/`setPlayAnnouncement`, skipped entirely
+when `prefersReducedMotion()` is true) plus its own second `useEffect`, keyed
+on `animatedMove`, that starts the 400ms-clearing timer and `clearTimeout`s it
+in cleanup - covering leaving mid-slide and a superseded slide without
+disturbing the existing `cancelled`/`timeoutId` guard in the computer-turn
+effect itself (a deliberate second effect rather than folding the timer into
+the first, so that effect's cleanup - which fires the instant `setPlaySession`
+flips `sideToMove` away from the computer, i.e. moments after the slide
+starts - can't race clearing the very state it just set; documented in place).
+
+What was genuinely missing, and the only functional change made this step:
+the render's `<PlayBoard>` call still had `disabled={computerThinking}` only,
+neither widened to include the slide nor passed `animatedMove` at all - so
+the board would have gone interactive again as soon as `sideToMove` flipped to
+the human, mid-slide, rather than staying inert until the slide finished, and
+the overlay itself would never have appeared. Fixed by changing that call to
+`disabled={computerThinking || animatedMove !== null}` and adding
+`animatedMove={animatedMove ?? undefined}`, and updated a nearby comment
+(`handlePlayActivate`'s defense-in-depth note) to mention the slide alongside
+`computerThinking`, since it now also gates on it structurally.
+
+Deviation from the plan (found, not introduced): the plan's recommended
+sequencing keeps "the new timer... tracked and `clearTimeout`-ed in the
+[same] effect's cleanup alongside the existing one." The pre-existing code
+instead uses a second `useEffect` keyed on `animatedMove`, with its own
+`clearTimeout` cleanup, rather than one `timeoutId` variable inside the
+computer-turn effect. Kept as found after reasoning through it: folding the
+clear-timer into the computer-turn effect would tie its lifetime to that
+effect's own cleanup, which reruns the instant `setPlaySession(after)` flips
+`playSession` (one of that effect's dependencies) - i.e. on the very same
+tick the slide starts - which would immediately clear/cancel a timer for a
+slide that had only just begun. The second, `animatedMove`-keyed effect only
+tears down when the slide genuinely ends (its own timer firing, a new slide
+superseding it, or unmount), which is the correct lifetime and still fully
+respects "clear any new timer + animation state in the effect cleanup" - just
+in the effect whose dependency matches that state, rather than the turn
+effect's. No other deviation. Confirmed by reading `HotSeatGame.tsx` and
+`ReviewScreen.tsx` that neither passes `animatedMove` (or the Step 5
+`side`/`disabled` props beyond their own existing use), so both are
+byte-for-byte unaffected, and no README change is warranted (the README
+already says "a full game against the computer"; this step only changes how
+a move is presented). `npm run typecheck`, `npm run lint`, `npm run test`
+(486 tests, unchanged from before this step), and `npm run build` are all
+green. Ran `npx prettier --write` on all six touched files (only
+`EngineGame.tsx` and `FullBoard.tsx` needed reformatting; the other four were
+already correctly formatted). **This step's own verification is manual (the
+owner's browser walkthrough, per the task's checklist (a)-(f)) and was not
+performed here** - no browser is available in this environment.
+
+**Refinements applied after the owner's first look at the slide (this same
+step, not a new one):** (1) `MOVE_SLIDE_DURATION_MS` (`FullBoard.tsx`) changed
+from `400` to `333` - the sole named constant, so both the CSS animation (via
+the `--slide-duration` custom property) and `EngineGame.tsx`'s clear-timer
+retuned automatically from the one edit; also updated `FullBoard.css`'s
+`var(--slide-duration, 400ms)` fallback to `333ms` for consistency, though
+that fallback is never actually reached (`FullBoard.tsx` always supplies
+`--slide-duration` inline whenever `animatedMove` is set). `EngineGame.tsx`'s
+unrelated `MIN_THINKING_DISPLAY_MS = 400` (the "computer is thinking" minimum
+display time) was deliberately left untouched - a different constant for a
+different purpose, not the slide duration. (2) Added
+`movePathSquares(from, to): readonly Square[]` to `boardView.ts` (alongside
+`fullBoardDisplayPosition`) - a small pure, domain-frame helper (not
+display-frame like its neighbor, since a move's path is the same regardless
+of which side is viewing the board) that returns `[from, to]` for a
+one-square orthogonal move or `[from, between, to]` for a two-square move,
+where `between`'s row and column index are the simple average of `from`'s and
+`to`'s. Added six focused unit tests in `boardView.test.ts` covering
+one-square horizontal/vertical, two-square horizontal/vertical, and
+two-square moves in the decreasing direction on both axes. `FullBoard.tsx`
+now computes `animatedPathKeys` from `movePathSquares(animatedMove.from,
+animatedMove.to)` whenever `animatedMove` is set and folds it into the
+existing `isDestination` check (`destinationKeys.has(key) ||
+animatedPathKeys?.has(key)`), so the path - including the `to` square, whose
+real piece is already suppressed underneath the sliding sprite - renders with
+the exact same `.full-board__square--destination` amber fill and rendering
+path a human's own legal plain-move destinations use (not a new class), for
+exactly `animatedMove`'s lifetime; hot-seat and review, which never pass
+`animatedMove`, are unaffected, and no new React component tests were added
+(per the codebase's existing convention). No deviation from the two
+refinements as specified. `npm run typecheck`, `npm run lint`, `npm run test`
+(491 tests passing, 6 new), and `npm run build` are all green; ran `npx
+prettier --write` on all changed files (only `boardView.ts` needed
+reformatting, a single wrapped function signature - no semantic change).
+**Manual verification of the two refinements (watching the retimed,
+now-highlighted slide in a browser) is the owner's to run** - not performed
+here, no browser available in this environment.
 
 Added during sign-off (post-review) in response to owner feedback: the
 computer's move is hard to follow because it appears instantly, and the board
@@ -891,9 +997,23 @@ to its destination. **Owner-fixed decisions for this step (do not reopen):**
   `Promise.all([chooseEnginePly(...), minimumDisplay]).then(...)` callback that
   currently calls `applyEnginePly` and sets state. Hot-seat and review modes
   are **out of scope** and must be byte-for-byte unaffected.
-- **Duration: 0.4s (400 ms) to begin with.** Put it in a single named constant
-  so it is trivial to tune later. It is deliberately a touch slower than a
-  typical animation because the squares are small.
+- **Duration: one third of a second (~333 ms).** Put it in a single named
+  constant (`MOVE_SLIDE_DURATION_MS`) so it is trivial to tune later — the same
+  constant drives both the CSS animation and the timer that clears the
+  animation state. (Revised down from an initial 0.4 s after the owner's
+  first look at the slide.)
+- **Highlight the move's path while it slides.** As the computer's piece
+  slides, mark the squares its move touches — the `from` square, the `to`
+  square, and, for a two-square move, the single square passed over in between
+  — with the **same amber highlight the human's own legal plain-move
+  destinations use** (`.full-board__square--destination` in `FullBoard.css`,
+  the `--destination` fill; _not_ the red `--attack` treatment), so the path
+  reads clearly on the small board. The path lights up for exactly the slide's
+  lifetime (driven by the same `animatedMove` state, cleared with it) and only
+  during the computer's slide (the human's own turn is unaffected). The `to`
+  square, whose real piece is suppressed while the sprite slides onto it, shows
+  this highlight underneath the arriving piece. (Added after the owner's first
+  look at the slide.)
 
 What to implement:
 
@@ -903,7 +1023,7 @@ What to implement:
    `PieceIcon`, the same sprite the cells use) positioned over the grid that
    slides from the `from` cell to the `to` cell, and it **suppresses the real
    piece on the `to` square** for the duration so the sliding sprite and the
-   settled piece are never both visible (the slide runs *after* the move is
+   settled piece are never both visible (the slide runs _after_ the move is
    applied — see point 3 — so the moved piece is at `to` in `board`; read the
    moving piece from `board[to]`). When the prop is absent (hot-seat, review,
    and the human's own turn) `FullBoard` renders exactly as it does today —
@@ -946,7 +1066,8 @@ What to implement:
    as today (`applyEnginePly` → `setPlaySession`/`setPlayAnnouncement`, so the
    announcement, `GameRecord` entry, and game-end detection all fire at the
    same moment they do now), **and** set a new animation state holding
-   `{ from, to }`; then start a 400 ms timer that clears the animation state.
+   `{ from, to }`; then start a `MOVE_SLIDE_DURATION_MS` timer that clears the
+   animation state.
    The board reads `disabled = computerThinking || animating`, and
    `animatedMove` is passed only while animating. The new timer must be tracked
    and `clearTimeout`-ed in the effect's cleanup alongside the existing one, and
@@ -961,6 +1082,21 @@ What to implement:
    applying at the end would reopen the carefully-guarded apply/announce timing.
    A capture removing the enemy piece at the start of the slide (rather than at
    the moment of landing) is acceptable.
+4. **Highlight the move's path for the slide's lifetime.** While `animatedMove`
+   is set, `FullBoard` marks the path squares — `from`, `to`, and (for a
+   two-square move) the one square passed over between them — with the existing
+   `.full-board__square--destination` amber fill, reusing the same visual (and,
+   ideally, the same rendering path) the board already uses for a human's legal
+   plain-move destinations, rather than inventing a new highlight. Enumerate the
+   path from `from`/`to`: the move is always one or two squares orthogonally, so
+   the in-between square (when the two are two apart) is simply the square whose
+   column/row is the average of theirs. Keep any such enumeration as a small
+   pure helper (in `boardView.ts` alongside `fullBoardDisplayPosition`, or
+   nearby) so it can be unit-tested; add a focused test for it (one- and
+   two-square moves, horizontal and vertical). The highlight appears only during
+   the computer's slide and clears exactly when `animatedMove` clears — the
+   human's own turn is unaffected, and hot-seat/review (which never pass
+   `animatedMove`) never show it.
 
 Keep any nontrivial geometry math (e.g. a square → display-index helper) as a
 small pure function so it can be reasoned about, but do not add React component
@@ -974,7 +1110,7 @@ guards that this extends). Independent of the encoder/decoder/inference steps.
 
 Verification (manual): Run `npm run dev`, play against the computer, and
 confirm: (a) on the computer's turn its piece visibly **slides** from its
-origin square to its destination over ~0.4s and comes to rest exactly on the
+origin square to its destination over ~⅓s and comes to rest exactly on the
 destination square, with no flicker or jump when it settles, and no duplicate
 piece; (b) this happens for plain one-square moves, two-square moves, and
 attacks/captures, and near the board edges and the flag, for a human playing
@@ -983,5 +1119,8 @@ both orientations); (c) the board is inert while the piece slides (a click or
 Enter mid-slide does nothing) and becomes interactive again once it settles;
 (d) with the OS "reduce motion" setting on, the move applies instantly with no
 slide and play is unaffected; (e) the human's own moves are still instant; (f)
-hot-seat and review modes are visually unchanged. Run `npm run typecheck`,
-`npm run lint`, `npm run test`, and `npm run build`.
+the move's path — `from`, `to`, and the in-between square on a two-square move —
+is highlighted in the same amber as the human's legal destinations for the
+slide's duration, and clears when the piece settles; (g) hot-seat and review
+modes are visually unchanged. Run `npm run typecheck`, `npm run lint`,
+`npm run test`, and `npm run build`.

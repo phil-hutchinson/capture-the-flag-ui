@@ -10,11 +10,29 @@
    consumer's own grid sizing (--square, template rows/columns) and square
    styling, per AccessibleGrid.css's documented className convention. */
 
-.full-board {
+.full-board__stage {
+  /* Wraps the grid so the move-slide overlay (story 00000019, Step 9, below)
+     can be positioned absolutely against the whole board rather than any one
+     square - a square's own `overflow: hidden` (below) would otherwise clip
+     the sliding piece mid-flight, since for most of the animation it sits
+     outside its destination square's box. `--square` and `--board-border`
+     are declared here, once, rather than on `.full-board` itself, so both
+     the grid and the overlay (a *sibling* of the grid, not a descendant of
+     it) inherit the same values - plain CSS custom-property inheritance,
+     unaffected by AccessibleGrid's own `display: contents` wrapper in
+     between. `display: inline-block` makes the stage hug the grid's own
+     rendered size (its only in-flow child), so it never adds extra
+     whitespace around the board. */
+  position: relative;
+  display: inline-block;
   --square: clamp(28px, 6vmin, 64px);
+  --board-border: 2px;
+}
+
+.full-board {
   grid-template-columns: repeat(12, var(--square));
   grid-template-rows: repeat(12, var(--square));
-  border: 2px solid var(--ink);
+  border: var(--board-border) solid var(--ink);
   background: var(--parchment);
 }
 
@@ -87,4 +105,55 @@
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.full-board__slide-piece {
+  /* The computer's move, sliding from its origin square to its destination
+     (story 00000019, Step 9). Positioned against `.full-board__stage`
+     (above), not any one square, so it is never clipped by a square's own
+     `overflow: hidden` mid-flight. `FullBoard.tsx` computes `--slide-to-row`/
+     `--slide-to-col` (the destination's display indices, positioning this
+     element's resting frame exactly on that square) and `--slide-drow`/
+     `--slide-dcol` (the source-minus-destination offset, in cells, that the
+     keyframe below animates away to nothing). Purely decorative: no pointer
+     events, and `aria-hidden` (set in FullBoard.tsx) - the move is already
+     announced through the board's live region elsewhere. */
+  position: absolute;
+  top: calc(var(--board-border) + var(--slide-to-row) * var(--square));
+  left: calc(var(--board-border) + var(--slide-to-col) * var(--square));
+  width: var(--square);
+  height: var(--square);
+  pointer-events: none;
+  transform: translate(0, 0);
+  animation-name: full-board-slide-piece;
+  animation-duration: var(--slide-duration, 333ms);
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+.full-board__slide-piece-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes full-board-slide-piece {
+  from {
+    transform: translate(
+      calc(var(--slide-dcol) * var(--square)),
+      calc(var(--slide-drow) * var(--square))
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .full-board__slide-piece {
+    /* Belt-and-suspenders (`EngineGame.tsx` is expected to never set
+       `animatedMove` at all under reduced motion, so the board is never
+       needlessly held inert for a slide nobody will see) - but if this
+       component is ever handed `animatedMove` regardless, the piece still
+       lands instantly at its resting position above (the base, non-animated
+       `transform: translate(0, 0)`) rather than visibly sliding. */
+    animation: none;
+  }
 }
