@@ -193,7 +193,30 @@ expected fraction. Also run `npm run typecheck` and `npm run lint`.
 
 ## Step 2 — Policy decode, legal mask, and sampling
 
-Status: pending
+Status: committed
+
+Notes: Created `src/encoding/eng-nn-1/decoder.ts` (`selectEnginePly` -
+enumerates legal plies via `legalDestinations`/`legalAttacks`, maps each to
+its flat policy index with `policyIndexForPly` - reusing `shared.ts`'s
+`toMoverFrame` and `flatIndex` directly, since `flatIndex`'s `plane`
+parameter already computes the exact `movementIndex * 144 + row * 12 + col`
+formula ENG_NN_1 specifies - takes the softmax over only the legal logits,
+and samples via an injectable `RandomSource`; throws if there is no legal
+ply) plus `decoder.test.ts` covering all four verification assertions: (a)
+all-mass-on-one-ply selection for a spread of random draws including a
+near-1 edge value, (b) the `MOVEMENT_OFFSETS` table against the spec plus
+`policyIndexForPly` checked against an independently-computed tensor
+transform (not `shared.ts`'s) for one- and two-square plies in all four
+directions for both White and Black (the Black cases exercise the 180-degree
+sign flip), plus a real-position check that all 8 legal plies from one
+origin land on distinct in-range indices, (c) reproducibility under a fixed
+seeded `RandomSource` (same LCG pattern as `placement.test.ts`), and (d) a
+spread of positions (several seeded `autoFill` initial armies plus a
+hand-built denser position), both sides to move, and multiple seeds/policy
+fills, asserting the chosen ply is always in the independently-recomputed
+legal set. No deviations from the plan. `npm run typecheck`, `npm run lint`,
+and `npm run test` are all green (468 tests passing, 23 new). Ran `npx
+prettier --write` on both new files.
 
 Implement the pure move-selection logic under `src/encoding/eng-nn-1/`: given a
 policy tensor (a `Float32Array` of length 1152 in `(movementIndex, row, col)`
