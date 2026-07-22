@@ -259,7 +259,101 @@ set (never an illegal or off-board move). Also run `npm run typecheck` and
 
 ## Step 3 — Model loading and in-browser inference
 
-Status: pending
+Status: committed
+
+Notes: Added **onnxruntime-web** (`^1.27.0`) as a dependency
+(`package.json`/`package-lock.json`). Committed the reference model at
+`public/models/ctf_reference.onnx` (copied from `.local/ctf_reference.onnx`,
+served at `/models/ctf_reference.onnx`) — this part is unchanged and correct
+(the model is `fetch`ed by ORT, not `import()`ed, so serving it from
+`public/` is fine). Implemented `src/engine/inference.ts`
+(`evaluatePosition(position): Promise<{ value, policy: Float32Array }>`),
+which lazily creates (once, cached) an `InferenceSession` from
+`/models/ctf_reference.onnx` via `onnxruntime-web/wasm` (the WASM-only
+bundle - no WebGL/WebGPU code pulled in), feeds the input tensor via the
+session's `inputNames[0]`, and identifies the value/policy outputs by
+element count (1 vs. 1152) exactly as the plan specifies, throwing if
+neither is found. Added a temporary, clearly-marked smoke harness -
+`src/engine/tempStep3Smoke.ts` (loads the model, builds a fixed starting
+position via seeded `autoFill` on both sides, calls `evaluatePosition`, and
+logs the session's `inputNames`/`outputNames`, the value, and the policy
+length) - wired in via a `import.meta.env.DEV`-guarded dynamic import in
+`main.tsx` that exposes `window.ctfStep3Smoke()` for the owner to run from
+the browser console. **Left in place** per the step's instructions, for the
+owner's manual gate; not yet removed.
+
+**Manual browser verification failed on the first pass, and was fixed
+in-step (still Step 3, not a new step).** The original approach self-hosted
+onnxruntime-web's WASM runtime by copying `ort-wasm-simd-threaded.{wasm,mjs}`
+from `node_modules` into `public/ort/` via a new `scripts/copy-onnx-wasm.mjs`
+script wired as the `postinstall` npm script, gitignoring the generated
+`public/ort/`, and pointing `ort.env.wasm.wasmPaths` at the string prefix
+`"/ort/"`. This **failed at runtime in the browser**: onnxruntime-web
+dynamically `import()`s the `.mjs` loader, but Vite forbids importing a file
+that lives under `public/` from source code, and its dev server serves that
+`.mjs` with an empty/disallowed MIME type — the WASM backend init threw `no
+available backend found ... error loading dynamically imported module
+.../ort/ort-wasm-simd-threaded.mjs ... blocked because of a disallowed MIME
+type`. **The fix:** let Vite own these two files as ordinary bundled assets
+instead of self-hosting them. `onnxruntime-web@1.27.0`'s `package.json`
+`exports` map exposes `./ort-wasm-simd-threaded.wasm` and
+`./ort-wasm-simd-threaded.mjs` as importable subpaths, and
+`ort.env.wasm.wasmPaths` accepts an **object** (`{ wasm, mjs }`), not just a
+string prefix. `inference.ts` now does
+`import ortWasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.wasm?url"`
+and the `.mjs` equivalent, and sets
+`ort.env.wasm.wasmPaths = { wasm: ortWasmUrl, mjs: ortMjsUrl }` (kept
+`numThreads = 1`). Vite resolves these through the package `exports`, serves
+them with the correct `text/javascript`/`application/wasm` MIME types in dev
+(confirmed by `curl`ing the dev server's resolved URLs directly), and
+hashes+copies them into `dist/assets/` on build wherever the import is
+actually reachable from the production graph. Removed the now-unneeded
+self-hosting machinery: deleted `scripts/copy-onnx-wasm.mjs`, the
+`postinstall` script entry in `package.json` (and re-ran `npm install` so
+`package-lock.json`'s root `hasInstallScript` flag dropped too), the
+generated `public/ort/` directory, and its `.gitignore` entry. No `.d.ts`
+was needed for the `?url` imports — the existing
+`/// <reference types="vite/client" />` in `src/vite-env.d.ts` already
+covers them; `npm run typecheck` was clean without changes there.
+
+**One consequence worth flagging, not a defect:** because
+`tempStep3Smoke.ts` is only reachable via the `import.meta.env.DEV`-guarded
+dynamic import in `main.tsx`, Vite's production build tree-shakes that whole
+branch away, so **today's `npm run build` output does not contain the
+`ort-wasm-simd-threaded.{wasm,mjs}` assets** (only `models/ctf_reference.onnx`
+lands in `dist/`, alongside the app bundle) — there is nothing in the
+production module graph that reaches `inference.ts` yet, by this step's own
+design ("do not wire this into any game screen yet"). Verified this is
+tree-shaking, not breakage, by temporarily making the smoke import
+unconditional and rebuilding: `dist/assets/` then correctly gained hashed
+`ort-wasm-simd-threaded-*.mjs` (24 KB) and `-*.wasm` (13.5 MB) files
+alongside `models/ctf_reference.onnx`, proving the asset pipeline is wired
+correctly end to end. That change was reverted immediately (not part of this
+step). The assets will appear in `dist/` for real once Step 4/5 wires
+`evaluatePosition` into a production-reachable path.
+
+Verified: `npm run typecheck`, `npm run lint`, and `npm run test` (468
+tests, unchanged) are all green; ran `npx prettier --write` on changed files
+(already formatted). `npm run build` succeeds; `dist/` currently contains
+`models/ctf_reference.onnx` plus the app's JS/CSS bundle (see the
+tree-shaking note above for why the WASM assets aren't there yet). Confirmed
+via the dev server (`curl`, not a real browser — no headless browser
+available in this environment) that the `?url`-resolved `.mjs` and `.wasm`
+URLs now serve with `Content-Type: text/javascript` / `application/wasm`
+respectively (previously the `.mjs` under `/ort/` served with no/disallowed
+MIME type, which was the root cause), and that
+`/models/ctf_reference.onnx` still serves HTTP 200. Real in-browser
+verification (loading the console harness, watching the Network tab, reading
+the logged value/policy) is left for the owner's manual gate, as instructed.
+Observed tensor names (captured before this fix, via a throwaway Node-side
+check loading the model directly through `onnxruntime-web/wasm`, unaffected
+by the WASM-serving fix since that check doesn't go through Vite):
+- Input: `board`, shape `(1, 18, 12, 12)`.
+- Outputs: `value`, shape `(1, 1)` (1 element); `policy_logits`, shape
+  `(1, 8, 12, 12)` (1152 elements).
+
+These match ENG_NN_1 exactly and confirm the element-count-based output
+identification in `inference.ts` picks the right tensor in each case.
 
 Bundle the network and run it in the browser. Concretely:
 
