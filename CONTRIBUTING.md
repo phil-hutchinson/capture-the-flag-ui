@@ -49,8 +49,11 @@ change is submitted.
 
 The app is **front-end only**: a static single-page application with no
 backend API, deployable from any static file host (e.g. an S3 bucket). Every
-feature — play, replay, and eventually playing against the trained model —
-must run entirely in the browser.
+feature — play, replay, and playing against the trained model — must run
+entirely in the browser. Playing against the computer runs the model
+in-browser via **onnxruntime-web** (WASM); the `.onnx` model file and the
+runtime's WASM assets are served as ordinary static files alongside the app,
+with no special server configuration required.
 
 The official ruleset lives in the companion repository
 ([rules.md](https://github.com/phil-hutchinson/capture-the-flag/blob/main/doc/ruleset/rules.md))

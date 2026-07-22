@@ -6,8 +6,8 @@ all-important flag — then the armies are revealed and the battle begins. Piece
 move and clash in full view until one side captures the other's flag.
 
 This is the game's web app. It runs entirely in your browser — nothing to
-install, no account, no server. It opens on a start screen with two choices:
-play a game, or review a recorded one.
+install, no account, no server. It opens on a start screen with three
+choices: play a game, play against the computer, or review a recorded one.
 
 ## What you can do
 
@@ -36,14 +36,19 @@ play a game, or review a recorded one.
   from the companion
   [capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
   project's engine; a game you play here can't be saved or reviewed yet.
-- **Play against the computer** — an AI opponent trained by the companion
+- **Play against the computer** — choose to play as red or blue, place your
+  army as usual, and the computer places its own army at random and out of
+  sight. Then you play a full game against it, right in your browser, with
+  the same moving, attacking, and winning rules as playing a friend. The
+  computer opponent comes from the companion
   [capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
-  project. _(planned, once the AI engine is trained)_
+  project, but it hasn't been trained yet — for now it just moves at random,
+  so don't expect much of a fight. A properly trained opponent is on the way.
 
 > **Status:** you can play a full game from start to finish — place both
-> armies, battle on the revealed board, and reach a real result — and you can
-> review a recorded game move by move. Saving a game you played here, and
-> playing against the computer, are still to come.
+> armies, battle on the revealed board, and reach a real result — play a game
+> against the computer, and review a recorded game move by move. Saving a
+> game you played here is still to come.
 
 ## The rules
 

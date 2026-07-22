@@ -823,7 +823,35 @@ untrapped. Run `npm run typecheck`, `npm run lint`, `npm run test`.
 
 ## Step 8 — README check
 
-Status: pending
+Status: committed
+
+Notes: Updated `README.md`: the intro line now says the start screen has
+**three** choices (play a game, play against the computer, or review a
+recorded one), the "Play against the computer" bullet under "What you can
+do" replaced its `_(planned, once the AI engine is trained)_` placeholder
+with a real description (choose red or blue, place your army, the computer
+places its own at random and out of sight, then play a full game with the
+same moving/attacking/winning rules — worded as "hasn't been trained yet ...
+just moves at random ... don't expect much of a fight," honest but not
+apologetic, no mention of "model"/"placeholder" jargon), and the **Status**
+note now lists "play a game against the computer" among what works today and
+drops it from the "still to come" sentence (which now only names saving a
+played game). Also updated `CONTRIBUTING.md`'s Architecture constraints
+paragraph, which previously said "eventually playing against the trained
+model" — no longer accurate now that the feature is real — to state it plainly
+and add one sentence naming **onnxruntime-web** (WASM) as how the model runs
+in-browser and noting the `.onnx`/WASM assets are served as ordinary static
+files with no special server configuration, since this is exactly what Step 3
+built and CONTRIBUTING's job is to describe the architecture accurately for
+contributors. No other files changed; the "Win, lose, or draw" bullet's
+draw-by-agreement mention was left as a general mechanic description (the
+against-computer mode's lack of a draw-offer control is a smaller nuance the
+existing per-mode bullet doesn't attempt to enumerate exceptions for, matching
+the README's existing level of detail elsewhere). No deviations from the
+plan. `npm run typecheck`, `npm run lint`, `npm run test` (481 tests,
+unchanged), and `npm run format:check` are all green; ran
+`npx prettier --write` on both edited files (both were already correctly
+formatted, no changes needed).
 
 Verify `README.md` is accurate given this story's changes and update it if
 warranted. The current README's "What you can do" list has a **"Play against
