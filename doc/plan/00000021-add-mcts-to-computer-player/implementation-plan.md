@@ -412,7 +412,28 @@ green; the worker/proxy have no unit tests).
 
 ## Step 4 — Difficulty selection on the setup screen
 
-Status: pending
+Status: committed
+
+Notes: Added `src/engine/difficulty.ts` (`Difficulty` type, `DIFFICULTY_MODES`
+table with each mode's `id`/`label`/`budget`/`cap` per story.md's numbers,
+`DEFAULT_DIFFICULTY = "medium"`, `difficultyMode()`, and
+`searchDriverConfigForDifficulty()` for Step 5 to consume). `EngineSideChoice.tsx`
+now owns its own `difficulty` state (defaulting to `DEFAULT_DIFFICULTY`),
+renders the three plainly-labelled buttons (aria-pressed toggle group,
+mirroring `Tray.tsx`'s existing selection-button pattern) above the existing
+side buttons, and `onChoose(side, difficulty)` reports both. `EngineGame.tsx`
+stores the chosen difficulty in state alongside `humanSide`, threads it
+through placement and play (surfaced only as `data-difficulty` on the
+placement/play `<main>`, since the iteration numbers are not player-facing),
+and resets it to the default on "New game". `chooseEnginePly` is still what
+actually picks the computer's move; nothing reads the stored difficulty yet
+(Step 5). Deviation: `difficulty` needed to be read somewhere or
+`noUnusedLocals` failed the build, since only `setDifficulty` was otherwise
+called - added the `data-difficulty` attribute (not in the plan's text) as a
+harmless, non-player-facing way to genuinely consume the value now rather
+than only wire it up in Step 5; not a design decision, just what satisfied
+the compiler while keeping the value real state rather than a write-only
+variable.
 
 Add the easy/medium/hard difficulty choice to the against-the-computer setup
 screen, threading the chosen difficulty into `EngineGame.tsx`'s state without yet

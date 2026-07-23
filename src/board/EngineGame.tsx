@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { APP_NAME } from "../appInfo.ts";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
+import { DEFAULT_DIFFICULTY, type Difficulty } from "../engine/difficulty.ts";
 import { chooseEnginePly } from "../engine/enginePlayer.ts";
 import { Board } from "./Board.tsx";
 import { EngineSideChoice } from "./EngineSideChoice.tsx";
@@ -138,6 +139,16 @@ export interface EngineGameProps {
 
 export function EngineGame({ onBack }: EngineGameProps) {
   const [humanSide, setHumanSide] = useState<Side | null>(null);
+  // The difficulty chosen alongside the side on `EngineSideChoice` (story
+  // 00000021, Step 4) - carried through placement and play for the life of
+  // the game (surfaced only as `data-difficulty` on the placement/play
+  // `<main>`, below, since the numbers behind each mode are not player-facing
+  // - fixed decision 7). The computer's move is still `chooseEnginePly`'s
+  // single raw-policy sample; wiring the chosen difficulty into an actual
+  // search budget is Step 5. Reset to the default alongside `humanSide` on
+  // "New game" so a fresh game never keeps the previous one's difficulty
+  // pre-selected on the setup screen.
+  const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULT_DIFFICULTY);
   const [placement, setPlacement] = useState<PlacementState | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   // Same purpose as `HotSeatGame.tsx`'s own flag: whether "Back to start"
@@ -337,8 +348,9 @@ export function EngineGame({ onBack }: EngineGameProps) {
           onCancel={() => setConfirmingLeave(false)}
         />
         <EngineSideChoice
-          onChoose={(side) => {
+          onChoose={(side, chosenDifficulty) => {
             setHumanSide(side);
+            setDifficulty(chosenDifficulty);
             setPlacement(emptyPlacement(side));
           }}
         />
@@ -386,6 +398,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
     // a full remount.
     const handleNewGame = () => {
       setHumanSide(null);
+      setDifficulty(DEFAULT_DIFFICULTY);
       setPlacement(null);
       setSelection(null);
       setPlaySession(null);
@@ -396,7 +409,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
     const { result } = playSession.play;
 
     return (
-      <main className="app">
+      <main className="app" data-difficulty={difficulty}>
         <PieceSpriteDefs />
         <h1 className="app__title" tabIndex={-1} ref={headingRef}>
           {APP_NAME}
@@ -578,7 +591,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
   const towerRuleOk = towersLegallyPlaced(placement);
 
   return (
-    <main className="app">
+    <main className="app" data-difficulty={difficulty}>
       <PieceSpriteDefs />
       <h1 className="app__title" tabIndex={-1} ref={headingRef}>
         {APP_NAME}
