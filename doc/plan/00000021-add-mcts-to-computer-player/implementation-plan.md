@@ -250,7 +250,21 @@ makes that ply dominate the root's visits. Also run `npm run typecheck` and
 
 ## Step 2 — Pure stateful driver: tree retention and the budget/cap
 
-Status: pending
+Status: committed
+
+Notes: Implemented `src/engine/searchDriver.ts` (`SearchDriver` class owning
+`retainedRoot`/`pendingRoot`, `choose`/`commit`/`observe`/`reset`, plus
+`getRetainedRoot`/`getPendingRoot` inspection accessors added for testability)
+and `src/engine/searchDriver.test.ts` covering all four verification scenarios
+(a)-(d), per fixed decisions 4 and 8. `choose` reconciles the retained root
+against the caller's `PlayState` by value (a `statesMatch` helper comparing
+side-to-move, inactivity counter, and every board square) rather than by
+reference, since the retained root's state comes from the search's own
+`applyMove` descent, not the caller's; `cloneTree` deep-clones the retained
+root (sharing immutable `PlayState` references) into a private working tree
+before every search, so an uncommitted `choose` never mutates what is
+retained. No deviations from the plan's text. Also ran `npx prettier --write`
+on both new files to match repo formatting convention (as Step 1 did).
 
 Implement a pure stateful driver (`src/engine/searchDriver.ts`) that owns a
 retained tree across turns and applies the budget/cap, built on Step 1's pure
