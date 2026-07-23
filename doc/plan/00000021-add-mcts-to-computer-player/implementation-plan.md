@@ -322,7 +322,39 @@ tree dropped). Also run `npm run typecheck` and `npm run lint`.
 
 ## Step 3 — Worker host and main-thread proxy client
 
-Status: pending
+Status: committed
+
+Notes: Implemented `src/engine/searchWorker.ts` (message protocol
+`init`/`choose`/`commit`/`observe`/`reset`, hosting one `SearchDriver` wired
+with the real `evaluatePosition`) and `src/engine/searchClient.ts` (the
+`SearchClient` proxy: `choosePly`/`commit`/`observe`/`reset`/`terminate`,
+matching worker replies to `choosePly` calls by `requestId`). The
+`/// <reference lib="webworker" />` directive alone (no dedicated tsconfig)
+compiled cleanly alongside `tsconfig.app.json`'s existing `DOM` lib - verified
+directly with a scratch file before writing the real worker - so fixed
+decision left open at plan time ("a dedicated tsconfig include") was not
+needed; this is a minor deviation from the plan's text (which offered both as
+options) resolved by testing rather than assumption. onnxruntime-web's `?url`
+WASM/`.mjs` assets and its internal dynamic import resolved with no changes
+to `inference.ts` in both the Vite module-worker bundle (`new Worker(new
+URL(...), { type: "module" })`) and the classic browser path - confirmed by
+adding the temporary harness (per the step's verification text) and driving
+it with a headless-Chromium Playwright script against both `npm run dev`
+(`http://localhost:5183`) and the static `npm run build` output served via
+`vite preview` (`http://localhost:5184`, since the plan's verification
+explicitly calls out confirming both dev and the `dist/` build): both runs
+logged the worker's two `choosePly` round-trips resolving to legal plies with
+no errors. `npm run build` additionally confirms Vite emits a separate
+`searchWorker-*.js` chunk plus hashed `ort-wasm-simd-threaded-*.mjs`/`.wasm`
+assets, so nothing needed self-hosting under `public/`. Per this step's
+explicit instruction (an orchestrator override of the plan's own verification
+wording, given here to isolate this risk before Step 5 depends on it), the
+temporary harness (`src/App.tsx`'s `[TEMP] Test search worker` button and its
+supporting imports/functions, clearly marked "TEMPORARY") was deliberately
+**left in place**, uncommitted, rather than removed - the orchestrator will
+have it removed after its own manual confirmation. The proxy is not wired
+into `EngineGame.tsx` (still Step 5). `npm run typecheck`, `npm run lint`,
+and `npm test` (499 tests, unchanged suite) all pass.
 
 Introduce the Web Worker that hosts the driver and the onnxruntime session, and
 the thin main-thread proxy client that talks to it — the plumbing that lets the
