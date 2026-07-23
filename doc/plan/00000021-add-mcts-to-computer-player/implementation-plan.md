@@ -698,7 +698,16 @@ result are announced, and that focus stays visible and is never trapped. Also ru
 
 ## Step 8 — README accuracy check
 
-Status: pending
+Status: committed
+
+Notes: Updated the "Play against the computer" bullet in `README.md` to
+replace the stale "it just moves at random, so don't expect much of a fight"
+claim: it now mentions the Easy/Medium/Hard difficulty choice at setup and
+describes the computer as "thinking ahead" / "weighing out possible lines of
+play, more of them on Hard than on Easy," while staying honest that it "still
+plays close to random for now" since it hasn't been trained yet, and "don't
+expect much of a fight" is kept. No other README sections referenced the old
+random-move behavior or needed changes. No deviations from the step's text.
 
 Review `README.md` against this story's changes and update it if warranted, or
 confirm no update is needed. The against-the-computer section (around lines
