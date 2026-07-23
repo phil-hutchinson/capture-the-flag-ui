@@ -110,8 +110,14 @@ export function policyIndexForPly(ply: Ply, mover: Side): number {
   return flatIndex(movementIndex, from.row, from.col);
 }
 
-/** Every legal ply for `side` on `board`: each of its own pieces' legal destinations and attacks. */
-function enumerateLegalPlies(board: BoardState, side: Side): Ply[] {
+/**
+ * Every legal ply for `side` on `board`: each of its own pieces' legal
+ * destinations and attacks. Exported (story 00000021, Step 1) so the PUCT
+ * search (`src/engine/search.ts`) expands a node against exactly the same
+ * legal set `selectEnginePly` samples from - one shared enumeration, never
+ * two copies that could drift apart.
+ */
+export function enumerateLegalPlies(board: BoardState, side: Side): Ply[] {
   const plies: Ply[] = [];
   for (const origin of allSquares()) {
     const occupant = board[squareKey(origin)];

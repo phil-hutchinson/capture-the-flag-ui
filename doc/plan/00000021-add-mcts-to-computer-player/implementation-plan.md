@@ -156,7 +156,28 @@ Decided here so no step re-litigates them. Any step may rely on them.
 
 ## Step 1 — Pure PUCT search core
 
-Status: pending
+Status: committed
+
+Notes: Implemented `src/engine/search.ts` (tree node/edge types, `expand`,
+PUCT `selectEdge`, sign-flipped `backpropagate`, `runIteration`/`runSearch`,
+`mostVisitedPly`) and `src/engine/search.test.ts` covering all four
+verification scenarios (a)-(d); relocated `PositionEvaluator` here (type-only
+`EngineEvaluation` import) and re-exported it from `enginePlayer.ts`, and
+exported `enumerateLegalPlies` from `decoder.ts` for the search to reuse, per
+fixed decision 10 and the step's text. Deviation: test (d) ("an all-mass-on-
+one-ply fake policy makes that ply dominate the root's visits") originally
+used a board with a nearby mobile Black piece; the search legitimately
+discovered a real tactical downside a few plies after the favored move (the
+White piece could be captured, leading to a `noLegalMove` loss) and
+correctly de-prioritized it despite the overwhelming prior, causing more even
+visit distribution among root children - correct PUCT behavior, but it
+contaminated this test's intent of isolating the prior's effect. Rewrote the
+test's board so Black has only its immobile Flag (no mobile piece at all):
+every White reply then leads to the identical immediate `noLegalMove` win one
+ply later, keeping every root edge's true backed-up value uniform so the
+measured visit distribution reflects only the prior. Also ran `npx prettier
+--write` on the two touched files to match the repo's formatting (not run by
+`npm run lint`, but part of repo convention).
 
 Implement a new pure module (`src/engine/search.ts`) that runs a PUCT
 Monte-Carlo tree search over the rules engine for a single position, given a

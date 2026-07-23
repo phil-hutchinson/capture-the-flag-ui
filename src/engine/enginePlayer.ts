@@ -14,6 +14,12 @@
 // so this module is unit-testable without loading WASM: tests pass a fake
 // evaluator returning a hand-built policy, while production defaults to
 // Step 3's real `evaluatePosition`.
+//
+// `PositionEvaluator` itself now lives in `search.ts` (story 00000021, Step
+// 1, fixed decision 10): the PUCT search - not just this raw-policy baseline
+// - is the seam that needs it. Re-exported here, unchanged, for this file's
+// own callers until Step 5 removes `chooseEnginePly` in favor of the
+// worker-backed search driver.
 
 import {
   selectEnginePly,
@@ -22,18 +28,10 @@ import {
 } from "../encoding/eng-nn-1/decoder.ts";
 import type { Position } from "../encoding/eng-nn-1/encoder.ts";
 import type { PlayState } from "../rules/primary/v1/play.ts";
-import { evaluatePosition, type EngineEvaluation } from "./inference.ts";
+import { evaluatePosition } from "./inference.ts";
+import type { PositionEvaluator } from "./search.ts";
 
-/**
- * Evaluates a position and returns the network's raw value/policy output.
- * Injectable so `chooseEnginePly` is unit-testable without loading WASM:
- * tests pass a fake evaluator returning a hand-built policy. Defaults to
- * Step 3's real `evaluatePosition` in production. May resolve synchronously
- * or asynchronously - `chooseEnginePly` always awaits it.
- */
-export type PositionEvaluator = (
-  position: Position,
-) => EngineEvaluation | Promise<EngineEvaluation>;
+export type { PositionEvaluator };
 
 /**
  * Chooses the computer's ply for `play`'s current position: runs `evaluate`
