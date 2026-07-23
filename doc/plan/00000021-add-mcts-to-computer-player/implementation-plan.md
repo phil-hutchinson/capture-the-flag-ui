@@ -627,7 +627,47 @@ stalls, no stuck board, and no doubled moves. Also run `npm run typecheck`,
 
 ## Step 7 — Accessibility polish
 
-Status: pending
+Status: committed
+
+Notes: Reviewed Step 4's difficulty control and Steps 5-6's "thinking"/move/
+result wiring against this step's checklist and found both already conform -
+no source changes were needed. Confirmed with headless-Chromium (Playwright)
+scripts driving `npm run dev`: (1) the difficulty control
+(`EngineSideChoice.tsx`) is a `role="group"` labelled `aria-label="Difficulty"`
+of three `type="button"` elements with `aria-pressed` correctly toggling
+(Medium pressed by default; selecting Hard via keyboard `Space` flips
+`aria-pressed` on Hard to `true` and the other two to `false`); it is fully
+Tab/Enter/Space-operable and gets the browser's native `:focus-visible` ring
+(no CSS anywhere suppresses `outline` on these buttons, unlike the bespoke
+board grid ring, which is unaffected) - keyboard-only navigation from the
+start screen through difficulty, side, placement (Auto-fill/Confirm), and
+into the first square selection all worked with no mouse. (2) Instrumented the
+board's one live region (`.accessible-grid__live-region`, `role="status"
+aria-live="polite"`, fed by `EngineGame.tsx`'s single `playAnnouncement`
+seam) across a human move followed by the computer's turn: it read
+"{Piece} selected, N moves available." then, on the human's completed move,
+switched directly to "The computer is thinking." (set once, synchronously, so
+`aria-live="polite"` never re-announces an unchanged string during the
+worker's genuine wait) and then to the computer's own move description
+("{Piece} moved to {square}. Red to move.") - exactly one announcement per
+event, never doubled, confirming the visual-only "thinking…" paragraph
+(`engine-game__thinking`, no `aria-live` of its own) and the separate
+`PlayWarnings` status region (inactivity countdown, unrelated/pre-existing)
+never duplicate it. (3) Focus was never lost to `<body>` or trapped: the
+previously-focused board cell stayed the active element through the
+computer's whole turn (cells keep `focusable: true` regardless of `disabled`
+- only `actionable` becomes empty during `computerThinking`, per
+`FullBoard.tsx`/`PlayBoard.tsx`, unchanged by this story), and "Back to
+start" remained reachable throughout. Game-end focus handling (the result
+announced once through the same live region, `GameResult.tsx` moving focus to
+its "New game" button, Tab moving on from there rather than trapping) is
+unmodified, pre-existing story 00000019 behavior that this story's computer
+moves and results simply flow through unchanged. Deviation: no code or test
+changes were made this step - like Step 6, this step's verification found the
+prior steps' work already met the bar, so there was nothing to polish;
+recorded here rather than silently closing the step, per the process's
+"deviations must be recorded" rule. `npm run typecheck`, `npm run lint`, and
+`npm test` (494 tests) all pass unchanged.
 
 Extend story 00000019's accessibility patterns to cover the new difficulty choice
 and the now-genuine "thinking" wait, without replacing what already works.
