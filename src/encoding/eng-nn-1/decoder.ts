@@ -1,12 +1,15 @@
-// Policy decode, legal mask, and sampling for encoding v1 (spec ENG_NN_1,
+// Policy decode and legal-ply enumeration for encoding v1 (spec ENG_NN_1,
 // companion capture-the-flag repository, `doc/neuralnetwork/eng-nn-1.md`).
 //
-// Turns the network's raw `(8, 12, 12)` policy logits into a single chosen
-// ply. The rules engine's legal-ply set is always authoritative: only legal
-// plies are ever scored, so an illegal or off-board policy index can never be
-// selected - this is the invariant the story's correctness rests on. Legal
-// logits are turned into a probability distribution via softmax, and one ply
-// is sampled from it using an injectable random source.
+// Maps between a ply and its flat index into the network's raw `(8, 12, 12)`
+// policy tensor (`policyIndexForPly`), and enumerates every legal ply for a
+// side (`enumerateLegalPlies`) straight from the rules engine's own
+// movement generation - the rules engine's legal-ply set is always
+// authoritative, so an illegal or off-board policy index is never even
+// considered by a caller built on this module. The PUCT search
+// (`src/engine/search.ts`) is this module's production consumer: it expands
+// each node against `enumerateLegalPlies` and scores each candidate via
+// `policyIndexForPly`.
 //
 // This module is pure - no React, no onnxruntime - and builds only on the
 // rules engine's movement generation (`src/rules/primary/v1/movement.ts`)
@@ -40,9 +43,10 @@ export { MOVEMENT_INDEX_COUNT, POLICY_LENGTH };
 
 /**
  * A source of numbers in `[0, 1)`, matching the shape of `Math.random`.
- * Injectable so sampling is deterministic under test (pass a seeded
+ * Injectable so callers (e.g. the PUCT search's tie-breaking and sampling,
+ * `src/engine/search.ts`) are deterministic under test - pass a seeded
  * generator, same pattern as `autoFill`'s `RandomSource` in
- * `src/rules/primary/v1/placement.ts`) while defaulting to real randomness
+ * `src/rules/primary/v1/placement.ts` - while defaulting to real randomness
  * in production.
  */
 export type RandomSource = () => number;
@@ -113,9 +117,9 @@ export function policyIndexForPly(ply: Ply, mover: Side): number {
 /**
  * Every legal ply for `side` on `board`: each of its own pieces' legal
  * destinations and attacks. Exported (story 00000021, Step 1) so the PUCT
- * search (`src/engine/search.ts`) expands a node against exactly the same
- * legal set `selectEnginePly` samples from - one shared enumeration, never
- * two copies that could drift apart.
+ * search (`src/engine/search.ts`) expands a node against exactly this same
+ * legal set - one shared enumeration, never two copies that could drift
+ * apart.
  */
 export function enumerateLegalPlies(board: BoardState, side: Side): Ply[] {
   const plies: Ply[] = [];
@@ -132,58 +136,4 @@ export function enumerateLegalPlies(board: BoardState, side: Side): Ply[] {
     }
   }
   return plies;
-}
-
-/** The softmax distribution over `logits`, numerically stabilized by subtracting the max. */
-function softmax(logits: readonly number[]): number[] {
-  const max = Math.max(...logits);
-  const exps = logits.map((logit) => Math.exp(logit - max));
-  const sum = exps.reduce((total, exp) => total + exp, 0);
-  return exps.map((exp) => exp / sum);
-}
-
-/**
- * Chooses `side`'s ply for this position from the network's raw policy
- * logits: (1) enumerates every legal ply from the rules engine
- * (`legalDestinations` and `legalAttacks` for each of `side`'s own pieces);
- * (2) reads each legal ply's logit out of `policy` via `policyIndexForPly`;
- * (3) takes the softmax over *only* those legal logits (the mask is always
- * authoritative - an illegal or off-board index is never considered, let
- * alone selected); (4) samples one ply from that distribution using `random`.
- *
- * `random` defaults to `Math.random` (real randomness for the UI); pass a
- * seeded `RandomSource` for deterministic, reproducible results in tests.
- *
- * Throws if `side` has no legal ply at all - the game would already be over
- * (`computeOutcome`), so the caller should never ask for a move in a
- * terminal position; returning any ply here would be a silent, invalid
- * fallback rather than a caught programming error.
- */
-export function selectEnginePly(
-  policy: Float32Array,
-  board: BoardState,
-  side: Side,
-  random: RandomSource = Math.random,
-): Ply {
-  const legalPlies = enumerateLegalPlies(board, side);
-  if (legalPlies.length === 0) {
-    throw new Error(
-      `selectEnginePly: ${side} has no legal ply - the game must already be over; the caller must not request a move in a terminal position.`,
-    );
-  }
-
-  const logits = legalPlies.map((ply) => policy[policyIndexForPly(ply, side)]);
-  const probabilities = softmax(logits);
-
-  const sample = random();
-  let cumulative = 0;
-  for (let i = 0; i < legalPlies.length; i += 1) {
-    cumulative += probabilities[i];
-    if (sample < cumulative) {
-      return legalPlies[i];
-    }
-  }
-  // Floating-point rounding can leave `cumulative` a hair under 1 by the
-  // final entry; fall back to the last ply so a valid ply is always returned.
-  return legalPlies[legalPlies.length - 1];
 }

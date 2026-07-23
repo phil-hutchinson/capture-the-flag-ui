@@ -42,6 +42,16 @@ export class SearchClient {
   private nextRequestId = 0;
   private readonly pending = new Map<number, PendingChoice>();
 
+  /**
+   * Set once `onerror` fires (e.g. the worker script/module itself failed to
+   * load) and never cleared - the worker is presumed dead from that point
+   * on. Latching this avoids a silent hang: without it, an `onerror` that
+   * fires while no `choosePly` is pending would simply be dropped, and a
+   * later `choosePly` would post to a dead worker and never resolve or
+   * reject.
+   */
+  private workerError: Error | undefined;
+
   /** Creates the worker (Vite's module-worker form) and sends it `config` as its `init` message. */
   constructor(config: SearchDriverConfig) {
     this.worker = new Worker(new URL("./searchWorker.ts", import.meta.url), {
@@ -51,9 +61,10 @@ export class SearchClient {
       this.handleMessage(event.data);
     };
     this.worker.onerror = (event: ErrorEvent) => {
-      this.rejectAllPending(
+      this.workerError = new Error(
         event.message === "" ? "SearchClient: worker error." : event.message,
       );
+      this.rejectAllPending(this.workerError.message);
     };
     this.post({ type: "init", config });
   }
@@ -67,9 +78,15 @@ export class SearchClient {
    * WASM model failed to load) or if the worker itself errors out or is
    * terminated with this request still in flight, so the play loop's
    * existing `.catch` can show its "computer could not make a move" message
-   * rather than hanging forever.
+   * rather than hanging forever. Also rejects immediately, without posting
+   * to the worker, if the worker has already been found dead by a prior
+   * `onerror` (e.g. a script/module-level load failure with no request in
+   * flight at the time).
    */
   choosePly(state: PlayState): Promise<Ply> {
+    if (this.workerError !== undefined) {
+      return Promise.reject(this.workerError);
+    }
     const requestId = this.nextRequestId;
     this.nextRequestId += 1;
     return new Promise<Ply>((resolve, reject) => {

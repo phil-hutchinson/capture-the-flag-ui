@@ -18,8 +18,7 @@
 // The evaluator and the random source are both injected (`PositionEvaluator`,
 // `RandomSource`), so the search is fully deterministic given a fixed
 // evaluator and random source - no clock, no bare `Math.random`, no
-// module-level mutable state, matching `autoFill`'s and `selectEnginePly`'s
-// discipline.
+// module-level mutable state, matching `autoFill`'s discipline.
 //
 // This is the pure heart the stateful driver (Step 2, tree retention across
 // turns) and, through it, the worker (Step 3) build on.
@@ -146,7 +145,7 @@ function terminalValue(state: PlayState): number {
   );
 }
 
-/** The softmax distribution over `logits`, numerically stabilized by subtracting the max (same approach as the raw-policy decoder's). */
+/** The softmax distribution over `logits`, numerically stabilized by subtracting the max. */
 function softmax(logits: readonly number[]): number[] {
   const max = Math.max(...logits);
   const exps = logits.map((logit) => Math.exp(logit - max));
