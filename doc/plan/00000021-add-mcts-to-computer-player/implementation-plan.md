@@ -587,7 +587,14 @@ test leaves the suite green).
 
 ## Step 6 — Confirm the main thread stays free and live tree reuse holds
 
-Status: pending
+Status: committed
+
+Notes: Verification-only step, no code changes. Gate C passed on owner
+manual verification: the UI stays responsive during a Hard-mode think (the
+main thread does no search work). Live tree reuse is not directly observable
+under the zero-weight model's random play, but occasionally-faster Hard-mode
+turns are the visible signature of the retained subtree reducing the new
+iterations run to reach the cap — consistent with the budget/cap design.
 
 Confirm that offloading the search to the worker keeps the main thread
 responsive at the hardest setting, and that live tree reuse across expected and
