@@ -95,7 +95,7 @@ should need redoing when the weights become real.
   checkpoint, or model per level (there is only the one reference model).
 - **Run the full iteration budget every move, but cap the accumulated tree at
   double.** Each move the computer runs its mode's full iteration count (500 /
-  2000 / 7500) of *new* simulations, **regardless of how much retained subtree
+  2000 / 7500) of _new_ simulations, **regardless of how much retained subtree
   it inherited**. Because retention carries visits forward, consecutive moves
   that both sides "predicted" (plies already explored in the retained tree)
   make the root's accumulated simulation count grow turn over turn. To bound
@@ -124,7 +124,7 @@ should need redoing when the weights become real.
   no draw offers, the same endings, the same "the computer is thinking"
   treatment, the same move-slide animation, the same leave/new-game flow, and
   the same player-facing vocabulary ("the computer", side colors, rules' piece
-  names, "move" not "ply"). This story touches only how the move is *computed*
+  names, "move" not "ply"). This story touches only how the move is _computed_
   and adds the difficulty choice at setup.
 
 ## In scope

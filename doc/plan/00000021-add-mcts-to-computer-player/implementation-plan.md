@@ -17,7 +17,7 @@ them should not need to rediscover this.
 - **Rules engine (authoritative, never reimplemented)** —
   `src/rules/primary/v1/`:
   - `movement.ts`: `legalDestinations(board, origin)`, `legalAttacks(board,
-    origin)`, `hasAnyLegalPly(board, side)`.
+origin)`, `hasAnyLegalPly(board, side)`.
   - `play.ts`: `PlayState` (fields `board`, `sideToMove`, `inactivityCounter`,
     `result`, plus `moves`/`initialBoard`/`ruleset`), `startPlay(initial)`,
     `applyMove(state, from, to)` → `{ state, outcome }` (pure, returns a new
@@ -68,7 +68,7 @@ them should not need to rediscover this.
 - **Build/tooling facts** — Vitest's `test.environment` is `node` (no DOM, no
   real `Worker`), so unit tests never instantiate a worker or WASM. There are no
   existing workers in the repo. `tsconfig.app.json`'s `lib` is `["ES2022",
-  "DOM", "DOM.Iterable"]` — it does **not** include `WebWorker`, so the worker
+"DOM", "DOM.Iterable"]` — it does **not** include `WebWorker`, so the worker
   entry module must bring in the worker global types itself (a
   `/// <reference lib="webworker" />` directive, or a dedicated tsconfig
   include). The worker is instantiated with Vite's module-worker form
@@ -193,7 +193,7 @@ budget of iterations to run. No worker, no DOM, no onnxruntime import at runtime
   beyond calling the rules engine.
 - **One iteration:** select a path from the root down by the PUCT rule (child
   score = mean value + `c_puct · prior · sqrt(parentVisits) / (1 +
-  childVisits)`) until reaching an unexpanded or terminal node; expand it; then
+childVisits)`) until reaching an unexpanded or terminal node; expand it; then
   back-propagate a value up the path.
 - **Expansion / leaf value.** On first reaching an unexpanded, non-terminal
   node, call the injected `PositionEvaluator` on its `Position`. Use the returned
@@ -203,7 +203,7 @@ budget of iterations to run. No worker, no DOM, no onnxruntime import at runtime
   enumeration — as its children's priors.
 - **Terminal nodes.** A node whose `PlayState.result.kind !== "ongoing"` is
   never expanded and never evaluated; it back-propagates its true game result
-  from *its own* side-to-move's perspective: a loss for the side to move
+  from _its own_ side-to-move's perspective: a loss for the side to move
   (`noLegalMove`, or a `flagCapture` win for the opponent) is `−1`, a win for
   the side to move is `+1`, a draw (`inactivity`) is `0`.
 - **Perspective sign-flipping on back-propagation.** The backed-up value is from
@@ -227,7 +227,7 @@ budget of iterations to run. No worker, no DOM, no onnxruntime import at runtime
   module use it; keep `decoder.ts`'s existing tests green.
 
 Depends on: nothing new (builds only on the rules engine, decoder, and the
-inference *types* that already exist).
+inference _types_ that already exist).
 
 Why here: it is the pure, dependency-free heart of the story; the driver
 (Step 2), the worker (Step 3), and ultimately the play loop all rest on it, so
@@ -466,7 +466,7 @@ Verification (manual — Gate A): Run `npm run dev`, choose "Play against the
 computer", and confirm the setup screen offers Easy / Medium / Hard alongside the
 side choice with Medium preselected; selecting a difficulty and a side enters
 placement; "Back to start" returns to the start screen; starting again lets you
-pick a different difficulty. (That the game then *plays* with that difficulty is
+pick a different difficulty. (That the game then _plays_ with that difficulty is
 verified once the worker-backed proxy is wired — Steps 5–6.) Also run
 `npm run typecheck`, `npm run lint`, and `npm test`.
 
@@ -498,17 +498,18 @@ growing), not on a mere select/deselect/switch-selection. Removed
 `src/engine/enginePlayer.ts` and `src/engine/enginePlayer.test.ts` outright
 (494 tests remain, down from 499) rather than leaving a thin re-export shim,
 since `PositionEvaluator` is already exported directly from `search.ts` (Step
-1) and nothing else imported it via `enginePlayer.ts`; updated `search.ts`'s
-doc comment, which referenced `enginePlayer.ts` re-exporting the type, to
-match. Self-smoke-tested with headless Chromium against `npm run dev`: a full
-easy-mode game (5 human/computer round trips) and a two-game session (hard
-mode played partway then left mid-game via the confirm dialog, followed by a
-fresh easy-mode game with the human on the other side) both completed with
-the "thinking" indicator observed, the worker resolving to legal moves each
-time, and zero console/page errors; hard mode's round trip took well over 30
-seconds in this sandboxed single-threaded-WASM container (bumped the smoke
-script's timeout accordingly), which is expected and is Step 6's concern, not
-a regression here.
+
+1. and nothing else imported it via `enginePlayer.ts`; updated `search.ts`'s
+   doc comment, which referenced `enginePlayer.ts` re-exporting the type, to
+   match. Self-smoke-tested with headless Chromium against `npm run dev`: a full
+   easy-mode game (5 human/computer round trips) and a two-game session (hard
+   mode played partway then left mid-game via the confirm dialog, followed by a
+   fresh easy-mode game with the human on the other side) both completed with
+   the "thinking" indicator observed, the worker resolving to legal moves each
+   time, and zero console/page errors; hard mode's round trip took well over 30
+   seconds in this sandboxed single-threaded-WASM container (bumped the smoke
+   script's timeout accordingly), which is expected and is Step 6's concern, not
+   a regression here.
 
 Deviation: the plan's text (and fixed decision 9) called for `reset()` (not
 `terminate()`) on "New game," keeping the worker warm across games. Per the
@@ -520,9 +521,9 @@ expected to exist there). Reasoning recorded here since it resolves a real
 gap in the plan's original design: `SearchClient`/`SearchWorker` only ever
 apply their `init` config once, in the constructor - there is no message to
 re-configure a live worker's budget/cap - so if a later game reused a merely-
-`reset()` worker after the player picked a *different* difficulty on
+`reset()` worker after the player picked a _different_ difficulty on
 `EngineSideChoice`, that new game would silently keep running searches at the
-*previous* game's iteration budget. Terminating and recreating per game
+_previous_ game's iteration budget. Terminating and recreating per game
 avoids this correctness gap at the cost of not keeping the onnxruntime WASM
 session warm across separate games (each game's first search pays the WASM
 load cost again) - a minor responsiveness cost, not a correctness one, and
@@ -602,7 +603,7 @@ unexpected replies behaves.
 
 - With the search in the worker, the main thread does no per-iteration work, so
   the UI should stay smooth even while up to 7500 evaluations run on hard (the
-  double cap only ever *reduces* new evaluations, so 7500 is the ceiling per
+  double cap only ever _reduces_ new evaluations, so 7500 is the ceiling per
   move). Confirm this holds in practice — the page stays interactive and the
   "thinking" indicator animates through a genuine wait — rather than tuning any
   main-thread cadence (there is none to tune now).
@@ -656,18 +657,19 @@ event, never doubled, confirming the visual-only "thinking…" paragraph
 never duplicate it. (3) Focus was never lost to `<body>` or trapped: the
 previously-focused board cell stayed the active element through the
 computer's whole turn (cells keep `focusable: true` regardless of `disabled`
+
 - only `actionable` becomes empty during `computerThinking`, per
-`FullBoard.tsx`/`PlayBoard.tsx`, unchanged by this story), and "Back to
-start" remained reachable throughout. Game-end focus handling (the result
-announced once through the same live region, `GameResult.tsx` moving focus to
-its "New game" button, Tab moving on from there rather than trapping) is
-unmodified, pre-existing story 00000019 behavior that this story's computer
-moves and results simply flow through unchanged. Deviation: no code or test
-changes were made this step - like Step 6, this step's verification found the
-prior steps' work already met the bar, so there was nothing to polish;
-recorded here rather than silently closing the step, per the process's
-"deviations must be recorded" rule. `npm run typecheck`, `npm run lint`, and
-`npm test` (494 tests) all pass unchanged.
+  `FullBoard.tsx`/`PlayBoard.tsx`, unchanged by this story), and "Back to
+  start" remained reachable throughout. Game-end focus handling (the result
+  announced once through the same live region, `GameResult.tsx` moving focus to
+  its "New game" button, Tab moving on from there rather than trapping) is
+  unmodified, pre-existing story 00000019 behavior that this story's computer
+  moves and results simply flow through unchanged. Deviation: no code or test
+  changes were made this step - like Step 6, this step's verification found the
+  prior steps' work already met the bar, so there was nothing to polish;
+  recorded here rather than silently closing the step, per the process's
+  "deviations must be recorded" rule. `npm run typecheck`, `npm run lint`, and
+  `npm test` (494 tests) all pass unchanged.
 
 Extend story 00000019's accessibility patterns to cover the new difficulty choice
 and the now-genuine "thinking" wait, without replacing what already works.
