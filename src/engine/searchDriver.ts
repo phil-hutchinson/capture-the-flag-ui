@@ -173,7 +173,8 @@ export class SearchDriver {
    * root child. The working tree is held as **pending** - not yet adopted as
    * the retained root - until a matching `commit` call. Does not itself apply
    * or validate the returned ply; the caller does that, through the rules
-   * engine's `applyMove`, exactly as `chooseEnginePly` does today.
+   * engine's `applyMove`, exactly as the play loop's `applyEnginePly` does
+   * (`src/board/EngineGame.tsx`, story 00000021, Step 5).
    */
   async choose(state: PlayState): Promise<Ply> {
     const reusable =

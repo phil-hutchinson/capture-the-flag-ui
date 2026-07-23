@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { APP_NAME } from "../appInfo.ts";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
-import { DEFAULT_DIFFICULTY, type Difficulty } from "../engine/difficulty.ts";
-import { chooseEnginePly } from "../engine/enginePlayer.ts";
+import {
+  DEFAULT_DIFFICULTY,
+  searchDriverConfigForDifficulty,
+  type Difficulty,
+} from "../engine/difficulty.ts";
+import type { Ply } from "../encoding/eng-nn-1/decoder.ts";
+import { SearchClient } from "../engine/searchClient.ts";
 import { Board } from "./Board.tsx";
 import { EngineSideChoice } from "./EngineSideChoice.tsx";
 import { MOVE_SLIDE_DURATION_MS } from "./FullBoard.tsx";
@@ -75,11 +80,13 @@ import "./EngineGame.css";
 // genuinely new thing is *who* supplies the next move: on the human's turn
 // this behaves exactly like `HotSeatGame`'s Phase-2 branch; on the
 // computer's turn `applyEnginePly` (below) drives the identical
-// `activateSquare` -> `applyMove` path via `chooseEnginePly` (story
-// 00000019, Step 4)'s async seam. Board orientation is always the human's
-// own side (`PlayBoard`'s new `side` prop, Step 5) - there is no "flip
-// between turns" control in this mode (story.md's "Board orientation is
-// always yours"), and there is no draw-offer control either.
+// `activateSquare` -> `applyMove` path via `SearchClient.choosePly` (story
+// 00000021, Step 5's worker-backed PUCT search proxy, replacing story
+// 00000019, Step 4's raw-policy `chooseEnginePly`)'s async seam. Board
+// orientation is always the human's own side (`PlayBoard`'s new `side` prop,
+// Step 5) - there is no "flip between turns" control in this mode (story.md's
+// "Board orientation is always yours"), and there is no draw-offer control
+// either.
 //
 // Step 6 adds two finishing touches on top of Step 5's working loop:
 //  - Winner phrasing: every `describeResult`/`describeActivation`/
@@ -96,11 +103,12 @@ type Selection =
 
 /**
  * The shortest time "the computer is thinking" stays visible, in
- * milliseconds, regardless of how quickly `chooseEnginePly` actually
- * resolves (near-instantly, with the zero-weight reference model - see
- * `Promise.all` below). Purely a presentation choice (story.md's "Whether
- * the 'thinking' indicator has a minimum visible duration", left open at
- * plan time); does not affect correctness or the timing of anything else.
+ * milliseconds, regardless of how quickly the search proxy's `choosePly`
+ * actually resolves (possibly near-instantly at low iteration counts with
+ * the zero-weight reference model - see `Promise.all` below). Purely a
+ * presentation choice (story.md's "Whether the 'thinking' indicator has a
+ * minimum visible duration", left open at plan time); does not affect
+ * correctness or the timing of anything else.
  */
 const MIN_THINKING_DISPLAY_MS = 400;
 
@@ -143,11 +151,10 @@ export function EngineGame({ onBack }: EngineGameProps) {
   // 00000021, Step 4) - carried through placement and play for the life of
   // the game (surfaced only as `data-difficulty` on the placement/play
   // `<main>`, below, since the numbers behind each mode are not player-facing
-  // - fixed decision 7). The computer's move is still `chooseEnginePly`'s
-  // single raw-policy sample; wiring the chosen difficulty into an actual
-  // search budget is Step 5. Reset to the default alongside `humanSide` on
-  // "New game" so a fresh game never keeps the previous one's difficulty
-  // pre-selected on the setup screen.
+  // - fixed decision 7). Read by `handleConfirm` (below) to configure the
+  // worker-backed search client the moment play begins (Step 5). Reset to
+  // the default alongside `humanSide` on "New game" so a fresh game never
+  // keeps the previous one's difficulty pre-selected on the setup screen.
   const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULT_DIFFICULTY);
   const [placement, setPlacement] = useState<PlacementState | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
@@ -183,6 +190,34 @@ export function EngineGame({ onBack }: EngineGameProps) {
     headingRef.current?.focus();
   }, []);
 
+  // The worker-backed PUCT search proxy (story 00000021, Step 5) - `null`
+  // until `handleConfirm` creates one (with the config for the difficulty
+  // chosen on `EngineSideChoice`) the moment play begins, and `null` again
+  // from then until the next game. A plain ref, not state: creating or
+  // terminating it must never itself trigger a render, and its identity must
+  // survive every render of this component without being recreated.
+  //
+  // Exactly one client (and its one worker/retained tree) ever exists per
+  // game: `handleConfirm` creates it, `handleNewGame` terminates it (a fresh
+  // game may pick a different difficulty, and the client has no way to
+  // re-configure an existing worker - only a brand-new one, sent `init`
+  // once, in its constructor - so recreating rather than resetting is what
+  // actually keeps a new game's difficulty correct; a deliberate,
+  // orchestrator-directed simplification of the plan's "reset() on new game,
+  // keep the worker warm" text, recorded in this step's Notes), and this
+  // effect's cleanup terminates it on confirmed-leave and on unmount, so a
+  // fresh game - or leaving outright - never inherits a worker or its tree
+  // (fixed decision 9). `terminate()` is safe to call on a client that is
+  // about to be discarded anyway (a no-op double-terminate at worst): it
+  // rejects any in-flight `choosePly` and tears down the worker.
+  const searchClientRef = useRef<SearchClient | null>(null);
+  useEffect(() => {
+    return () => {
+      searchClientRef.current?.terminate();
+      searchClientRef.current = null;
+    };
+  }, []);
+
   // True from the moment a side is chosen until the game ends - i.e.
   // exactly the condition under which leaving would lose something. False
   // throughout the side-choice phase (nothing chosen yet, nothing to lose).
@@ -199,37 +234,41 @@ export function EngineGame({ onBack }: EngineGameProps) {
   }
 
   // The computer's ply (story 00000019, Step 5; minimum-visible-duration
-  // timing added Step 6). Fires exactly when it becomes the computer's turn
-  // in an ongoing game - never during the side choice or placement, never on
-  // the human's own turn, never once the game has ended (the three guards
-  // below). `chooseEnginePly` (Step 4) is a single network evaluation plus a
-  // legal-masked sample; it is never called more than once per computer
-  // turn, because the effect's own dependencies only change again once a ply
-  // has actually been applied (which flips `sideToMove` away from the
-  // computer).
+  // timing added Step 6; the raw-policy sample replaced by the worker-backed
+  // PUCT search proxy, story 00000021, Step 5). Fires exactly when it
+  // becomes the computer's turn in an ongoing game - never during the side
+  // choice or placement, never on the human's own turn, never once the game
+  // has ended (the three guards below). `searchClientRef.current.choosePly`
+  // is a genuine tree search that can take a while at higher difficulties;
+  // it is never called more than once per computer turn, because the
+  // effect's own dependencies only change again once a ply has actually been
+  // applied (which flips `sideToMove` away from the computer).
   //
   // Two correctness hazards this guards against:
   //  - React StrictMode double-invokes effects in dev: the `cancelled` flag
   //    set in the cleanup means a resolved-but-superseded first invocation's
-  //    promise callback is a no-op.
+  //    promise callback is a no-op - critically, this means its `.then` never
+  //    reaches the `commit()` call below either, so a StrictMode-doubled turn
+  //    never double-commits the worker's retained tree (fixed decision 8).
   //  - The player can leave mid-thought (confirming `LeaveGameDialog`
   //    unmounts this whole component) or, in principle, the position could
   //    move on before the promise resolves; the same `cancelled` flag (set
   //    on unmount, via the effect's cleanup) means a stale move is never
-  //    applied to a session the player is no longer looking at.
+  //    applied to a session the player is no longer looking at, and - again -
+  //    never committed to the worker's tree either.
   //
-  // `Promise.all([chooseEnginePly(...), delay(...)])` (Step 6) is the
+  // `Promise.all([choosePly(...), delay(...)])` (Step 6) is the
   // minimum-visible-duration treatment: the effect waits for *both* the
-  // engine's answer and a fixed minimum timer before applying anything, so
-  // an instant answer from the zero-weight model still leaves "the computer
-  // is thinking" visible for at least `MIN_THINKING_DISPLAY_MS` - a slow
-  // answer is never held back further, since `Promise.all` only ever waits
-  // for the *slower* of the two. This adds no new hazard: it is still one
-  // `.then`/`.catch` pair guarded by the same `cancelled` flag, checked
-  // exactly where it always was, immediately before the first setter call -
-  // a stale result is discarded exactly as before, just possibly a little
-  // later. The timer's own `setTimeout` is cleared on cleanup so a
-  // superseded turn never leaves a dangling timer.
+  // search's answer and a fixed minimum timer before applying anything, so
+  // an instant answer (possible at low iteration counts with the zero-weight
+  // model) still leaves "the computer is thinking" visible for at least
+  // `MIN_THINKING_DISPLAY_MS` - a slow answer is never held back further,
+  // since `Promise.all` only ever waits for the *slower* of the two. This
+  // adds no new hazard: it is still one `.then`/`.catch` pair guarded by the
+  // same `cancelled` flag, checked exactly where it always was, immediately
+  // before the first setter call - a stale result is discarded exactly as
+  // before, just possibly a little later. The timer's own `setTimeout` is
+  // cleared on cleanup so a superseded turn never leaves a dangling timer.
   useEffect(() => {
     if (playSession === null || humanSide === null) {
       return;
@@ -252,7 +291,20 @@ export function EngineGame({ onBack }: EngineGameProps) {
       timeoutId = setTimeout(resolve, MIN_THINKING_DISPLAY_MS);
     });
 
-    Promise.all([chooseEnginePly(beforeMove.play), minimumDisplay])
+    // `searchClientRef.current` is set by `handleConfirm` before this game's
+    // very first `playSession` ever exists, so it is never `null` here in
+    // practice; the `Promise.reject` fallback exists only so a programming
+    // error surfaces through the same "computer could not make a move"
+    // `.catch` below rather than throwing synchronously mid-render.
+    const client = searchClientRef.current;
+    const enginePly: Promise<Ply> =
+      client === null
+        ? Promise.reject(
+            new Error("EngineGame: no search client for this game."),
+          )
+        : client.choosePly(beforeMove.play);
+
+    Promise.all([enginePly, minimumDisplay])
       .then(([{ from, to }]) => {
         if (cancelled) {
           return;
@@ -277,15 +329,22 @@ export function EngineGame({ onBack }: EngineGameProps) {
         if (!prefersReducedMotion()) {
           setAnimatedMove({ from, to });
         }
+        // Only now - after the `cancelled` guard has passed and the move has
+        // actually been applied - tell the worker to adopt its pending
+        // working tree, descended into the move just played (fixed decision
+        // 8's "commit only on confirm"). A cancelled/superseded turn returns
+        // above and never reaches this line, so the worker's retained tree
+        // is never advanced by a turn the UI discarded.
+        client?.commit({ from, to });
       })
       .catch((error: unknown) => {
         if (cancelled) {
           return;
         }
-        // `chooseEnginePly` only ever resolves to a legal ply (Step 2/4's
+        // `choosePly` only ever resolves to a legal ply (the search's own
         // invariant) or rejects - it never resolves to an illegal one. A
-        // rejection here means the network/WASM runtime itself failed, not
-        // an illegal move; surface it rather than leaving the board silently
+        // rejection here means the worker/WASM runtime itself failed, not an
+        // illegal move; surface it rather than leaving the board silently
         // stuck with no feedback and no way forward except leaving.
         console.error("The computer's move failed:", error);
         setPlayAnnouncement(
@@ -380,23 +439,45 @@ export function EngineGame({ onBack }: EngineGameProps) {
     // sliding (story 00000019, Step 9's `animatedMove`), so this is never
     // actually reachable then, but a stray activation must never move the
     // computer's own pieces.
+    //
+    // Story 00000021, Step 5: when this activation actually completes the
+    // human's ply (a piece was selected beforehand, and the move count just
+    // grew by one - as opposed to a mere select/deselect/switch-selection,
+    // none of which apply a ply), tell the search proxy to `observe` it, so
+    // the worker descends its retained tree into the matching child (or
+    // discards the tree outright if that ply was never explored there).
+    // `beforeSelection` (the piece that was picked up) and `square` (the
+    // destination just activated) are exactly the ply's `from`/`to` - the
+    // same pair `activateSquare` itself just applied via `applyMove`.
     const handlePlayActivate = (square: Square) => {
       if (computerThinking) {
         return;
       }
+      const beforeSelection = playSession.selection;
       const next = activateSquare(playSession, square);
       setPlaySession(next);
       setPlayAnnouncement(
         describeActivation(playSession, next, square, perspective),
       );
+      if (
+        beforeSelection !== null &&
+        next.play.moves.length > playSession.play.moves.length
+      ) {
+        searchClientRef.current?.observe({ from: beforeSelection, to: square });
+      }
     };
 
     // "New game" (`GameResult`'s shared action) resets all the way back to
     // the side choice - fresh side choice, fresh placement, fresh random
     // computer army - the same "starts cleanly" guarantee the story asks of
     // leaving and re-entering the mode, applied here too rather than only on
-    // a full remount.
+    // a full remount. Also terminates this game's search client outright
+    // (story 00000021, Step 5) - the next game's `handleConfirm` creates a
+    // brand-new one for whatever difficulty is chosen next time, so a fresh
+    // game never inherits a worker or its retained tree (fixed decision 9).
     const handleNewGame = () => {
+      searchClientRef.current?.terminate();
+      searchClientRef.current = null;
       setHumanSide(null);
       setDifficulty(DEFAULT_DIFFICULTY);
       setPlacement(null);
@@ -565,6 +646,17 @@ export function EngineGame({ onBack }: EngineGameProps) {
         ? buildInitialGameState(placement, computerArmy)
         : buildInitialGameState(computerArmy, placement);
     const freshPlaySession = startSession(gameState);
+    // Play begins - create this game's worker-backed search client (story
+    // 00000021, Step 5), configured for the difficulty chosen on
+    // `EngineSideChoice`. Defensively terminates any client already sitting
+    // in the ref first: in ordinary play this is always `null` here (a fresh
+    // one is only ever created once per game, and both "New game" and
+    // leaving already terminate the previous game's client), but a stray
+    // leftover must never be leaked rather than replaced outright.
+    searchClientRef.current?.terminate();
+    searchClientRef.current = new SearchClient(
+      searchDriverConfigForDifficulty(difficulty),
+    );
     setPlaySession(freshPlaySession);
     setSelection(null);
     // Mirrors `HotSeatGame.tsx`'s reveal-time check: placement is

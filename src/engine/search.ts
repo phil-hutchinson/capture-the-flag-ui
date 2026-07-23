@@ -37,13 +37,14 @@ import type { EngineEvaluation } from "./inference.ts";
 /**
  * Evaluates a position and returns the network's raw value/policy output.
  * Relocated here (story 00000021, Step 1, fixed decision 10) from
- * `enginePlayer.ts`, which now re-exports this same type for its own
- * existing callers - the search, not just the raw-policy baseline, is the
- * seam that needs it. Injectable so the search is unit-testable without
- * loading WASM: tests pass a fake evaluator returning a hand-built
- * value/policy pair. Defaults to the real `evaluatePosition`
- * (`src/engine/inference.ts`) in production (the worker, Step 3). May resolve
- * synchronously or asynchronously - the search always awaits it.
+ * `enginePlayer.ts` - the search, driver, and worker are the seams that need
+ * it, not just the raw-policy baseline `enginePlayer.ts` used to provide
+ * (removed in Step 5 once `EngineGame.tsx` stopped calling it). Injectable so
+ * the search is unit-testable without loading WASM: tests pass a fake
+ * evaluator returning a hand-built value/policy pair. Defaults to the real
+ * `evaluatePosition` (`src/engine/inference.ts`) in production (the worker,
+ * Step 3). May resolve synchronously or asynchronously - the search always
+ * awaits it.
  */
 export type PositionEvaluator = (
   position: Position,

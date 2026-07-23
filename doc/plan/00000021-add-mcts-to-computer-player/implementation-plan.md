@@ -474,7 +474,62 @@ verified once the worker-backed proxy is wired — Steps 5–6.) Also run
 
 ## Step 5 — Wire the worker-backed proxy into the play loop
 
-Status: pending
+Status: committed
+
+Notes: `EngineGame.tsx` now holds a `SearchClient` in a `useRef`
+(`searchClientRef`), created in `handleConfirm` the moment play begins with
+`searchDriverConfigForDifficulty(difficulty)`; the computer-turn effect calls
+`client.choosePly(beforeMove.play)` inside the existing `Promise.all` with the
+minimum-thinking timer, and only inside the `.then` callback - after the
+`cancelled` guard and after the move is applied via the unchanged
+`applyEnginePly` -> `activateSquare` -> `applyMove` path and the slide-overlay
+state is set - does it call `client.commit({ from, to })`; a cancelled/
+superseded/StrictMode-doubled invocation returns before that line and neither
+applies nor commits, per fixed decision 8 (verified this holds under
+StrictMode double-invoke by inspection: each invocation's own `cancelled`
+closure independently gates its own `.then`, so the survivor's `commit`
+always matches its own `choosePly` result regardless of which of a doubled
+pair's worker replies arrives first - see the effect's own comment for the
+full reasoning). `handlePlayActivate` now also derives the human's completed
+ply from `playSession.selection` (the piece picked up) and the activated
+`square`, calling `searchClientRef.current?.observe({ from, to })` only when
+`activateSquare` actually applied a move (detected via `moves.length`
+growing), not on a mere select/deselect/switch-selection. Removed
+`src/engine/enginePlayer.ts` and `src/engine/enginePlayer.test.ts` outright
+(494 tests remain, down from 499) rather than leaving a thin re-export shim,
+since `PositionEvaluator` is already exported directly from `search.ts` (Step
+1) and nothing else imported it via `enginePlayer.ts`; updated `search.ts`'s
+doc comment, which referenced `enginePlayer.ts` re-exporting the type, to
+match. Self-smoke-tested with headless Chromium against `npm run dev`: a full
+easy-mode game (5 human/computer round trips) and a two-game session (hard
+mode played partway then left mid-game via the confirm dialog, followed by a
+fresh easy-mode game with the human on the other side) both completed with
+the "thinking" indicator observed, the worker resolving to legal moves each
+time, and zero console/page errors; hard mode's round trip took well over 30
+seconds in this sandboxed single-threaded-WASM container (bumped the smoke
+script's timeout accordingly), which is expected and is Step 6's concern, not
+a regression here.
+
+Deviation: the plan's text (and fixed decision 9) called for `reset()` (not
+`terminate()`) on "New game," keeping the worker warm across games. Per the
+orchestrator's explicit dispatch instructions for this step, `handleNewGame`
+instead calls `terminate()` and clears the ref, and `handleConfirm` always
+constructs a fresh `SearchClient` for the game about to begin (also
+defensively terminating any leftover client first, though none is ever
+expected to exist there). Reasoning recorded here since it resolves a real
+gap in the plan's original design: `SearchClient`/`SearchWorker` only ever
+apply their `init` config once, in the constructor - there is no message to
+re-configure a live worker's budget/cap - so if a later game reused a merely-
+`reset()` worker after the player picked a *different* difficulty on
+`EngineSideChoice`, that new game would silently keep running searches at the
+*previous* game's iteration budget. Terminating and recreating per game
+avoids this correctness gap at the cost of not keeping the onnxruntime WASM
+session warm across separate games (each game's first search pays the WASM
+load cost again) - a minor responsiveness cost, not a correctness one, and
+confirmed acceptable by the orchestrator's dispatch instructions. `reset()`
+remains implemented and tested (Steps 2-3) for the worker/driver's own use
+(e.g. a future story could resend `init` and call `reset()` instead of
+recreating); it is simply not what this step's UI wiring calls today.
 
 Replace `EngineGame.tsx`'s raw-policy computer move with the proxy client from
 Step 3, configured with Step 4's chosen difficulty, preserving every existing
