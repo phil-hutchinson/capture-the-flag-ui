@@ -170,7 +170,33 @@ src` returns nothing.
 
 ## Step 2 — Edition, board-layout, and army-composition configuration model (data only)
 
-Status: pending
+Status: committed
+
+Notes: Added three inert data modules under `src/rules/primary/v2/`, none
+wired into `board.ts`, `pieces.ts`, or any consumer:
+`boardLayout.ts` (`BoardLayout` shape - column/row counts, `homeRowsPerSide`,
+`hasBuffer`, `lakeRows`/`lakeColumnIndices`, plus `lakeCells()`, `rowRegion()`,
+and `homeZoneSize()` helpers; `BOARD_LAYOUTS` keyed registry with
+`standard_144` and `standard_64` per the Grounding facts), `armyComposition.ts`
+(`ArmyRoster` per-type counts keyed by `PieceTypeId`; `standard_battle`'s
+roster is derived from `pieces.ts`'s `PIECE_CATALOG` quantities rather than
+duplicated, so the two can't drift; `standard_skirmish` is a literal 16-piece
+roster; `ARMY_COMPOSITIONS` keyed registry), and `edition.ts` (`Edition`
+pairing a resolved `BoardLayout` and `ArmyRoster` with its edition-id string;
+`EDITIONS` registry for `2-0:BATTLE`/`2-0:SKIRMISH`; `armyFitsBoard`/
+`combinationFits` validity checks taking layout/roster ids directly - not just
+already-paired editions - so the rejected `standard_battle`-on-`standard_64`
+case can be tested without constructing an invalid `Edition`; `playableEditions()`
+filters `EDITIONS` through that check). One deviation from the plan's literal
+wording: `rowRegion()` classifies a row into `white-home`/`black-home`/
+`buffer`/`lake` without needing to branch on `hasBuffer` (a no-buffer layout
+just has no rows left over between home and lake arithmetically); `hasBuffer`
+is kept on `BoardLayout` anyway as documentation/data the plan asked for and is
+asserted directly in tests. Added `boardLayout.test.ts`, `armyComposition.test.ts`,
+and `edition.test.ts` covering exactly the cases the step's verification lists.
+`npm run typecheck && npm run lint && npm test` all pass (516 tests, up from
+489 before this step - the 27 new tests are entirely in the three new test
+files; no existing file changed).
 
 Add new configuration modules under `src/rules/primary/v2/` that describe the
 editions as **data**, with **no wiring into the board/rules engine yet**:
