@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { homeSquares } from "./board.ts";
+import { EDITIONS } from "./edition.ts";
 import { ARMY_SIZE, pieceCatalogEntries } from "./pieces.ts";
 import { autoFill, emptyPlacement, type PlacementState } from "./placement.ts";
 import {
@@ -344,5 +345,90 @@ describe("parsePositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
     const block = renderPositionBlock(gameState);
 
     expect(parsed(parsePositionBlock(block))).toEqual(gameState.board);
+  });
+});
+
+// Story 00000023, Step 3: the position-block render/parse and
+// `buildInitialGameState`'s layout validation, exercised on the Skirmish
+// edition (8x8) instead of the Battle default, to confirm they are
+// genuinely sized to the resolved edition's `BoardLayout` rather than
+// hardcoding Battle's 12x12 grid. (The army itself is not yet
+// edition-driven - Step 4 - so these use small, hand-built boards rather
+// than a `buildInitialGameState`-produced complete Skirmish army: Skirmish's
+// 24-square home zone cannot yet hold Battle's 25-piece roster.)
+describe("position-block render/parse on the Skirmish edition (8x8)", () => {
+  const SKIRMISH_EDITION = EDITIONS["2-0:SKIRMISH"];
+
+  it("renders a hand-constructed Skirmish placement to an 8-line, 8-cell-per-line block", () => {
+    // A1 = White Flag, H3 = White Master-of-Arms (last White home row/column),
+    // A6 = Black Champion, H8 = Black Tower (Black's home corner). Every
+    // other square is either empty (---) or one of the two 2x2 lakes on rows
+    // 4-5, per the `O L L O O L L O` pattern.
+    const gameState: InitialGameState = {
+      ruleset: RULESET_TAG,
+      edition: SKIRMISH_EDITION,
+      board: {
+        A1: { side: "white", pieceType: "flag" },
+        H3: { side: "white", pieceType: "masterOfArms" },
+        A6: { side: "black", pieceType: "champion" },
+        H8: { side: "black", pieceType: "tower" },
+      },
+    };
+
+    const expected = [
+      "--- --- --- --- --- --- --- *T*",
+      "--- --- --- --- --- --- --- ---",
+      "*2* --- --- --- --- --- --- ---",
+      "--- XXX XXX --- --- XXX XXX ---",
+      "--- XXX XXX --- --- XXX XXX ---",
+      "--- --- --- --- --- --- --- [1]",
+      "--- --- --- --- --- --- --- ---",
+      "[F] --- --- --- --- --- --- ---",
+    ].join("\n");
+
+    expect(renderPositionBlock(gameState)).toBe(expected);
+  });
+
+  it("round-trips a hand-built Skirmish board through render and parse", () => {
+    const board: BoardState = {
+      A1: { side: "white", pieceType: "flag" },
+      H3: { side: "white", pieceType: "masterOfArms" },
+      A6: { side: "black", pieceType: "champion" },
+      H8: { side: "black", pieceType: "tower" },
+    };
+    const gameState: InitialGameState = {
+      ruleset: RULESET_TAG,
+      edition: SKIRMISH_EDITION,
+      board,
+    };
+    const block = renderPositionBlock(gameState);
+
+    const result = parsePositionBlock(block, SKIRMISH_EDITION.boardLayout);
+    expect(result.kind).toBe("parsed");
+    expect((result as { kind: "parsed"; board: BoardState }).board).toEqual(
+      board,
+    );
+  });
+
+  it("rejects an 8x8 block against the Battle-default (12x12) parse", () => {
+    const gameState: InitialGameState = {
+      ruleset: RULESET_TAG,
+      edition: SKIRMISH_EDITION,
+      board: { A1: { side: "white", pieceType: "flag" } },
+    };
+    const block = renderPositionBlock(gameState);
+
+    expect(parsePositionBlock(block)).toEqual({
+      kind: "error",
+      error: { kind: "wrongRowCount", rowCount: 8 },
+    });
+  });
+
+  it("buildInitialGameState rejects placement states on a different board layout than the given edition", () => {
+    const white = emptyPlacement("white", SKIRMISH_EDITION.boardLayout);
+    const black = emptyPlacement("black", SKIRMISH_EDITION.boardLayout);
+    // No edition argument - defaults to Battle, which does not match the
+    // Skirmish-layout placement states above.
+    expect(() => buildInitialGameState(white, black)).toThrow();
   });
 });

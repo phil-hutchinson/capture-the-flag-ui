@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { homeSquares, isHomeSquareFor, type Square } from "./board.ts";
+import { BOARD_LAYOUTS } from "./boardLayout.ts";
 import { ARMY_SIZE, pieceCatalogEntries, type PieceTypeId } from "./pieces.ts";
 import {
   autoFill,
@@ -424,5 +425,67 @@ describe("placeFullArmy test helper", () => {
     for (const entry of pieceCatalogEntries()) {
       expect(counts.get(entry.id)).toBe(entry.quantityPerSide);
     }
+  });
+});
+
+// Story 00000023, Step 3: home squares and the Tower-adjacency rule,
+// exercised on the Skirmish layout (`standard_64`, 8x8) instead of the
+// Battle default, to confirm `PlacementState`'s `boardLayout` is genuinely
+// threaded through rather than hardcoding Battle's 12x12/48-home-square
+// board. (The army itself is not yet edition-driven - Step 4 - so `autoFill`
+// is not exercised here: Skirmish's 24-square home zone cannot yet hold
+// Battle's 25-piece roster.)
+describe("PlacementState on the Skirmish layout (8x8)", () => {
+  const SKIRMISH = BOARD_LAYOUTS.standard_64;
+
+  it("emptyPlacement carries the given board layout", () => {
+    const state = emptyPlacement("white", SKIRMISH);
+    expect(state.boardLayout).toBe(SKIRMISH);
+  });
+
+  it("gives each side exactly 24 home squares, not Battle's 48", () => {
+    expect(homeSquares("white", SKIRMISH)).toHaveLength(24);
+    expect(homeSquares("black", SKIRMISH)).toHaveLength(24);
+  });
+
+  it("place/pieceAt work on a Skirmish home square", () => {
+    const square: Square = { column: "D", row: 2 };
+    const state = place(emptyPlacement("white", SKIRMISH), square, "knight");
+    expect(pieceAt(state, square)).toBe("knight");
+  });
+
+  it("rejects a square outside the Skirmish board's own home zone (row 9, on-board for Battle but not for Skirmish)", () => {
+    const state = emptyPlacement("white", SKIRMISH);
+    expect(() => place(state, { column: "A", row: 9 }, "knight")).toThrow();
+  });
+
+  it("clear() preserves the board layout", () => {
+    const state = place(
+      emptyPlacement("white", SKIRMISH),
+      { column: "D", row: 2 },
+      "knight",
+    );
+    const cleared = clear(state);
+    expect(cleared.boardLayout).toBe(SKIRMISH);
+    expect(placedCount(cleared)).toBe(0);
+  });
+
+  it("towersLegallyPlaced is true for two Towers that are not adjacent, near the Skirmish edge (H3, White's home corner)", () => {
+    let state = emptyPlacement("white", SKIRMISH);
+    state = place(state, { column: "H", row: 3 }, "tower");
+    state = place(state, { column: "F", row: 3 }, "tower");
+    expect(towersLegallyPlaced(state)).toBe(true);
+  });
+
+  it("towersLegallyPlaced is false for two Towers diagonally adjacent at the H3 corner", () => {
+    let state = emptyPlacement("white", SKIRMISH);
+    state = place(state, { column: "H", row: 3 }, "tower");
+    state = place(state, { column: "G", row: 2 }, "tower");
+    expect(towersLegallyPlaced(state)).toBe(false);
+  });
+
+  it("does not disturb the Battle-default (no-argument) behavior", () => {
+    expect(emptyPlacement("white").boardLayout).not.toBe(SKIRMISH);
+    expect(homeSquares("white")).toHaveLength(48);
   });
 });

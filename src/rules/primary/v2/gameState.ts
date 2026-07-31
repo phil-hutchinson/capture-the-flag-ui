@@ -10,18 +10,29 @@
 // `Ruleset` tag and the position-block render) without implementing replay
 // itself - there is deliberately no "load a game" path here.
 //
-// This module builds on the board geometry (Step 1), the piece catalog
-// (Step 2), and the placement-state model (Step 3); it has no further
-// dependencies.
+// This module builds on the board geometry (Step 1; parametric over a
+// `BoardLayout` since story 00000023's Step 3), the piece catalog (Step 2),
+// the placement-state model (Step 3), and the edition registry
+// (`edition.ts`, story 00000023's Step 2); it has no further dependencies.
+//
+// The position-block render/parse (`renderPositionBlock`/`parsePositionBlock`)
+// are sized to a `BoardLayout` rather than the fixed 12x12 grid:
+// `renderPositionBlock` reads it off `gameState.edition` (defaulting to
+// Battle when omitted - see `InitialGameState`'s doc comment);
+// `parsePositionBlock` takes it as an optional parameter, also defaulting to
+// Battle.
 
 import {
-  COLUMNS,
+  BATTLE_LAYOUT,
+  columnsOf,
   isLake,
-  ROWS,
+  rowsOf,
   squareKey,
   type Side,
   type Square,
 } from "./board.ts";
+import type { BoardLayout } from "./boardLayout.ts";
+import { EDITIONS, type Edition } from "./edition.ts";
 import {
   ARMY_SIZE,
   PIECE_CATALOG,
@@ -32,9 +43,16 @@ import { isComplete, type PlacementState } from "./placement.ts";
 
 /**
  * The `VERSION:NAME` ruleset tag every serialized artifact carries, per
- * `technical-notes.md`'s "Record file format" `Ruleset` tag.
+ * `technical-notes.md`'s "Record file format" `Ruleset` tag. Transitional
+ * (story 00000023's implementation plan, "Transitional record tag"): this
+ * stays the major-1 tag string until Step 8 flips it, together with the
+ * reader/writer, to the resolved edition's id - even once the live rule
+ * engine plays major 2 (from Step 5).
  */
 export const RULESET_TAG = "1.2:PRE-RELEASE";
+
+/** The edition `buildInitialGameState`/position-block rendering falls back to when none is given. */
+const DEFAULT_EDITION: Edition = EDITIONS["2-0:BATTLE"];
 
 /** One placed piece on the board: which side owns it and what type it is. */
 export interface PlacedPiece {
@@ -51,26 +69,36 @@ export type BoardState = Readonly<Record<string, PlacedPiece>>;
 
 /**
  * A completed, versioned initial game state: both armies' final placement,
- * tagged with the ruleset they were created under. This is a plain,
- * JSON-serializable structure (no `Map`s, no functions) so it round-trips
- * through `JSON.stringify`/`JSON.parse` unchanged, and is the foundation
- * Phase 2 and recorded-game replay will build on.
+ * tagged with the ruleset they were created under, and (story 00000023's
+ * Step 3) the resolved `edition` the board was built for - the parametric
+ * board geometry a later step's rendering/records read rather than assuming
+ * Battle's 12x12. `edition` is **optional** so hand-built fixtures from
+ * earlier stories (and this story's own tests, and the frozen encoding/engine
+ * modules' fixtures) that predate this field remain valid: every function
+ * here treats a missing `edition` as Battle, exactly today's behavior. This
+ * is a plain, JSON-serializable structure (no `Map`s, no functions) so it
+ * round-trips through `JSON.stringify`/`JSON.parse` unchanged, and is the
+ * foundation Phase 2 and recorded-game replay will build on.
  */
 export interface InitialGameState {
   readonly ruleset: string;
+  readonly edition?: Edition;
   readonly board: BoardState;
 }
 
 /**
  * Combines both players' completed placement states into a single, versioned
- * `InitialGameState` artifact. Rejects (throws) if either state belongs to
- * the wrong side or is not a complete 48-piece army - by this point in the
- * flow (both players have confirmed) both are structural invariants, not
- * recoverable user errors.
+ * `InitialGameState` artifact, tagged with `edition` (defaults to Battle, so
+ * the live app - still Battle-only - is unaffected). Rejects (throws) if
+ * either state belongs to the wrong side, was placed on a different board
+ * layout than `edition`'s, or is not a complete 48-piece army - by this
+ * point in the flow (both players have confirmed) all three are structural
+ * invariants, not recoverable user errors.
  */
 export function buildInitialGameState(
   white: PlacementState,
   black: PlacementState,
+  edition: Edition = DEFAULT_EDITION,
 ): InitialGameState {
   if (white.side !== "white") {
     throw new Error(
@@ -80,6 +108,14 @@ export function buildInitialGameState(
   if (black.side !== "black") {
     throw new Error(
       "buildInitialGameState: `black` must be Black's placement state.",
+    );
+  }
+  if (
+    white.boardLayout.id !== edition.boardLayoutId ||
+    black.boardLayout.id !== edition.boardLayoutId
+  ) {
+    throw new Error(
+      `buildInitialGameState: both placement states must be on ${edition.boardLayoutId} for ${edition.id}.`,
     );
   }
   if (!isComplete(white) || !isComplete(black)) {
@@ -96,12 +132,16 @@ export function buildInitialGameState(
     board[key] = { side: "black", pieceType };
   }
 
-  return { ruleset: RULESET_TAG, board };
+  return { ruleset: RULESET_TAG, edition, board };
 }
 
-/** The three-character position-block cell for `square` given `board`. */
-function positionBlockCell(square: Square, board: BoardState): string {
-  if (isLake(square)) {
+/** The three-character position-block cell for `square` given `board` and `layout`. */
+function positionBlockCell(
+  square: Square,
+  board: BoardState,
+  layout: BoardLayout,
+): string {
+  if (isLake(square, layout)) {
     return "XXX";
   }
   const placed = board[squareKey(square)];
@@ -113,20 +153,26 @@ function positionBlockCell(square: Square, board: BoardState): string {
 }
 
 /**
- * Renders the position-block text form of `gameState.board`: the full 12x12
- * board in White's absolute frame - row 12 at top, row 1 at bottom, column A
- * at left - as 12 lines of 12 three-character cells separated by single
- * spaces. Cell encoding: White piece `[X]`, Black piece `*X*`, empty `---`,
- * lake `XXX`, where `X` is the piece's position-block symbol. See
- * `technical-notes.md`'s "Record file format" for the source of this format.
+ * Renders the position-block text form of `gameState.board`: the full board
+ * - sized to `gameState.edition`'s `BoardLayout` (Battle's 12x12 if
+ * `edition` is omitted) - in White's absolute frame - highest row at top,
+ * row 1 at bottom, column A at left - as one line per row of three-character
+ * cells separated by single spaces. Cell encoding: White piece `[X]`, Black
+ * piece `*X*`, empty `---`, lake `XXX`, where `X` is the piece's
+ * position-block symbol. See `technical-notes.md`'s "Record file format" for
+ * the source of this format.
  */
 export function renderPositionBlock(gameState: InitialGameState): string {
-  const rowsTopToBottom = [...ROWS].reverse();
+  const layout = gameState.edition?.boardLayout ?? BATTLE_LAYOUT;
+  const rowsTopToBottom = [...rowsOf(layout)].reverse();
+  const columns = columnsOf(layout);
   return rowsTopToBottom
     .map((row) =>
-      COLUMNS.map((column) =>
-        positionBlockCell({ column, row }, gameState.board),
-      ).join(" "),
+      columns
+        .map((column) =>
+          positionBlockCell({ column, row }, gameState.board, layout),
+        )
+        .join(" "),
     )
     .join("\n");
 }
@@ -137,12 +183,12 @@ const PIECE_TYPE_BY_SYMBOL: Readonly<Record<string, PieceTypeId>> =
 
 /**
  * Everything that can go wrong parsing a position block, per
- * `parsePositionBlock`: a wrong overall shape (not 12 rows, or a row that is
- * not 12 cells), a cell matching none of the four cell forms, a piece symbol
- * not in `PIECE_CATALOG`, or a mismatch between a cell's lake marking and
- * `isLake` for that square. These are structured for callers (recordFile.ts,
- * Step 3) to word into a player-facing message; this module never produces
- * text itself.
+ * `parsePositionBlock`: a wrong overall shape (not the layout's row count, or
+ * a row that is not the layout's column count), a cell matching none of the
+ * four cell forms, a piece symbol not in `PIECE_CATALOG`, or a mismatch
+ * between a cell's lake marking and `isLake` for that square. These are
+ * structured for callers (recordFile.ts, Step 3) to word into a player-facing
+ * message; this module never produces text itself.
  */
 export type PositionBlockError =
   | { readonly kind: "wrongRowCount"; readonly rowCount: number }
@@ -205,38 +251,42 @@ function parseCell(cell: string): ParsedCell | undefined {
 /**
  * Parses the position-block text form (see `renderPositionBlock`, its
  * inverse) back into a `BoardState`, or a structured `PositionBlockError` if
- * the block is not a valid 12x12 board. Accepts exactly what
- * `renderPositionBlock` writes, plus reasonable whitespace slop: CRLF or LF
- * line endings, leading/trailing spaces on a line, extra spaces between
- * cells, and blank lines (tolerated wherever they fall, not just at the
- * edges). Terrain *is* checked - a lake cell (`XXX`) must land exactly on one
- * of the 12 lake squares (`isLake`), and a lake square's cell must be `XXX` -
- * because the position block draws the full board including terrain, so a
- * mismatch is not a valid rendering of any board; this is the format's own
- * self-description, not a rules check. Army composition and piece counts are
- * not checked - any position, including a partial one, is accepted. Never
- * throws.
+ * the block is not a valid board for `layout` (defaults to Battle's 12x12).
+ * Accepts exactly what `renderPositionBlock` writes for that layout, plus
+ * reasonable whitespace slop: CRLF or LF line endings, leading/trailing
+ * spaces on a line, extra spaces between cells, and blank lines (tolerated
+ * wherever they fall, not just at the edges). Terrain *is* checked - a lake
+ * cell (`XXX`) must land exactly on one of `layout`'s lake squares
+ * (`isLake`), and a lake square's cell must be `XXX` - because the position
+ * block draws the full board including terrain, so a mismatch is not a valid
+ * rendering of any board; this is the format's own self-description, not a
+ * rules check. Army composition and piece counts are not checked - any
+ * position, including a partial one, is accepted. Never throws.
  */
-export function parsePositionBlock(text: string): PositionBlockResult {
+export function parsePositionBlock(
+  text: string,
+  layout: BoardLayout = BATTLE_LAYOUT,
+): PositionBlockResult {
   const lines = text
     .split(/\r\n|\r|\n/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
-  if (lines.length !== 12) {
+  if (lines.length !== layout.rowCount) {
     return {
       kind: "error",
       error: { kind: "wrongRowCount", rowCount: lines.length },
     };
   }
 
-  const rowsTopToBottom = [...ROWS].reverse();
+  const rowsTopToBottom = [...rowsOf(layout)].reverse();
+  const columns = columnsOf(layout);
   const board: Record<string, PlacedPiece> = {};
 
   for (const [lineIndex, line] of lines.entries()) {
     const row = rowsTopToBottom[lineIndex];
     const cells = line.split(/\s+/);
-    if (cells.length !== 12) {
+    if (cells.length !== layout.columnCount) {
       return {
         kind: "error",
         error: { kind: "wrongCellCount", row, cellCount: cells.length },
@@ -244,7 +294,7 @@ export function parsePositionBlock(text: string): PositionBlockResult {
     }
 
     for (const [columnIndex, cellText] of cells.entries()) {
-      const column = COLUMNS[columnIndex];
+      const column = columns[columnIndex];
       const square: Square = { column, row };
       const parsedCell = parseCell(cellText);
 
@@ -255,7 +305,7 @@ export function parsePositionBlock(text: string): PositionBlockResult {
         };
       }
 
-      const onLake = isLake(square);
+      const onLake = isLake(square, layout);
 
       if (parsedCell.kind === "lake") {
         if (!onLake) {

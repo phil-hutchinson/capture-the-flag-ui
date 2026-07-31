@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BOARD_LAYOUTS } from "./boardLayout.ts";
 import {
   allSquares,
   COLUMNS,
@@ -18,13 +19,13 @@ const LAKE_COLUMN_PAIRS: readonly [Column, Column][] = [
   ["J", "K"],
 ];
 
-describe("board geometry (ruleset PRIMARY:1.1)", () => {
+describe("board geometry (ruleset 1.2, Battle - the default BoardLayout)", () => {
   it("has 144 squares total, one per column/row combination", () => {
     expect(allSquares()).toHaveLength(12 * 12);
   });
 
   it("has exactly 12 lake squares: columns B, C, F, G, J, K on rows 6 and 7", () => {
-    const lakeSquares = allSquares().filter(isLake);
+    const lakeSquares = allSquares().filter((square) => isLake(square));
     expect(lakeSquares).toHaveLength(12);
 
     const lakeKeys = new Set(lakeSquares.map(squareKey));
@@ -117,5 +118,120 @@ describe("board geometry (ruleset PRIMARY:1.1)", () => {
   it("produces a stable, human-readable key per square", () => {
     expect(squareKey({ column: "A", row: 1 })).toBe("A1");
     expect(squareKey({ column: "L", row: 12 })).toBe("L12");
+  });
+});
+
+// Story 00000023, Step 3: the same geometry functions above, exercised on
+// the Skirmish layout (`standard_64`) instead of the Battle default, to
+// confirm they are genuinely parametric over `BoardLayout` rather than
+// hardcoding Battle's 12x12 grid.
+describe("board geometry (ruleset 2-0:SKIRMISH, an explicit BoardLayout)", () => {
+  const SKIRMISH = BOARD_LAYOUTS.standard_64;
+  const SKIRMISH_LAKE_COLUMN_PAIRS: readonly [Column, Column][] = [
+    ["B", "C"],
+    ["F", "G"],
+  ];
+
+  it("has 64 squares total, one per column/row combination", () => {
+    expect(allSquares(SKIRMISH)).toHaveLength(8 * 8);
+  });
+
+  it("has exactly 8 lake squares: columns B, C, F, G on rows 4 and 5", () => {
+    const lakeSquares = allSquares(SKIRMISH).filter((square) =>
+      isLake(square, SKIRMISH),
+    );
+    expect(lakeSquares).toHaveLength(8);
+
+    const lakeKeys = new Set(lakeSquares.map(squareKey));
+    for (const row of [4, 5] as const) {
+      for (const column of ["B", "C", "F", "G"] as const) {
+        expect(lakeKeys.has(`${column}${row}`)).toBe(true);
+      }
+    }
+  });
+
+  it("forms two separate 2x2 lakes at B-C and F-G across rows 4-5", () => {
+    for (const [left, right] of SKIRMISH_LAKE_COLUMN_PAIRS) {
+      for (const row of [4, 5] as const) {
+        expect(isLake({ column: left, row }, SKIRMISH)).toBe(true);
+        expect(isLake({ column: right, row }, SKIRMISH)).toBe(true);
+      }
+    }
+
+    const nonLakeColumns: Column[] = ["A", "D", "E", "H"];
+    for (const row of [4, 5] as const) {
+      for (const column of nonLakeColumns) {
+        expect(isLake({ column, row }, SKIRMISH)).toBe(false);
+      }
+    }
+  });
+
+  it("has no lake squares outside rows 4 and 5", () => {
+    for (const row of [1, 2, 3, 6, 7, 8] as const) {
+      for (const column of ["A", "B", "C", "D", "E", "F", "G", "H"] as const) {
+        expect(isLake({ column, row }, SKIRMISH)).toBe(false);
+      }
+    }
+  });
+
+  it("has no neutral buffer: row 3 (White home) sits directly against row 4 (lake), row 6 (Black home) directly against row 5 (lake)", () => {
+    // Unlike Battle - which has two entirely-buffer rows (5 and 8) between
+    // each home zone and the lake rows - Skirmish has none: home immediately
+    // gives way to a lake row. The lake rows still carry their own non-lake
+    // "O" columns (A, D, E, H), exactly like Battle's - those remain a
+    // neutral, non-home region ("buffer"), just as on Battle; what Skirmish
+    // lacks is a *whole row* that is buffer everywhere, the way Battle's rows
+    // 5 and 8 are.
+    for (const row of [1, 2, 3] as const) {
+      expect(regionOf({ column: "A", row }, SKIRMISH)).toBe("white-home");
+    }
+    for (const row of [6, 7, 8] as const) {
+      expect(regionOf({ column: "A", row }, SKIRMISH)).toBe("black-home");
+    }
+    for (const row of SKIRMISH.lakeRows) {
+      for (const column of ["A", "D", "E", "H"] as const) {
+        expect(regionOf({ column, row }, SKIRMISH)).toBe("buffer");
+      }
+    }
+    // No row on this layout is entirely buffer (unlike Battle's rows 5/8).
+    for (let row = 1; row <= SKIRMISH.rowCount; row += 1) {
+      const regions = ["A", "B", "C", "D", "E", "F", "G", "H"].map((column) =>
+        regionOf({ column, row }, SKIRMISH),
+      );
+      expect(regions.every((region) => region === "buffer")).toBe(false);
+    }
+  });
+
+  it("gives each side exactly 24 home squares", () => {
+    expect(homeSquares("white", SKIRMISH)).toHaveLength(24);
+    expect(homeSquares("black", SKIRMISH)).toHaveLength(24);
+  });
+
+  it("only reports home squares within the side's own rows", () => {
+    for (const square of homeSquares("white", SKIRMISH)) {
+      expect([1, 2, 3]).toContain(square.row);
+    }
+    for (const square of homeSquares("black", SKIRMISH)) {
+      expect([6, 7, 8]).toContain(square.row);
+    }
+  });
+
+  it("isHomeSquareFor agrees with regionOf and does not cross sides", () => {
+    for (const square of allSquares(SKIRMISH)) {
+      const region = regionOf(square, SKIRMISH);
+      expect(isHomeSquareFor(square, "white", SKIRMISH)).toBe(
+        region === "white-home",
+      );
+      expect(isHomeSquareFor(square, "black", SKIRMISH)).toBe(
+        region === "black-home",
+      );
+    }
+  });
+
+  it("does not disturb the Battle-default (no-argument) behavior", () => {
+    // Calling the same functions with no layout argument still yields
+    // Battle's geometry - the two boards don't leak into one another.
+    expect(allSquares()).toHaveLength(144);
+    expect(homeSquares("white")).toHaveLength(48);
   });
 });

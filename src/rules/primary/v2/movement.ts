@@ -26,21 +26,26 @@
 // enemy (an attack). There are no other move ranges, charges, or per-type
 // special cases in 1.2.
 //
-// Builds only on the board geometry (board.ts), the piece catalog
-// (pieces.ts), and `BoardState` (gameState.ts); it has no further
+// Builds only on the board geometry (board.ts, boardLayout.ts), the piece
+// catalog (pieces.ts), and `BoardState` (gameState.ts); it has no further
 // dependencies.
+//
+// Every function here takes an optional `layout` parameter (a `BoardLayout`,
+// boardLayout.ts), defaulting to `BATTLE_LAYOUT` so existing callers - the
+// live app (still Battle-only) and the frozen encoding/engine modules - are
+// unaffected; passing an explicit layout (e.g. Skirmish's) sizes the
+// step/off-board bounds and the unencumbered scan to that board instead.
 
 import {
   allSquares,
-  COLUMNS,
+  BATTLE_LAYOUT,
+  columnIndexOf,
   isLake,
-  ROWS,
   squareKey,
-  type Column,
-  type Row,
   type Side,
   type Square,
 } from "./board.ts";
+import { columnLetter, type BoardLayout } from "./boardLayout.ts";
 import type { BoardState } from "./gameState.ts";
 import type { PieceTypeId } from "./pieces.ts";
 
@@ -65,31 +70,32 @@ const SURROUNDING_DIRECTIONS: readonly { dc: number; dr: number }[] = [
   { dc: 1, dr: 1 },
 ];
 
-const COLUMN_INDEX: Readonly<Record<Column, number>> = Object.fromEntries(
-  COLUMNS.map((column, index) => [column, index]),
-) as Record<Column, number>;
-
-/** The square `distance` steps from `square` in direction `dc`/`dr`, or `null` if off-board. */
+/** The square `distance` steps from `square` in direction `dc`/`dr`, or `null` if off-board on `layout`. */
 function step(
   square: Square,
   dc: number,
   dr: number,
   distance: number,
+  layout: BoardLayout,
 ): Square | null {
-  const columnIndex = COLUMN_INDEX[square.column] + dc * distance;
-  const row = (square.row + dr * distance) as Row;
-  if (columnIndex < 0 || columnIndex >= COLUMNS.length) {
+  const columnIndex = columnIndexOf(square.column) + dc * distance;
+  const row = square.row + dr * distance;
+  if (columnIndex < 0 || columnIndex >= layout.columnCount) {
     return null;
   }
-  if (!ROWS.includes(row)) {
+  if (row < 1 || row > layout.rowCount) {
     return null;
   }
-  return { column: COLUMNS[columnIndex], row };
+  return { column: columnLetter(columnIndex), row };
 }
 
-/** True if `square` holds no piece in `board` (and is not itself a lake). */
-function isEmpty(board: BoardState, square: Square): boolean {
-  return !isLake(square) && board[squareKey(square)] === undefined;
+/** True if `square` holds no piece in `board` (and is not itself a lake on `layout`). */
+function isEmpty(
+  board: BoardState,
+  square: Square,
+  layout: BoardLayout,
+): boolean {
+  return !isLake(square, layout) && board[squareKey(square)] === undefined;
 }
 
 /**
@@ -110,9 +116,10 @@ function isUnencumbered(
   board: BoardState,
   origin: Square,
   side: Side,
+  layout: BoardLayout,
 ): boolean {
   for (const { dc, dr } of SURROUNDING_DIRECTIONS) {
-    const neighbor = step(origin, dc, dr, 1);
+    const neighbor = step(origin, dc, dr, 1, layout);
     if (neighbor === null) {
       continue;
     }
@@ -134,18 +141,23 @@ function isUnencumbered(
  * provided the one-away intermediate square is empty and not a lake and the
  * far square is itself empty, non-lake, and on-board. Never diagonal, never
  * off-board, never through or onto a lake, never onto an occupied square.
+ * `layout` sizes the board's bounds and lake pattern; defaults to Battle.
  */
-export function legalDestinations(board: BoardState, origin: Square): Square[] {
+export function legalDestinations(
+  board: BoardState,
+  origin: Square,
+  layout: BoardLayout = BATTLE_LAYOUT,
+): Square[] {
   const occupant = board[squareKey(origin)];
   if (occupant === undefined || isImmobile(occupant.pieceType)) {
     return [];
   }
 
-  const unencumbered = isUnencumbered(board, origin, occupant.side);
+  const unencumbered = isUnencumbered(board, origin, occupant.side, layout);
   const destinations: Square[] = [];
   for (const { dc, dr } of ORTHOGONAL_DIRECTIONS) {
-    const near = step(origin, dc, dr, 1);
-    if (near === null || !isEmpty(board, near)) {
+    const near = step(origin, dc, dr, 1, layout);
+    if (near === null || !isEmpty(board, near, layout)) {
       continue;
     }
     destinations.push(near);
@@ -153,8 +165,8 @@ export function legalDestinations(board: BoardState, origin: Square): Square[] {
     if (!unencumbered) {
       continue;
     }
-    const far = step(origin, dc, dr, 2);
-    if (far === null || !isEmpty(board, far)) {
+    const far = step(origin, dc, dr, 2, layout);
+    if (far === null || !isEmpty(board, far, layout)) {
       continue;
     }
     destinations.push(far);
@@ -171,35 +183,40 @@ export function legalDestinations(board: BoardState, origin: Square): Square[] {
  * two away in a straight line, provided the one-away intermediate square is
  * empty and not a lake. An enemy Flag is offered like any other enemy piece
  * (capturing it wins the game); a friendly piece is never a target. Never
- * diagonal, never off-board, never through or onto a lake.
+ * diagonal, never off-board, never through or onto a lake. `layout` sizes
+ * the board's bounds and lake pattern; defaults to Battle.
  */
-export function legalAttacks(board: BoardState, origin: Square): Square[] {
+export function legalAttacks(
+  board: BoardState,
+  origin: Square,
+  layout: BoardLayout = BATTLE_LAYOUT,
+): Square[] {
   const occupant = board[squareKey(origin)];
   if (occupant === undefined || isImmobile(occupant.pieceType)) {
     return [];
   }
 
   const { side } = occupant;
-  const unencumbered = isUnencumbered(board, origin, side);
+  const unencumbered = isUnencumbered(board, origin, side, layout);
   const attacks: Square[] = [];
   for (const { dc, dr } of ORTHOGONAL_DIRECTIONS) {
-    const near = step(origin, dc, dr, 1);
+    const near = step(origin, dc, dr, 1, layout);
     if (near !== null) {
       const nearOccupant = board[squareKey(near)];
       if (
         nearOccupant !== undefined &&
-        !isLake(near) &&
+        !isLake(near, layout) &&
         nearOccupant.side !== side
       ) {
         attacks.push(near);
       }
     }
 
-    if (!unencumbered || near === null || !isEmpty(board, near)) {
+    if (!unencumbered || near === null || !isEmpty(board, near, layout)) {
       continue;
     }
-    const far = step(origin, dc, dr, 2);
-    if (far === null || isLake(far)) {
+    const far = step(origin, dc, dr, 2, layout);
+    if (far === null || isLake(far, layout)) {
       continue;
     }
     const farOccupant = board[squareKey(far)];
@@ -216,17 +233,22 @@ export function legalAttacks(board: BoardState, origin: Square): Square[] {
  * own pieces. This is the primitive the game-end detection (`outcome.ts`)
  * needs for §5's "no legal move": a side that can only attack is *not*
  * stuck (any adjacent enemy piece is always a legal, if sacrificial, attack),
- * so both destination sets must be considered.
+ * so both destination sets must be considered. `layout` sizes the board;
+ * defaults to Battle.
  */
-export function hasAnyLegalPly(board: BoardState, side: Side): boolean {
-  for (const square of allSquares()) {
+export function hasAnyLegalPly(
+  board: BoardState,
+  side: Side,
+  layout: BoardLayout = BATTLE_LAYOUT,
+): boolean {
+  for (const square of allSquares(layout)) {
     const placed = board[squareKey(square)];
     if (placed === undefined || placed.side !== side) {
       continue;
     }
     if (
-      legalDestinations(board, square).length > 0 ||
-      legalAttacks(board, square).length > 0
+      legalDestinations(board, square, layout).length > 0 ||
+      legalAttacks(board, square, layout).length > 0
     ) {
       return true;
     }

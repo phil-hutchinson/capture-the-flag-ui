@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Square } from "./board.ts";
+import { BOARD_LAYOUTS } from "./boardLayout.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
 import { hasAnyLegalPly, legalAttacks, legalDestinations } from "./movement.ts";
 import type { PieceTypeId } from "./pieces.ts";
@@ -311,5 +312,83 @@ describe("legalAttacks (ruleset 1.2, enemy-occupied attack targets)", () => {
       const sameRow = attack.row === 9;
       expect(sameColumn !== sameRow).toBe(true);
     }
+  });
+});
+
+// Story 00000023, Step 3: the same functions above, exercised on the
+// Skirmish layout (`standard_64`, 8x8) instead of the Battle default, to
+// confirm the step/off-board bounds and the unencumbered scan are genuinely
+// parametric over `BoardLayout` rather than hardcoding Battle's 12x12 grid.
+describe("legalDestinations/legalAttacks on the Skirmish layout (8x8)", () => {
+  const SKIRMISH = BOARD_LAYOUTS.standard_64;
+
+  it("gives an unencumbered piece its one- and two-square orthogonal empties near the middle of the 8x8 board", () => {
+    const state = board([["D3", "white", "champion"]]);
+    const destinations = legalDestinations(
+      state,
+      { column: "D", row: 3 },
+      SKIRMISH,
+    );
+    expect(sortedKeys(destinations)).toEqual(
+      ["C3", "E3", "D2", "D4", "B3", "F3", "D1", "D5"].sort(),
+    );
+  });
+
+  it("prunes off-board directions at the H8 corner - the far edge of the 8x8 board, off-board on Skirmish but on-board on Battle", () => {
+    const state = board([["H8", "white", "champion"]]);
+    const destinations = legalDestinations(
+      state,
+      { column: "H", row: 8 },
+      SKIRMISH,
+    );
+    expect(sortedKeys(destinations)).toEqual(["G8", "H7", "F8", "H6"].sort());
+    // Column I / row 9 would be on-board for Battle (up to L/12) but must be
+    // off-board here: confirms the bounds come from the passed layout, not a
+    // hardcoded Battle default.
+    expect(destinations.some((s) => s.column === "I")).toBe(false);
+    expect(destinations.some((s) => s.row === 9)).toBe(false);
+  });
+
+  it("offers a legal one-square attack near the Skirmish edge", () => {
+    const state = board([
+      ["H8", "white", "champion"],
+      ["H7", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(state, { column: "H", row: 8 }, SKIRMISH);
+    expect(sortedKeys(attacks)).toEqual(["H7"]);
+  });
+
+  it("offers a legal two-square attack near the Skirmish edge when unencumbered", () => {
+    const state = board([
+      ["H8", "white", "champion"],
+      ["H6", "black", "militia"], // H7 clear between them
+    ]);
+    const attacks = legalAttacks(state, { column: "H", row: 8 }, SKIRMISH);
+    expect(sortedKeys(attacks)).toEqual(["H6"]);
+  });
+
+  it("excludes a two-square destination whose far square is a Skirmish lake, even with a clear intermediate square", () => {
+    // C is a lake column on Skirmish's rows 4-5. Skirmish has no buffer row,
+    // so from C2 (one row short of the lake band), moving up: C3 (row 3,
+    // still White home, not a lake row) is a clear intermediate, but C4 (row
+    // 4, a lake row) is a lake.
+    const state = board([["C2", "white", "champion"]]);
+    const destinations = legalDestinations(
+      state,
+      { column: "C", row: 2 },
+      SKIRMISH,
+    );
+    expect(destinations.some((s) => s.column === "C" && s.row === 3)).toBe(
+      true,
+    );
+    expect(destinations.some((s) => s.column === "C" && s.row === 4)).toBe(
+      false,
+    );
+  });
+
+  it("hasAnyLegalPly considers only the Skirmish board's own squares", () => {
+    const state = board([["D3", "white", "champion"]]);
+    expect(hasAnyLegalPly(state, "white", SKIRMISH)).toBe(true);
+    expect(hasAnyLegalPly(state, "black", SKIRMISH)).toBe(false);
   });
 });

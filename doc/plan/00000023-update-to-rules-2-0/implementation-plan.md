@@ -234,7 +234,90 @@ published editions and rejects `standard_battle` on `standard_64`. Run
 
 ## Step 3 — Make the board parametric and thread the layout through the rule engine
 
-Status: pending
+Status: committed
+
+Notes: `Column`/`Row` widened to `string`/`number`; `board.ts`'s geometry
+functions (`allSquares`, `isLake`, `regionOf`, `isHomeSquareFor`,
+`homeSquares`) each gained an optional trailing `layout: BoardLayout`
+parameter **defaulting to a new `BATTLE_LAYOUT` constant** (`=
+BOARD_LAYOUTS.standard_144`), rather than being split into a Battle-only set
+plus a separately-named parametric set - a no-arg call (`isLake(square)`,
+`allSquares()`, etc.) still resolves to exactly today's Battle behavior, so
+every existing call site (the frozen `src/engine/`/`src/encoding/eng-nn-1/`
+modules, and every other file under `src/board/`, `src/review/`) compiles
+and behaves unchanged with zero edits. `COLUMNS`/`ROWS` stay as Battle-only
+constant arrays, now derived from two new exported helpers `columnsOf(layout)`/
+`rowsOf(layout)` rather than hand-written literals. Added `columnIndexOf`
+(letter-to-index arithmetic, replacing the old `COLUMNS.indexOf` lookup used
+by `movement.ts`/`combat.ts`/`placement.ts`) since a `Record<Column, number>`
+built off the Battle-only `COLUMNS` array would have been wrong for Skirmish.
+`movement.ts`, `combat.ts`, and `outcome.ts` each gained the same trailing
+optional `layout` parameter (default `BATTLE_LAYOUT`), threaded into their
+internal `step`/bounds/neighbor-scan helpers. `placement.ts`'s
+`PlacementState` gained a required `boardLayout` field (set by
+`emptyPlacement(side, boardLayout = BATTLE_LAYOUT)` and carried through
+`clear`); home-square lookups and the Tower-adjacency scan read
+`state.boardLayout`. The army stayed exactly as the plan specified - Battle's
+25-piece `freshInventory()`/`ARMY_SIZE` regardless of layout (Step 4's
+concern), which is why the new Skirmish placement tests place a few pieces by
+hand rather than running `autoFill` to completion (25 pieces do not fit
+Skirmish's 24-square home zone yet).
+
+`gameState.ts`: `InitialGameState` gained an **optional** `edition?: Edition`
+field (from the Step 2 `edition.ts` registry) rather than a required one -
+required would have forced edits to every hand-built `InitialGameState`/
+`PlayState` fixture across `play.test.ts`, `playAnnouncement.test.ts`,
+`playSession.test.ts`, `playWarnings*.test.ts`, and `engine/search*.test.ts`
+(all outside this step's named scope and, for the engine ones, explicitly
+deferred to Step 9's quarantine). `renderPositionBlock` reads
+`gameState.edition?.boardLayout ?? BATTLE_LAYOUT`; `parsePositionBlock` takes
+`layout: BoardLayout = BATTLE_LAYOUT` directly. `buildInitialGameState` gained
+an `edition: Edition = EDITIONS["2-0:BATTLE"]` parameter and now also
+validates both placement states' `boardLayout.id` matches `edition.boardLayoutId`
+(a new invariant check, additional to the existing side checks). `play.ts`
+needed a small, unavoidable follow-on edit (not one of the step's named
+consumers, but a direct consequence of extending `PlayState`): `PlayState`
+gained the same optional `edition?: Edition`, populated in `startPlay` from
+`initial.edition` and passed through in `renderGameRecord`'s reconstructed
+`InitialGameState` literal; `applyMove`'s internal calls to
+`legalAttacks`/`legalDestinations`/`resolveCombat`/`computeOutcome` were left
+on their Battle defaults, since wiring `play.ts` to actually *use*
+`state.edition.boardLayout` for rule enforcement is Step 7's job once a
+non-Battle edition is reachable through the picker - this step only extends
+the artifacts to *carry* it, per the plan's own wording.
+
+Added a Skirmish-layout `describe` block to each of `board.test.ts`,
+`movement.test.ts`, `combat.test.ts`, `outcome.test.ts`, `placement.test.ts`,
+and `gameState.test.ts` (34 new tests total, 516 → 550), several of which
+assert a square that is on-board for Battle's 12×12 grid but off-board for
+Skirmish's 8×8 (e.g. column I, row 9) is never picked up when a Skirmish
+layout is passed - direct evidence the bounds are read from the layout
+argument, not hardcoded. No existing test file needed edits beyond these
+additions: every pre-existing call site already worked unchanged through the
+default-parameter fallback. `npm run typecheck && npm run lint && npm test`
+all pass (550 tests, up from 516). `npm run format:check` is clean for every
+file this step touched (the three markdown files it still flags predate this
+step and are out of scope). Manual Gate C smoke test (`npm run dev`) is the
+orchestrator's to arrange per the standard pipeline, not run here.
+
+One deviation from the plan's literal wording: the plan says to "turn
+`allSquares`, `isLake`, `regionOf`, `isHomeSquareFor`, `homeSquares` ... into
+functions of a `BoardLayout`" separately from "retain Battle-default
+`COLUMNS`/`ROWS` constants and no-argument helpers" - read most literally
+this could suggest two parallel APIs (Battle-only no-arg functions plus
+separately-named parametric ones). Implemented instead as **one function per
+name with an optional, defaulted `layout` parameter** (true default
+parameters, not overloads), since that is simultaneously "a function of a
+`BoardLayout`" and a "no-argument helper" for every existing caller - it
+needed no `.filter(isLake)`-by-reference call sites to change except one in
+`board.test.ts` itself (a bare function reference passed to `Array.filter`
+picks up `filter`'s `index` argument as the second parameter; TypeScript
+correctly rejects this against `isLake`'s `layout: BoardLayout` second
+parameter type, so that one call was rewritten as `.filter((s) =>
+isLake(s))`). This is a smaller footprint than a two-API design and was not
+flagged as a place to split the step - it was the natural reading once
+`src/engine`/`src/encoding` call sites were inventoried and found to always
+call these functions at the old arity.
 
 Rework `board.ts` so board geometry is **read from a `BoardLayout`** (Step 2)
 rather than being the fixed 12×12 literal type. Widen `Column`/`Row` from literal

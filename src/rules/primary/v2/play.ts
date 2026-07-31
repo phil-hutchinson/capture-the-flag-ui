@@ -32,6 +32,7 @@
 
 import { otherSide, squareKey, type Side, type Square } from "./board.ts";
 import { resolveCombat, type CombatOutcome } from "./combat.ts";
+import type { Edition } from "./edition.ts";
 import {
   renderPositionBlock,
   type BoardState,
@@ -59,10 +60,18 @@ const FIRST_SIDE: Side = "white";
  * see `applyMove` for how it evolves), and the current `GameOutcome`
  * (`result` - outcome.ts): whether the game is still ongoing, or how it
  * ended. Everything downstream (the session layer, the UI, the record) reads
- * `result` rather than recomputing detection for itself.
+ * `result` rather than recomputing detection for itself. `edition` (story
+ * 00000023's Step 3) carries the resolved edition/board-layout over from
+ * `initial.edition`, unchanged - it is optional for the same reason
+ * `InitialGameState.edition` is (see gameState.ts): hand-built fixtures that
+ * predate this field remain valid `PlayState`s. This step does not yet
+ * thread it into the ply-generation calls below (`legalAttacks` etc. still
+ * default to Battle) - the live app is Battle-only until a later step's
+ * picker makes another edition reachable.
  */
 export interface PlayState {
   readonly ruleset: string;
+  readonly edition?: Edition;
   readonly initialBoard: BoardState;
   readonly board: BoardState;
   readonly sideToMove: Side;
@@ -86,6 +95,7 @@ export function startPlay(initial: InitialGameState): PlayState {
   const inactivityCounter = 0;
   return {
     ruleset: initial.ruleset,
+    edition: initial.edition,
     initialBoard: initial.board,
     board: initial.board,
     sideToMove: FIRST_SIDE,
@@ -323,6 +333,7 @@ function renderResultReasonValue(reason: GameEndReason): string {
 export function renderGameRecord(state: PlayState): string {
   const positionBlock = renderPositionBlock({
     ruleset: state.ruleset,
+    edition: state.edition,
     board: state.initialBoard,
   });
 
