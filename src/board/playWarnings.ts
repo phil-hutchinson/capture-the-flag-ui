@@ -21,8 +21,8 @@
 //
 // No React dependency - pure over `PlayState` (play.ts).
 
-import { INACTIVITY_LIMIT } from "../rules/primary/v1/outcome.ts";
-import type { PlayState } from "../rules/primary/v1/play.ts";
+import { INACTIVITY_LIMIT } from "../rules/primary/v2/outcome.ts";
+import type { PlayState } from "../rules/primary/v2/play.ts";
 
 /** How many combined moves may remain before the inactivity warning appears (story-fixed). */
 const INACTIVITY_WARNING_THRESHOLD = 10;

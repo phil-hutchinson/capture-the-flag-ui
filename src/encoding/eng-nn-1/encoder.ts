@@ -5,7 +5,7 @@
 // perspective, as a flat `Float32Array`.
 //
 // This module is pure - no React, no onnxruntime - and builds only on the
-// rules engine's board geometry/state (`src/rules/primary/v1/`) and this
+// rules engine's board geometry/state (`src/rules/primary/v2/`) and this
 // folder's shared coordinate transform and plane constants (`shared.ts`).
 
 import {
@@ -13,9 +13,9 @@ import {
   isLake,
   squareKey,
   type Side,
-} from "../../rules/primary/v1/board.ts";
-import type { BoardState } from "../../rules/primary/v1/gameState.ts";
-import { INACTIVITY_LIMIT } from "../../rules/primary/v1/outcome.ts";
+} from "../../rules/primary/v2/board.ts";
+import type { BoardState } from "../../rules/primary/v2/gameState.ts";
+import { INACTIVITY_LIMIT } from "../../rules/primary/v2/outcome.ts";
 import {
   flatIndex,
   INACTIVITY_PLANE,

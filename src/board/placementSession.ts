@@ -19,8 +19,8 @@ import {
   emptyPlacement,
   isComplete,
   type PlacementState,
-} from "../rules/primary/v1/placement.ts";
-import type { Side } from "../rules/primary/v1/board.ts";
+} from "../rules/primary/v2/placement.ts";
+import type { Side } from "../rules/primary/v2/board.ts";
 
 /**
  * The placement session's state: both players' placements, and whose turn it

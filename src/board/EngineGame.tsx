@@ -36,8 +36,8 @@ import {
   squareKey,
   type Side,
   type Square,
-} from "../rules/primary/v1/board.ts";
-import { buildInitialGameState } from "../rules/primary/v1/gameState.ts";
+} from "../rules/primary/v2/board.ts";
+import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
 import {
   autoFill,
   clear,
@@ -52,8 +52,8 @@ import {
   swap,
   towersLegallyPlaced,
   type PlacementState,
-} from "../rules/primary/v1/placement.ts";
-import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
+} from "../rules/primary/v2/placement.ts";
+import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
 import "../App.css";
 import "./EngineGame.css";
 

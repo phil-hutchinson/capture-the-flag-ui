@@ -3,11 +3,11 @@ import type {
   BoardState,
   InitialGameState,
   PlacedPiece,
-} from "../rules/primary/v1/gameState.ts";
-import { RULESET_TAG } from "../rules/primary/v1/gameState.ts";
-import { INACTIVITY_LIMIT } from "../rules/primary/v1/outcome.ts";
-import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
-import { startPlay, type PlayState } from "../rules/primary/v1/play.ts";
+} from "../rules/primary/v2/gameState.ts";
+import { RULESET_TAG } from "../rules/primary/v2/gameState.ts";
+import { INACTIVITY_LIMIT } from "../rules/primary/v2/outcome.ts";
+import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
+import { startPlay, type PlayState } from "../rules/primary/v2/play.ts";
 import { computeCountdownWarnings } from "./playWarnings.ts";
 
 // Fixtures in this file use only pieces whose id and rank are identical in

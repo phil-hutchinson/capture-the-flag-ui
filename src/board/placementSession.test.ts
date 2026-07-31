@@ -6,8 +6,8 @@ import {
   newSession,
   updateActivePlacement,
 } from "./placementSession.ts";
-import { autoFill, place } from "../rules/primary/v1/placement.ts";
-import { homeSquares } from "../rules/primary/v1/board.ts";
+import { autoFill, place } from "../rules/primary/v2/placement.ts";
+import { homeSquares } from "../rules/primary/v2/board.ts";
 
 describe("newSession", () => {
   it("starts with White active and both boards empty", () => {

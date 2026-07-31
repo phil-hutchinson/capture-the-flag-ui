@@ -10,8 +10,8 @@
 // Terrain (the p-lake symbol) is not a piece type, so it is not drawn by
 // PieceIcon; consumers reference it directly via `LAKE_SYMBOL_ID`.
 
-import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v1/pieces.ts";
-import type { Side } from "../rules/primary/v1/board.ts";
+import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v2/pieces.ts";
+import type { Side } from "../rules/primary/v2/board.ts";
 import pieceSpriteSheet from "./pieceSprites.svg?raw";
 
 /**

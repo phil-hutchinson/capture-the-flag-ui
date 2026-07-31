@@ -22,7 +22,7 @@
 /// <reference lib="webworker" />
 
 import type { Ply } from "../encoding/eng-nn-1/decoder.ts";
-import type { PlayState } from "../rules/primary/v1/play.ts";
+import type { PlayState } from "../rules/primary/v2/play.ts";
 import { evaluatePosition } from "./inference.ts";
 import { SearchDriver, type SearchDriverConfig } from "./searchDriver.ts";
 

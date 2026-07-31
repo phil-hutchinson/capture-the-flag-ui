@@ -41,19 +41,19 @@
 // Always "move", never "ply"; always Red/Blue via `sideColorName`, never
 // White/Black.
 
-import type { Side, Square } from "../rules/primary/v1/board.ts";
-import { squareKey } from "../rules/primary/v1/board.ts";
+import type { Side, Square } from "../rules/primary/v2/board.ts";
+import { squareKey } from "../rules/primary/v2/board.ts";
 import type {
   RecordFileError,
   RecordFileTags,
-} from "../rules/primary/v1/recordFile.ts";
-import type { PositionBlockError } from "../rules/primary/v1/gameState.ts";
-import type { ReplayError } from "../rules/primary/v1/replay.ts";
+} from "../rules/primary/v2/recordFile.ts";
+import type { PositionBlockError } from "../rules/primary/v2/gameState.ts";
+import type { ReplayError } from "../rules/primary/v2/replay.ts";
 import type {
   GameEndReason,
   GameOutcome,
-} from "../rules/primary/v1/outcome.ts";
-import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v1/pieces.ts";
+} from "../rules/primary/v2/outcome.ts";
+import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v2/pieces.ts";
 import type { ReadRecordError } from "../rules/readRecord.ts";
 import { describeResult } from "../board/playAnnouncement.ts";
 import { sideColorName } from "../board/sideNames.ts";

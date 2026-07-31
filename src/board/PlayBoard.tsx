@@ -35,7 +35,7 @@
 // are all reachable by mouse and keyboard even though an unselected movable
 // piece shows no highlight.
 
-import type { Side, Square } from "../rules/primary/v1/board.ts";
+import type { Side, Square } from "../rules/primary/v2/board.ts";
 import { FullBoard } from "./FullBoard.tsx";
 import {
   actionableSquares,

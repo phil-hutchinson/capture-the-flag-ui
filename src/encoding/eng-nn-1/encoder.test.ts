@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { allSquares, isLake } from "../../rules/primary/v1/board.ts";
+import { allSquares, isLake } from "../../rules/primary/v2/board.ts";
 import type {
   BoardState,
   PlacedPiece,
-} from "../../rules/primary/v1/gameState.ts";
-import { INACTIVITY_LIMIT } from "../../rules/primary/v1/outcome.ts";
-import type { PieceTypeId } from "../../rules/primary/v1/pieces.ts";
+} from "../../rules/primary/v2/gameState.ts";
+import { INACTIVITY_LIMIT } from "../../rules/primary/v2/outcome.ts";
+import type { PieceTypeId } from "../../rules/primary/v2/pieces.ts";
 import { encodePosition, type Position } from "./encoder.ts";
 import { flatIndex, INPUT_LENGTH, PLANE_COUNT, TENSOR_SIZE } from "./shared.ts";
 

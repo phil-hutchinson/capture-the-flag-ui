@@ -3,8 +3,8 @@ import {
   renderPositionBlock,
   RULESET_TAG,
   type InitialGameState,
-} from "./primary/v1/gameState.ts";
-import { renderMoveToken } from "./primary/v1/notation.ts";
+} from "./primary/v2/gameState.ts";
+import { renderMoveToken } from "./primary/v2/notation.ts";
 import { readRecord } from "./readRecord.ts";
 
 const GAME_STATE: InitialGameState = {

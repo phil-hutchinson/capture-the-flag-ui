@@ -4,16 +4,16 @@ import {
   squareKey,
   type Side,
   type Square,
-} from "../../rules/primary/v1/board.ts";
+} from "../../rules/primary/v2/board.ts";
 import type {
   BoardState,
   PlacedPiece,
-} from "../../rules/primary/v1/gameState.ts";
+} from "../../rules/primary/v2/gameState.ts";
 import {
   legalAttacks,
   legalDestinations,
-} from "../../rules/primary/v1/movement.ts";
-import type { PieceTypeId } from "../../rules/primary/v1/pieces.ts";
+} from "../../rules/primary/v2/movement.ts";
+import type { PieceTypeId } from "../../rules/primary/v2/pieces.ts";
 import {
   MOVEMENT_OFFSETS,
   POLICY_LENGTH,

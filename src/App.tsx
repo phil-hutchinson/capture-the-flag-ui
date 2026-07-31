@@ -4,7 +4,7 @@ import { EngineGame } from "./board/EngineGame.tsx";
 import { HotSeatGame } from "./board/HotSeatGame.tsx";
 import { ImportScreen } from "./review/ImportScreen.tsx";
 import { ReviewScreen } from "./review/ReviewScreen.tsx";
-import type { ReplayedRecord } from "./rules/primary/v1/replay.ts";
+import type { ReplayedRecord } from "./rules/primary/v2/replay.ts";
 
 // The app shell (story 00000014, Step 8; a fifth screen added by story
 // 00000019, Step 5): which of the app's screens is showing, held as a

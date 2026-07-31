@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Square } from "../../rules/primary/v1/board.ts";
+import type { Square } from "../../rules/primary/v2/board.ts";
 import {
   flatIndex,
   PIECE_PLANE_INDEX,

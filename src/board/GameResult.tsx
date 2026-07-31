@@ -32,7 +32,7 @@
 // than by color alone. Omitted by hot-seat, which is unaffected.
 
 import { useEffect, useRef } from "react";
-import type { GameOutcome } from "../rules/primary/v1/outcome.ts";
+import type { GameOutcome } from "../rules/primary/v2/outcome.ts";
 import { describeResult, type ResultPerspective } from "./playAnnouncement.ts";
 import "./GameResult.css";
 

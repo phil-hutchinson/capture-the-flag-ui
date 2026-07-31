@@ -35,8 +35,8 @@
 //   - `reset()` - drops both the retained tree and any pending working tree
 //     (a fresh game never inherits one).
 
-import { squareKey } from "../rules/primary/v1/board.ts";
-import type { PlayState } from "../rules/primary/v1/play.ts";
+import { squareKey } from "../rules/primary/v2/board.ts";
+import type { PlayState } from "../rules/primary/v2/play.ts";
 import type { Ply, RandomSource } from "../encoding/eng-nn-1/decoder.ts";
 import {
   createSearchNode,

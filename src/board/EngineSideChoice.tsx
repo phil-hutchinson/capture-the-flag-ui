@@ -23,7 +23,7 @@ import {
   DIFFICULTY_MODES,
   type Difficulty,
 } from "../engine/difficulty.ts";
-import type { Side } from "../rules/primary/v1/board.ts";
+import type { Side } from "../rules/primary/v2/board.ts";
 import "./EngineSideChoice.css";
 
 export interface EngineSideChoiceProps {

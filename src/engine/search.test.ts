@@ -5,25 +5,25 @@ import {
   squareKey,
   type Side,
   type Square,
-} from "../rules/primary/v1/board.ts";
-import { buildInitialGameState } from "../rules/primary/v1/gameState.ts";
-import type { BoardState, PlacedPiece } from "../rules/primary/v1/gameState.ts";
+} from "../rules/primary/v2/board.ts";
+import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
+import type { BoardState, PlacedPiece } from "../rules/primary/v2/gameState.ts";
 import {
   legalAttacks,
   legalDestinations,
-} from "../rules/primary/v1/movement.ts";
+} from "../rules/primary/v2/movement.ts";
 import {
   autoFill,
   emptyPlacement,
   type RandomSource as PlacementRandomSource,
-} from "../rules/primary/v1/placement.ts";
-import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
+} from "../rules/primary/v2/placement.ts";
+import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
 import {
   applyMove,
   startPlay,
   type PlayState,
-} from "../rules/primary/v1/play.ts";
-import { computeOutcome } from "../rules/primary/v1/outcome.ts";
+} from "../rules/primary/v2/play.ts";
+import { computeOutcome } from "../rules/primary/v2/outcome.ts";
 import {
   POLICY_LENGTH,
   policyIndexForPly,
@@ -42,7 +42,7 @@ import {
 /**
  * A tiny seeded linear-congruential generator, used only so tests can assert
  * reproducibility with a fixed seed without depending on `Math.random`.
- * Matches the pattern used in `src/rules/primary/v1/placement.test.ts` and
+ * Matches the pattern used in `src/rules/primary/v2/placement.test.ts` and
  * `src/engine/enginePlayer.test.ts`.
  */
 function seededRandom(seed: number): RandomSource {

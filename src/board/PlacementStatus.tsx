@@ -28,8 +28,8 @@
 // earlier version of this component did) risks the first announcement being
 // missed.
 
-import type { Side } from "../rules/primary/v1/board.ts";
-import type { PlacementProgress } from "../rules/primary/v1/placement.ts";
+import type { Side } from "../rules/primary/v2/board.ts";
+import type { PlacementProgress } from "../rules/primary/v2/placement.ts";
 import { sideColorName } from "./sideNames.ts";
 import "./PlacementStatus.css";
 

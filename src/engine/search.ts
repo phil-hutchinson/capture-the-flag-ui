@@ -30,7 +30,7 @@ import {
   type RandomSource,
 } from "../encoding/eng-nn-1/decoder.ts";
 import type { Position } from "../encoding/eng-nn-1/encoder.ts";
-import { applyMove, type PlayState } from "../rules/primary/v1/play.ts";
+import { applyMove, type PlayState } from "../rules/primary/v2/play.ts";
 import type { EngineEvaluation } from "./inference.ts";
 
 /**
