@@ -38,3 +38,27 @@
   cursor: pointer;
   min-width: 10rem;
 }
+
+.engine-side-choice__difficulty {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.engine-side-choice__difficulty-choice {
+  font: inherit;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+  min-width: 6rem;
+}
+
+.engine-side-choice__difficulty-choice[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--parchment);
+}

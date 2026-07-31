@@ -36,14 +36,17 @@ choices: play a game, play against the computer, or review a recorded one.
   from the companion
   [capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
   project's engine; a game you play here can't be saved or reviewed yet.
-- **Play against the computer** — choose to play as red or blue, place your
-  army as usual, and the computer places its own army at random and out of
-  sight. Then you play a full game against it, right in your browser, with
-  the same moving, attacking, and winning rules as playing a friend. The
-  computer opponent comes from the companion
+- **Play against the computer** — choose to play as red or blue and pick a
+  difficulty (Easy, Medium, or Hard), then place your army as usual while the
+  computer places its own army at random and out of sight. Then you play a
+  full game against it, right in your browser, with the same moving,
+  attacking, and winning rules as playing a friend. The computer opponent
+  comes from the companion
   [capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
-  project, but it hasn't been trained yet — for now it just moves at random,
-  so don't expect much of a fight. A properly trained opponent is on the way.
+  project and now thinks ahead before choosing a move — weighing out possible
+  lines of play, more of them on Hard than on Easy — but it hasn't been
+  trained yet, so at every difficulty it still plays close to random for now,
+  and don't expect much of a fight. A properly trained opponent is on the way.
 
 > **Status:** you can play a full game from start to finish — place both
 > armies, battle on the revealed board, and reach a real result — play a game
