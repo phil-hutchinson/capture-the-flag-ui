@@ -843,7 +843,116 @@ Skirmish). `npm run typecheck && npm run lint && npm test` remain green.
 
 ## Step 8 — Records: edition-id tag, size-parametric position block, reader dispatch
 
-Status: pending
+Status: committed
+
+Notes: All four bullets landed as scoped.
+
+**Writer.** `RULESET_TAG` (gameState.ts) is repurposed rather than removed:
+it now equals `DEFAULT_EDITION.id` (`"2-0:BATTLE"`) instead of the literal
+`"1.2:PRE-RELEASE"` string, so the many pre-existing fixtures elsewhere in
+the codebase (`playAnnouncement.test.ts`, `playWarnings*.test.ts`,
+`playSession.test.ts`, `play.test.ts`) that import it as a generic "a valid
+ruleset tag" placeholder for a Battle-default `InitialGameState`/`PlayState`
+keep compiling and stay semantically correct (their fixtures carry no
+`edition` field either, defaulting to Battle, so `RULESET_TAG`'s new value
+matches). `buildInitialGameState` no longer uses that constant directly,
+though: it now tags every artifact with `edition.id` (the *actual* resolved
+edition passed in), so a Skirmish game is correctly tagged `2-0:SKIRMISH`,
+not silently defaulted to Battle's tag as it effectively was before (the old
+`RULESET_TAG` constant was written unconditionally). `renderGameRecord`
+(play.ts) needed no code change at all - it already interpolates
+`state.ruleset`, which now correctly carries the edition id through from
+`buildInitialGameState`/`startPlay` for whichever edition was actually
+played.
+
+**Notation.** `SQUARE_PATTERN` widened from `[A-L](?:1[0-2]|[1-9])` to
+`[A-Z](?:[1-9][0-9]?)` (column A-Z, row 1-99, no leading zero) - a
+single-character column, matching the rules' own "up to 26 columns" limit
+and the Grounding facts' stated row ceiling. No other change to
+`notation.ts` was needed (`toSquare`/`renderMoveToken` were already
+column/row-generic).
+
+**Reader dispatch.** `readRecord.ts` no longer imports `RULESET_TAG`; it
+looks the parsed `Ruleset` tag up in the `EDITIONS` registry
+(`edition.ts`) via a new `isKnownEditionId` type guard, and on a hit passes
+that edition's `boardLayout` into `recordFile.ts`'s `parseRecordFile`
+(which gained an optional `layout: BoardLayout = BATTLE_LAYOUT` parameter,
+threaded straight into `parsePositionBlock`). A `1.2:PRE-RELEASE` tag is no
+longer a case at all - it falls straight through the same `unknownRuleset`
+path as any other unrecognized name, exactly as the step specifies. Since
+both published editions are served by the same major-2 rule engine
+(parameterized by `BoardLayout`, per this story's core architecture
+decision), "dispatch on the edition id" resolves to "look up that edition's
+layout and hand it to the one parametric reader" rather than routing to
+two different reader modules - there is only ever one major-2 reader.
+
+**Tests updated/added**, per the step's own file list:
+`notation.test.ts` (2 of its "malformed tokens" cases - column M, row 13 -
+were previously malformed only because of the old fixed A-L/1-12 bounds and
+are now legitimately valid squares; replaced with genuinely malformed cases
+under the new pattern - a two-letter column, row 100, row 0 - and added a
+new "beyond Battle's old bounds" parse case, column Z/row 99); `readRecord.test.ts`
+and `recordFile.test.ts` (every literal `1.2:PRE-RELEASE` tag retargeted to
+`2-0:BATTLE` where the fixture exercises structural/replay behavior
+unrelated to dispatch; the one dispatch test that used to *accept* a
+`1.2:PRE-RELEASE` file now asserts it is rejected as `unknownRuleset`, per
+the step; both files gained a new Skirmish (8x8) case -
+`recordFile.test.ts` a direct `parseRecordFile(text, layout)` round trip
+plus its rejection against the Battle-default layout, `readRecord.test.ts`
+a full synthetic extended-notation Skirmish game round-tripping through the
+real `readRecord` dispatch); `gameState.test.ts` (its two `(ruleset
+1.2:PRE-RELEASE)` describe titles reworded to "ruleset major 2"; a new test
+that `buildInitialGameState` tags a Skirmish game `2-0:SKIRMISH` when given
+that edition; the pre-existing Skirmish-edition describe block's three
+hand-built fixtures, which paired `edition: SKIRMISH_EDITION` with the
+now-Battle-valued `ruleset: RULESET_TAG` - stale even before this step, but
+made freshly inconsistent by RULESET_TAG's new value - corrected to
+`ruleset: SKIRMISH_EDITION.id`).
+
+**Deviation - the writer/reader "round trip" tests do not literally pipe
+`renderGameRecord`'s output through `readRecord` when moves are involved.**
+`renderGameRecord` still writes the move sequence in the *plain* form
+(`A2A3`, no separator - unchanged, deliberately out of this step's scope),
+and `parseMoveToken` deliberately rejects plain-form tokens (a pre-existing,
+intentional restriction predating this story - see notation.ts's header).
+Switching the writer to the extended form is the standing "emitted record
+notation" backburner item this story's story.md lists as out of scope, not
+this step's job. So `readRecord.test.ts`'s new round-trip coverage splits
+the same way the format itself does: one `it.each` block drives
+`renderGameRecord` through `readRecord` for both editions on a freshly
+started (zero-move) game, exercising the real writer end to end for
+everything this step actually changed (the `Ruleset` tag and the
+size-parametric position block); a second, hand-built-extended-notation
+block (mirroring the pre-existing 2-0:BATTLE synthetic-record tests)
+covers a *played* Skirmish game's full move-sequence round trip, including
+a move that lands on the Skirmish board's near-lake row at a
+non-lake-column square - proof the reader is reading *that* edition's lake
+layout, not Battle's. This was not flagged as a place to split the step; it
+follows directly from a pre-existing, intentional restriction the plan
+did not ask this step to lift.
+
+Note per the step's own instruction: verifying the reviewer against **real
+engine-produced** 2.0 records remains out of scope here (the companion
+repo's story 00000034 branch has no such fixtures available in this
+container); every round-trip test above is entirely app-produced, per the
+plan.
+
+**Deliberately not touched**, following Step 1/5's established precedent of
+leaving a file's stale header/comment alone unless the step actually
+reworks that file: `replay.ts`'s header comment still reads "ruleset
+1.2:PRE-RELEASE" (it is rules-blind and version-agnostic in practice, and
+was not in this step's file list); `reviewText.ts`'s `wrongRowCount`
+player-facing message is still hardcoded to "a full 12x12 board" regardless
+of which edition the record claims, which will read wrong for an
+undersized Skirmish record - this is exactly the kind of hardcoded-12x12
+copy Step 10 ("Copy, instructions, and accessibility audit") is scoped to
+sweep for, so it is left for that step rather than fixed here.
+
+`npm run typecheck && npm run lint && npm test` all pass (596 tests, up
+from 588 at the end of Step 7). `npm run build` succeeds. `npx prettier
+--write` was run on the two test files it reformatted
+(`recordFile.test.ts`, `readRecord.test.ts`); `npx prettier --check` is
+clean on every file this step touched.
 
 Flip the record layer from `1.2:PRE-RELEASE` to the major-2 editions:
 
@@ -877,11 +986,73 @@ completed game to a record string, read it back, and confirm the replayed board
 dimensions, lake layout, position, and moves match), and that the `Ruleset` tag
 reads exactly `2-0:BATTLE` / `2-0:SKIRMISH` with no flag tokens; a
 `1.2:PRE-RELEASE` file is rejected as `unknownRuleset`. `npm test`. **Manual
-(Gate D)** — in each edition, play to an ending (Flag capture; a maneuvering
-sequence that draws at the 50th quiet move; a draw by agreement), dump the
-developer record, confirm the right edition id / a size-correct block / a
-plausible result and reason, and **re-import that dump into the reviewer** and
-confirm it replays end to end.
+(Gate D) — deferred to Step 8a; do not run it at this step.** In each edition,
+play to an ending (Flag capture; a maneuvering sequence that draws at the 50th
+quiet move; a draw by agreement), dump the developer record, confirm the right
+edition id / a size-correct block / a plausible result and reason, and
+**re-import that dump into the reviewer** and confirm it replays end to end.
+
+**Why Gate D is deferred.** Its final clause is unachievable as this step
+leaves the code: `renderGameRecord` emits **plain**-form move tokens
+(`A2A3`), which `parseMoveToken` classifies as `plainNotation` and the
+reviewer deliberately rejects (`reviewText.ts`, "uses the short move notation,
+which doesn't record what happened to each piece"). That is **pre-existing**
+behaviour inherited from major 1, not a regression introduced here — but it
+means the app has never been able to re-read its own dump for a game with
+moves. Step 8a fixes it; Gate D runs once, in full, at the end of Step 8a.
+
+---
+
+## Step 8a — Emit the extended notation from the app's record writer
+
+Status: pending
+
+**Scope note for a cold reader.** `story.md`'s **Out of scope** section lists
+"switching this app's emitted record to the extended notation" as a standing
+backburner item. **The owner brought it into scope on 2026-08-01**, during
+Step 8's manual gate, on learning that leaving it out makes Gate D's
+"re-import that dump into the reviewer" clause impossible to satisfy — the app
+could never re-read a record of its own played game. That decision overrides
+the story's out-of-scope entry for this one item and nothing else; the rest of
+the backburner pair ("saving a played game to a file") stays out of scope.
+Numbered `8a` rather than `9` so the existing Steps 9-11 — referenced by name
+throughout this plan and by earlier steps' Notes — keep their numbers.
+
+Change `renderGameRecord` (`play.ts`) to emit each move as an **extended**
+token instead of the plain `A2A3` form, so a record the app writes is a record
+the app can read. `notation.ts` already provides `renderMoveToken`, written
+for exactly this purpose and currently called by nothing — use it rather than
+forking the grammar. The extended form carries, per move, the source square,
+the destination square, and which of the two pieces were removed, which is
+precisely the information the plain form drops and the reviewer needs.
+
+This requires the writer to know each move's **outcome** (which pieces were
+removed), not just its source and destination. Establish where that comes
+from: `applyMove` already resolves combat and knows the result, so the played
+move list the record is rendered from must carry it. If the recorded move
+history does not already retain removal information, extend it at the point
+the move is applied — do not re-derive it by replaying the game inside the
+writer.
+
+Leave the **reader** alone: `parseMoveToken` already accepts the extended form
+and this step introduces no new grammar. Keep the `plainNotation` rejection
+path and its player-facing message exactly as they are — a plain-notation file
+from some other producer must still be rejected with that clear message; it is
+simply no longer something this app produces.
+
+Why it comes here: it depends on Step 8's record layer being in place (the
+edition tag, the size-parametric position block, and the reader dispatch), and
+Gate D depends on it. It must precede Gate D, which now runs at the end of
+this step.
+
+How to verify: **automated** — extend Step 8's round-trip tests so a game
+**with moves** (not just a zero-move opening record) round-trips in both
+editions: render a played game to a record string, read it back, and confirm
+the replayed position and every move match, including a move whose combat
+removed one piece and one that removed both. Confirm a plain-notation file is
+still rejected with the existing message. `npm run typecheck && npm run lint
+&& npm test`. **Manual (Gate D, in full)** — run the whole of Step 8's Gate D
+as written above, including the re-import clause, which now passes.
 
 ---
 

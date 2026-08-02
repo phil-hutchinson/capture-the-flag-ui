@@ -1,4 +1,4 @@
-// Phase 2 play-state model & move application for ruleset 1.2.
+// Phase 2 play-state model & move application for ruleset major 2.
 //
 // A `PlayState` tracks an in-progress Phase-2 game: the current board, whose
 // turn it is to move, and the ordered list of moves made so far in the

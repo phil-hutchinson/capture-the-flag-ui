@@ -1,4 +1,4 @@
-// The record-file parser for ruleset PRIMARY:1.1 (rules.md §4.4 and
+// The record-file parser for ruleset major 2 (rules.md §4.4 and
 // `doc/ruleset/technical-notes.md`'s "Record file format" in the companion
 // capture-the-flag repository - the single source of truth).
 //
@@ -13,19 +13,25 @@
 // This module turns that text into a `ParsedRecord` - the header tags carried
 // through as raw strings, the starting `BoardState`, and the ordered list of
 // moves - or a structured `RecordFileError`. It applies only the record
-// format's own internal consistency (are there 12 rows? is every tag it uses
-// present at most once? does every move token parse? do round numbers run in
-// order?) - it does not touch the board at all: whether a move can actually
-// be carried out on the position it produces is replay.ts's job (Step 4), not
+// format's own internal consistency (does the position block match the
+// caller's `BoardLayout` row/cell count? is every tag it uses present at
+// most once? does every move token parse? do round numbers run in order?) -
+// it does not touch the board at all: whether a move can actually be
+// carried out on the position it produces is replay.ts's job (Step 4), not
 // this one. No player-facing text is produced here (see reviewText.ts).
 //
 // This is version-specific (the position block's piece letters and the move
-// notation belong to ruleset PRIMARY:1.1), so it lives beside the writer it
+// notation belong to ruleset major 2), so it lives beside the writer it
 // mirrors (`renderGameRecord` / `renderPositionBlock`, play.ts / gameState.ts).
 // `src/rules/readRecord.ts` is the version-dispatch entry point that decides
-// whether a file's `Ruleset` tag routes here at all.
+// which ruleset (edition) a file's `Ruleset` tag names, resolves that
+// edition's `BoardLayout`, and passes it to `parseRecordFile` below - the
+// **size-parametric position block** (story 00000023's Step 8): the same
+// two published editions' board dimensions and lake layout are read back out
+// of the block by `parsePositionBlock` rather than assumed fixed at 12x12.
 
-import type { Side } from "./board.ts";
+import { BATTLE_LAYOUT, type Side } from "./board.ts";
+import type { BoardLayout } from "./boardLayout.ts";
 import {
   parsePositionBlock,
   type BoardState,
@@ -298,9 +304,17 @@ function parseMoves(tokens: readonly string[]): MovesResult {
  * Parses a record file's text into a `ParsedRecord`, or a structured
  * `RecordFileError`. Tolerates LF or CRLF line endings, leading/trailing
  * blank lines, any number of blank lines between sections, trailing spaces on
- * any line, and a freely wrapped move sequence. Never throws.
+ * any line, and a freely wrapped move sequence. `layout` (defaults to
+ * Battle's) is the `BoardLayout` the position block is expected to describe -
+ * `readRecord.ts` resolves it from the file's own `Ruleset` tag (the edition
+ * id) before calling here, so the position block's dimensions and lake
+ * layout are read back against the *right* board rather than assumed fixed
+ * at 12x12 (story 00000023's Step 8). Never throws.
  */
-export function parseRecordFile(text: string): RecordFileResult {
+export function parseRecordFile(
+  text: string,
+  layout: BoardLayout = BATTLE_LAYOUT,
+): RecordFileResult {
   const chunks = splitIntoChunks(text);
 
   if (chunks.length < 2) {
@@ -312,7 +326,7 @@ export function parseRecordFile(text: string): RecordFileResult {
     return { kind: "error", error: headerResult.error };
   }
 
-  const positionResult = parsePositionBlock(chunks[1].join("\n"));
+  const positionResult = parsePositionBlock(chunks[1].join("\n"), layout);
   if (positionResult.kind === "error") {
     return {
       kind: "error",

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EDITIONS } from "./edition.ts";
 import {
   renderPositionBlock,
   RULESET_TAG,
@@ -51,7 +52,7 @@ const BLACK_MOVE_2 = renderMoveToken({
 });
 
 function header(extraLines: readonly string[] = []): string {
-  return ['[Ruleset "1.2:PRE-RELEASE"]', ...extraLines].join("\n");
+  return ['[Ruleset "2-0:BATTLE"]', ...extraLines].join("\n");
 }
 
 function fullRounds(): string {
@@ -76,7 +77,7 @@ describe("parseRecordFile - a full valid record", () => {
 
     const record = parsed(parseRecordFile(text));
     expect(record.tags).toEqual({
-      ruleset: "1.2:PRE-RELEASE",
+      ruleset: "2-0:BATTLE",
       result: "1-0",
       resultReason: "Flag Captured",
     });
@@ -141,7 +142,7 @@ describe("parseRecordFile - a full valid record", () => {
     ].join("\n\n");
 
     const record = parsed(parseRecordFile(text));
-    expect(record.tags).toEqual({ ruleset: "1.2:PRE-RELEASE" });
+    expect(record.tags).toEqual({ ruleset: "2-0:BATTLE" });
   });
 
   it("accepts a freely wrapped move sequence", () => {
@@ -200,7 +201,7 @@ describe("parseRecordFile - header rejections", () => {
 
   it("rejects a duplicate Ruleset tag", () => {
     const text = [
-      header(['[Ruleset "1.2:PRE-RELEASE"]']),
+      header(['[Ruleset "2-0:BATTLE"]']),
       POSITION_BLOCK,
       fullRounds(),
     ].join("\n\n");
@@ -357,6 +358,48 @@ describe("parseRecordFile - not a game record at all", () => {
     expect(parseRecordFile(text)).toEqual({
       kind: "error",
       error: { kind: "notARecord" },
+    });
+  });
+});
+
+// Story 00000023's Step 8: `parseRecordFile` takes the `BoardLayout` to parse
+// the position block against - `readRecord.ts` resolves it from the file's
+// own `Ruleset` (edition id) tag before calling here - so a Skirmish record's
+// 8x8 block is read correctly rather than judged against Battle's default.
+describe("parseRecordFile - the Skirmish edition's 8x8 board layout", () => {
+  const skirmish = EDITIONS["2-0:SKIRMISH"];
+  const SKIRMISH_GAME_STATE: InitialGameState = {
+    ruleset: skirmish.id,
+    edition: skirmish,
+    board: {
+      A1: { side: "white", pieceType: "flag" },
+      H3: { side: "white", pieceType: "masterOfArms" },
+      A8: { side: "black", pieceType: "tower" },
+    },
+  };
+  const SKIRMISH_POSITION_BLOCK = renderPositionBlock(SKIRMISH_GAME_STATE);
+
+  it("parses an 8x8 position block when given the Skirmish layout", () => {
+    const text = ['[Ruleset "2-0:SKIRMISH"]', SKIRMISH_POSITION_BLOCK].join(
+      "\n\n",
+    );
+
+    const record = parsed(parseRecordFile(text, skirmish.boardLayout));
+    expect(record.startingBoard).toEqual(SKIRMISH_GAME_STATE.board);
+    expect(record.tags).toEqual({ ruleset: "2-0:SKIRMISH" });
+  });
+
+  it("rejects that same 8x8 block against the Battle-default layout", () => {
+    const text = ['[Ruleset "2-0:SKIRMISH"]', SKIRMISH_POSITION_BLOCK].join(
+      "\n\n",
+    );
+
+    expect(parseRecordFile(text)).toEqual({
+      kind: "error",
+      error: {
+        kind: "positionBlock",
+        error: { kind: "wrongRowCount", rowCount: 8 },
+      },
     });
   });
 });

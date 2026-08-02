@@ -1,4 +1,4 @@
-// Versioned initial game-state serialization for ruleset 1.2:PRE-RELEASE.
+// Versioned initial game-state serialization for ruleset major 2.
 //
 // Once both players have completed placement, the two `PlacementState`s
 // (Step 3) are combined into a single, versioned `InitialGameState` artifact:
@@ -37,18 +37,22 @@ import { EDITIONS, type Edition } from "./edition.ts";
 import { PIECE_CATALOG, PIECE_TYPES, type PieceTypeId } from "./pieces.ts";
 import { isComplete, type PlacementState } from "./placement.ts";
 
-/**
- * The `VERSION:NAME` ruleset tag every serialized artifact carries, per
- * `technical-notes.md`'s "Record file format" `Ruleset` tag. Transitional
- * (story 00000023's implementation plan, "Transitional record tag"): this
- * stays the major-1 tag string until Step 8 flips it, together with the
- * reader/writer, to the resolved edition's id - even once the live rule
- * engine plays major 2 (from Step 5).
- */
-export const RULESET_TAG = "1.2:PRE-RELEASE";
-
 /** The edition `buildInitialGameState`/position-block rendering falls back to when none is given. */
 const DEFAULT_EDITION: Edition = EDITIONS["2-0:BATTLE"];
+
+/**
+ * The `Ruleset` record tag value for the default edition (`2-0:BATTLE`),
+ * per `technical-notes.md`'s "editions and flags" model: the tag is the
+ * full edition id, with no deviating flags (story 00000023's Step 8). This
+ * remains exported (rather than removed) because many fixtures elsewhere in
+ * this codebase build an `InitialGameState`/`PlayState` with no `edition`
+ * field - defaulting, like every other consumer, to Battle - and use this
+ * constant as their matching `ruleset` tag. `buildInitialGameState` below
+ * does **not** use this constant directly; it tags every artifact with the
+ * *actual* resolved edition's id, so a Skirmish game is correctly tagged
+ * `2-0:SKIRMISH`, not this Battle default.
+ */
+export const RULESET_TAG: string = DEFAULT_EDITION.id;
 
 /** One placed piece on the board: which side owns it and what type it is. */
 export interface PlacedPiece {
@@ -84,12 +88,14 @@ export interface InitialGameState {
 
 /**
  * Combines both players' completed placement states into a single, versioned
- * `InitialGameState` artifact, tagged with `edition` (defaults to Battle, so
- * the live app - still Battle-only - is unaffected). Rejects (throws) if
- * either state belongs to the wrong side, was placed on a different board
- * layout than `edition`'s, or is not a complete army for its own roster
- * (Battle 25 pieces, Skirmish 16) - by this point in the flow (both players
- * have confirmed) all three are structural invariants, not recoverable user
+ * `InitialGameState` artifact, tagged with `edition` (defaults to Battle) and
+ * a `ruleset` string equal to `edition.id` - the full edition id, with no
+ * deviating flags, exactly the `Ruleset` record tag `renderGameRecord`
+ * (play.ts) writes (story 00000023's Step 8). Rejects (throws) if either
+ * state belongs to the wrong side, was placed on a different board layout
+ * than `edition`'s, or is not a complete army for its own roster (Battle 25
+ * pieces, Skirmish 16) - by this point in the flow (both players have
+ * confirmed) all three are structural invariants, not recoverable user
  * errors.
  */
 export function buildInitialGameState(
@@ -130,7 +136,7 @@ export function buildInitialGameState(
     board[key] = { side: "black", pieceType };
   }
 
-  return { ruleset: RULESET_TAG, edition, board };
+  return { ruleset: edition.id, edition, board };
 }
 
 /** The three-character position-block cell for `square` given `board` and `layout`. */

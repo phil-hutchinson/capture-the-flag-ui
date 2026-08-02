@@ -30,14 +30,30 @@ function completeArmy(side: "white" | "black", seed: number): PlacementState {
   return autoFill(emptyPlacement(side), seededRandom(seed));
 }
 
-describe("buildInitialGameState (ruleset 1.2:PRE-RELEASE)", () => {
-  it("tags the artifact with the ruleset version", () => {
+describe("buildInitialGameState (ruleset major 2)", () => {
+  it("tags the artifact with the resolved edition's id (defaults to Battle)", () => {
     const white = completeArmy("white", 1);
     const black = completeArmy("black", 2);
     const gameState = buildInitialGameState(white, black);
 
-    expect(gameState.ruleset).toBe("1.2:PRE-RELEASE");
+    expect(gameState.ruleset).toBe("2-0:BATTLE");
     expect(gameState.ruleset).toBe(RULESET_TAG);
+  });
+
+  it("tags the artifact with the given edition's id when one is passed", () => {
+    const skirmish = EDITIONS["2-0:SKIRMISH"];
+    const white = autoFill(
+      emptyPlacement("white", skirmish.boardLayout, skirmish.army),
+      seededRandom(21),
+    );
+    const black = autoFill(
+      emptyPlacement("black", skirmish.boardLayout, skirmish.army),
+      seededRandom(22),
+    );
+    const gameState = buildInitialGameState(white, black, skirmish);
+
+    expect(gameState.ruleset).toBe("2-0:SKIRMISH");
+    expect(gameState.edition).toBe(skirmish);
   });
 
   it("round-trips both armies exactly through JSON", () => {
@@ -111,7 +127,7 @@ describe("buildInitialGameState (ruleset 1.2:PRE-RELEASE)", () => {
   });
 });
 
-describe("renderPositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
+describe("renderPositionBlock (ruleset major 2)", () => {
   it("renders a hand-constructed placement to the exact expected block", () => {
     // A small, deliberately sparse board (not a full army) so the expected
     // block below can be verified by inspection square-by-square:
@@ -183,7 +199,7 @@ describe("renderPositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
   });
 });
 
-describe("parsePositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
+describe("parsePositionBlock (ruleset major 2)", () => {
   /** A full-army position block, rendered from two deterministic autoFill armies. */
   function fullBoardBlock(): { board: BoardState; block: string } {
     const white = completeArmy("white", 900);
@@ -369,7 +385,7 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
     // other square is either empty (---) or one of the two 2x2 lakes on rows
     // 4-5, per the `O L L O O L L O` pattern.
     const gameState: InitialGameState = {
-      ruleset: RULESET_TAG,
+      ruleset: SKIRMISH_EDITION.id,
       edition: SKIRMISH_EDITION,
       board: {
         A1: { side: "white", pieceType: "flag" },
@@ -401,7 +417,7 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
       H8: { side: "black", pieceType: "tower" },
     };
     const gameState: InitialGameState = {
-      ruleset: RULESET_TAG,
+      ruleset: SKIRMISH_EDITION.id,
       edition: SKIRMISH_EDITION,
       board,
     };
@@ -416,7 +432,7 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
 
   it("rejects an 8x8 block against the Battle-default (12x12) parse", () => {
     const gameState: InitialGameState = {
-      ruleset: RULESET_TAG,
+      ruleset: SKIRMISH_EDITION.id,
       edition: SKIRMISH_EDITION,
       board: { A1: { side: "white", pieceType: "flag" } },
     };

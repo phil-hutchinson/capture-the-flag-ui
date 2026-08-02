@@ -214,8 +214,13 @@ and **Skirmish**.
   produce (follow-up story).
 - **Re-enabling computer play**: a new engine spec, re-encoding, and retraining
   are all out of scope; the option stays disabled.
-- **Saving a played game to a file** and **switching this app's emitted record
-  to the extended notation** — the standing backburner pair, still deferred.
+- **Saving a played game to a file** and ~~**switching this app's emitted record
+  to the extended notation**~~ — the standing backburner pair, still deferred.
+  **Amended 2026-08-01:** the owner brought the **extended notation** half into
+  scope during Step 8's manual gate, on learning that without it the app can
+  never re-read a record of its own played game (the reviewer rejects the plain
+  form), which made the story's own Gate D unsatisfiable. See the plan's Step
+  8a. **Saving a played game to a file** remains out of scope.
 - **Any major-1 compatibility**: reading, replaying, or converting
   `1.2:PRE-RELEASE` records.
 - **Mid-game-start records** (format-reserved in the companion notes, not
