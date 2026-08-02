@@ -526,7 +526,82 @@ test`. Manual confirmation of the live behavior is Gate B, exercised at Step 6.
 
 ## Step 6 — Parametric board rendering and the diagonal-attack / Skirmish views
 
-Status: pending
+Status: committed
+
+Notes: `boardView.ts`'s five functions each gained the same optional trailing
+`layout: BoardLayout = BATTLE_LAYOUT` parameter Step 3 established for
+`board.ts` - every pre-existing call site keeps its old two/one-argument
+call and behaves unchanged. `visibleRows` was rewritten as one formula
+(nearest lake row from `Math.min`/`Math.max` over `layout.lakeRows`; a
+buffer row only pushed when `layout.hasBuffer`; home rows counted from
+`layout.homeRowsPerSide`/`layout.rowCount`) rather than two side-keyed
+literal arrays, so it produces Skirmish's no-buffer 4-row crop (lake row +
+3 home rows) from the same code path as Battle's existing 6-row one, with no
+`if (layout === skirmish)` branch anywhere. `movePathSquares` needed no
+`layout` parameter at all: its column arithmetic was switched from the
+Battle-only `COLUMNS.indexOf`/`COLUMNS[...]` to `columnIndexOf`/
+`columnLetter` (letter-offset arithmetic already added to `board.ts` in Step
+3), which is board-width-independent by construction - a deviation from the
+plan's literal "derive `movePathSquares` ... from the resolved layout"
+wording, recorded because the function turned out not to need the argument
+the plan implied it would take; a test proves it still works past Battle's
+12-column width (an H1→F1 Skirmish-sized two-square move). `Board.tsx`,
+`FullBoard.tsx`, and `PlayBoard.tsx` each gained an optional `layout`
+prop (`Board`/`FullBoard` default to `BATTLE_LAYOUT`; `PlayBoard` instead
+derives it from `session.play.edition?.boardLayout ?? BATTLE_LAYOUT`, since
+the session already carries the resolved edition per Step 3 and threading a
+second, independent prop would let it disagree with the board actually being
+played), threaded into their `visibleRows`/`visibleColumns`/`fullBoardRows`/
+`fullBoardDisplayPosition`/`isLake` calls. Grid sizing is now driven by
+`--columns`/`--rows` CSS custom properties set inline from the layout (or,
+for `Board`/`FullBoard`, the actual rendered row/column array lengths) rather
+than the CSS files' old hardcoded `repeat(12, ...)`/`repeat(6, ...)`;
+`FullBoard.tsx` sets these on `.full-board__stage` (a sibling ancestor of the
+grid, mirroring how `--square`/`--board-border` already reach it) rather than
+on `.full-board` itself, since `AccessibleGrid` does not expose a `style`
+prop and CSS custom properties inherit down through its wrapper regardless.
+`HotSeatGame.tsx`'s `<Board>` call now passes `layout={placement.boardLayout}`
+(its `<PlayBoard>` call needed no change - `PlayBoard` derives its own layout
+from the session). `EngineGame.tsx` and `ReviewScreen.tsx` were **not**
+touched: both are out of this step's named scope (`Board.tsx`/`PlayBoard.tsx`/
+`FullBoard.tsx`), both build only Battle placements/sessions today, and both
+already compile and behave unchanged through the new props' Battle defaults -
+matching Step 3/4's precedent of leaving unnamed live consumers alone when a
+default parameter covers them.
+
+Diagonal-attack highlighting needed **no new code**: `playSession.ts`'s
+`attackTargets`/`actionableSquares` already call `legalAttacks` directly with
+no filtering, and Step 5 already made `legalAttacks` return diagonal targets
+alongside orthogonal ones, so `FullBoard.tsx`'s existing `attackSquares`
+rendering (the `--attack` fill/border, `squareLabel`'s "attack {piece}"
+wording) already treats a diagonal target exactly like an orthogonal one -
+this step's Notes record that fact rather than a change, since the plan
+listed it as a thing to "confirm" via Gate B. Grid keyboard navigation
+(`gridNavigation.ts`/`AccessibleGrid.tsx`) likewise needed no change: both
+were already generic over `rowCount`/`columnCount` derived from the caller's
+own row/column arrays, with no board-size assumption baked in anywhere -
+confirmed by reading both files, not by adding new tests, since there was no
+board-specific behavior to add coverage for.
+
+Added the Skirmish-layout `describe` blocks `boardView.test.ts`'s
+verification calls for (`visibleRows` proving no `"buffer"` band ever
+appears; `visibleColumns`/`fullBoardRows`/`fullBoardDisplayPosition` at 8×8;
+`movePathSquares`'s two board-size-independence cases above), 13 new tests
+(564 → 577, Step 5's baseline). No existing test needed edits: every pre-existing
+`boardView.ts`/`Board.tsx`/`PlayBoard.tsx`/`FullBoard.tsx` call site keeps
+working unchanged through the new optional parameters' defaults.
+`npm run typecheck && npm run lint && npm test` all pass (577 tests);
+`npm run build` succeeds; `npx prettier --write` was run on every file this
+step touched (four files needed re-wrapping; the three flagged markdown files
+predate this step and are out of scope, per Step 3/4's precedent). The live
+app was **not** temporarily defaulted to Skirmish - no such throwaway edit
+was made or needs reverting; the plan's manual Gate B/rendering verification
+is the owner's to run once Step 7's picker exists, and in the meantime can be
+reached by temporarily editing `HotSeatGame.tsx`'s
+`newSession()`/`buildInitialGameState(next.white, next.black)` calls to pass
+`EDITIONS["2-0:SKIRMISH"]` (both must agree, or `buildInitialGameState`'s own
+board-layout-mismatch check throws) - not applied here, since Step 6's own
+scope is the rendering layer, not a way to reach it before the picker lands.
 
 Rework the screen-orientation and rendering layer for the parametric board and
 the new attack direction:
@@ -564,6 +639,17 @@ the diagonal and any empty diagonal square are never offered; confirm the Battle
 and columns, the Skirmish no-buffer crop, `movePathSquares` at both sizes) plus
 `npm run typecheck && npm run lint && npm test`.
 
+Gate B result (owner, at Step 6): the rendering items above all pass — 8×8
+board, no buffer row in placement, 16-piece tray, correct orientation, and
+diagonal attacks highlighted as attacks with Tower/Flag/empty diagonals
+correctly never offered. The owner also observed, on the temporary Skirmish
+default, that **pieces could move onto drawn lake squares and were blocked
+from ordinary moves elsewhere**. This is **not a Step 6 defect**: the
+renderer draws Skirmish's lakes correctly (rows 4-5), but the play-phase rule
+calls still run on the `BATTLE_LAYOUT` default, so the engine reads lakes at
+Battle's rows 6-7. That wiring was deliberately deferred by Step 3's Notes and
+is **Step 7's** job; see Step 7's explicit call-out below.
+
 ---
 
 ## Step 7 — Battle/Skirmish picker and threading the chosen edition through a game
@@ -581,6 +667,24 @@ to one game. Feed the chosen edition into `newSession`/placement, into
 `startSession`/`startPlay`, and into rendering, so placement, play, the board,
 and (already) the game-state artifact all use the chosen board and army.
 
+**Thread the layout into the play-phase rule calls (required — observed
+failing at Gate B).** Step 3 deliberately left every ply-generation call on its
+Battle default, so on a non-Battle board the engine reads Battle's lake
+pattern and bounds while the renderer draws the real ones. Confirmed live at
+Step 6's Gate B: on Skirmish, pieces could move onto drawn lake squares
+(rows 4-5, which Battle's layout says are open) and were refused ordinary
+moves onto open squares (rows 6-7 at columns B/C/F/G, which Battle's layout
+says are lakes). Pass the resolved `state.edition.boardLayout` into:
+
+- `play.ts` — `applyMove`'s `legalAttacks`/`legalDestinations`/`resolveCombat`
+  calls, and the `computeOutcome` calls in `startPlay` and `applyMove`.
+- `playSession.ts` — every `legalDestinations`/`legalAttacks` call (the
+  selectable-piece test, the highlight sets, and the ply-application path),
+  reading the layout from `session.play.edition`.
+
+Battle keeps its current behavior because the Battle edition resolves to the
+same layout the default supplied.
+
 Announce the choice and the resulting board to assistive tech (the selected game
 and its board size), keeping the established focus/keyboard/screen-reader
 patterns HotSeatGame already uses.
@@ -596,8 +700,14 @@ squares, and the Tower-adjacency rule (including diagonally) still blocks
 finishing with an actionable message; complete both armies and confirm the reveal
 shows both 16-piece armies. Then start a new game, choose Battle → the unchanged
 12×12 game with its 25-piece army, placement/movement (including the two-square
-unencumbered move)/combat as before, now with diagonal attacks available. `npm
-run typecheck && npm run lint && npm test` remain green.
+unencumbered move)/combat as before, now with diagonal attacks available. On
+the Skirmish board specifically, confirm the Gate B defect is gone: a piece
+**cannot** move onto any drawn lake square (rows 4-5 at columns B/C/F/G) and
+**can** move onto every open square, including rows 6-7 at those columns.
+**Automated** — unit tests driving a Skirmish `PlayState` through
+`playSession`/`applyMove` that assert a lake square on the Skirmish layout is
+never among the offered destinations and that a Battle-lake-but-Skirmish-open
+square is. `npm run typecheck && npm run lint && npm test` remain green.
 
 ---
 

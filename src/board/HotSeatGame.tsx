@@ -452,6 +452,7 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
           <Board
             activeSide={activeSide}
             placement={placement}
+            layout={placement.boardLayout}
             onSquareClick={handleSquareClick}
             selectedSquare={selectedSquare}
           />

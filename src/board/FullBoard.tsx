@@ -1,12 +1,13 @@
-// Presentational full 12x12 board (story 00000014, Step 7), extracted out of
-// what used to be `PlayBoard.tsx` so the game reviewer (later steps of this
-// story) can share it without depending on `PlaySession`. `PlayBoard.tsx` is
-// now a thin adapter that derives this component's props from a
-// `PlaySession`; the review screen will derive them from its own, much
-// simpler `reviewSession`. Unlike the placement `Board` (Board.tsx), this
-// draws the *full* 12x12 board - both armies fully visible, per Phase 2's
-// perfect-information rule - through the reusable accessible grid (story
-// 00000004, Step 5), so it is keyboard-operable and screen-reader-
+// Presentational full board (story 00000014, Step 7; parametric over the
+// board layout - 12x12 for Battle, 8x8 for Skirmish - since story 00000023,
+// Step 6), extracted out of what used to be `PlayBoard.tsx` so the game
+// reviewer (later steps of this story) can share it without depending on
+// `PlaySession`. `PlayBoard.tsx` is now a thin adapter that derives this
+// component's props from a `PlaySession`; the review screen will derive them
+// from its own, much simpler `reviewSession`. Unlike the placement `Board`
+// (Board.tsx), this draws the *full* board - both armies fully visible, per
+// Phase 2's perfect-information rule - through the reusable accessible grid
+// (story 00000004, Step 5), so it is keyboard-operable and screen-reader-
 // perceivable regardless of caller.
 //
 // This component knows nothing about whose turn it is or the move grammar
@@ -62,11 +63,13 @@
 import type { CSSProperties } from "react";
 import { PieceIcon, LAKE_SYMBOL_ID } from "../art/PieceIcon.tsx";
 import {
+  BATTLE_LAYOUT,
   isLake,
   squareKey,
   type Side,
   type Square,
 } from "../rules/primary/v2/board.ts";
+import type { BoardLayout } from "../rules/primary/v2/boardLayout.ts";
 import type { BoardState, PlacedPiece } from "../rules/primary/v2/gameState.ts";
 import { PIECE_CATALOG } from "../rules/primary/v2/pieces.ts";
 import {
@@ -103,6 +106,18 @@ interface SlideStyle extends CSSProperties {
   readonly "--slide-drow": number;
   readonly "--slide-dcol": number;
   readonly "--slide-duration": string;
+}
+
+/**
+ * Inline style carrying the board's own grid size (story 00000023, Step 6),
+ * sized to `layout`. Set on `.full-board__stage` (not `.full-board` itself)
+ * so plain CSS custom-property inheritance carries it down through
+ * `AccessibleGrid`'s own wrapper, exactly as `--square`/`--board-border`
+ * already do (see that element's own comment).
+ */
+interface StageStyle extends CSSProperties {
+  readonly "--columns": number;
+  readonly "--rows": number;
 }
 
 /**
@@ -149,6 +164,13 @@ export interface FullBoardProps {
   readonly board: BoardState;
   /** The side whose perspective the board is drawn from (see `boardView.ts`). */
   readonly side: Side;
+  /**
+   * The board layout to render (story 00000023, Step 6). Defaults to Battle,
+   * so every existing caller is unaffected; `PlayBoard.tsx` passes the
+   * session's own resolved edition's layout once one other than Battle is
+   * reachable (Step 7).
+   */
+  readonly layout?: BoardLayout;
   /** The square of a piece currently picked up, if any (hot-seat only). */
   readonly selected?: Square;
   /**
@@ -208,13 +230,15 @@ export interface FullBoardProps {
 }
 
 /**
- * The full 12x12 board, oriented to `side`, drawn through the accessible
- * grid (story 00000004, Step 5). See the module comment above for the
- * highlighting and activation contract.
+ * The full board (12x12 for Battle, 8x8 for Skirmish - see `layout`),
+ * oriented to `side`, drawn through the accessible grid (story 00000004,
+ * Step 5). See the module comment above for the highlighting and activation
+ * contract.
  */
 export function FullBoard({
   board,
   side,
+  layout = BATTLE_LAYOUT,
   selected,
   destinationSquares = [],
   attackSquares = [],
@@ -224,8 +248,8 @@ export function FullBoard({
   announcement,
   animatedMove,
 }: FullBoardProps) {
-  const rows = fullBoardRows(side);
-  const columns = visibleColumns(side);
+  const rows = fullBoardRows(side, layout);
+  const columns = visibleColumns(side, layout);
   const attackKeys = new Set(attackSquares.map((square) => squareKey(square)));
   // A square that is both a plain-move destination and an attack target (in
   // practice never the case - a square is one or the other - but kept as an
@@ -266,7 +290,7 @@ export function FullBoard({
     columns.map((column) => {
       const square: Square = { column, row };
       const key = squareKey(square);
-      const lake = isLake(square);
+      const lake = isLake(square, layout);
       const piece = board[key];
       const isSelected = key === selectedKey;
       const isAttack = attackKeys.has(key);
@@ -309,8 +333,12 @@ export function FullBoard({
   const slideStyle: SlideStyle | undefined =
     animatedMove && slidingPiece
       ? (() => {
-          const from = fullBoardDisplayPosition(side, animatedMove.from);
-          const to = fullBoardDisplayPosition(side, animatedMove.to);
+          const from = fullBoardDisplayPosition(
+            side,
+            animatedMove.from,
+            layout,
+          );
+          const to = fullBoardDisplayPosition(side, animatedMove.to, layout);
           return {
             "--slide-to-row": to.row,
             "--slide-to-col": to.column,
@@ -321,6 +349,16 @@ export function FullBoard({
         })()
       : undefined;
 
+  // The board's own grid size (story 00000023, Step 6), set here rather than
+  // on `.full-board` itself: plain CSS custom-property inheritance carries
+  // it down through `AccessibleGrid`'s own wrapper div, mirroring how
+  // `--square`/`--board-border` (FullBoard.css) already reach both the grid
+  // and the slide overlay from this one ancestor.
+  const stageStyle: StageStyle = {
+    "--columns": columns.length,
+    "--rows": rows.length,
+  };
+
   return (
     // `.full-board__stage` wraps the grid (rather than the slide overlay
     // living inside any one square) because a square's own `overflow:
@@ -329,7 +367,7 @@ export function FullBoard({
     // box. The stage, not `.full-board` itself, is where `--square` and the
     // board's border width are declared (FullBoard.css), so the grid and the
     // overlay always agree on cell geometry from one source.
-    <div className="full-board__stage">
+    <div className="full-board__stage" style={stageStyle}>
       <AccessibleGrid
         label="Battlefield"
         rows={cellRows}

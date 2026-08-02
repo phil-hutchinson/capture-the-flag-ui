@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BOARD_LAYOUTS } from "../rules/primary/v2/boardLayout.ts";
 import {
   fullBoardDisplayPosition,
   fullBoardRows,
@@ -6,6 +7,9 @@ import {
   visibleColumns,
   visibleRows,
 } from "./boardView.ts";
+
+/** Skirmish's 8x8, no-buffer layout (story 00000023's Step 2 registry). */
+const SKIRMISH_LAYOUT = BOARD_LAYOUTS.standard_64;
 
 describe("visibleRows", () => {
   it("shows White's 4 home rows, the buffer row, and the full near lake row, back rank last", () => {
@@ -242,5 +246,152 @@ describe("movePathSquares", () => {
       { column: "D", row: 5 },
       { column: "D", row: 4 },
     ]);
+  });
+
+  it("returns just from/to for a one-square diagonal move (story 00000023's diagonal attacks)", () => {
+    expect(
+      movePathSquares({ column: "G", row: 7 }, { column: "H", row: 8 }),
+    ).toEqual([
+      { column: "G", row: 7 },
+      { column: "H", row: 8 },
+    ]);
+  });
+
+  it("works past Battle's 12-column width - a Skirmish-sized two-square move", () => {
+    // Skirmish is only 8 columns wide (A-H); this proves the column
+    // arithmetic no longer depends on Battle's fixed A-L column list.
+    expect(
+      movePathSquares({ column: "H", row: 1 }, { column: "F", row: 1 }),
+    ).toEqual([
+      { column: "H", row: 1 },
+      { column: "G", row: 1 },
+      { column: "F", row: 1 },
+    ]);
+  });
+});
+
+describe("visibleRows on the Skirmish layout (no buffer)", () => {
+  it("shows White's 3 home rows and the near lake row, with no buffer band", () => {
+    const rows = visibleRows("white", SKIRMISH_LAYOUT);
+    expect(rows.map((r) => r.row)).toEqual([4, 3, 2, 1]);
+    expect(rows.map((r) => r.band)).toEqual([
+      "lake-row",
+      "home",
+      "home",
+      "home",
+    ]);
+    expect(rows.some((r) => r.band === "buffer")).toBe(false);
+    expect(rows.at(-1)).toEqual({ row: 1, band: "home" });
+  });
+
+  it("shows Black's 3 home rows and the near lake row, with no buffer band", () => {
+    const rows = visibleRows("black", SKIRMISH_LAYOUT);
+    expect(rows.map((r) => r.row)).toEqual([5, 6, 7, 8]);
+    expect(rows.map((r) => r.band)).toEqual([
+      "lake-row",
+      "home",
+      "home",
+      "home",
+    ]);
+    expect(rows.some((r) => r.band === "buffer")).toBe(false);
+    expect(rows.at(-1)).toEqual({ row: 8, band: "home" });
+  });
+});
+
+describe("visibleColumns on the Skirmish layout", () => {
+  it("runs left-to-right A...H for White (un-rotated)", () => {
+    expect(visibleColumns("white", SKIRMISH_LAYOUT)).toEqual([
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+    ]);
+  });
+
+  it("runs left-to-right H...A for Black (180 degree rotation)", () => {
+    expect(visibleColumns("black", SKIRMISH_LAYOUT)).toEqual([
+      "H",
+      "G",
+      "F",
+      "E",
+      "D",
+      "C",
+      "B",
+      "A",
+    ]);
+  });
+});
+
+describe("fullBoardRows on the Skirmish layout", () => {
+  it("runs top-to-bottom 8...1 for White, back rank (row 1) nearest at the bottom", () => {
+    expect(fullBoardRows("white", SKIRMISH_LAYOUT)).toEqual([
+      8, 7, 6, 5, 4, 3, 2, 1,
+    ]);
+  });
+
+  it("runs top-to-bottom 1...8 for Black, back rank (row 8) nearest at the bottom", () => {
+    expect(fullBoardRows("black", SKIRMISH_LAYOUT)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8,
+    ]);
+  });
+
+  it("covers all 64 squares exactly once when paired with visibleColumns, per side", () => {
+    for (const side of ["white", "black"] as const) {
+      const rows = fullBoardRows(side, SKIRMISH_LAYOUT);
+      const columns = visibleColumns(side, SKIRMISH_LAYOUT);
+      const keys = new Set<string>();
+      for (const row of rows) {
+        for (const column of columns) {
+          keys.add(`${column}${row}`);
+        }
+      }
+      expect(keys.size).toBe(64);
+    }
+  });
+});
+
+describe("fullBoardDisplayPosition on the Skirmish layout", () => {
+  it("places White's own back-rank corner (A1) at the bottom-left cell", () => {
+    expect(
+      fullBoardDisplayPosition(
+        "white",
+        { column: "A", row: 1 },
+        SKIRMISH_LAYOUT,
+      ),
+    ).toEqual({ row: 7, column: 0 });
+  });
+
+  it("places White's far corner (H8) at the top-right cell", () => {
+    expect(
+      fullBoardDisplayPosition(
+        "white",
+        { column: "H", row: 8 },
+        SKIRMISH_LAYOUT,
+      ),
+    ).toEqual({ row: 0, column: 7 });
+  });
+
+  it("places Black's own back-rank corner (H8) at the bottom-left cell", () => {
+    expect(
+      fullBoardDisplayPosition(
+        "black",
+        { column: "H", row: 8 },
+        SKIRMISH_LAYOUT,
+      ),
+    ).toEqual({ row: 7, column: 0 });
+  });
+
+  it("places Black's far corner (A1) at the top-right cell", () => {
+    expect(
+      fullBoardDisplayPosition(
+        "black",
+        { column: "A", row: 1 },
+        SKIRMISH_LAYOUT,
+      ),
+    ).toEqual({ row: 0, column: 7 });
   });
 });

@@ -35,7 +35,11 @@
 // are all reachable by mouse and keyboard even though an unselected movable
 // piece shows no highlight.
 
-import type { Side, Square } from "../rules/primary/v2/board.ts";
+import {
+  BATTLE_LAYOUT,
+  type Side,
+  type Square,
+} from "../rules/primary/v2/board.ts";
 import { FullBoard } from "./FullBoard.tsx";
 import {
   actionableSquares,
@@ -95,9 +99,11 @@ export interface PlayBoardProps {
 }
 
 /**
- * The full 12x12 board, oriented to `viewSide(session, flipBetweenTurns)`
- * (Step 4; the flag added in story 00000012, Step 2), drawn via `FullBoard`
- * (story 00000014, Step 7). The only highlighted squares are for an
+ * The full board (Battle's 12x12, or another edition's - story 00000023,
+ * Step 6 - sized to `session.play.edition`), oriented to
+ * `viewSide(session, flipBetweenTurns)` (Step 4; the flag added in story
+ * 00000012, Step 2), drawn via `FullBoard` (story 00000014, Step 7). The
+ * only highlighted squares are for an
  * in-progress selection: the selected piece and its legal destinations (from
  * `actionableSquares` once a piece is selected); with nothing selected no
  * square is highlighted. Which squares actually respond to activation come
@@ -115,11 +121,18 @@ export function PlayBoard({
   animatedMove,
 }: PlayBoardProps) {
   const side = fixedSide ?? viewSide(session, flipBetweenTurns);
+  // The session's own resolved edition carries the board it was actually
+  // played on (story 00000023, Step 3); `session.play.edition` is optional
+  // only for hand-built fixtures that predate that field (see `play.ts`'s
+  // doc comment) - Battle is the correct fallback for those, matching every
+  // other consumer's default.
+  const layout = session.play.edition?.boardLayout ?? BATTLE_LAYOUT;
 
   return (
     <FullBoard
       board={session.play.board}
       side={side}
+      layout={layout}
       selected={disabled ? undefined : (session.selection ?? undefined)}
       // Only a selected piece's legal destinations are highlighted; with
       // nothing selected `actionableSquares` returns own movable pieces,
