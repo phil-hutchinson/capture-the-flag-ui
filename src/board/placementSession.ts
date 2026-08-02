@@ -14,6 +14,11 @@
 // serialized artifact from that terminal state is Step 11's scope, not this
 // module's; this module only exposes the fact that the session has reached
 // it (`active === null`) plus both sides' final `PlacementState`s.
+//
+// `newSession` takes the `Edition` to place for (defaults to Battle, so the
+// live app - still Battle-only, story 00000023's Step 7 wires in the picker
+// - is unaffected); both sides' `PlacementState`s are seeded with that
+// edition's board layout and army roster (story 00000023's Step 4).
 
 import {
   emptyPlacement,
@@ -21,6 +26,7 @@ import {
   type PlacementState,
 } from "../rules/primary/v2/placement.ts";
 import type { Side } from "../rules/primary/v2/board.ts";
+import { EDITIONS, type Edition } from "../rules/primary/v2/edition.ts";
 
 /**
  * The placement session's state: both players' placements, and whose turn it
@@ -33,12 +39,18 @@ export interface PlacementSession {
   readonly black: PlacementState;
 }
 
-/** A fresh session: White goes first, both trays full and boards empty. */
-export function newSession(): PlacementSession {
+/**
+ * A fresh session for `edition` (defaults to Battle): White goes first, both
+ * trays full (sized to `edition`'s army) and boards empty (sized to
+ * `edition`'s board layout).
+ */
+export function newSession(
+  edition: Edition = EDITIONS["2-0:BATTLE"],
+): PlacementSession {
   return {
     active: "white",
-    white: emptyPlacement("white"),
-    black: emptyPlacement("black"),
+    white: emptyPlacement("white", edition.boardLayout, edition.army),
+    black: emptyPlacement("black", edition.boardLayout, edition.army),
   };
 }
 

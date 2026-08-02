@@ -727,6 +727,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
         </div>
         <Tray
           side={humanSide}
+          army={placement.army}
           remaining={placement.remaining}
           selectedType={selectedTrayType}
           onSelect={handleSelectType}

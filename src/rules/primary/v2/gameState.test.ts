@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { armySize, BATTLE_ARMY } from "./armyComposition.ts";
 import { homeSquares } from "./board.ts";
 import { EDITIONS } from "./edition.ts";
-import { ARMY_SIZE, pieceCatalogEntries } from "./pieces.ts";
+import { pieceCatalogEntries } from "./pieces.ts";
 import { autoFill, emptyPlacement, type PlacementState } from "./placement.ts";
+
+/** Battle's own army size (25) - the default `emptyPlacement`/`buildInitialGameState` fall back to. */
+const ARMY_SIZE = armySize(BATTLE_ARMY);
 import {
   buildInitialGameState,
   parsePositionBlock,

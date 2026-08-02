@@ -1,13 +1,15 @@
-// Placement state model & core operations for ruleset 1.2:PRE-RELEASE.
+// Placement state model & core operations for the ruleset major-2 editions
+// (`2-0:BATTLE` / `2-0:SKIRMISH`).
 //
 // A `PlacementState` tracks one player's in-progress army layout: which of
-// that player's own 48 home squares hold a placed piece type, plus the
-// derived remaining-inventory (how many of each type are still in the tray).
-// Placement is sparse: a complete army is only 25 pieces (`ARMY_SIZE`), so a
-// finished layout leaves 23 of the 48 home squares empty. Operations are pure
-// and immutable-style - each returns a *new* state rather than mutating its
-// input - so the UI (Steps 8-10) can drive them directly and the serializer
-// (Step 5) can read a snapshot safely.
+// that player's own home squares hold a placed piece type, plus the derived
+// remaining-inventory (how many of each type are still in the tray).
+// Placement is sparse: a complete army is only as large as the chosen
+// `ArmyRoster` (Battle 25, Skirmish 16), so a finished layout leaves the rest
+// of the home squares empty (23 of Battle's 48; 8 of Skirmish's 24).
+// Operations are pure and immutable-style - each returns a *new* state
+// rather than mutating its input - so the UI (Steps 8-10) can drive them
+// directly and the serializer (Step 5) can read a snapshot safely.
 //
 // All operations structurally reject any square that is not one of the
 // state's own side's home squares (lakes, buffers, and the opponent's zone
@@ -19,14 +21,13 @@
 //
 // This module builds on the board geometry (Step 1; parametric over a
 // `BoardLayout` since story 00000023's Step 3) and the piece catalog /
-// fresh-army inventory (Step 2); it has no further dependencies.
+// army-composition rosters (Step 2, `armyComposition.ts`); it has no further
+// dependencies.
 //
-// A `PlacementState` carries its own `boardLayout` (defaulting to Battle),
-// so home squares, the Tower-adjacency rule, and auto-fill are all sized to
-// the board actually being placed on. The army itself (`remaining`'s
-// starting inventory, `ARMY_SIZE`) is not yet edition-driven - it stays
-// Battle's 25-piece roster regardless of layout; per-edition armies are
-// story 00000023's Step 4.
+// A `PlacementState` carries its own `boardLayout` and `army` (each
+// defaulting to Battle's), so home squares, the Tower-adjacency rule,
+// auto-fill, and the starting/complete inventory are all sized to the board
+// and roster actually being placed for (story 00000023's Steps 3 and 4).
 
 import {
   BATTLE_LAYOUT,
@@ -39,39 +40,43 @@ import {
 } from "./board.ts";
 import type { BoardLayout } from "./boardLayout.ts";
 import {
-  ARMY_SIZE,
+  armySize,
+  BATTLE_ARMY,
   freshInventory,
-  PIECE_TYPES,
-  type Inventory,
-  type PieceTypeId,
-} from "./pieces.ts";
+  type ArmyRoster,
+} from "./armyComposition.ts";
+import { PIECE_TYPES, type Inventory, type PieceTypeId } from "./pieces.ts";
 
 /**
  * One player's in-progress (or complete) army layout: which board it is
- * being placed on, a mapping from that player's home squares (by
- * `squareKey`) to the piece type placed there, and the derived
- * remaining-inventory. Squares absent from `placements` are empty.
+ * being placed on, which army roster it is being filled from, a mapping from
+ * that player's home squares (by `squareKey`) to the piece type placed
+ * there, and the derived remaining-inventory. Squares absent from
+ * `placements` are empty.
  */
 export interface PlacementState {
   readonly side: Side;
   readonly boardLayout: BoardLayout;
+  readonly army: ArmyRoster;
   readonly placements: ReadonlyMap<string, PieceTypeId>;
   readonly remaining: Inventory;
 }
 
 /**
- * A fresh placement state for `side` on `boardLayout` (defaults to Battle):
- * no pieces placed, a full 25-piece tray.
+ * A fresh placement state for `side` on `boardLayout` and `army` (each
+ * defaults to Battle's): no pieces placed, a full tray sized to `army`.
  */
 export function emptyPlacement(
   side: Side,
   boardLayout: BoardLayout = BATTLE_LAYOUT,
+  army: ArmyRoster = BATTLE_ARMY,
 ): PlacementState {
   return {
     side,
     boardLayout,
+    army,
     placements: new Map(),
-    remaining: freshInventory(),
+    remaining: freshInventory(army),
   };
 }
 
@@ -206,7 +211,7 @@ export function returnToTray(
 
 /** Clears the whole board: returns every placed piece to the tray. */
 export function clear(state: PlacementState): PlacementState {
-  return emptyPlacement(state.side, state.boardLayout);
+  return emptyPlacement(state.side, state.boardLayout, state.army);
 }
 
 /** How many of `pieceType` remain in `state`'s tray. */
@@ -217,7 +222,7 @@ export function remainingCount(
   return state.remaining[pieceType];
 }
 
-/** How many pieces are currently placed on the board (out of `ARMY_SIZE`). */
+/** How many pieces are currently placed on the board (out of `state.army`'s size). */
 export function placedCount(state: PlacementState): number {
   return state.placements.size;
 }
@@ -227,18 +232,19 @@ export interface PlacementProgress {
   readonly total: number;
 }
 
-/** Placement progress as `{ placed, total }`, e.g. for a "12 / 25 placed" readout. */
+/** Placement progress as `{ placed, total }`, e.g. for a "12 / 25 placed" readout (`total` is `state.army`'s size). */
 export function progress(state: PlacementState): PlacementProgress {
-  return { placed: placedCount(state), total: ARMY_SIZE };
+  return { placed: placedCount(state), total: armySize(state.army) };
 }
 
 /**
- * True only once all `ARMY_SIZE` (25) pieces have been placed. Placement is
- * sparse - a complete army fills 25 of a side's 48 home squares, leaving the
- * other 23 intentionally empty.
+ * True only once every piece of `state.army` has been placed (Battle 25,
+ * Skirmish 16). Placement is sparse - a complete army fills only part of a
+ * side's home squares (25 of Battle's 48; 16 of Skirmish's 24), leaving the
+ * rest intentionally empty.
  */
 export function isComplete(state: PlacementState): boolean {
-  return placedCount(state) === ARMY_SIZE;
+  return placedCount(state) === armySize(state.army);
 }
 
 /** True if `a` and `b` are the same square or share an edge/corner (orthogonally or diagonally adjacent). */
@@ -341,8 +347,9 @@ function pickTowerSquares(
 /**
  * Places every one of `state`'s remaining pieces onto a randomly chosen
  * subset of `state`'s currently-empty home squares - not every empty square,
- * since placement is sparse (rules §3): only `ARMY_SIZE` (25) of a side's 48
- * home squares ever hold a piece. Already-placed pieces are left untouched,
+ * since placement is sparse (rules §3): only `state.army`'s size (Battle 25
+ * of 48; Skirmish 16 of 24) of a side's home squares ever hold a piece.
+ * Already-placed pieces are left untouched,
  * and only `state.side`'s own home squares are ever touched (never lakes,
  * buffers, or the opponent's zone). The remaining Towers are placed first, so
  * that neither they nor any already-placed Tower ends up orthogonally or

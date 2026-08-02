@@ -362,7 +362,58 @@ exactly as before (this is the "Battle still plays" safety net for the refactor)
 
 ## Step 4 — Per-edition army (piece inventory driven by `ARMY_COMPOSITION`)
 
-Status: pending
+Status: committed
+
+Notes: `pieces.ts` kept its full 8-type catalog (names, rank codes, symbols)
+unchanged, including `quantityPerSide` (Battle's own per-type count, which
+`armyComposition.ts`'s `standard_battle` roster still derives from, per Step
+2's design - the two must not drift); only its Battle-fixed `ARMY_SIZE`
+constant and no-argument `freshInventory()` moved out, since a single
+constant/no-arg function couldn't represent two armies. They landed in
+`armyComposition.ts` as roster-parametric `armySize(roster)` (already existed)
+and new `freshInventory(roster)`, plus a `BATTLE_ARMY` constant (mirrors
+`board.ts`'s `BATTLE_LAYOUT`) as the shared default. `PlacementState` gained an
+`army: ArmyRoster` field alongside `boardLayout`; `emptyPlacement` takes it as
+a third parameter defaulting to `BATTLE_ARMY`, and `progress`/`isComplete` now
+read `armySize(state.army)` instead of the old fixed constant. `clear` passes
+`state.army` through. `placementSession.ts`'s `newSession` gained an
+`Edition = EDITIONS["2-0:BATTLE"]` parameter and seeds both sides'
+`emptyPlacement` calls from `edition.boardLayout`/`edition.army`, so Step 7's
+picker only needs to pass the chosen edition. `Tray.tsx` gained a required
+`army: ArmyRoster` prop and now filters `pieceCatalogEntries()` to
+`army[entry.id] > 0` before rendering, so a zero-roster type (Skirmish's Foot
+Soldier/Militia) is never shown at all - not just shown-disabled-at-zero,
+which remains the treatment for a type the roster fields but whose remaining
+count has hit zero. Both `<Tray>` call sites (`HotSeatGame.tsx`,
+`EngineGame.tsx`) now pass `army={placement.army}`; `EngineGame.tsx` is a live
+UI consumer of the placement/tray API (not one of the frozen
+`src/engine/`/`src/encoding/eng-nn-1/` modules), so it needed this one-line
+update to keep typechecking, matching Step 3's precedent for such consumers.
+`gameState.ts`'s `buildInitialGameState` error message now reads
+`armySize(edition.army)` instead of the removed `ARMY_SIZE` constant (also
+fixed a stale "48-piece army" wording bug in its doc comment while touching
+that paragraph - should have said 25, since 48 is the home-zone size, not the
+army size). Added unit tests per the step's verification: `armyComposition.test.ts`
+gained `BATTLE_ARMY` and `freshInventory` coverage (including the literal
+16-piece Skirmish case: 3/3/3/3/3/1/0/0); `placement.test.ts` gained a new
+"PlacementState with the Skirmish army (16 pieces)" describe block covering a
+fresh Skirmish inventory, `progress`/`isComplete` at 16 (contrasted with an
+equally-sized Battle subset, which is not complete since Battle's roster is
+25), and `autoFill` filling exactly 16 pieces onto the Skirmish board while
+honoring the Tower-adjacency rule (3 Towers placed, none adjacent). Moved the
+old Battle-only `ARMY_SIZE`/`freshInventory` tests out of `pieces.test.ts`
+(now covered by `armyComposition.test.ts`); `placement.test.ts` and
+`gameState.test.ts` each define a local `const ARMY_SIZE = armySize(BATTLE_ARMY)`
+so their many existing Battle-25 assertions read unchanged. No deviations from
+the plan's substance; `npm run typecheck && npm run lint && npm test` all pass
+(556 tests, up from 550 - net of the 2 tests moved out of `pieces.test.ts` and
+the new ones added elsewhere) - run from a same-content scratch copy of the
+repo on the container's own filesystem after the mounted workspace volume
+started intermittently throwing `EIO` under vitest/eslint's concurrent file
+reads (confirmed environment-only: the errors hit random `node_modules`
+internals unrelated to this diff, and cleared up entirely once the exact same
+files were read from a fast local copy); `prettier --write` was run on every
+file this step touched to match the project's formatting.
 
 Make the army roster and inventory a function of the resolved edition's
 `ARMY_COMPOSITION` rather than the fixed 25-piece catalog. `pieces.ts` keeps the

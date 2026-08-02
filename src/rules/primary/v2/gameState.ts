@@ -32,13 +32,9 @@ import {
   type Square,
 } from "./board.ts";
 import type { BoardLayout } from "./boardLayout.ts";
+import { armySize } from "./armyComposition.ts";
 import { EDITIONS, type Edition } from "./edition.ts";
-import {
-  ARMY_SIZE,
-  PIECE_CATALOG,
-  PIECE_TYPES,
-  type PieceTypeId,
-} from "./pieces.ts";
+import { PIECE_CATALOG, PIECE_TYPES, type PieceTypeId } from "./pieces.ts";
 import { isComplete, type PlacementState } from "./placement.ts";
 
 /**
@@ -91,9 +87,10 @@ export interface InitialGameState {
  * `InitialGameState` artifact, tagged with `edition` (defaults to Battle, so
  * the live app - still Battle-only - is unaffected). Rejects (throws) if
  * either state belongs to the wrong side, was placed on a different board
- * layout than `edition`'s, or is not a complete 48-piece army - by this
- * point in the flow (both players have confirmed) all three are structural
- * invariants, not recoverable user errors.
+ * layout than `edition`'s, or is not a complete army for its own roster
+ * (Battle 25 pieces, Skirmish 16) - by this point in the flow (both players
+ * have confirmed) all three are structural invariants, not recoverable user
+ * errors.
  */
 export function buildInitialGameState(
   white: PlacementState,
@@ -119,8 +116,9 @@ export function buildInitialGameState(
     );
   }
   if (!isComplete(white) || !isComplete(black)) {
+    const size = armySize(edition.army);
     throw new Error(
-      `buildInitialGameState: both armies must be complete (${ARMY_SIZE}/${ARMY_SIZE} placed) before serializing.`,
+      `buildInitialGameState: both armies must be complete (${size}/${size} placed) before serializing.`,
     );
   }
 

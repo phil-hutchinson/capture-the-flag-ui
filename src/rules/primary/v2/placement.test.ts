@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
+import {
+  ARMY_COMPOSITIONS,
+  armySize,
+  BATTLE_ARMY,
+  type ArmyRoster,
+} from "./armyComposition.ts";
 import { homeSquares, isHomeSquareFor, type Square } from "./board.ts";
 import { BOARD_LAYOUTS } from "./boardLayout.ts";
-import { ARMY_SIZE, pieceCatalogEntries, type PieceTypeId } from "./pieces.ts";
+import {
+  pieceCatalogEntries,
+  PIECE_TYPES,
+  type PieceTypeId,
+} from "./pieces.ts";
 import {
   autoFill,
   clear,
@@ -19,6 +29,9 @@ import {
   type PlacementState,
   type RandomSource,
 } from "./placement.ts";
+
+/** Battle's own army size (25) - the default `emptyPlacement` falls back to. */
+const ARMY_SIZE = armySize(BATTLE_ARMY);
 
 const WHITE_HOME: readonly Square[] = homeSquares("white");
 const BLACK_HOME: readonly Square[] = homeSquares("black");
@@ -432,9 +445,10 @@ describe("placeFullArmy test helper", () => {
 // exercised on the Skirmish layout (`standard_64`, 8x8) instead of the
 // Battle default, to confirm `PlacementState`'s `boardLayout` is genuinely
 // threaded through rather than hardcoding Battle's 12x12/48-home-square
-// board. (The army itself is not yet edition-driven - Step 4 - so `autoFill`
-// is not exercised here: Skirmish's 24-square home zone cannot yet hold
-// Battle's 25-piece roster.)
+// board. These deliberately keep the (Battle-default) army out of it - only
+// a couple of pieces are hand-placed, never `autoFill`'d to completion - so
+// they isolate the board-layout threading from the army threading, which
+// gets its own coverage below (story 00000023's Step 4).
 describe("PlacementState on the Skirmish layout (8x8)", () => {
   const SKIRMISH = BOARD_LAYOUTS.standard_64;
 
@@ -487,5 +501,106 @@ describe("PlacementState on the Skirmish layout (8x8)", () => {
   it("does not disturb the Battle-default (no-argument) behavior", () => {
     expect(emptyPlacement("white").boardLayout).not.toBe(SKIRMISH);
     expect(homeSquares("white")).toHaveLength(48);
+  });
+});
+
+// Story 00000023, Step 4: the army roster/inventory threaded through
+// `PlacementState`, exercised with Skirmish's real 16-piece roster
+// (`standard_skirmish`) on the Skirmish layout - the combination that
+// actually fits (unlike Battle's 25-piece roster on Skirmish's 24-square
+// home zone, which Step 3's tests above deliberately avoid).
+describe("PlacementState with the Skirmish army (16 pieces)", () => {
+  const SKIRMISH = BOARD_LAYOUTS.standard_64;
+  const SKIRMISH_ARMY = ARMY_COMPOSITIONS.standard_skirmish.roster;
+
+  function emptySkirmish(side: "white" | "black") {
+    return emptyPlacement(side, SKIRMISH, SKIRMISH_ARMY);
+  }
+
+  it("emptyPlacement carries the given army and seeds a matching 16-piece inventory", () => {
+    const state = emptySkirmish("white");
+    expect(state.army).toBe(SKIRMISH_ARMY);
+    for (const id of PIECE_TYPES) {
+      expect(remainingCount(state, id)).toBe(SKIRMISH_ARMY[id]);
+    }
+    expect(remainingCount(state, "footSoldier")).toBe(0);
+    expect(remainingCount(state, "militia")).toBe(0);
+  });
+
+  it("progress reports a 16-piece total, not Battle's 25", () => {
+    const state = emptySkirmish("white");
+    expect(progress(state)).toEqual({ placed: 0, total: 16 });
+  });
+
+  it("is complete at 16 placed pieces, while an equally-sized subset of Battle's army is not yet complete", () => {
+    // A flat list of piece type ids, each repeated `roster[id]` times -
+    // respects each type's own remaining count, unlike placing the same type
+    // repeatedly (which would exceed it well before 16).
+    function flattenRoster(roster: ArmyRoster): PieceTypeId[] {
+      const list: PieceTypeId[] = [];
+      for (const id of PIECE_TYPES) {
+        for (let i = 0; i < roster[id]; i += 1) {
+          list.push(id);
+        }
+      }
+      return list;
+    }
+
+    let skirmish = emptySkirmish("white");
+    const skirmishHome = homeSquares("white", SKIRMISH);
+    const skirmishPieces = flattenRoster(SKIRMISH_ARMY);
+    expect(skirmishPieces).toHaveLength(16);
+    for (let i = 0; i < skirmishPieces.length; i += 1) {
+      skirmish = place(skirmish, skirmishHome[i], skirmishPieces[i]);
+    }
+    expect(placedCount(skirmish)).toBe(16);
+    expect(isComplete(skirmish)).toBe(true);
+    expect(progress(skirmish)).toEqual({ placed: 16, total: 16 });
+
+    // The same 16 pieces, placed into Battle's army instead: fully valid
+    // (Battle fields at least as many of each type), but only 16 of Battle's
+    // own 25 - so not yet complete.
+    let battle = emptyPlacement("white");
+    const battleHome = homeSquares("white");
+    for (let i = 0; i < skirmishPieces.length; i += 1) {
+      battle = place(battle, battleHome[i], skirmishPieces[i]);
+    }
+    expect(placedCount(battle)).toBe(16);
+    expect(isComplete(battle)).toBe(false); // Battle's army is 25, not 16.
+  });
+
+  it("autoFill fills exactly the 16-piece Skirmish army onto the Skirmish board, honoring the Tower rule", () => {
+    const state = emptySkirmish("white");
+    const filled = autoFill(state, seededRandom(11));
+
+    expect(isComplete(filled)).toBe(true);
+    for (const id of PIECE_TYPES) {
+      expect(remainingCount(filled, id)).toBe(0);
+    }
+
+    const home = homeSquares("white", SKIRMISH);
+    const counts = new Map<PieceTypeId, number>();
+    let placedSquares = 0;
+    for (const square of home) {
+      const type = pieceAt(filled, square);
+      if (type !== undefined) {
+        placedSquares += 1;
+        expect(isHomeSquareFor(square, "white", SKIRMISH)).toBe(true);
+        counts.set(type, (counts.get(type) ?? 0) + 1);
+      }
+    }
+    expect(placedSquares).toBe(16);
+    expect(home).toHaveLength(24); // 8 of the 24 home squares stay empty.
+    for (const id of PIECE_TYPES) {
+      expect(counts.get(id) ?? 0).toBe(SKIRMISH_ARMY[id]);
+    }
+    expect(counts.get("footSoldier") ?? 0).toBe(0);
+    expect(counts.get("militia") ?? 0).toBe(0);
+
+    expect(towersLegallyPlaced(filled)).toBe(true);
+    const towerSquares = home.filter(
+      (square) => pieceAt(filled, square) === "tower",
+    );
+    expect(towerSquares).toHaveLength(3);
   });
 });

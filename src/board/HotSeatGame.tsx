@@ -466,6 +466,7 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
         </div>
         <Tray
           side={activeSide}
+          army={placement.army}
           remaining={placement.remaining}
           selectedType={selectedTrayType}
           onSelect={handleSelectType}
