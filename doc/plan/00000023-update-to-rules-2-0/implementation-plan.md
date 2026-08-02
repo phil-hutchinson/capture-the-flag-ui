@@ -441,7 +441,60 @@ so this step's verification is automated.)
 
 ## Step 5 — Diagonal attacks in the movement rules
 
-Status: pending
+Status: committed
+
+Notes: Added a `DIAGONAL_DIRECTIONS` constant (the four diagonal deltas) and a
+second loop in `legalAttacks` (`movement.ts`) that, for each diagonal
+neighbor, offers it as an attack when it is on-board, not a lake, holds an
+enemy piece, and that enemy piece is movable (`!isImmobile`, the same
+Tower/Flag check already used elsewhere in the file) - never subject to the
+unencumbered bonus, so there is no "two squares diagonal" path at all (the
+loop only ever computes `step(origin, dc, dr, 1, layout)`). `legalDestinations`
+was untouched, since the diagonal is exclusively an attacking direction.
+`combat.ts` and `outcome.ts` needed no change, exactly as the plan predicted
+(`hasAnyLegalPly` already consults `legalAttacks`). Updated the module-level
+doc comments (file header and `legalAttacks`'s docstring) to describe the new
+diagonal-attack behavior and re-dated the stale "ruleset 1.2" reference in
+`movement.ts`'s header to "ruleset major 2" while touching that exact
+paragraph (left `combat.ts`/`outcome.ts`/other files' stale "1.2" headers
+alone, per Step 1's precedent, since this step does not rework them).
+
+Added a `describe("legalAttacks: diagonal attacks ...")` block to
+`movement.test.ts` covering every edge case the step's verification lists:
+all four diagonal directions offered against a movable enemy; a Tower and a
+Flag diagonally are never offered; an empty diagonal square is never a
+`legalDestinations` result; no two-square diagonal even when unencumbered; a
+diagonal attack onto a lake square is withheld (including with a fixture
+occupant placed there, to prove the exclusion is the geometric `isLake` check
+and not merely "no occupant"); the lake-corner skirt is attackable (Battle A6
+-> B5, B6 a lake); and a diagonal target is offered as an ordinary attack
+alongside an orthogonal one (combat resolution itself is unchanged/
+direction-independent in `combat.ts`, so this test only confirms both are
+offered on equal footing, per the plan's own framing). Also rewrote the
+pre-existing `legalAttacks` test "never returns a diagonal attack target"
+(now genuinely false under major 2) into "offers a movable enemy one square
+diagonally as an attack", since its militia fixtures are movable pieces that
+must now be offered.
+
+Two pre-existing tests outside `movement.ts` broke as a direct, correct
+consequence of `legalAttacks` now including diagonal attacks (both already
+call `legalAttacks`/`legalDestinations` at their Battle-default layout, with
+no layout-threading changes needed): `playAnnouncement.test.ts`'s "uses
+singular wording for exactly one available move" had a diagonally-adjacent
+enemy militia that is now a legal attack, changing its expected count from 1
+to 2; reworked its fixture (enemy orthogonal instead of diagonal, so the
+diagonal squares stay empty) so the test still exercises the singular-count
+wording it was written to check, rather than weakening the assertion. This
+is not a deviation from the plan - the plan's own Grounding facts / Step 3
+notes establish that any live consumer calling these functions picks up
+parametric/rule changes automatically - but is called out since it is a file
+outside `movement.ts` that needed an edit to keep `npm test` green.
+
+`npm run typecheck && npm run lint && npm test` all pass (564 tests, up from
+556 net of the one rewritten test). `npx prettier --check` is clean on every
+file this step touched. Manual confirmation of the live behavior (Gate B) is
+explicitly deferred to Step 6 per the plan, since diagonal attacks are not
+yet rendered/highlighted in the UI.
 
 Extend `movement.ts` so a mobile (numbered) piece may **attack** an enemy one
 square **diagonally**, added to `legalAttacks` (never to `legalDestinations`).
