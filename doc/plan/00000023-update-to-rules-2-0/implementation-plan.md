@@ -1005,7 +1005,41 @@ moves. Step 8a fixes it; Gate D runs once, in full, at the end of Step 8a.
 
 ## Step 8a — Emit the extended notation from the app's record writer
 
-Status: pending
+Status: committed
+
+Notes: `applyMove` (`play.ts`) now builds a `RecordedMove` from the combat
+outcome it already has and appends `renderMoveToken(...)` to `state.moves`,
+so the extended token is recorded **at the point the move is applied** — the
+writer is never asked to re-derive outcomes, per this step's constraint. The
+removal flags read directly off `resolveCombat`'s three-valued `CombatResult`:
+`fromRemoved` unless `attackerWins`, `toRemoved` unless `attackerLoses`, so a
+plain move marks neither square, a won attack marks the destination, a lost
+attack marks the source, and a mutual loss marks both. `renderGameRecord`
+needed no logic change at all — it already interpolates `state.moves`
+verbatim, so changing what is stored changed what is written. `notation.ts`,
+`readRecord.ts`, `recordFile.ts`, and `reviewText.ts` were **not** touched:
+`parseMoveToken` already accepted the extended form, and the `plainNotation`
+rejection path and its player-facing message are deliberately intact (a
+plain-form file from another producer must still be rejected clearly) — still
+covered by the pre-existing tests in `notation.test.ts`, `recordFile.test.ts`,
+and `reviewText.test.ts`, all green. `GameRecord.tsx` and several doc comments
+in `play.ts` were updated to describe the extended form; those are
+comment-only changes.
+
+`readRecord.test.ts` gained a played-game round trip driving the **real**
+writer (`startPlay`/`applyMove`/`renderGameRecord`) rather than hand-built
+tokens, parameterised over both editions, covering a move that removes one
+piece (`A2-A3x`, attacker wins) and one that removes both (`C3x-C2x`, equal
+ranks trade), and asserting the re-read final position equals the writer's own
+final board. The fixture uses columns A-E and rows 1-3, ordinary ground on
+both layouts, so one fixture serves both board sizes.
+
+**Process note:** the implementing agent hit its session limit and was cut off
+mid-report, after the code and tests were complete but before it recorded this
+Status/Notes. The orchestrator reviewed the full diff, re-ran typecheck, lint,
+and the suite (598 tests, up from 596), and confirmed every element of this
+step's automated verification was present, then wrote these Notes. No
+deviations from the plan's wording were found in the delivered work.
 
 **Scope note for a cold reader.** `story.md`'s **Out of scope** section lists
 "switching this app's emitted record to the extended notation" as a standing
@@ -1017,6 +1051,72 @@ the story's out-of-scope entry for this one item and nothing else; the rest of
 the backburner pair ("saving a played game to a file") stays out of scope.
 Numbered `8a` rather than `9` so the existing Steps 9-11 — referenced by name
 throughout this plan and by earlier steps' Notes — keep their numbers.
+
+**Gate D defect fix (2026-08-02, owner report during Gate D manual
+verification), added on top of the above.** A `2-0:SKIRMISH` record imported
+into "Review a game" replayed correctly but was **rendered on a 12x12 Battle
+board**: a blank region of unused board, pieces visually passing through
+Battle's lake squares (rows 6-7, columns B/C/F/G/J/K) as they moved, and
+Skirmish's real lakes (rows 4-5) drawn as ordinary open squares. Root cause,
+confirmed as diagnosed: `ReviewScreen.tsx` rendered `<FullBoard>` with no
+`layout` prop, so Step 6's Battle-default silently applied regardless of the
+record's own edition — `readRecord.ts` already resolved the record's
+`Ruleset` tag to its `Edition` (to size the position block correctly) but
+discarded it once parsing was done.
+
+Fix: `ReadRecordResult`'s `"parsed"` case now carries the resolved `Edition`
+alongside `record` (`readRecord.ts`), rather than folding it into
+`ReplayedRecord`/`ParsedRecord` themselves — `recordFile.ts` and `replay.ts`
+stay exactly as they were (still `BoardLayout`-parametric, not
+`Edition`-aware; neither's signature nor test file needed to change), since
+`readRecord.ts` is the one module that already resolves the full `Edition`
+and is a natural, minimal-diff place to attach it to its own result. Threaded
+through: `ImportScreen.tsx`'s `onImported` callback now passes
+`(record, edition)`; `App.tsx`'s `review` screen-state variant carries both;
+`ReviewScreen.tsx` takes a new required `edition: Edition` prop and passes
+`layout={edition.boardLayout}` into `<FullBoard>`. This is a deliberate,
+noted deviation from the plan's literal suggestion to carry the edition
+"through `ReplayedRecord` / the review session" — doing that would have
+required `replay.ts`'s `replayRecord` to accept an `Edition` parameter purely
+to plumb it through unused (it consults no board geometry at all), which
+would have forced every one of `replay.test.ts`'s ~12 call sites to change
+for no logic reason; attaching it at the `readRecord.ts` boundary instead
+achieves the same "ReviewScreen can get to it" outcome with no such churn.
+
+Also swept, per the task's explicit instruction to check other review-side
+12x12 assumptions: `reviewText.ts`'s `describePositionBlockError` had two
+messages hardcoded to a fixed board size regardless of edition —
+`wrongRowCount` ("isn't a full 12x12 board ... instead of 12") and
+`wrongCellCount` ("isn't 12 squares wide") — both flagged as wrong for a
+Skirmish record (an 8x8 file failing this check would have been told it
+should have been 12x12). Fixed alongside the main defect rather than left for
+Step 10, since it is the same class of "review surface assumes Battle's
+12x12" bug the task called out by name. `PositionBlockError`'s
+`wrongRowCount`/`wrongCellCount` variants (`gameState.ts`) each gained an
+`expected...Count` field carrying the `layout`'s own row/column count (set at
+both throw sites in `parsePositionBlock`), and `reviewText.ts` now interpolates
+that instead of the literal `12`. Updated the pre-existing fixtures in
+`gameState.test.ts` (3), `recordFile.test.ts` (1), and `reviewText.test.ts`
+(2) to the new required fields, and added two new `reviewText.test.ts` cases
+proving the message now names 8x8 for a Skirmish-sized mismatch, not 12x12.
+
+New automated coverage (`readRecord.test.ts`): a
+`"readRecord - surfaces the record's own resolved Edition (Gate D defect
+fix)"` describe block asserting a `2-0:BATTLE` record's read-back `edition`
+has `boardLayout.columnCount`/`rowCount` 12/12 and lake cells at rows 6-7
+(B/C/F/G/J/K), and a `2-0:SKIRMISH` record's has 8/8 and lake cells at rows
+4-5 (B/C/F/G) — direct proof the reader surfaces the *right* edition's
+geometry, not Battle's, for each ruleset. `npm run typecheck && npm run lint
+&& npm test` all pass (604 tests, up from 598). `npm run build` succeeds.
+`npx prettier --check` is clean on every file touched. Files touched beyond
+the ones already listed above for this step:
+`src/rules/readRecord.ts`, `src/rules/readRecord.test.ts`, `src/App.tsx`,
+`src/review/ImportScreen.tsx`, `src/review/ReviewScreen.tsx`,
+`src/review/reviewText.ts`, `src/review/reviewText.test.ts`,
+`src/rules/primary/v2/gameState.ts`, `src/rules/primary/v2/gameState.test.ts`,
+`src/rules/primary/v2/recordFile.test.ts`. The manual re-check (Gate D in
+full, including re-importing a Skirmish dump and confirming it now renders on
+the right board) is the owner's to run, per this task's own instructions.
 
 Change `renderGameRecord` (`play.ts`) to emit each move as an **extended**
 token instead of the plain `A2A3` form, so a record the app writes is a record

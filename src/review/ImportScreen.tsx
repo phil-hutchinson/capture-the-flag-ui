@@ -29,6 +29,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import "../App.css";
 import "./ImportScreen.css";
 import { readRecord } from "../rules/readRecord.ts";
+import type { Edition } from "../rules/primary/v2/edition.ts";
 import type { ReplayedRecord } from "../rules/primary/v2/replay.ts";
 import { describeRejection } from "./reviewText.ts";
 
@@ -52,8 +53,13 @@ const UNREADABLE_FILE_MESSAGE =
 export interface ImportScreenProps {
   /** Returns to the start screen without choosing a file. */
   readonly onBack: () => void;
-  /** Navigates to the review screen with a successfully replayed game. */
-  readonly onImported: (record: ReplayedRecord) => void;
+  /**
+   * Navigates to the review screen with a successfully replayed game and the
+   * `Edition` its `Ruleset` tag resolved to (story 00000023's Gate D defect
+   * fix) - so the review screen renders the record's own board, not
+   * Battle's by default.
+   */
+  readonly onImported: (record: ReplayedRecord, edition: Edition) => void;
 }
 
 export function ImportScreen({ onBack, onImported }: ImportScreenProps) {
@@ -81,7 +87,7 @@ export function ImportScreen({ onBack, onImported }: ImportScreenProps) {
       }
 
       setError(null);
-      onImported(result.record);
+      onImported(result.record, result.edition);
     } catch {
       setError(UNREADABLE_FILE_MESSAGE);
     }

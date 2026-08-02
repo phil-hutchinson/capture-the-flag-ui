@@ -398,7 +398,7 @@ describe("parseRecordFile - the Skirmish edition's 8x8 board layout", () => {
       kind: "error",
       error: {
         kind: "positionBlock",
-        error: { kind: "wrongRowCount", rowCount: 8 },
+        error: { kind: "wrongRowCount", rowCount: 8, expectedRowCount: 12 },
       },
     });
   });

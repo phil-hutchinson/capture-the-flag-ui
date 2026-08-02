@@ -22,7 +22,11 @@
 // is no partial result: a file that parses but cannot be replayed to the end
 // is rejected exactly as if it had failed to parse.
 
-import { EDITIONS, type EditionId } from "./primary/v2/edition.ts";
+import {
+  EDITIONS,
+  type Edition,
+  type EditionId,
+} from "./primary/v2/edition.ts";
 import {
   parseRecordFile,
   type RecordFileError,
@@ -53,9 +57,20 @@ export type ReadRecordError =
   | { readonly kind: "recordFile"; readonly error: RecordFileError }
   | { readonly kind: "replay"; readonly error: ReplayError };
 
-/** The result of reading a record file: a fully replayed recorded game, or a structured rejection. Never throws. */
+/**
+ * The result of reading a record file: a fully replayed recorded game
+ * together with the resolved `Edition` its `Ruleset` tag named (story
+ * 00000023's Gate D defect fix - the board a record is *rendered* on must be
+ * the record's own edition, never assumed Battle, so this is carried
+ * alongside `record` rather than discarded once dispatch is done), or a
+ * structured rejection. Never throws.
+ */
 export type ReadRecordResult =
-  | { readonly kind: "parsed"; readonly record: ReplayedRecord }
+  | {
+      readonly kind: "parsed";
+      readonly record: ReplayedRecord;
+      readonly edition: Edition;
+    }
   | { readonly kind: "error"; readonly error: ReadRecordError };
 
 /**
@@ -84,8 +99,8 @@ function unescapeTagValue(raw: string): string {
  * `recordFile` rejection if the file's structure is unreadable (including a
  * position block whose size does not match that edition's `BoardLayout`),
  * that edition's own `replay` rejection if the file parses but cannot be
- * replayed to the end, or otherwise the fully replayed game - there is no
- * partial result.
+ * replayed to the end, or otherwise the fully replayed game paired with the
+ * resolved `Edition` it was read as - there is no partial result.
  */
 export function readRecord(text: string): ReadRecordResult {
   const match = RULESET_TAG_LINE.exec(text);
@@ -114,5 +129,9 @@ export function readRecord(text: string): ReadRecordResult {
     };
   }
 
-  return { kind: "parsed", record: replayResult.record };
+  return {
+    kind: "parsed",
+    record: replayResult.record,
+    edition: EDITIONS[ruleset],
+  };
 }

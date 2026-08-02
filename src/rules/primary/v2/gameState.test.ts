@@ -257,7 +257,7 @@ describe("parsePositionBlock (ruleset major 2)", () => {
 
     expect(parsePositionBlock(tooFewRows)).toEqual({
       kind: "error",
-      error: { kind: "wrongRowCount", rowCount: 11 },
+      error: { kind: "wrongRowCount", rowCount: 11, expectedRowCount: 12 },
     });
   });
 
@@ -267,7 +267,7 @@ describe("parsePositionBlock (ruleset major 2)", () => {
 
     expect(parsePositionBlock(tooManyRows)).toEqual({
       kind: "error",
-      error: { kind: "wrongRowCount", rowCount: 13 },
+      error: { kind: "wrongRowCount", rowCount: 13, expectedRowCount: 12 },
     });
   });
 
@@ -279,7 +279,12 @@ describe("parsePositionBlock (ruleset major 2)", () => {
 
     expect(parsePositionBlock(lines.join("\n"))).toEqual({
       kind: "error",
-      error: { kind: "wrongCellCount", row: 12, cellCount: 11 },
+      error: {
+        kind: "wrongCellCount",
+        row: 12,
+        cellCount: 11,
+        expectedCellCount: 12,
+      },
     });
   });
 
@@ -440,7 +445,7 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
 
     expect(parsePositionBlock(block)).toEqual({
       kind: "error",
-      error: { kind: "wrongRowCount", rowCount: 8 },
+      error: { kind: "wrongRowCount", rowCount: 8, expectedRowCount: 12 },
     });
   });
 

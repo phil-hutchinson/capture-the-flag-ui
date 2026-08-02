@@ -72,9 +72,9 @@ export function moveLabel(ply: number, round: number, side: Side): string {
 function describePositionBlockError(error: PositionBlockError): string {
   switch (error.kind) {
     case "wrongRowCount":
-      return `This file's starting position isn't a full 12x12 board (it has ${error.rowCount} row${error.rowCount === 1 ? "" : "s"} instead of 12), so it can't be reviewed.`;
+      return `This file's starting position isn't a full ${error.expectedRowCount}x${error.expectedRowCount} board (it has ${error.rowCount} row${error.rowCount === 1 ? "" : "s"} instead of ${error.expectedRowCount}), so it can't be reviewed.`;
     case "wrongCellCount":
-      return `This file's starting position has a row (row ${error.row}) that isn't 12 squares wide, so it can't be reviewed.`;
+      return `This file's starting position has a row (row ${error.row}) that isn't ${error.expectedCellCount} squares wide, so it can't be reviewed.`;
     case "unrecognizedCell":
       return `This file's starting position has something at ${squareKey(error.square)} ("${error.cell}") that isn't a piece, an empty square, or a lake, so it can't be reviewed.`;
     case "unknownPieceSymbol":

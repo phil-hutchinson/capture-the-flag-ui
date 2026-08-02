@@ -192,14 +192,23 @@ const PIECE_TYPE_BY_SYMBOL: Readonly<Record<string, PieceTypeId>> =
  * four cell forms, a piece symbol not in `PIECE_CATALOG`, or a mismatch
  * between a cell's lake marking and `isLake` for that square. These are
  * structured for callers (recordFile.ts, Step 3) to word into a player-facing
- * message; this module never produces text itself.
+ * message; this module never produces text itself. `wrongRowCount` and
+ * `wrongCellCount` carry the `layout`'s own expected count alongside what was
+ * actually found (story 00000023's Gate D defect fix), so the player-facing
+ * wording (`reviewText.ts`) can name the *right* board size instead of
+ * assuming Battle's fixed 12x12 regardless of which edition was being parsed.
  */
 export type PositionBlockError =
-  | { readonly kind: "wrongRowCount"; readonly rowCount: number }
+  | {
+      readonly kind: "wrongRowCount";
+      readonly rowCount: number;
+      readonly expectedRowCount: number;
+    }
   | {
       readonly kind: "wrongCellCount";
       readonly row: Square["row"];
       readonly cellCount: number;
+      readonly expectedCellCount: number;
     }
   | {
       readonly kind: "unrecognizedCell";
@@ -279,7 +288,11 @@ export function parsePositionBlock(
   if (lines.length !== layout.rowCount) {
     return {
       kind: "error",
-      error: { kind: "wrongRowCount", rowCount: lines.length },
+      error: {
+        kind: "wrongRowCount",
+        rowCount: lines.length,
+        expectedRowCount: layout.rowCount,
+      },
     };
   }
 
@@ -293,7 +306,12 @@ export function parsePositionBlock(
     if (cells.length !== layout.columnCount) {
       return {
         kind: "error",
-        error: { kind: "wrongCellCount", row, cellCount: cells.length },
+        error: {
+          kind: "wrongCellCount",
+          row,
+          cellCount: cells.length,
+          expectedCellCount: layout.columnCount,
+        },
       };
     }
 

@@ -278,7 +278,7 @@ describe("activateSquare - moving", () => {
       side: "white",
       pieceType: "footSoldier",
     });
-    expect(moved.play.moves).toEqual(["D5D4"]);
+    expect(moved.play.moves).toEqual(["D5-D4"]);
   });
 
   it("activating a non-destination while a piece is selected is a no-op", () => {
@@ -373,7 +373,7 @@ describe("activateSquare - turn alternation across a sequence", () => {
     session = activateSquare(session, sq("D", 4));
     session = activateSquare(session, sq("C", 4));
     expect(session.play.sideToMove).toBe("black");
-    expect(session.play.moves).toEqual(["D5D4", "D9D10", "D4C4"]);
+    expect(session.play.moves).toEqual(["D5-D4", "D9-D10", "D4-C4"]);
   });
 });
 
@@ -482,7 +482,7 @@ describe("attacks - activating a target", () => {
       side: "white",
       pieceType: "footSoldier",
     });
-    expect(attacked.play.moves).toEqual(["D5E5"]);
+    expect(attacked.play.moves).toEqual(["D5-E5x"]);
     expect(attacked.lastOutcome).toEqual({
       kind: "attack",
       result: "attackerWins",
@@ -563,7 +563,7 @@ describe("attacks - turn alternation with attacks mixed in", () => {
 
     expect(session.play.sideToMove).toBe("white");
     expect(session.selection).toBeNull();
-    expect(session.play.moves).toEqual(["D5D6", "D7D6"]);
+    expect(session.play.moves).toEqual(["D5-D6", "D7x-D6"]);
     expect(session.play.board["D7"]).toBeUndefined();
     expect(session.play.board["D6"]).toEqual({
       side: "white",
@@ -735,7 +735,7 @@ describe("draw offer state machine (story 00000006, Step 6)", () => {
 
     expect(moved.drawOffer).toBeNull();
     expect(moved.play.sideToMove).toBe("black");
-    expect(moved.play.moves).toEqual(["D5D4"]);
+    expect(moved.play.moves).toEqual(["D5-D4"]);
   });
 });
 

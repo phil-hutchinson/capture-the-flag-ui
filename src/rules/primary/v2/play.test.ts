@@ -63,7 +63,7 @@ describe("startPlay", () => {
 });
 
 describe("applyMove", () => {
-  it("moves the piece, flips the side, and appends the A2A3 move string", () => {
+  it("moves the piece, flips the side, and appends the extended-notation move string", () => {
     const initial = initialGameState([
       ["D5", "white", "champion"],
       ["A1", "white", "flag"],
@@ -79,7 +79,7 @@ describe("applyMove", () => {
     expect(next.board["D5"]).toBeUndefined();
     expect(next.board["D4"]).toEqual({ side: "white", pieceType: "champion" });
     expect(next.sideToMove).toBe("black");
-    expect(next.moves).toEqual(["D5D4"]);
+    expect(next.moves).toEqual(["D5-D4"]);
     expect(outcome).toEqual({
       kind: "move",
       piece: { side: "white", pieceType: "champion" },
@@ -136,7 +136,7 @@ describe("applyMove", () => {
     ).state;
     expect(state.sideToMove).toBe("black");
 
-    expect(state.moves).toEqual(["D5D4", "D9D10", "D4C4"]);
+    expect(state.moves).toEqual(["D5-D4", "D9-D10", "D4-C4"]);
     expect(state.initialBoard).toEqual(initial.board);
     expect(state.board).not.toEqual(initial.board);
   });
@@ -209,7 +209,7 @@ describe("applyMove", () => {
         pieceType: "champion",
       });
       expect(next.sideToMove).toBe("black");
-      expect(next.moves).toEqual(["D5D4"]);
+      expect(next.moves).toEqual(["D5-D4x"]);
       expect(outcome).toEqual({
         kind: "attack",
         result: "attackerWins",
@@ -240,7 +240,7 @@ describe("applyMove", () => {
         pieceType: "champion",
       });
       expect(next.sideToMove).toBe("black");
-      expect(next.moves).toEqual(["D5D4"]);
+      expect(next.moves).toEqual(["D5x-D4"]);
       expect(outcome).toEqual({
         kind: "attack",
         result: "attackerLoses",
@@ -268,7 +268,7 @@ describe("applyMove", () => {
       expect(next.board["D5"]).toBeUndefined();
       expect(next.board["D4"]).toBeUndefined();
       expect(next.sideToMove).toBe("black");
-      expect(next.moves).toEqual(["D5D4"]);
+      expect(next.moves).toEqual(["D5x-D4x"]);
       expect(outcome).toEqual({
         kind: "attack",
         result: "mutualLoss",
@@ -322,7 +322,7 @@ describe("applyMove", () => {
       expect(state.sideToMove).toBe("white");
     });
 
-    it("renders an attack as a plain A2A3 move in the game record", () => {
+    it("renders an attack as an extended-notation move, marking the removed defender, in the game record", () => {
       const initial = initialGameState([
         ["D5", "white", "champion"],
         ["D4", "black", "militia"],
@@ -337,8 +337,7 @@ describe("applyMove", () => {
       ).state;
 
       const record = renderGameRecord(state);
-      expect(record).toContain("1. D5D4");
-      expect(record).not.toMatch(/D5D4[^\s]/);
+      expect(record).toContain("1. D5-D4x");
     });
   });
 });
@@ -719,9 +718,9 @@ describe("renderGameRecord", () => {
 
     const record = renderGameRecord(state);
 
-    expect(record).toContain("1. D5D4 D9D10");
-    expect(record).toContain("2. C5C4");
-    expect(record).not.toMatch(/2\. C5C4 \S/);
+    expect(record).toContain("1. D5-D4 D9-D10");
+    expect(record).toContain("2. C5-C4");
+    expect(record).not.toMatch(/2\. C5-C4 \S/);
   });
 });
 
@@ -833,8 +832,7 @@ describe("renderGameRecord - Result/ResultReason (§5 record file format)", () =
     expect(record).toContain('[Result "1/2-1/2"]');
     expect(record).toContain('[ResultReason "Agreement"]');
     expect(drawn.moves).toBe(movesBefore);
-    expect(record).toContain("1. D5D4");
-    expect(record).not.toMatch(/D5D4[^\s]/);
+    expect(record).toContain("1. D5-D4");
   });
 
   it('writes [ResultReason "No Legal Move"] when the side to move is left with no legal ply', () => {
@@ -868,7 +866,7 @@ describe("renderGameRecord - Result/ResultReason (§5 record file format)", () =
     expect(record).toContain('[ResultReason "No Legal Move"]');
   });
 
-  it("still contains the Ruleset tag, position block, and plain-form move rounds alongside the result tags", () => {
+  it("still contains the Ruleset tag, position block, and extended-form move rounds alongside the result tags", () => {
     const initial = initialGameState([
       ["D5", "white", "champion"],
       ["D6", "black", "flag"],
@@ -885,7 +883,7 @@ describe("renderGameRecord - Result/ResultReason (§5 record file format)", () =
 
     expect(record).toContain(`[Ruleset "${RULESET_TAG}"]`);
     expect(record).toContain(renderPositionBlock(initial));
-    expect(record).toContain("1. D5D6");
+    expect(record).toContain("1. D5-D6x");
   });
 });
 
