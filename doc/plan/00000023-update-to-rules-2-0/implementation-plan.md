@@ -1428,7 +1428,41 @@ Re-run all of Gates A–D and F as a regression sanity check.
 
 ## Step 11 — README and documentation check
 
-Status: pending
+Status: committed
+
+Notes: `README.md` was materially out of date and was updated; no other
+player-facing doc it links needed a change. Four things were wrong for a
+player: it described a single fixed "army of 25 pieces" (now two games), it
+listed three start-screen choices including computer play (now disabled), it
+described attacks as strictly moving onto an enemy (diagonal attacks now
+exist), and its status note claimed computer play worked.
+
+Edits, all kept to plain language for a non-technical reader per the project's
+intended audience: the intro now names **Skirmish** (sixteen pieces, small
+board, "a good place to start") and **Battle** (twenty-five pieces, the full
+game); the start-screen sentence drops computer play and says it is
+temporarily unavailable; the setup bullet starts with picking a game; the
+move/attack bullet describes the diagonal attack in plain words
+("strike an enemy standing corner-to-corner with it, though it can only ever
+move straight") including that towers and the flag are exempt, so "the flag
+must always be taken head-on"; the computer-play bullet is rewritten as
+temporarily unavailable; the status note is rewritten to match; and the rules
+section now says plainly that recordings made under the earlier rules can no
+longer be reviewed — a real, player-visible consequence of this story's
+go-forward replacement.
+
+Deliberately **not** changed: the "Review a recorded game" bullet's "a game
+you play here can't be saved or reviewed yet". Step 8a made the developer
+record dump re-importable, but that dump is a dev-build disclosure, not a
+player-facing save; from a player's point of view there is still no way to
+save their own game, and "saving a played game to a file" remains out of
+scope. The word "ply" appears nowhere in the README, and no rules are
+restated — the companion repository is still linked as the single source of
+truth, per project conventions.
+
+Verified with `npx prettier --check README.md` (clean) and
+`npm run typecheck && npm run lint && npm test` (561 tests, unchanged — the
+step touches documentation only).
 
 Review `README.md` (and any player-facing docs it links) against everything this
 story changed — the two games (Battle/Skirmish) with Skirmish as the recommended
