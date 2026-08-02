@@ -35,11 +35,7 @@
 // are all reachable by mouse and keyboard even though an unselected movable
 // piece shows no highlight.
 
-import {
-  BATTLE_LAYOUT,
-  type Side,
-  type Square,
-} from "../rules/primary/v2/board.ts";
+import type { Side, Square } from "../rules/primary/v2/board.ts";
 import { FullBoard } from "./FullBoard.tsx";
 import {
   actionableSquares,
@@ -122,11 +118,10 @@ export function PlayBoard({
 }: PlayBoardProps) {
   const side = fixedSide ?? viewSide(session, flipBetweenTurns);
   // The session's own resolved edition carries the board it was actually
-  // played on (story 00000023, Step 3); `session.play.edition` is optional
-  // only for hand-built fixtures that predate that field (see `play.ts`'s
-  // doc comment) - Battle is the correct fallback for those, matching every
-  // other consumer's default.
-  const layout = session.play.edition?.boardLayout ?? BATTLE_LAYOUT;
+  // played on (story 00000023, Step 3); `edition` is required on `PlayState`
+  // (this story's peer review, finding #2), so there is no default to fall
+  // back to.
+  const layout = session.play.edition.boardLayout;
 
   return (
     <FullBoard

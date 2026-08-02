@@ -12,7 +12,6 @@
 import type { CSSProperties } from "react";
 import { PieceIcon, LAKE_SYMBOL_ID } from "../art/PieceIcon.tsx";
 import {
-  BATTLE_LAYOUT,
   isLake,
   squareKey,
   type Side,
@@ -33,12 +32,14 @@ export interface BoardProps {
    */
   readonly placement?: PlacementState;
   /**
-   * The board layout to render (story 00000023, Step 6). Defaults to Battle,
-   * so every existing caller is unaffected; a caller placing on a different
-   * edition's board (e.g. Skirmish) passes its `boardLayout` here - typically
-   * `placement.boardLayout` when `placement` is given.
+   * The board layout to render (story 00000023, Step 6; required since the
+   * peer review's finding #2 - an omitted layout used to default silently to
+   * Battle's, the same defect class found live at this story's Gate B/D).
+   * Every caller passes its own edition's `boardLayout` explicitly -
+   * typically `placement.boardLayout` when `placement` is given, or
+   * `BATTLE_LAYOUT` (`board.ts`) for a caller that only ever plays Battle.
    */
-  readonly layout?: BoardLayout;
+  readonly layout: BoardLayout;
   /** Called when an interactive (home-band) square is clicked. */
   readonly onSquareClick?: (square: Square) => void;
   /**
@@ -59,7 +60,7 @@ interface BoardGridStyle extends CSSProperties {
 export function Board({
   activeSide,
   placement,
-  layout = BATTLE_LAYOUT,
+  layout,
   onSquareClick,
   selectedSquare,
 }: BoardProps) {

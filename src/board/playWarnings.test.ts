@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BATTLE_EDITION } from "../rules/primary/v2/edition.ts";
 import type {
   BoardState,
   InitialGameState,
@@ -22,7 +23,11 @@ function initialGameState(
   for (const [key, side, pieceType] of pieces) {
     board[key] = { side, pieceType };
   }
-  return { ruleset: RULESET_TAG, board: board as BoardState };
+  return {
+    ruleset: RULESET_TAG,
+    edition: BATTLE_EDITION,
+    board: board as BoardState,
+  };
 }
 
 /**

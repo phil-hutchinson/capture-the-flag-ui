@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { armySize, BATTLE_ARMY } from "./armyComposition.ts";
-import { homeSquares } from "./board.ts";
-import { EDITIONS } from "./edition.ts";
+import { BATTLE_LAYOUT, homeSquares } from "./board.ts";
+import { BATTLE_EDITION, EDITIONS } from "./edition.ts";
 import { pieceCatalogEntries } from "./pieces.ts";
 import { autoFill, emptyPlacement, type PlacementState } from "./placement.ts";
 
@@ -27,7 +27,7 @@ function seededRandom(seed: number): () => number {
 }
 
 function completeArmy(side: "white" | "black", seed: number): PlacementState {
-  return autoFill(emptyPlacement(side), seededRandom(seed));
+  return autoFill(emptyPlacement(side, BATTLE_LAYOUT), seededRandom(seed));
 }
 
 describe("buildInitialGameState (ruleset major 2)", () => {
@@ -105,7 +105,7 @@ describe("buildInitialGameState (ruleset major 2)", () => {
 
   it("rejects incomplete armies", () => {
     const white = completeArmy("white", 7);
-    const black = emptyPlacement("black");
+    const black = emptyPlacement("black", BATTLE_LAYOUT);
     expect(() => buildInitialGameState(white, black)).toThrow();
   });
 
@@ -139,6 +139,7 @@ describe("renderPositionBlock (ruleset major 2)", () => {
     // on rows 6-7 (XXX), per the `O L L O O L L O O L L O` pattern.
     const gameState: InitialGameState = {
       ruleset: RULESET_TAG,
+      edition: BATTLE_EDITION,
       board: {
         A1: { side: "white", pieceType: "flag" },
         L1: { side: "white", pieceType: "masterOfArms" },
@@ -233,6 +234,7 @@ describe("parsePositionBlock (ruleset major 2)", () => {
     }
     const sparseGameState: InitialGameState = {
       ruleset: RULESET_TAG,
+      edition: BATTLE_EDITION,
       board: sparseBoard,
     };
 
@@ -363,6 +365,7 @@ describe("parsePositionBlock (ruleset major 2)", () => {
   it("does not check army composition or counts - accepts an arbitrary sparse board", () => {
     const gameState: InitialGameState = {
       ruleset: RULESET_TAG,
+      edition: BATTLE_EDITION,
       board: {
         A1: { side: "white", pieceType: "flag" },
       },

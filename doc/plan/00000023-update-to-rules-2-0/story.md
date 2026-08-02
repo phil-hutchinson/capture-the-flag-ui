@@ -18,7 +18,7 @@ the new code.
 Three things change the game itself:
 
 - **Diagonal attacks.** A piece may now attack an enemy standing one square
-  **diagonally** — but only to *attack*, never to move onto an empty diagonal
+  **diagonally** — but only to _attack_, never to move onto an empty diagonal
   square, and only against a **movable (numbered)** piece. Towers and the Flag
   can never be attacked diagonally, so **the Flag can still only be captured
   from an orthogonally adjacent square.**
@@ -51,9 +51,9 @@ What else a player will notice:
   complete set of flag values; the two published editions differ only in the
   `BOARD_LAYOUT` and `ARMY_COMPOSITION` flags), the now **size-parametric**
   record notation (board dimensions are read from the record's position block,
-  lake layout from its `XXX` cells; the home-zone row count is *not* in the
+  lake layout from its `XXX` cells; the home-zone row count is _not_ in the
   block and comes from `BOARD_LAYOUT`), the **lake-corner** ruling for diagonal
-  attacks (a diagonal may pass the *corner* of a lake — the "skirt"; the
+  attacks (a diagonal may pass the _corner_ of a lake — the "skirt"; the
   "squeeze" between two lakes cannot arise on either published board), and the
   `Ruleset` record tag, which is now the full **edition id** (e.g.
   `2-0:SKIRMISH`), with both published editions rendering with **no deviating
@@ -103,7 +103,7 @@ What else a player will notice:
   story.**
 - **Split delivery.** This is the core story: the rules, both boards, diagonal
   attacks, the per-game choice, hot-seat play end to end, and records that
-  round-trip. The fuller two-edition *experience* and verification of the
+  round-trip. The fuller two-edition _experience_ and verification of the
   reviewer against **real** engine-produced 2.0 records are a **follow-up**
   (`doc/plan/proposed-stories/rules-2-0-edition-experience-and-records.md`),
   mirroring how story 00000017 followed 00000016.
@@ -194,7 +194,7 @@ and **Skirmish**.
   and a Skirmish engine. This keeps the two editions provably the same rules
   differing only in board and army, which is what the editions model asserts.
 - **The diagonal "squeeze" is not implemented as a special case.** A diagonal
-  slipping between *two* lakes cannot arise on either published board, so the
+  slipping between _two_ lakes cannot arise on either published board, so the
   only rule enforced is "the attacked square is not a lake" (which permits the
   corner skirt). This matches the companion `technical-notes.md`, which reserves
   the squeeze for a future layout that can reach it.

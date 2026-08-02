@@ -17,10 +17,11 @@
 //
 // The position-block render/parse (`renderPositionBlock`/`parsePositionBlock`)
 // are sized to a `BoardLayout` rather than the fixed 12x12 grid:
-// `renderPositionBlock` reads it off `gameState.edition` (defaulting to
-// Battle when omitted - see `InitialGameState`'s doc comment);
-// `parsePositionBlock` takes it as an optional parameter, also defaulting to
-// Battle.
+// `renderPositionBlock` reads it off `gameState.edition` (required - see
+// `InitialGameState`'s doc comment); `parsePositionBlock` takes it as a
+// parameter that defaults to Battle - that default is never reachable from a
+// live path (its one caller, `recordFile.ts`'s `parseRecordFile`, always
+// passes an explicit layout), kept only for hand-built fixtures.
 
 import {
   BATTLE_LAYOUT,
@@ -37,7 +38,7 @@ import { EDITIONS, type Edition } from "./edition.ts";
 import { PIECE_CATALOG, PIECE_TYPES, type PieceTypeId } from "./pieces.ts";
 import { isComplete, type PlacementState } from "./placement.ts";
 
-/** The edition `buildInitialGameState`/position-block rendering falls back to when none is given. */
+/** The edition `buildInitialGameState` falls back to when none is given. */
 const DEFAULT_EDITION: Edition = EDITIONS["2-0:BATTLE"];
 
 /**
@@ -45,12 +46,12 @@ const DEFAULT_EDITION: Edition = EDITIONS["2-0:BATTLE"];
  * per `technical-notes.md`'s "editions and flags" model: the tag is the
  * full edition id, with no deviating flags (story 00000023's Step 8). This
  * remains exported (rather than removed) because many fixtures elsewhere in
- * this codebase build an `InitialGameState`/`PlayState` with no `edition`
- * field - defaulting, like every other consumer, to Battle - and use this
- * constant as their matching `ruleset` tag. `buildInitialGameState` below
- * does **not** use this constant directly; it tags every artifact with the
- * *actual* resolved edition's id, so a Skirmish game is correctly tagged
- * `2-0:SKIRMISH`, not this Battle default.
+ * this codebase build a Battle `InitialGameState`/`PlayState` (via
+ * `BATTLE_EDITION`, `edition.ts`, now that both artifacts require an
+ * `edition`) and use this constant as their matching `ruleset` tag.
+ * `buildInitialGameState` below does **not** use this constant directly; it
+ * tags every artifact with the *actual* resolved edition's id, so a Skirmish
+ * game is correctly tagged `2-0:SKIRMISH`, not this Battle default.
  */
 export const RULESET_TAG: string = DEFAULT_EDITION.id;
 
@@ -72,17 +73,18 @@ export type BoardState = Readonly<Record<string, PlacedPiece>>;
  * tagged with the ruleset they were created under, and (story 00000023's
  * Step 3) the resolved `edition` the board was built for - the parametric
  * board geometry a later step's rendering/records read rather than assuming
- * Battle's 12x12. `edition` is **optional** so hand-built fixtures from
- * earlier stories (and this story's own tests, and the frozen encoding/engine
- * modules' fixtures) that predate this field remain valid: every function
- * here treats a missing `edition` as Battle, exactly today's behavior. This
- * is a plain, JSON-serializable structure (no `Map`s, no functions) so it
+ * Battle's 12x12. `edition` is **required** (story 00000023's peer review,
+ * finding #2: an optional `edition` defaulted silently to Battle on nearly
+ * every live API, which is exactly the defect class found live at this
+ * story's Gate B/D). Fixtures elsewhere that need a fixed edition use the
+ * exported `BATTLE_EDITION` constant (`edition.ts`) explicitly. This is a
+ * plain, JSON-serializable structure (no `Map`s, no functions) so it
  * round-trips through `JSON.stringify`/`JSON.parse` unchanged, and is the
  * foundation Phase 2 and recorded-game replay will build on.
  */
 export interface InitialGameState {
   readonly ruleset: string;
-  readonly edition?: Edition;
+  readonly edition: Edition;
   readonly board: BoardState;
 }
 
@@ -158,16 +160,15 @@ function positionBlockCell(
 
 /**
  * Renders the position-block text form of `gameState.board`: the full board
- * - sized to `gameState.edition`'s `BoardLayout` (Battle's 12x12 if
- * `edition` is omitted) - in White's absolute frame - highest row at top,
- * row 1 at bottom, column A at left - as one line per row of three-character
- * cells separated by single spaces. Cell encoding: White piece `[X]`, Black
- * piece `*X*`, empty `---`, lake `XXX`, where `X` is the piece's
- * position-block symbol. See `technical-notes.md`'s "Record file format" for
- * the source of this format.
+ * - sized to `gameState.edition`'s `BoardLayout` - in White's absolute frame
+ * - highest row at top, row 1 at bottom, column A at left - as one line per
+ * row of three-character cells separated by single spaces. Cell encoding:
+ * White piece `[X]`, Black piece `*X*`, empty `---`, lake `XXX`, where `X` is
+ * the piece's position-block symbol. See `technical-notes.md`'s "Record file
+ * format" for the source of this format.
  */
 export function renderPositionBlock(gameState: InitialGameState): string {
-  const layout = gameState.edition?.boardLayout ?? BATTLE_LAYOUT;
+  const layout = gameState.edition.boardLayout;
   const rowsTopToBottom = [...rowsOf(layout)].reverse();
   const columns = columnsOf(layout);
   return rowsTopToBottom

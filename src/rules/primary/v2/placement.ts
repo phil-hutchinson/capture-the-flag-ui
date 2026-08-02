@@ -24,13 +24,15 @@
 // army-composition rosters (Step 2, `armyComposition.ts`); it has no further
 // dependencies.
 //
-// A `PlacementState` carries its own `boardLayout` and `army` (each
-// defaulting to Battle's), so home squares, the Tower-adjacency rule,
-// auto-fill, and the starting/complete inventory are all sized to the board
-// and roster actually being placed for (story 00000023's Steps 3 and 4).
+// A `PlacementState` carries its own `boardLayout` (required - story
+// 00000023's peer review, finding #2: an omitted `boardLayout` used to
+// silently default to Battle's, which is exactly the class of defect found
+// live at this story's Gate B/D) and `army` (still defaulting to Battle's),
+// so home squares, the Tower-adjacency rule, auto-fill, and the
+// starting/complete inventory are all sized to the board and roster actually
+// being placed for (story 00000023's Steps 3 and 4).
 
 import {
-  BATTLE_LAYOUT,
   columnIndexOf,
   homeSquares,
   isHomeSquareFor,
@@ -63,12 +65,14 @@ export interface PlacementState {
 }
 
 /**
- * A fresh placement state for `side` on `boardLayout` and `army` (each
- * defaults to Battle's): no pieces placed, a full tray sized to `army`.
+ * A fresh placement state for `side` on `boardLayout` (required - pass
+ * `BATTLE_LAYOUT`, `board.ts`'s exported constant, explicitly for Battle) and
+ * `army` (defaults to Battle's): no pieces placed, a full tray sized to
+ * `army`.
  */
 export function emptyPlacement(
   side: Side,
-  boardLayout: BoardLayout = BATTLE_LAYOUT,
+  boardLayout: BoardLayout,
   army: ArmyRoster = BATTLE_ARMY,
 ): PlacementState {
   return {

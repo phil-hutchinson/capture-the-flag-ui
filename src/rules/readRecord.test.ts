@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Edition } from "./primary/v2/edition.ts";
-import { EDITIONS } from "./primary/v2/edition.ts";
+import { BATTLE_EDITION, EDITIONS } from "./primary/v2/edition.ts";
 import { columnLetter } from "./primary/v2/boardLayout.ts";
 import {
   renderPositionBlock,
@@ -13,6 +13,7 @@ import { readRecord } from "./readRecord.ts";
 
 const GAME_STATE: InitialGameState = {
   ruleset: RULESET_TAG,
+  edition: BATTLE_EDITION,
   board: {
     A1: { side: "white", pieceType: "flag" },
   },
@@ -125,6 +126,7 @@ describe("readRecord - edition dispatch", () => {
 describe("readRecord - a small synthetic 2-0:BATTLE record round-trips", () => {
   const ROUND_TRIP_GAME_STATE: InitialGameState = {
     ruleset: RULESET_TAG,
+    edition: BATTLE_EDITION,
     board: {
       A1: { side: "white", pieceType: "masterOfArms" },
       B1: { side: "white", pieceType: "champion" },
@@ -231,6 +233,7 @@ describe("readRecord - a small synthetic 2-0:BATTLE record round-trips", () => {
     // ruleset's.
     const malformedState: InitialGameState = {
       ruleset: RULESET_TAG,
+      edition: BATTLE_EDITION,
       board: {
         A1: { side: "white", pieceType: "masterOfArms" },
         A2: { side: "white", pieceType: "champion" },

@@ -33,7 +33,7 @@
 // so this is behaviorally equivalent for them today (see the deviation noted
 // in Step 8's Notes).
 
-import { BATTLE_LAYOUT, type Side } from "./board.ts";
+import type { Side } from "./board.ts";
 import type { BoardLayout } from "./boardLayout.ts";
 import {
   parsePositionBlock,
@@ -307,16 +307,18 @@ function parseMoves(tokens: readonly string[]): MovesResult {
  * Parses a record file's text into a `ParsedRecord`, or a structured
  * `RecordFileError`. Tolerates LF or CRLF line endings, leading/trailing
  * blank lines, any number of blank lines between sections, trailing spaces on
- * any line, and a freely wrapped move sequence. `layout` (defaults to
- * Battle's) is the `BoardLayout` the position block is expected to describe -
- * `readRecord.ts` resolves it from the file's own `Ruleset` tag (the edition
- * id) before calling here, so the position block's dimensions and lake
- * layout are read back against the *right* board rather than assumed fixed
- * at 12x12 (story 00000023's Step 8). Never throws.
+ * any line, and a freely wrapped move sequence. `layout` (required - story
+ * 00000023's peer review, finding #2: an omitted layout used to default
+ * silently to Battle's, which is exactly the defect class found live at this
+ * story's Gate D) is the `BoardLayout` the position block is expected to
+ * describe - `readRecord.ts` resolves it from the file's own `Ruleset` tag
+ * (the edition id) before calling here, so the position block's dimensions
+ * and lake layout are read back against the *right* board rather than
+ * assumed fixed at 12x12 (story 00000023's Step 8). Never throws.
  */
 export function parseRecordFile(
   text: string,
-  layout: BoardLayout = BATTLE_LAYOUT,
+  layout: BoardLayout,
 ): RecordFileResult {
   const chunks = splitIntoChunks(text);
 

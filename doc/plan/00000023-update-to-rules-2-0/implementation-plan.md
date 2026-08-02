@@ -47,9 +47,9 @@ The rules facts this plan is built on, resolved at plan time against those docs
   editions differ **only** in the two flags:
   - `2-0:BATTLE` = `BOARD_LAYOUT=standard_144`, `ARMY_COMPOSITION=standard_battle`.
   - `2-0:SKIRMISH` = `BOARD_LAYOUT=standard_64`, `ARMY_COMPOSITION=standard_skirmish`.
-  The `Ruleset` record tag is the **full edition id** with **no deviating
-  flags** (each edition sets both flags explicitly, and a flag at its resolved
-  value is omitted). A bare ruleset name is never written.
+    The `Ruleset` record tag is the **full edition id** with **no deviating
+    flags** (each edition sets both flags explicitly, and a flag at its resolved
+    value is omitted). A bare ruleset name is never written.
 - **Invalid combinations are simply not offered.** `BOARD_LAYOUT` and
   `ARMY_COMPOSITION` are independent, so a config can name an army that does not
   fit its home zone (25 pieces on Skirmish's 24 home squares). Only the two
@@ -281,10 +281,10 @@ gained the same optional `edition?: Edition`, populated in `startPlay` from
 `initial.edition` and passed through in `renderGameRecord`'s reconstructed
 `InitialGameState` literal; `applyMove`'s internal calls to
 `legalAttacks`/`legalDestinations`/`resolveCombat`/`computeOutcome` were left
-on their Battle defaults, since wiring `play.ts` to actually *use*
+on their Battle defaults, since wiring `play.ts` to actually _use_
 `state.edition.boardLayout` for rule enforcement is Step 7's job once a
 non-Battle edition is reachable through the picker - this step only extends
-the artifacts to *carry* it, per the plan's own wording.
+the artifacts to _carry_ it, per the plan's own wording.
 
 Added a Skirmish-layout `describe` block to each of `board.test.ts`,
 `movement.test.ts`, `combat.test.ts`, `outcome.test.ts`, `placement.test.ts`,
@@ -733,7 +733,7 @@ since the updater's `current` parameter is typed `PlacementSession | null`;
 (2) a `if (session === null) { return null; }` unreachable-in-practice guard
 was added (mirroring the pre-existing `session.active === null` guard
 immediately below it), and `handleConfirm` additionally re-checks
-`session === null || edition === null` at its own top *despite* the outer
+`session === null || edition === null` at its own top _despite_ the outer
 guards already having narrowed both, because TypeScript does not carry
 narrowing of an outer `const` across a nested function declaration's own
 boundary - confirmed by `tsc -b` actually failing without it; the same reason
@@ -750,7 +750,8 @@ play, and this keeps a single, consistent entry point into a hot-seat game
 `npm run typecheck && npm run lint && npm test` all pass (581 tests, up from
 577 - the four new regression tests). `npm run build` succeeds. `npx prettier
 --check` is clean on every file this step touched. Manual verification (Gate A
-+ Gate C) is the owner's to run per the standard pipeline, not run here.
+
+- Gate C) is the owner's to run per the standard pipeline, not run here.
 
 **Owner feedback at the Gate A + Gate C manual check (2026-08-01), addressed
 as a scoped follow-up.** `GameChoice` always pre-selected Skirmish, including
@@ -856,7 +857,7 @@ ruleset tag" placeholder for a Battle-default `InitialGameState`/`PlayState`
 keep compiling and stay semantically correct (their fixtures carry no
 `edition` field either, defaulting to Battle, so `RULESET_TAG`'s new value
 matches). `buildInitialGameState` no longer uses that constant directly,
-though: it now tags every artifact with `edition.id` (the *actual* resolved
+though: it now tags every artifact with `edition.id` (the _actual_ resolved
 edition passed in), so a Skirmish game is correctly tagged `2-0:SKIRMISH`,
 not silently defaulted to Battle's tag as it effectively was before (the old
 `RULESET_TAG` constant was written unconditionally). `renderGameRecord`
@@ -894,7 +895,7 @@ under the new pattern - a two-letter column, row 100, row 0 - and added a
 new "beyond Battle's old bounds" parse case, column Z/row 99); `readRecord.test.ts`
 and `recordFile.test.ts` (every literal `1.2:PRE-RELEASE` tag retargeted to
 `2-0:BATTLE` where the fixture exercises structural/replay behavior
-unrelated to dispatch; the one dispatch test that used to *accept* a
+unrelated to dispatch; the one dispatch test that used to _accept_ a
 `1.2:PRE-RELEASE` file now asserts it is rejected as `unknownRuleset`, per
 the step; both files gained a new Skirmish (8x8) case -
 `recordFile.test.ts` a direct `parseRecordFile(text, layout)` round trip
@@ -911,7 +912,7 @@ made freshly inconsistent by RULESET_TAG's new value - corrected to
 
 **Deviation - the writer/reader "round trip" tests do not literally pipe
 `renderGameRecord`'s output through `readRecord` when moves are involved.**
-`renderGameRecord` still writes the move sequence in the *plain* form
+`renderGameRecord` still writes the move sequence in the _plain_ form
 (`A2A3`, no separator - unchanged, deliberately out of this step's scope),
 and `parseMoveToken` deliberately rejects plain-form tokens (a pre-existing,
 intentional restriction predating this story - see notation.ts's header).
@@ -924,9 +925,9 @@ started (zero-move) game, exercising the real writer end to end for
 everything this step actually changed (the `Ruleset` tag and the
 size-parametric position block); a second, hand-built-extended-notation
 block (mirroring the pre-existing 2-0:BATTLE synthetic-record tests)
-covers a *played* Skirmish game's full move-sequence round trip, including
+covers a _played_ Skirmish game's full move-sequence round trip, including
 a move that lands on the Skirmish board's near-lake row at a
-non-lake-column square - proof the reader is reading *that* edition's lake
+non-lake-column square - proof the reader is reading _that_ edition's lake
 layout, not Battle's. This was not flagged as a place to split the step; it
 follows directly from a pre-existing, intentional restriction the plan
 did not ask this step to lift.
@@ -1125,7 +1126,7 @@ New automated coverage (`readRecord.test.ts`): a
 fix)"` describe block asserting a `2-0:BATTLE` record's read-back `edition`
 has `boardLayout.columnCount`/`rowCount` 12/12 and lake cells at rows 6-7
 (B/C/F/G/J/K), and a `2-0:SKIRMISH` record's has 8/8 and lake cells at rows
-4-5 (B/C/F/G) — direct proof the reader surfaces the *right* edition's
+4-5 (B/C/F/G) — direct proof the reader surfaces the _right_ edition's
 geometry, not Battle's, for each ruleset. `npm run typecheck && npm run lint
 && npm test` all pass (604 tests, up from 598). `npm run build` succeeds.
 `npx prettier --check` is clean on every file touched. Files touched beyond

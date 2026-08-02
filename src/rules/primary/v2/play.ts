@@ -33,13 +33,7 @@
 // resolution rules (combat.ts, story 00000005), and the initial-game-state
 // artifact (gameState.ts, story 00000001); it has no further dependencies.
 
-import {
-  BATTLE_LAYOUT,
-  otherSide,
-  squareKey,
-  type Side,
-  type Square,
-} from "./board.ts";
+import { otherSide, squareKey, type Side, type Square } from "./board.ts";
 import { resolveCombat, type CombatOutcome } from "./combat.ts";
 import type { Edition } from "./edition.ts";
 import {
@@ -73,19 +67,19 @@ const FIRST_SIDE: Side = "white";
  * ended. Everything downstream (the session layer, the UI, the record) reads
  * `result` rather than recomputing detection for itself. `edition` (story
  * 00000023's Step 3) carries the resolved edition/board-layout over from
- * `initial.edition`, unchanged - it is optional for the same reason
- * `InitialGameState.edition` is (see gameState.ts): hand-built fixtures that
- * predate this field remain valid `PlayState`s. Every ply-generation call
- * below (`legalAttacks`/`legalDestinations`/`resolveCombat`/`computeOutcome`)
- * is threaded with `edition?.boardLayout` (falling back to `BATTLE_LAYOUT`
- * for a `PlayState` with no `edition`, matching every other consumer's
- * default) - story 00000023's Step 7, fixing a defect observed live at Step
- * 6's Gate B where these calls stayed on the Battle default even once a
- * non-Battle board was reachable through the picker.
+ * `initial.edition`, unchanged - it is **required** for the same reason
+ * `InitialGameState.edition` is (see gameState.ts, and this story's peer
+ * review, finding #2): an optional `edition` invited a call site to silently
+ * inherit Battle. Every ply-generation call below
+ * (`legalAttacks`/`legalDestinations`/`resolveCombat`/`computeOutcome`) is
+ * threaded with `edition.boardLayout` - story 00000023's Step 7, fixing a
+ * defect observed live at Step 6's Gate B where these calls stayed on the
+ * Battle default even once a non-Battle board was reachable through the
+ * picker.
  */
 export interface PlayState {
   readonly ruleset: string;
-  readonly edition?: Edition;
+  readonly edition: Edition;
   readonly initialBoard: BoardState;
   readonly board: BoardState;
   readonly sideToMove: Side;
@@ -107,7 +101,7 @@ export interface PlayState {
  */
 export function startPlay(initial: InitialGameState): PlayState {
   const inactivityCounter = 0;
-  const layout = initial.edition?.boardLayout ?? BATTLE_LAYOUT;
+  const layout = initial.edition.boardLayout;
   return {
     ruleset: initial.ruleset,
     edition: initial.edition,
@@ -191,7 +185,7 @@ export function applyMove(
     throw new Error("Cannot apply move: the game has already ended.");
   }
 
-  const layout = state.edition?.boardLayout ?? BATTLE_LAYOUT;
+  const layout = state.edition.boardLayout;
 
   const fromKey = squareKey(from);
   const toKey = squareKey(to);

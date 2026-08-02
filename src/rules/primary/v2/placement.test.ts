@@ -5,7 +5,12 @@ import {
   BATTLE_ARMY,
   type ArmyRoster,
 } from "./armyComposition.ts";
-import { homeSquares, isHomeSquareFor, type Square } from "./board.ts";
+import {
+  BATTLE_LAYOUT,
+  homeSquares,
+  isHomeSquareFor,
+  type Square,
+} from "./board.ts";
 import { BOARD_LAYOUTS } from "./boardLayout.ts";
 import {
   pieceCatalogEntries,
@@ -67,7 +72,7 @@ function placeFullArmy(state: PlacementState): PlacementState {
 
 describe("emptyPlacement (ruleset 1.2:PRE-RELEASE)", () => {
   it("starts with no pieces placed and a full 25-piece tray", () => {
-    const state = emptyPlacement("white");
+    const state = emptyPlacement("white", BATTLE_LAYOUT);
     expect(placedCount(state)).toBe(0);
     expect(isComplete(state)).toBe(false);
     for (const entry of pieceCatalogEntries()) {
@@ -78,7 +83,7 @@ describe("emptyPlacement (ruleset 1.2:PRE-RELEASE)", () => {
 
 describe("place", () => {
   it("occupies the square and decrements remaining", () => {
-    const state = emptyPlacement("white");
+    const state = emptyPlacement("white", BATTLE_LAYOUT);
     const square = WHITE_HOME[0];
     const next = place(state, square, "champion");
 
@@ -91,7 +96,7 @@ describe("place", () => {
   });
 
   it("rejects placing on a square that is not the side's own home square", () => {
-    const state = emptyPlacement("white");
+    const state = emptyPlacement("white", BATTLE_LAYOUT);
     for (const square of NON_HOME_SQUARES) {
       expect(() => place(state, square, "militia")).toThrow();
     }
@@ -100,12 +105,16 @@ describe("place", () => {
   });
 
   it("rejects placing on an already-occupied square", () => {
-    const state = place(emptyPlacement("white"), WHITE_HOME[0], "knight");
+    const state = place(
+      emptyPlacement("white", BATTLE_LAYOUT),
+      WHITE_HOME[0],
+      "knight",
+    );
     expect(() => place(state, WHITE_HOME[0], "militia")).toThrow();
   });
 
   it("rejects placing a piece type with zero remaining", () => {
-    let state = emptyPlacement("white");
+    let state = emptyPlacement("white", BATTLE_LAYOUT);
     // Flag has quantity 1: place it once, then a second placement must fail.
     state = place(state, WHITE_HOME[0], "flag");
     expect(() => place(state, WHITE_HOME[1], "flag")).toThrow();
@@ -116,7 +125,11 @@ describe("move", () => {
   it("relocates a placed piece without changing remaining counts", () => {
     const from = WHITE_HOME[0];
     const to = WHITE_HOME[1];
-    const before = place(emptyPlacement("white"), from, "knight");
+    const before = place(
+      emptyPlacement("white", BATTLE_LAYOUT),
+      from,
+      "knight",
+    );
     const after = move(before, from, to);
 
     expect(pieceAt(after, from)).toBeUndefined();
@@ -128,19 +141,23 @@ describe("move", () => {
   });
 
   it("rejects moving from an empty square", () => {
-    const state = emptyPlacement("white");
+    const state = emptyPlacement("white", BATTLE_LAYOUT);
     expect(() => move(state, WHITE_HOME[0], WHITE_HOME[1])).toThrow();
   });
 
   it("rejects moving onto an already-occupied square", () => {
-    let state = emptyPlacement("white");
+    let state = emptyPlacement("white", BATTLE_LAYOUT);
     state = place(state, WHITE_HOME[0], "champion");
     state = place(state, WHITE_HOME[1], "knight");
     expect(() => move(state, WHITE_HOME[0], WHITE_HOME[1])).toThrow();
   });
 
   it("rejects moving to or from a non-home square", () => {
-    const state = place(emptyPlacement("white"), WHITE_HOME[0], "champion");
+    const state = place(
+      emptyPlacement("white", BATTLE_LAYOUT),
+      WHITE_HOME[0],
+      "champion",
+    );
     expect(() => move(state, WHITE_HOME[0], NON_HOME_SQUARES[1])).toThrow();
     expect(() => move(state, NON_HOME_SQUARES[0], WHITE_HOME[0])).toThrow();
   });
@@ -150,7 +167,7 @@ describe("swap", () => {
   it("exchanges two placed pieces and preserves remaining counts", () => {
     const squareA = WHITE_HOME[0];
     const squareB = WHITE_HOME[1];
-    let state = emptyPlacement("white");
+    let state = emptyPlacement("white", BATTLE_LAYOUT);
     state = place(state, squareA, "champion");
     state = place(state, squareB, "knight");
     const before = state;
@@ -169,12 +186,16 @@ describe("swap", () => {
   });
 
   it("rejects swapping when either square is empty", () => {
-    const state = place(emptyPlacement("white"), WHITE_HOME[0], "champion");
+    const state = place(
+      emptyPlacement("white", BATTLE_LAYOUT),
+      WHITE_HOME[0],
+      "champion",
+    );
     expect(() => swap(state, WHITE_HOME[0], WHITE_HOME[1])).toThrow();
   });
 
   it("rejects swapping a non-home square", () => {
-    let state = emptyPlacement("white");
+    let state = emptyPlacement("white", BATTLE_LAYOUT);
     state = place(state, WHITE_HOME[0], "champion");
     state = place(state, WHITE_HOME[1], "knight");
     expect(() => swap(state, WHITE_HOME[0], NON_HOME_SQUARES[1])).toThrow();
@@ -184,7 +205,11 @@ describe("swap", () => {
 describe("returnToTray", () => {
   it("empties the square and increments remaining", () => {
     const square = WHITE_HOME[0];
-    const placed = place(emptyPlacement("white"), square, "tower");
+    const placed = place(
+      emptyPlacement("white", BATTLE_LAYOUT),
+      square,
+      "tower",
+    );
     const after = returnToTray(placed, square);
 
     expect(pieceAt(after, square)).toBeUndefined();
@@ -193,19 +218,19 @@ describe("returnToTray", () => {
   });
 
   it("rejects returning from an empty square", () => {
-    const state = emptyPlacement("white");
+    const state = emptyPlacement("white", BATTLE_LAYOUT);
     expect(() => returnToTray(state, WHITE_HOME[0])).toThrow();
   });
 
   it("rejects returning from a non-home square", () => {
-    const state = emptyPlacement("white");
+    const state = emptyPlacement("white", BATTLE_LAYOUT);
     expect(() => returnToTray(state, NON_HOME_SQUARES[1])).toThrow();
   });
 });
 
 describe("clear", () => {
   it("empties the board and restores the full 25-count inventory", () => {
-    const full = placeFullArmy(emptyPlacement("white"));
+    const full = placeFullArmy(emptyPlacement("white", BATTLE_LAYOUT));
     expect(isComplete(full)).toBe(true);
 
     const cleared = clear(full);
@@ -221,7 +246,7 @@ describe("clear", () => {
 
 describe("progress and isComplete", () => {
   it("reports placed/total progress accurately as pieces are placed", () => {
-    let state = emptyPlacement("white");
+    let state = emptyPlacement("white", BATTLE_LAYOUT);
     expect(progress(state)).toEqual({ placed: 0, total: ARMY_SIZE });
 
     state = place(state, WHITE_HOME[0], "militia");
@@ -232,7 +257,7 @@ describe("progress and isComplete", () => {
   });
 
   it("is complete only when all 25 pieces are placed, leaving the rest of the 48 home squares empty", () => {
-    const state = emptyPlacement("white");
+    const state = emptyPlacement("white", BATTLE_LAYOUT);
     expect(isComplete(state)).toBe(false);
 
     const full = placeFullArmy(state);
@@ -252,7 +277,7 @@ describe("progress and isComplete", () => {
   });
 
   it("tracks each side's own home squares independently", () => {
-    let state = emptyPlacement("black");
+    let state = emptyPlacement("black", BATTLE_LAYOUT);
     state = place(state, BLACK_HOME[0], "knight");
     expect(pieceAt(state, BLACK_HOME[0])).toBe("knight");
     for (const square of WHITE_HOME) {
@@ -263,37 +288,43 @@ describe("progress and isComplete", () => {
 
 describe("towersLegallyPlaced", () => {
   it("is true with no Towers placed at all", () => {
-    expect(towersLegallyPlaced(emptyPlacement("white"))).toBe(true);
+    expect(towersLegallyPlaced(emptyPlacement("white", BATTLE_LAYOUT))).toBe(
+      true,
+    );
   });
 
   it("is true with a single Tower placed", () => {
-    const state = place(emptyPlacement("white"), WHITE_HOME[0], "tower");
+    const state = place(
+      emptyPlacement("white", BATTLE_LAYOUT),
+      WHITE_HOME[0],
+      "tower",
+    );
     expect(towersLegallyPlaced(state)).toBe(true);
   });
 
   it("is true for two Towers that are not adjacent", () => {
-    let state = emptyPlacement("white");
+    let state = emptyPlacement("white", BATTLE_LAYOUT);
     state = place(state, { column: "A", row: 1 }, "tower");
     state = place(state, { column: "D", row: 1 }, "tower");
     expect(towersLegallyPlaced(state)).toBe(true);
   });
 
   it("is false for two orthogonally adjacent Towers", () => {
-    let state = emptyPlacement("white");
+    let state = emptyPlacement("white", BATTLE_LAYOUT);
     state = place(state, { column: "A", row: 1 }, "tower");
     state = place(state, { column: "B", row: 1 }, "tower");
     expect(towersLegallyPlaced(state)).toBe(false);
   });
 
   it("is false for two diagonally adjacent Towers", () => {
-    let state = emptyPlacement("white");
+    let state = emptyPlacement("white", BATTLE_LAYOUT);
     state = place(state, { column: "A", row: 1 }, "tower");
     state = place(state, { column: "B", row: 2 }, "tower");
     expect(towersLegallyPlaced(state)).toBe(false);
   });
 
   it("catches a violation among more than two placed Towers", () => {
-    let state = emptyPlacement("white");
+    let state = emptyPlacement("white", BATTLE_LAYOUT);
     state = place(state, { column: "A", row: 1 }, "tower");
     state = place(state, { column: "D", row: 1 }, "tower");
     state = place(state, { column: "D", row: 2 }, "tower"); // adjacent to D1
@@ -301,11 +332,13 @@ describe("towersLegallyPlaced", () => {
   });
 
   it("tracks each side's own Towers independently", () => {
-    let state = emptyPlacement("black");
+    let state = emptyPlacement("black", BATTLE_LAYOUT);
     state = place(state, { column: "A", row: 9 }, "tower");
     state = place(state, { column: "B", row: 9 }, "tower");
     expect(towersLegallyPlaced(state)).toBe(false);
-    expect(towersLegallyPlaced(emptyPlacement("white"))).toBe(true);
+    expect(towersLegallyPlaced(emptyPlacement("white", BATTLE_LAYOUT))).toBe(
+      true,
+    );
   });
 });
 
@@ -324,7 +357,7 @@ function seededRandom(seed: number): RandomSource {
 
 describe("autoFill", () => {
   it("from an empty board, places exactly ARMY_SIZE (25) pieces with a count-correct army", () => {
-    const state = emptyPlacement("white");
+    const state = emptyPlacement("white", BATTLE_LAYOUT);
     const filled = autoFill(state, seededRandom(1));
 
     expect(isComplete(filled)).toBe(true);
@@ -349,7 +382,10 @@ describe("autoFill", () => {
   });
 
   it("leaves the other 23 of the 48 home squares empty (placement is sparse, not a full-board fill)", () => {
-    const filled = autoFill(emptyPlacement("white"), seededRandom(20));
+    const filled = autoFill(
+      emptyPlacement("white", BATTLE_LAYOUT),
+      seededRandom(20),
+    );
     const emptySquares = WHITE_HOME.filter(
       (square) => pieceAt(filled, square) === undefined,
     );
@@ -358,7 +394,10 @@ describe("autoFill", () => {
 
   it("never places two Towers adjacently, orthogonally or diagonally", () => {
     for (const seed of [1, 2, 3, 4, 5, 42, 100, 900]) {
-      const filled = autoFill(emptyPlacement("white"), seededRandom(seed));
+      const filled = autoFill(
+        emptyPlacement("white", BATTLE_LAYOUT),
+        seededRandom(seed),
+      );
       expect(towersLegallyPlaced(filled)).toBe(true);
 
       const towerSquares = WHITE_HOME.filter(
@@ -374,14 +413,17 @@ describe("autoFill", () => {
   });
 
   it("never places on a lake or buffer square", () => {
-    const filled = autoFill(emptyPlacement("white"), seededRandom(2));
+    const filled = autoFill(
+      emptyPlacement("white", BATTLE_LAYOUT),
+      seededRandom(2),
+    );
     for (const square of NON_HOME_SQUARES) {
       expect(pieceAt(filled, square)).toBeUndefined();
     }
   });
 
   it("leaves already-placed pieces untouched and completes the army around them", () => {
-    let state = emptyPlacement("white");
+    let state = emptyPlacement("white", BATTLE_LAYOUT);
     state = place(state, WHITE_HOME[0], "flag");
     state = place(state, WHITE_HOME[1], "masterOfArms");
 
@@ -397,7 +439,11 @@ describe("autoFill", () => {
   });
 
   it("respects the Tower rule even when a Tower is already placed before autoFill runs", () => {
-    const state = place(emptyPlacement("white"), WHITE_HOME[0], "tower");
+    const state = place(
+      emptyPlacement("white", BATTLE_LAYOUT),
+      WHITE_HOME[0],
+      "tower",
+    );
     for (const seed of [7, 8, 9]) {
       const filled = autoFill(state, seededRandom(seed));
       expect(pieceAt(filled, WHITE_HOME[0])).toBe("tower");
@@ -406,7 +452,7 @@ describe("autoFill", () => {
   });
 
   it("is reproducible with a fixed seed", () => {
-    const state = emptyPlacement("white");
+    const state = emptyPlacement("white", BATTLE_LAYOUT);
     const first = autoFill(state, seededRandom(42));
     const second = autoFill(state, seededRandom(42));
 
@@ -416,7 +462,10 @@ describe("autoFill", () => {
   });
 
   it("tracks each side's own home squares independently", () => {
-    const filled = autoFill(emptyPlacement("black"), seededRandom(4));
+    const filled = autoFill(
+      emptyPlacement("black", BATTLE_LAYOUT),
+      seededRandom(4),
+    );
     expect(isComplete(filled)).toBe(true);
     for (const square of WHITE_HOME) {
       expect(pieceAt(filled, square)).toBeUndefined();
@@ -427,7 +476,7 @@ describe("autoFill", () => {
 // Sanity check that the helper above is exercising a real, catalog-shaped army.
 describe("placeFullArmy test helper", () => {
   it("places exactly ARMY_SIZE pieces using catalog quantities", () => {
-    const full = placeFullArmy(emptyPlacement("white"));
+    const full = placeFullArmy(emptyPlacement("white", BATTLE_LAYOUT));
     const counts = new Map<PieceTypeId, number>();
     for (const square of WHITE_HOME) {
       const type = pieceAt(full, square);
@@ -442,13 +491,14 @@ describe("placeFullArmy test helper", () => {
 });
 
 // Story 00000023, Step 3: home squares and the Tower-adjacency rule,
-// exercised on the Skirmish layout (`standard_64`, 8x8) instead of the
-// Battle default, to confirm `PlacementState`'s `boardLayout` is genuinely
-// threaded through rather than hardcoding Battle's 12x12/48-home-square
-// board. These deliberately keep the (Battle-default) army out of it - only
-// a couple of pieces are hand-placed, never `autoFill`'d to completion - so
-// they isolate the board-layout threading from the army threading, which
-// gets its own coverage below (story 00000023's Step 4).
+// exercised on the Skirmish layout (`standard_64`, 8x8) instead of Battle's
+// own board (`BATTLE_LAYOUT`), to confirm `PlacementState`'s `boardLayout` is
+// genuinely threaded through rather than hardcoding Battle's
+// 12x12/48-home-square board. These deliberately keep the (Battle-default)
+// army out of it - only a couple of pieces are hand-placed, never
+// `autoFill`'d to completion - so they isolate the board-layout threading
+// from the army threading, which gets its own coverage below (story
+// 00000023's Step 4).
 describe("PlacementState on the Skirmish layout (8x8)", () => {
   const SKIRMISH = BOARD_LAYOUTS.standard_64;
 
@@ -498,8 +548,10 @@ describe("PlacementState on the Skirmish layout (8x8)", () => {
     expect(towersLegallyPlaced(state)).toBe(false);
   });
 
-  it("does not disturb the Battle-default (no-argument) behavior", () => {
-    expect(emptyPlacement("white").boardLayout).not.toBe(SKIRMISH);
+  it("does not disturb Battle's own board layout", () => {
+    expect(emptyPlacement("white", BATTLE_LAYOUT).boardLayout).not.toBe(
+      SKIRMISH,
+    );
     expect(homeSquares("white")).toHaveLength(48);
   });
 });
@@ -560,7 +612,7 @@ describe("PlacementState with the Skirmish army (16 pieces)", () => {
     // The same 16 pieces, placed into Battle's army instead: fully valid
     // (Battle fields at least as many of each type), but only 16 of Battle's
     // own 25 - so not yet complete.
-    let battle = emptyPlacement("white");
+    let battle = emptyPlacement("white", BATTLE_LAYOUT);
     const battleHome = homeSquares("white");
     for (let i = 0; i < skirmishPieces.length; i += 1) {
       battle = place(battle, battleHome[i], skirmishPieces[i]);

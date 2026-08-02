@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EDITIONS } from "./edition.ts";
+import { BATTLE_EDITION, EDITIONS } from "./edition.ts";
 import type { BoardState, InitialGameState, PlacedPiece } from "./gameState.ts";
 import { renderPositionBlock, RULESET_TAG } from "./gameState.ts";
 import { INACTIVITY_LIMIT } from "./outcome.ts";
@@ -32,7 +32,11 @@ function board(
 function initialGameState(
   pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
 ): InitialGameState {
-  return { ruleset: RULESET_TAG, board: board(pieces) };
+  return {
+    ruleset: RULESET_TAG,
+    edition: BATTLE_EDITION,
+    board: board(pieces),
+  };
 }
 
 describe("startPlay", () => {
@@ -687,7 +691,11 @@ describe("renderGameRecord", () => {
     // The current board (D4/D10) must not appear as the record's position
     // block - only the opening D5/D9 position does.
     expect(record).not.toContain(
-      renderPositionBlock({ ruleset: RULESET_TAG, board: state.board }),
+      renderPositionBlock({
+        ruleset: RULESET_TAG,
+        edition: BATTLE_EDITION,
+        board: state.board,
+      }),
     );
   });
 

@@ -49,7 +49,6 @@
 
 import {
   allSquares,
-  BATTLE_LAYOUT,
   otherSide,
   squareKey,
   type Side,
@@ -157,16 +156,15 @@ export function viewSide(session: PlaySession, flipBetweenTurns = true): Side {
 
 /**
  * The board layout `session.play` was actually played on (story 00000023,
- * Step 7): `session.play.edition?.boardLayout`, falling back to
- * `BATTLE_LAYOUT` for a `PlayState` with no `edition` (hand-built fixtures
- * that predate that field - see `play.ts`'s doc comment), matching every
- * other consumer's default. Every `legalDestinations`/`legalAttacks`/
+ * Step 7): `session.play.edition.boardLayout` - `edition` is required on
+ * `PlayState` (story 00000023's peer review, finding #2), so there is no
+ * default to fall back to. Every `legalDestinations`/`legalAttacks`/
  * `allSquares` call below is threaded with this - the defect observed live
  * at Step 6's Gate B was these calls staying on the `BATTLE_LAYOUT` default
  * even once a non-Battle board was reachable through the picker.
  */
 function sessionLayout(session: PlaySession): BoardLayout {
-  return session.play.edition?.boardLayout ?? BATTLE_LAYOUT;
+  return session.play.edition.boardLayout;
 }
 
 /**

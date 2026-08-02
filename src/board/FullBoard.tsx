@@ -63,7 +63,6 @@
 import type { CSSProperties } from "react";
 import { PieceIcon, LAKE_SYMBOL_ID } from "../art/PieceIcon.tsx";
 import {
-  BATTLE_LAYOUT,
   isLake,
   squareKey,
   type Side,
@@ -165,12 +164,13 @@ export interface FullBoardProps {
   /** The side whose perspective the board is drawn from (see `boardView.ts`). */
   readonly side: Side;
   /**
-   * The board layout to render (story 00000023, Step 6). Defaults to Battle,
-   * so every existing caller is unaffected; `PlayBoard.tsx` passes the
-   * session's own resolved edition's layout once one other than Battle is
-   * reachable (Step 7).
+   * The board layout to render (story 00000023, Step 6; required since the
+   * peer review's finding #2 - an omitted layout used to default silently to
+   * Battle's, the same defect class found live at this story's Gate B/D).
+   * `PlayBoard.tsx` passes the session's own resolved edition's layout;
+   * `ReviewScreen.tsx` passes the replayed record's own edition's layout.
    */
-  readonly layout?: BoardLayout;
+  readonly layout: BoardLayout;
   /** The square of a piece currently picked up, if any (hot-seat only). */
   readonly selected?: Square;
   /**
@@ -238,7 +238,7 @@ export interface FullBoardProps {
 export function FullBoard({
   board,
   side,
-  layout = BATTLE_LAYOUT,
+  layout,
   selected,
   destinationSquares = [],
   attackSquares = [],

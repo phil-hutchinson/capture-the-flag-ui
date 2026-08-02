@@ -69,9 +69,13 @@ export function combinationFits(
 
 /**
  * Battle (`2-0:BATTLE`): the existing 12x12 board with the 25-piece army,
- * unchanged from major 1.
+ * unchanged from major 1. Exported (mirroring `board.ts`'s `BATTLE_LAYOUT`
+ * and `armyComposition.ts`'s `BATTLE_ARMY`) so fixtures elsewhere that need a
+ * concrete `Edition` - now that `InitialGameState.edition`/`PlayState.edition`
+ * are required (story 00000023's peer review, finding #2) - can use it
+ * explicitly rather than relying on a silent default.
  */
-const BATTLE: Edition = {
+export const BATTLE_EDITION: Edition = {
   id: "2-0:BATTLE",
   boardLayoutId: "standard_144",
   armyCompositionId: "standard_battle",
@@ -93,7 +97,7 @@ const SKIRMISH: Edition = {
 
 /** Every defined edition, keyed by its id. Not all are necessarily playable - see `playableEditions`. */
 export const EDITIONS: Readonly<Record<EditionId, Edition>> = {
-  "2-0:BATTLE": BATTLE,
+  "2-0:BATTLE": BATTLE_EDITION,
   "2-0:SKIRMISH": SKIRMISH,
 };
 

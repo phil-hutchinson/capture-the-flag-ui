@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Square } from "../rules/primary/v2/board.ts";
-import { EDITIONS } from "../rules/primary/v2/edition.ts";
+import { BATTLE_EDITION, EDITIONS } from "../rules/primary/v2/edition.ts";
 import { RULESET_TAG } from "../rules/primary/v2/gameState.ts";
 import type {
   BoardState,
@@ -35,7 +35,11 @@ function board(
 function initialGameState(
   pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
 ): InitialGameState {
-  return { ruleset: RULESET_TAG, board: board(pieces) };
+  return {
+    ruleset: RULESET_TAG,
+    edition: BATTLE_EDITION,
+    board: board(pieces),
+  };
 }
 
 /** Sorts squares for order-independent comparison. */

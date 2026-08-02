@@ -32,6 +32,7 @@ import { computeCountdownWarnings } from "./playWarnings.ts";
 import { PlayWarnings } from "./PlayWarnings.tsx";
 import { Tray } from "./Tray.tsx";
 import {
+  BATTLE_LAYOUT,
   otherSide,
   squareKey,
   type Side,
@@ -410,7 +411,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
           onChoose={(side, chosenDifficulty) => {
             setHumanSide(side);
             setDifficulty(chosenDifficulty);
-            setPlacement(emptyPlacement(side));
+            setPlacement(emptyPlacement(side, BATTLE_LAYOUT));
           }}
         />
       </main>
@@ -640,7 +641,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
     // adjacent), generated silently and never shown before play begins - the
     // same `autoFill` the human's own "Auto-fill" button uses, applied to a
     // fresh, empty placement for the computer's side.
-    const computerArmy = autoFill(emptyPlacement(computerSide));
+    const computerArmy = autoFill(emptyPlacement(computerSide, BATTLE_LAYOUT));
     const gameState =
       humanSide === "white"
         ? buildInitialGameState(placement, computerArmy)
@@ -713,6 +714,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
           <Board
             activeSide={humanSide}
             placement={placement}
+            layout={placement.boardLayout}
             onSquareClick={handleSquareClick}
             selectedSquare={selectedSquare}
           />

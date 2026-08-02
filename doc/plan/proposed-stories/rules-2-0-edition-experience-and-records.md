@@ -17,12 +17,12 @@ left placement-experience and real-record verification to 00000017:
 1. **Choosing and playing a game becomes a designed experience, not just a
    correct one.** The Battle/Skirmish choice should read clearly to a new player
    — what each game is, why Skirmish is the gentler start — and placement should
-   feel good on *both* boards, including Skirmish's tighter, buffer-less 8×8
+   feel good on _both_ boards, including Skirmish's tighter, buffer-less 8×8
    layout where the armies start close together. Whatever board-specific comfort
    the 00000023 plan judged out of scope lands here.
 
 2. **The reviewer meets real 2.0 games.** Since story 00000023 the reviewer
-   round-trips only *synthetic* records. This story closes the loop against
+   round-trips only _synthetic_ records. This story closes the loop against
    **real** output from the companion project's reference engine, for **both**
    editions: games tagged `2-0:BATTLE` and `2-0:SKIRMISH` import and replay
    correctly, verified against real engine renderings, and the sample-record
