@@ -1274,7 +1274,116 @@ path.
 
 ## Step 10 — Copy, instructions, and accessibility audit
 
-Status: pending
+Status: committed
+
+Notes: A read-only sweep, per the step's own framing ("check rather than
+assume"). No source file was changed - every player-facing surface already
+satisfies the three bullets, and the one real gap found (below) is
+pre-existing, unrelated to this story's rules changes, and out of this
+step's scope to fix.
+
+**What was checked and found already correct** (grepped the whole `src` tree
+for `12`, `12x12`, `25`, `48`, `ply`/`plies`, `orthogonal`, `adjacent`, and
+read every player-facing string, `aria-label`, and live-region message
+directly):
+
+- `src/board/GameChoice.tsx` / `gameNames.ts` - the Battle/Skirmish
+  descriptions ("a 12x12 board with a 25-piece army" / "an 8x8 board with a
+  16-piece army") are accurate per-edition facts (`GAME_DETAIL`), not
+  hardcoded assumptions about the live game; `boardSizeDescription` reads the
+  size straight off `edition.boardLayout`.
+- `src/board/PlacementStatus.tsx` - the "N / total placed" readout reads
+  `progress.total` (edition-sized), not a literal 25 or 48; the Tower-warning
+  sentence names "even diagonally" already.
+- `src/board/playAnnouncement.ts` - every sentence (selection count,
+  plain-move, attack, deselect, result, draw-offer/decline/accept) is
+  direction- and size-agnostic; `describeActivation`'s selection-count call
+  already threads `after.play.edition?.boardLayout` (fixed at Step 7), so it
+  counts moves correctly on either board; attacks are described identically
+  whether diagonal or orthogonal, satisfying "describe diagonal attacks in
+  plain words" by not needing to name a direction at all - the sentence
+  structure ("X attacked Y at S: ...") never depended on orthogonality.
+- `src/board/PlayStatus.tsx`, `DrawOffer.tsx`, `PlayWarnings.tsx`,
+  `GameResult.tsx`, `LeaveGameDialog.tsx`, `GameRecord.tsx` (dev-only),
+  `FlipBoardToggle.tsx` - no board-size or attack-direction assumptions in
+  any player-facing string.
+- `src/app/StartScreen.tsx` - "Play against the computer" disabled note reads
+  as plain language, already correct from Step 9.
+- `src/review/reviewText.ts` - `wrongRowCount`/`wrongCellCount` already
+  interpolate `error.expectedRowCount`/`expectedCellCount` (fixed at Step
+  8a's Gate D defect fix), not a literal 12; every other message is
+  size-agnostic; "Move {ply}" always renders the word "Move", never "ply"
+  (the identifier is a variable name, not player-facing text).
+- `src/review/reviewSession.ts`, `MoveList.tsx`, `ImportScreen.tsx`,
+  `ReviewScreen.tsx` - all size-/direction-agnostic; `ReviewScreen.tsx`
+  already renders `layout={edition.boardLayout}` (Step 8a's Gate D fix), so
+  a reviewed Skirmish game draws on its own 8x8 board.
+- `src/board/FullBoard.tsx`'s `squareLabel` - "attack {color} {piece}" is
+  used for every attack target regardless of direction; diagonal attacks
+  (Step 5/6) were already wired through the same `attackSquares` prop with
+  no separate code path, so they highlight and announce exactly like
+  orthogonal ones (confirmed by reading the code, not merely inferred).
+- `src/board/HotSeatGame.tsx` - the game-choice announcement
+  (`"You chose {game}. Placing on {size}."`) is pushed into its own
+  always-mounted, visually-hidden `role="status"` region exactly once per
+  choice (`handleChooseGame`), and is never re-fired without a new choice,
+  so nothing here is announced twice; the Tower-adjacency recovery message
+  (`PlacementStatus`) and the Phase-2 activation/result announcements each
+  live in their own single, established live region, matching the
+  "never announced twice" requirement.
+- Grid keyboard navigation (`src/board/grid/gridNavigation.ts`,
+  `AccessibleGrid.tsx`) - confirmed generic over `rowCount`/`columnCount`
+  with no board-size assumption (re-confirmed here since Step 6 only
+  asserted this by reading, not by new tests; still true).
+- No player-facing string anywhere in `src` (outside the dead
+  `src/engine/`/`src/encoding/eng-nn-1/` modules, unreachable since Step 9)
+  uses the word "ply"; every occurrence of the identifier `ply` is either an
+  internal variable/parameter name or a code comment.
+
+**One significant finding, not fixed here (pre-existing, out of this step's
+scope).** Phase 1 placement (`src/board/Board.tsx`) has **no keyboard
+operability and no accessible names at all** - its interactive squares are
+plain `<div onClick>` elements with no `tabIndex`, no `role`, no
+`onKeyDown`, and the placed-piece icons are `aria-hidden` with nothing else
+naming the square's contents. This is not a regression from this story:
+confirmed via `git log --follow -- src/board/Board.tsx` that no commit ever
+added keyboard/AT support to this component, and via
+`doc/plan/00000001-create-board-layout-tool/peer-review.md` (finding #1) that
+this was identified, and deliberately deferred by the owner to a dedicated
+follow-up, at that story's review. That follow-up,
+`doc/plan/00000002-accessible-placement-board/`, has only ever been stubbed
+(`story.md` only, one commit, no implementation plan, no code) - it was never
+built. `eslint-plugin-jsx-a11y` (which story 00000002 considered adopting to
+catch exactly this class of issue) was also never adopted. Phase 2 play and
+the reviewer are unaffected - both already use `AccessibleGrid.tsx`'s
+roving-tabindex pattern (confirmed working, per the checks above) - the gap
+is isolated to the placement board on **both** editions.
+
+**Why this is not fixed in this step:** building keyboard operability for
+`Board.tsx` (a roving-tabindex/composite-widget grid, mirroring
+`AccessibleGrid.tsx`, plus accessible names for every square) is exactly the
+scope of the still-unbuilt story 00000002 - a substantial behavior change,
+not a copy/text fix, and well beyond "preserve the established... patterns"
+when no such pattern exists yet for this board. Per this step's own
+instruction to report rather than silently fix an out-of-scope defect, this
+is recorded here instead.
+
+**Consequence for Gate E:** as literally written, Gate E's placement portion
+("place on the Skirmish board... entirely by keyboard") **cannot be
+completed** in the app's current state, on either edition, for a reason
+unrelated to this story's rules changes. The owner should treat reviving
+story 00000002 (or an equivalent) as a prerequisite for that portion of Gate
+E, or explicitly re-scope/waive it, before relying on a keyboard-only
+placement pass as a sign-off gate. The Phase-2/diagonal-attack and
+reviewer portions of Gate E (which run entirely on `AccessibleGrid.tsx`) are
+not affected by this and should be checkable as scripted.
+
+`npm run typecheck && npm run lint && npm test` all pass unchanged (561
+tests, same as at the end of Step 9) - no source file was edited by this
+step, so no new tests were needed. No deviations from the plan's wording
+beyond the above (the plan did not anticipate finding a pre-existing gap
+this large; it is reported per the plan's own "manual gates" framing rather
+than treated as this step's job to close).
 
 Sweep the app for player-facing text and assistive-tech behavior that still
 assumes a single fixed board or a 25-piece army, and correct it for the two
@@ -1294,14 +1403,26 @@ games and diagonal attacks:
 Why it comes here: it depends on every feature already being in place (picker,
 both boards, diagonal attacks, records) so the audit covers the final surfaces.
 
-How to verify: **manual (Gate E)** — with the mouse put away, complete the
-Battle/Skirmish choice, place on the Skirmish board (including deliberately
-triggering and recovering from the Tower-adjacency rule), and play a stretch that
-includes a diagonal attack, entirely by keyboard, with a screen reader; confirm
-the choice, the new board, placement feedback, and the diagonal attack are all
-announced correctly and nothing is announced twice. Re-run all of Gates A–D and F
-as a regression sanity check. `npm run typecheck && npm run lint && npm test`
-green.
+How to verify: **manual (Gate E — amended by the owner, 2026-08-02).** The
+placement portion is **waived**, because the Phase 1 placement board
+(`Board.tsx`) has never been keyboard-operable: its squares are plain
+`<div onClick>` with no `tabIndex`, `role`, or key handling, and placed pieces
+are `aria-hidden` with nothing naming a square's contents. That gap is
+**pre-existing and untouched by this story** — it was deferred to story
+00000002 (`doc/plan/00000002-accessible-placement-board/`), which contains
+only a `story.md` and was never built. It is recorded here as a **known
+limitation**, not fixed, per the owner's decision; building it is a composite-
+widget keyboard model plus accessible naming, a feature in its own right.
+
+Run the portions that are testable: with the mouse put away, and with a screen
+reader, complete the **Battle/Skirmish choice**, then play a Phase-2 stretch on
+**each** board that includes a **diagonal attack**, and step through a record
+in the **reviewer** — all entirely by keyboard (these surfaces run on
+`AccessibleGrid.tsx`'s roving-tabindex pattern, which is board-size-generic).
+Confirm the choice, the resulting board, the diagonal attack, and the review
+navigation are all announced correctly, and that nothing is announced twice.
+Re-run all of Gates A–D and F as a regression sanity check.
+`npm run typecheck && npm run lint && npm test` green.
 
 ---
 
