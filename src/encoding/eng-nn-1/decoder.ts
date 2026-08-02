@@ -16,6 +16,17 @@
 // and this folder's shared coordinate transform (`shared.ts`); its mapping
 // must stay in lock-step with `encoder.ts`'s, since both walk the same
 // mover-perspective frame.
+//
+// NON-FUNCTIONAL under the major-2 rules (story 00000023, Step 9):
+// `enumerateLegalPlies` now includes diagonal attacks (major 2's new rule,
+// via `legalAttacks`), but `MOVEMENT_OFFSETS` only covers the eight
+// orthogonal offsets ENG_NN_1 originally specified, so `policyIndexForPly`
+// throws on any diagonal ply. "Play against the computer" is disabled and
+// nothing in the live app calls this module; its unit tests were removed
+// rather than kept green against a shrunken, no-longer-representative set of
+// positions that happens never to offer a diagonal attack. Re-enabling
+// computer play needs a new engine spec (out of scope here; see story.md's
+// "Computer play disabled").
 
 import {
   allSquares,

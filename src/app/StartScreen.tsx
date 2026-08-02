@@ -2,8 +2,14 @@
 // exactly the two things a player can do here - play a hot-seat game, or
 // review one that was recorded earlier - each labeled in plain language a
 // player understands without explanation. `App.tsx` mounts this whenever
-// `screen.kind === "start"`; the two buttons only ask the shell to switch
-// screens, so this component carries no state of its own.
+// `screen.kind === "start"`; the two active buttons only ask the shell to
+// switch screens, so this component carries no state of its own.
+//
+// "Play against the computer" is shown but disabled (story 00000023, Step 9):
+// the trained engine has to be respecified for the major-2 rules before it
+// can come back, so the choice is visible - a player is not left wondering
+// whether the option exists - but cannot be activated, with a short note
+// saying so. `App.tsx` no longer routes anywhere from this button.
 //
 // Focus moves to the heading on mount (a `tabIndex={-1}` heading focused via
 // `useEffect`, the same pattern `GameResult.tsx` uses for its "New game"
@@ -20,15 +26,9 @@ export interface StartScreenProps {
   readonly onPlayAGame: () => void;
   /** Goes to the import screen, to choose a recorded game to watch. */
   readonly onReviewAGame: () => void;
-  /** Starts a fresh game against the computer: choose a side, place, then play. */
-  readonly onPlayAgainstComputer: () => void;
 }
 
-export function StartScreen({
-  onPlayAGame,
-  onReviewAGame,
-  onPlayAgainstComputer,
-}: StartScreenProps) {
+export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -55,13 +55,21 @@ export function StartScreen({
         <button
           type="button"
           className="start-screen__choice"
-          onClick={onPlayAgainstComputer}
+          disabled
+          aria-describedby="start-screen__computer-note"
         >
           <span className="start-screen__choice-title">
             Play against the computer
           </span>
           <span className="start-screen__choice-detail">
             Choose a side, place your army, then play
+          </span>
+          <span
+            id="start-screen__computer-note"
+            className="start-screen__choice-note"
+          >
+            Not available right now - the rules changed and the computer player
+            needs to catch up.
           </span>
         </button>
         <button

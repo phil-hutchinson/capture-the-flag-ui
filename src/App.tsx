@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { StartScreen } from "./app/StartScreen.tsx";
-import { EngineGame } from "./board/EngineGame.tsx";
 import { HotSeatGame } from "./board/HotSeatGame.tsx";
 import { ImportScreen } from "./review/ImportScreen.tsx";
 import { ReviewScreen } from "./review/ReviewScreen.tsx";
@@ -12,25 +11,30 @@ import type { ReplayedRecord } from "./rules/primary/v2/replay.ts";
 // discriminated union in `useState` - no router library, no URL routing
 // (both out of scope; see story.md). Each screen is its own component with
 // its own state, mounted and unmounted here as `screen` changes: mounting
-// `HotSeatGame` or `EngineGame` starts a fresh game and unmounting it
-// discards whatever was in progress, and likewise a fresh import screen
-// begins import cleanly every time "Review a game" is chosen.
+// `HotSeatGame` starts a fresh game and unmounting it discards whatever was
+// in progress, and likewise a fresh import screen begins import cleanly
+// every time "Review a game" is chosen.
 //
 // Every non-`start` screen can lead back to `start`: `ImportScreen` and
 // `ReviewScreen`'s own "Back" controls (Step 9) never prompt, since nothing
-// is lost by leaving an import or a review, while `HotSeatGame`'s and
-// `EngineGame`'s "Back to start" (Step 15; Step 5 for `EngineGame`) first
-// confirm with the player whenever the game is still in progress (placing,
-// or playing), since leaving then loses it. Step 9 also wires
-// `ImportScreen`'s file picker to this state: a successful import moves
-// `screen` to `review`, carrying the fully replayed game and the `Edition`
-// its `Ruleset` tag resolved to (story 00000023's Gate D defect fix -
-// `ReviewScreen` needs it to render the record's own board, not Battle's by
-// default); `ReviewScreen` renders it.
+// is lost by leaving an import or a review, while `HotSeatGame`'s "Back to
+// start" (Step 15) first confirms with the player whenever the game is still
+// in progress (placing, or playing), since leaving then loses it. Step 9
+// also wires `ImportScreen`'s file picker to this state: a successful import
+// moves `screen` to `review`, carrying the fully replayed game and the
+// `Edition` its `Ruleset` tag resolved to (story 00000023's Gate D defect
+// fix - `ReviewScreen` needs it to render the record's own board, not
+// Battle's by default); `ReviewScreen` renders it.
+//
+// There is no `"engine"` screen (story 00000023, Step 9): "Play against the
+// computer" is shown on the start screen but disabled and never activatable,
+// since the trained engine has to be respecified for the major-2 rules
+// before it can come back (`src/engine/` and `src/encoding/eng-nn-1/` are
+// left in the tree, non-functional, for that follow-up). `EngineGame.tsx`
+// itself is likewise left in the tree, but nothing here mounts it.
 type Screen =
   | { readonly kind: "start" }
   | { readonly kind: "play" }
-  | { readonly kind: "engine" }
   | { readonly kind: "import" }
   | {
       readonly kind: "review";
@@ -46,17 +50,12 @@ export function App() {
       <StartScreen
         onPlayAGame={() => setScreen({ kind: "play" })}
         onReviewAGame={() => setScreen({ kind: "import" })}
-        onPlayAgainstComputer={() => setScreen({ kind: "engine" })}
       />
     );
   }
 
   if (screen.kind === "play") {
     return <HotSeatGame onBack={() => setScreen({ kind: "start" })} />;
-  }
-
-  if (screen.kind === "engine") {
-    return <EngineGame onBack={() => setScreen({ kind: "start" })} />;
   }
 
   if (screen.kind === "import") {

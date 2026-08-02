@@ -1158,7 +1158,88 @@ as written above, including the re-import clause, which now passes.
 
 ## Step 9 — Disable computer play; quarantine the engine and encoding tests
 
-Status: pending
+Status: committed
+
+Notes: Two independent pieces of work, as the step describes.
+
+**Disabling the choice.** `StartScreen.tsx`: the "Play against the computer"
+button now renders `disabled` with a third `<span>` inside it (`aria-describedby`
+pointing at it) reading "Not available right now - the rules changed and the
+computer player needs to catch up." - plain language, no jargon, matching the
+other two choices' own title/detail structure so it reads as one more line of
+the same button rather than a bolted-on warning. `onPlayAgainstComputer` was
+removed from `StartScreenProps` entirely (not left as an unused/dead prop),
+since a disabled button has nothing to call. `App.tsx`: removed the `"engine"`
+`Screen` variant, the `EngineGame` import, and the `onPlayAgainstComputer`
+prop passed into `<StartScreen>` - there is no longer any code path that can
+construct `{ kind: "engine" }`. `EngineGame.tsx` and its own child components
+(`EngineSideChoice.tsx`, `src/engine/`, `src/encoding/eng-nn-1/`) are untouched
+files, still present and still typechecking (confirmed by `npm run build`),
+just reachable by nothing in `App.tsx` any longer - verified by grepping the
+whole `src` tree for `EngineGame`/`src/engine`/`eng-nn-1` outside those
+modules' own folders: every remaining hit is a comment, not an import or a
+route.
+
+**Quarantining the tests.** Read all five test files
+(`src/encoding/eng-nn-1/{shared,encoder,decoder}.test.ts`,
+`src/engine/{search,searchDriver}.test.ts`) before deciding, since the step
+asks for a reasoned judgement, not a mechanical skip. Removed all five,
+for two different reasons:
+
+- `decoder.test.ts`, `search.test.ts`, `searchDriver.test.ts` test behavior
+  that Step 5's diagonal attacks made **actively wrong**, not merely
+  incomplete: `decoder.ts`'s `enumerateLegalPlies` calls the live
+  `legalAttacks` (which now returns diagonal targets on the Battle-default
+  layout these tests use), but `policyIndexForPly`'s `MOVEMENT_OFFSETS` table
+  only covers the eight orthogonal offsets ENG_NN_1 originally specified -
+  `expand()` in `search.ts` calls exactly that pairing on every node it
+  expands, so the search **throws** the moment a diagonal attack is among a
+  position's legal plies. These three files' tests were passing only because
+  their hand-picked/`autoFill`-random positions happened not to expose a
+  diagonal attack to `expand` - not because the code is correct - a textbook
+  case of "passing by accident of which Battle-default paths it happened to
+  exercise," which the task's own framing warned to watch for. Keeping them
+  green (even skipped-with-a-comment) would misrepresent a module that is
+  wrong, not just unused.
+- `encoder.test.ts` and `shared.test.ts` test pure tensor/geometry math
+  (`toMoverFrame`, `flatIndex`, plane indexing, `encodePosition`) that remains
+  numerically correct for the fixed 12x12 board it was written against - nothing
+  in Step 5 broke their assertions. They were removed anyway rather than kept:
+  they exist only in service of the same non-functional pipeline (nothing in
+  the live app can ever reach `encodePosition`'s output, since computer play
+  is disabled and the one consumer that would decode its sibling policy tensor
+  is the now-broken `decoder.ts`), and a future engine spec (the story's named
+  follow-up) will very likely reshape both the tensor's fixed 12x12 size (to
+  admit Skirmish) and its eight-offset movement table (to admit diagonal
+  attacks) - at which point this coverage needs rewriting regardless of
+  whether it was kept passing in the meantime. Removing rather than skipping
+  matches the step's own stated preference ("prefer removing the test files -
+  they test a knowingly-broken module").
+
+Left the five now-testless modules' (`shared.ts`, `encoder.ts`, `decoder.ts`,
+`search.ts`, `searchDriver.ts`) code **unchanged** except for a short header
+note on each, added per the step's "if kept [skipped], mark them ... with a
+comment pointing at the follow-up engine story" - applied here to the module
+headers instead, since there is no longer a skipped test to attach the
+comment to; each note names the specific mechanism that is broken (or, for
+`shared.ts`/`encoder.ts`, non-representative) and points back to "Computer
+play disabled" in `story.md` as the story that accepts this and the follow-up
+engine spec as what will fix it. `searchClient.ts`, `searchWorker.ts`,
+`inference.ts`, and `difficulty.ts` were left untouched (out of the step's
+named scope - "modules ... left as-is") and were not separately re-audited
+beyond confirming (via `npm run build`) that they still typecheck.
+
+`npm run typecheck && npm run lint && npm test` all pass (561 tests, down
+from 604 - the 43 removed tests: 7 + 18 + 10 in `src/encoding/eng-nn-1/`, 4 +
+4 in `src/engine/`). `npm run build` succeeds. `npx prettier --check` is
+clean on every file this step touched. Manual verification (Gate F) is the
+owner's to run per the standard pipeline, not run here.
+
+No deviations from the plan's substance. One judgement call, made and
+recorded per the task's explicit instruction: all five test files were
+removed rather than three removed / two kept-and-skipped, for the reasons
+above (three are actively wrong, two are dead-code-adjacent and due for a
+rewrite regardless).
 
 Make "Play against the computer" **visibly disabled** and stop the engine/encoding
 from failing the suite:

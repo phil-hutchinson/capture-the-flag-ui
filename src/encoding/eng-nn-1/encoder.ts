@@ -7,6 +7,14 @@
 // This module is pure - no React, no onnxruntime - and builds only on the
 // rules engine's board geometry/state (`src/rules/primary/v2/`) and this
 // folder's shared coordinate transform and plane constants (`shared.ts`).
+//
+// NON-FUNCTIONAL under the major-2 rules (story 00000023, Step 9): this
+// module encodes onto `shared.ts`'s fixed 12x12 tensor, which cannot
+// represent a Skirmish (8x8) position. "Play against the computer" is
+// disabled and nothing in the live app calls this module; its unit tests
+// were removed rather than kept green for a module a future engine spec will
+// need to reshape anyway. Re-enabling computer play needs that new spec (out
+// of scope here; see story.md's "Computer play disabled").
 
 import {
   allSquares,

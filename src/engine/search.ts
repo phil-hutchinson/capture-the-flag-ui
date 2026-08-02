@@ -22,6 +22,17 @@
 //
 // This is the pure heart the stateful driver (Step 2, tree retention across
 // turns) and, through it, the worker (Step 3) build on.
+//
+// NON-FUNCTIONAL under the major-2 rules (story 00000023, Step 9): this
+// module expands a node's legal plies through `enumerateLegalPlies`/
+// `policyIndexForPly` (`../encoding/eng-nn-1/decoder.ts`), whose movement-
+// index table only covers the eight orthogonal offsets - it throws if a
+// diagonal attack (major 2's new rule) is among the position's legal plies.
+// "Play against the computer" is disabled on the start screen and nothing in
+// the live app calls this module; its unit tests were removed rather than
+// kept green against a shrunken, no-longer-representative set of positions.
+// Re-enabling computer play needs a new engine spec (out of scope here; see
+// story.md's "Computer play disabled").
 
 import {
   enumerateLegalPlies,

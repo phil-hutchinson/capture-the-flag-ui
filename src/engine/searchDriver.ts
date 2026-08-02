@@ -34,6 +34,14 @@
 //     explored, discards the tree entirely so the next `choose` starts fresh.
 //   - `reset()` - drops both the retained tree and any pending working tree
 //     (a fresh game never inherits one).
+//
+// NON-FUNCTIONAL under the major-2 rules (story 00000023, Step 9): this
+// class drives `search.ts`, which throws on a diagonal attack (see that
+// module's own header note). "Play against the computer" is disabled and
+// nothing in the live app calls this module; its unit tests were removed
+// rather than kept green against a shrunken, no-longer-representative set of
+// positions. Re-enabling computer play needs a new engine spec (out of
+// scope here; see story.md's "Computer play disabled").
 
 import { squareKey } from "../rules/primary/v2/board.ts";
 import type { PlayState } from "../rules/primary/v2/play.ts";
