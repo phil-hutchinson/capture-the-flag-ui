@@ -30,7 +30,13 @@
 // resolution rules (combat.ts, story 00000005), and the initial-game-state
 // artifact (gameState.ts, story 00000001); it has no further dependencies.
 
-import { otherSide, squareKey, type Side, type Square } from "./board.ts";
+import {
+  BATTLE_LAYOUT,
+  otherSide,
+  squareKey,
+  type Side,
+  type Square,
+} from "./board.ts";
 import { resolveCombat, type CombatOutcome } from "./combat.ts";
 import type { Edition } from "./edition.ts";
 import {
@@ -64,10 +70,13 @@ const FIRST_SIDE: Side = "white";
  * 00000023's Step 3) carries the resolved edition/board-layout over from
  * `initial.edition`, unchanged - it is optional for the same reason
  * `InitialGameState.edition` is (see gameState.ts): hand-built fixtures that
- * predate this field remain valid `PlayState`s. This step does not yet
- * thread it into the ply-generation calls below (`legalAttacks` etc. still
- * default to Battle) - the live app is Battle-only until a later step's
- * picker makes another edition reachable.
+ * predate this field remain valid `PlayState`s. Every ply-generation call
+ * below (`legalAttacks`/`legalDestinations`/`resolveCombat`/`computeOutcome`)
+ * is threaded with `edition?.boardLayout` (falling back to `BATTLE_LAYOUT`
+ * for a `PlayState` with no `edition`, matching every other consumer's
+ * default) - story 00000023's Step 7, fixing a defect observed live at Step
+ * 6's Gate B where these calls stayed on the Battle default even once a
+ * non-Battle board was reachable through the picker.
  */
 export interface PlayState {
   readonly ruleset: string;
@@ -93,6 +102,7 @@ export interface PlayState {
  */
 export function startPlay(initial: InitialGameState): PlayState {
   const inactivityCounter = 0;
+  const layout = initial.edition?.boardLayout ?? BATTLE_LAYOUT;
   return {
     ruleset: initial.ruleset,
     edition: initial.edition,
@@ -101,7 +111,12 @@ export function startPlay(initial: InitialGameState): PlayState {
     sideToMove: FIRST_SIDE,
     moves: [],
     inactivityCounter,
-    result: computeOutcome(initial.board, FIRST_SIDE, inactivityCounter),
+    result: computeOutcome(
+      initial.board,
+      FIRST_SIDE,
+      inactivityCounter,
+      layout,
+    ),
   };
 }
 
@@ -167,6 +182,8 @@ export function applyMove(
     throw new Error("Cannot apply move: the game has already ended.");
   }
 
+  const layout = state.edition?.boardLayout ?? BATTLE_LAYOUT;
+
   const fromKey = squareKey(from);
   const toKey = squareKey(to);
   const piece = state.board[fromKey];
@@ -176,12 +193,12 @@ export function applyMove(
     );
   }
 
-  const isAttack = legalAttacks(state.board, from).some(
+  const isAttack = legalAttacks(state.board, from, layout).some(
     (square) => squareKey(square) === toKey,
   );
   const isMove =
     !isAttack &&
-    legalDestinations(state.board, from).some(
+    legalDestinations(state.board, from, layout).some(
       (square) => squareKey(square) === toKey,
     );
   if (!isAttack && !isMove) {
@@ -194,7 +211,7 @@ export function applyMove(
   let outcome: PlyOutcome;
 
   if (isAttack) {
-    const combat = resolveCombat(state.board, from, to);
+    const combat = resolveCombat(state.board, from, to, layout);
     delete board[fromKey];
     delete board[toKey];
     if (combat.result === "attackerWins") {
@@ -228,7 +245,7 @@ export function applyMove(
       sideToMove: nextSideToMove,
       moves: [...state.moves, fromKey + toKey],
       inactivityCounter,
-      result: computeOutcome(board, nextSideToMove, inactivityCounter),
+      result: computeOutcome(board, nextSideToMove, inactivityCounter, layout),
     },
     outcome,
   };

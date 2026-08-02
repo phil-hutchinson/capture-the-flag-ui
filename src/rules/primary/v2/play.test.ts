@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EDITIONS } from "./edition.ts";
 import type { BoardState, InitialGameState, PlacedPiece } from "./gameState.ts";
 import { renderPositionBlock, RULESET_TAG } from "./gameState.ts";
 import { INACTIVITY_LIMIT } from "./outcome.ts";
@@ -885,5 +886,54 @@ describe("renderGameRecord - Result/ResultReason (§5 record file format)", () =
     expect(record).toContain(`[Ruleset "${RULESET_TAG}"]`);
     expect(record).toContain(renderPositionBlock(initial));
     expect(record).toContain("1. D5D6");
+  });
+});
+
+describe("applyMove - threads the edition's board layout (story 00000023, Step 7)", () => {
+  // Regression coverage for the defect the owner observed live at Step 6's
+  // Gate B: `applyMove` used to call `legalAttacks`/`legalDestinations`/
+  // `resolveCombat`/`computeOutcome` on their `BATTLE_LAYOUT` default
+  // regardless of which edition was actually being played, so a Skirmish
+  // game's rule enforcement read Battle's lake pattern and bounds instead of
+  // its own. Skirmish's lake rows are 4-5 (columns B/C/F/G); Battle's are
+  // 6-7 (columns B/C/F/G/J/K) - row 6, column B is therefore a lake under
+  // Battle but ordinary open ground under Skirmish, and vice versa for row 4.
+  const skirmish = EDITIONS["2-0:SKIRMISH"];
+
+  function skirmishInitialGameState(
+    pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
+  ): InitialGameState {
+    return { ruleset: RULESET_TAG, edition: skirmish, board: board(pieces) };
+  }
+
+  it("never offers a Skirmish lake square as a legal destination, even though Battle's layout would allow it", () => {
+    const initial = skirmishInitialGameState([
+      ["B3", "white", "champion"],
+      ["A1", "white", "flag"],
+      ["H8", "black", "flag"],
+    ]);
+    const state = startPlay(initial);
+    expect(() =>
+      applyMove(state, { column: "B", row: 3 }, { column: "B", row: 4 }),
+    ).toThrow(/not a legal destination/);
+  });
+
+  it("offers a square that is a Battle lake but open ground on Skirmish, and applies the move there", () => {
+    const initial = skirmishInitialGameState([
+      ["B7", "white", "champion"],
+      ["A1", "white", "flag"],
+      ["H8", "black", "flag"],
+    ]);
+    const state = startPlay(initial);
+    const { state: next } = applyMove(
+      state,
+      { column: "B", row: 7 },
+      { column: "B", row: 6 },
+    );
+    expect(next.board["B7"]).toBeUndefined();
+    expect(next.board["B6"]).toEqual({
+      side: "white",
+      pieceType: "champion",
+    });
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Square } from "../rules/primary/v2/board.ts";
+import { EDITIONS } from "../rules/primary/v2/edition.ts";
 import { RULESET_TAG } from "../rules/primary/v2/gameState.ts";
 import type {
   BoardState,
@@ -832,3 +833,53 @@ function finishedSessionForDrawTests(): PlaySession {
   const selected = activateSquare(session, sq("D", 5));
   return activateSquare(selected, sq("D", 4));
 }
+
+describe("playSession threads the edition's board layout (story 00000023, Step 7)", () => {
+  // Regression coverage for the defect the owner observed live at Step 6's
+  // Gate B: every `legalDestinations`/`legalAttacks`/`allSquares` call in
+  // this module used to run on the `BATTLE_LAYOUT` default regardless of
+  // `session.play.edition`, so a Skirmish game's highlighting and move
+  // application read Battle's lake pattern and bounds instead of its own.
+  // Skirmish's lake rows are 4-5 (columns B/C/F/G); Battle's are 6-7 (columns
+  // B/C/F/G/J/K) - row 6, column B is therefore a lake under Battle but
+  // ordinary open ground under Skirmish, and vice versa for row 4.
+  const skirmish = EDITIONS["2-0:SKIRMISH"];
+
+  function skirmishInitialGameState(
+    pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
+  ): InitialGameState {
+    return { ruleset: RULESET_TAG, edition: skirmish, board: board(pieces) };
+  }
+
+  it("never offers a Skirmish lake square as an actionable destination", () => {
+    const session = startSession(
+      skirmishInitialGameState([
+        ["B3", "white", "champion"],
+        ["A1", "white", "flag"],
+        ["H8", "black", "flag"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("B", 3));
+    expect(sortedKeys(actionableSquares(selected))).not.toContain("B4");
+    expect(sortedKeys(activatableSquares(selected))).not.toContain("B4");
+  });
+
+  it("offers a Battle-lake-but-Skirmish-open square as an actionable destination, and applies the move there", () => {
+    const session = startSession(
+      skirmishInitialGameState([
+        ["B7", "white", "champion"],
+        ["A1", "white", "flag"],
+        ["H8", "black", "flag"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("B", 7));
+    expect(sortedKeys(actionableSquares(selected))).toContain("B6");
+
+    const moved = activateSquare(selected, sq("B", 6));
+    expect(moved.play.board["B6"]).toEqual({
+      side: "white",
+      pieceType: "champion",
+    });
+    expect(moved.play.board["B7"]).toBeUndefined();
+  });
+});

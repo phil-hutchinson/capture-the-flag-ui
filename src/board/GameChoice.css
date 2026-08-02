@@ -1,0 +1,57 @@
+/* The hot-seat game's Battle/Skirmish choice (story 00000023, Step 7).
+   Mirrors `EngineSideChoice.css`'s choice-button chrome, itself mirroring
+   `StartScreen.css`'s. */
+
+.game-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.game-choice__title {
+  margin: 0;
+}
+
+.game-choice__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.game-choice__option {
+  font: inherit;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+  min-width: 8rem;
+}
+
+.game-choice__option[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--parchment);
+}
+
+.game-choice__detail {
+  max-width: 32rem;
+  text-align: center;
+  margin: 0;
+}
+
+.game-choice__start {
+  font: inherit;
+  font-weight: bold;
+  padding: 0.9rem 1.5rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+  min-width: 10rem;
+  margin-top: 0.5rem;
+}

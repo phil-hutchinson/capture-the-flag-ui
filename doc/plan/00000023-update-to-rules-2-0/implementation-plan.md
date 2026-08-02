@@ -654,11 +654,135 @@ is **Step 7's** job; see Step 7's explicit call-out below.
 
 ## Step 7 — Battle/Skirmish picker and threading the chosen edition through a game
 
-Status: pending
+Status: committed
+
+Notes: Two independent pieces of work, as the step describes.
+
+**The required layout-threading fix.** `play.ts`: `startPlay` and `applyMove`
+each now compute `const layout = state.edition?.boardLayout ?? BATTLE_LAYOUT`
+(matching every other consumer's own optional-`edition` fallback, e.g.
+`gameState.ts`'s `renderPositionBlock`/`PlayBoard.tsx`) and pass it into every
+`legalAttacks`/`legalDestinations`/`resolveCombat`/`computeOutcome` call.
+`playSession.ts` gained a private `sessionLayout(session)` helper doing the
+same lookup off `session.play.edition`, threaded into `isOwnMovablePiece`
+(which gained a required `layout` parameter) and every `allSquares`/
+`legalDestinations`/`legalAttacks` call in `actionableSquares`,
+`attackTargets`, `activatableSquares`, and `activateSquare`. Battle is
+unaffected (its edition resolves to the same `BATTLE_LAYOUT` object the old
+default supplied). Regression tests: `play.test.ts` and `playSession.test.ts`
+each gained a "threads the edition's board layout" describe block building a
+Skirmish `InitialGameState`/`PlayState` and asserting (a) a Skirmish lake
+square (B4 - a lake under Skirmish's layout but open ground under Battle's)
+is never a legal/actionable destination and `applyMove` throws if attempted,
+and (b) a Battle-lake-but-Skirmish-open square (B6 - the reverse: a lake under
+Battle, open under Skirmish) is offered and the move applies correctly. Both
+tests were verified to fail (4 failures) with the fix reverted via a temporary
+`git stash` of just `play.ts`/`playSession.ts`, confirming they actually
+exercise the defect, before restoring the fix.
+
+**One deviation, extending the fix's own reach beyond its literal file list:**
+`playAnnouncement.ts`'s `describeActivation` also called
+`legalDestinations`/`legalAttacks` at the Battle default (to count "N moves
+available" for the selection-announcement sentence) - the same defect class,
+now live now that Skirmish is reachable (it would under- or over-count a
+selected piece's moves on Skirmish). Threaded with
+`after.play.edition?.boardLayout ?? BATTLE_LAYOUT`, the same pattern as
+everywhere else. Not in the step's own named list (`play.ts`/`playSession.ts`
+only) but the same bug in a third live consumer of the same two functions;
+left unfixed it would have been a known, undocumented regression the moment
+this step made Skirmish reachable, so it is recorded here rather than passed
+silently to Step 10's copy/accessibility audit.
+
+**The Battle/Skirmish picker.** New `src/board/GameChoice.tsx` (+ `.css`): a
+`role="group"` pair of toggle buttons ("Skirmish"/"Battle", `aria-pressed`
+marking the current pick, Skirmish selected by default) plus a plain-language
+description of whichever is currently selected and a single "Play &lt;Game&gt;"
+button that reports the chosen `Edition` - mirroring `EngineSideChoice.tsx`'s
+established "in-progress local choice, reported only once confirmed" shape.
+New `src/board/gameNames.ts` centralizes "Battle"/"Skirmish" naming and a
+plain-language board-size phrase (`gameName`/`boardSizeDescription`),
+mirroring `sideNames.ts`'s single-home-for-a-mapping precedent, reused by both
+`GameChoice.tsx` and `HotSeatGame.tsx`.
+
+`HotSeatGame.tsx`: `session` (`PlacementSession`) is now nullable and a new
+`edition: Edition | null` state gates a new first branch - while `edition` is
+`null`, the component renders only `GameChoice` (with the same title/back
+button/`LeaveGameDialog` chrome the other three states share). `handleChooseGame`
+sets `edition` and seeds `session` via `newSession(chosenEdition)` in the same
+event, and also seeds a new `gameAnnouncement` live-region string ("You chose
+Skirmish. Placing on an 8x8 board.") rendered in a visually-hidden
+`role="status" aria-live="polite"` paragraph (`.hot-seat-game__game-announcement`,
+mirroring `AccessibleGrid.css`'s own sr-only live-region pattern) on the
+placement screen - satisfying the step's "announce the choice and the
+resulting board" requirement without a new focus-management mechanism (the
+existing once-on-mount heading focus is unaffected; this is the same
+"pre-filled on first mount" live-region shape `handleConfirm`'s
+immediate-ending announcement already uses). `handleConfirm` now passes
+`edition` into `buildInitialGameState(next.white, next.black, edition)` so the
+built `InitialGameState`/`PlayState`/board/record all carry the game actually
+chosen (previously implicit via `buildInitialGameState`'s Battle default).
+`gameInProgress` gained an `edition !== null` guard so the picker screen's own
+"Back to start" never asks for confirmation (nothing is yet at stake, matching
+`EngineGame.tsx`'s identical treatment of its own side-choice phase).
+
+Nullable `session` needed two mechanical follow-ons, both matching
+`EngineGame.tsx`'s established precedent for its own nullable `placement`: (1)
+every `setSession((current) => updateActivePlacement(current, ...))` call
+became `setSession((current) => current ? updateActivePlacement(current, ...) : current)`,
+since the updater's `current` parameter is typed `PlacementSession | null`;
+(2) a `if (session === null) { return null; }` unreachable-in-practice guard
+was added (mirroring the pre-existing `session.active === null` guard
+immediately below it), and `handleConfirm` additionally re-checks
+`session === null || edition === null` at its own top *despite* the outer
+guards already having narrowed both, because TypeScript does not carry
+narrowing of an outer `const` across a nested function declaration's own
+boundary - confirmed by `tsc -b` actually failing without it; the same reason
+`EngineGame.tsx`'s own `handleConfirm` re-checks `placement`/`humanSide`.
+
+**Deviation: "New game" returns to the picker, not a same-edition replay.**
+The plan does not specify this either way. `handleNewGame` now resets `edition`
+and `session` to `null` (routing back to `GameChoice`) alongside the existing
+resets, rather than silently starting a fresh session for whichever edition
+was just played - a fresh game is exactly the moment to reconsider which to
+play, and this keeps a single, consistent entry point into a hot-seat game
+(the picker) rather than two (initial mount vs. "New game").
+
+`npm run typecheck && npm run lint && npm test` all pass (581 tests, up from
+577 - the four new regression tests). `npm run build` succeeds. `npx prettier
+--check` is clean on every file this step touched. Manual verification (Gate A
++ Gate C) is the owner's to run per the standard pipeline, not run here.
+
+**Owner feedback at the Gate A + Gate C manual check (2026-08-01), addressed
+as a scoped follow-up.** `GameChoice` always pre-selected Skirmish, including
+after "New game" returned to it. The owner asked instead for: Skirmish
+pre-selected only on the first game of a session (nothing played yet); after
+that, the picker pre-selects **whichever game was just played** (Battle after
+a Battle game, Skirmish after a Skirmish one), still scoped to the component's
+lifetime (leaving to the start screen and back starts over at Skirmish).
+Implemented via a new `lastPlayedEdition: Edition | null` state in
+`HotSeatGame.tsx`, set from `edition` by `handleNewGame` just before `edition`
+itself resets to `null`, and passed to a new required `lastPlayed: Edition |
+null` prop on `GameChoice`. `GameChoice`'s local `choice` state now lazily
+initializes from a new pure helper, `defaultGameId(lastPlayed)` in
+`gameNames.ts` (`lastPlayed?.id ?? "2-0:SKIRMISH"`), rather than the literal
+`"2-0:SKIRMISH"` default - factored out as a plain function, matching this
+codebase's convention of testing UI logic like this without a component-test
+harness, since none exists in this project. Added `gameNames.test.ts` (new
+file; `gameNames.ts` had no dedicated tests before) covering `defaultGameId`
+(null -> Skirmish; Battle -> Battle; Skirmish -> Skirmish) alongside `gameName`
+and `boardSizeDescription`, which were previously untested pure functions.
+`npm run typecheck && npm run lint && npm test` all pass (588 tests, up from
+581 - seven new tests, all in `gameNames.test.ts`). `npx prettier --check` is
+clean on every file touched. Files touched: `src/board/gameNames.ts`,
+`src/board/GameChoice.tsx`, `src/board/HotSeatGame.tsx`, new
+`src/board/gameNames.test.ts`.
 
 Add the per-game **Battle/Skirmish choice** and thread it end to end. Present the
-choice at the **start of a hot-seat game**, **before placement**, with
-**Skirmish pre-selected** as the recommended first game (name the two games to
+choice at the **start of a hot-seat game**, **before placement**, pre-selecting
+**Skirmish** as the recommended first game **when nothing has been played yet
+this session**, and otherwise pre-selecting **whichever game was just
+played** (Battle after a Battle game, Skirmish after a Skirmish one) — e.g.
+after "New game" returns to this choice screen (name the two games to
 the player exactly as the rules do — "Battle" and "Skirmish" — in plain language,
 no "edition"/"flag"/"ply" jargon). Structure: a small choice screen owned by
 `HotSeatGame.tsx` (shown before its placement state) rather than expanding the
@@ -694,7 +818,8 @@ player, and it needs both boards, both armies, and the renderer already working
 (Steps 3–6). It does not need the record changes (Step 8).
 
 How to verify: **manual (Gate A + Gate C)** — `npm run dev`, choose "Play a
-game": confirm the choice appears with **Skirmish pre-selected**; choose
+game": confirm the choice appears with **Skirmish pre-selected** (nothing has
+been played yet this session); choose
 Skirmish → 8×8 board, no buffer row, 16-piece tray, place onto freely chosen home
 squares, and the Tower-adjacency rule (including diagonally) still blocks
 finishing with an actionable message; complete both armies and confirm the reveal
@@ -704,10 +829,15 @@ unencumbered move)/combat as before, now with diagonal attacks available. On
 the Skirmish board specifically, confirm the Gate B defect is gone: a piece
 **cannot** move onto any drawn lake square (rows 4-5 at columns B/C/F/G) and
 **can** move onto every open square, including rows 6-7 at those columns.
+Finish that Battle game and choose "New game": confirm the picker now
+pre-selects **Battle** (the game just played), not Skirmish; finish a Skirmish
+game the same way and confirm "New game" pre-selects **Skirmish**.
 **Automated** — unit tests driving a Skirmish `PlayState` through
 `playSession`/`applyMove` that assert a lake square on the Skirmish layout is
 never among the offered destinations and that a Battle-lake-but-Skirmish-open
-square is. `npm run typecheck && npm run lint && npm test` remain green.
+square is; unit tests for the picker's default-selection rule (nothing played
+yet -> Skirmish; last played Battle -> Battle; last played Skirmish ->
+Skirmish). `npm run typecheck && npm run lint && npm test` remain green.
 
 ---
 

@@ -61,6 +61,7 @@
 // unaffected - only `EngineGame.tsx` passes one.
 
 import {
+  BATTLE_LAYOUT,
   otherSide,
   squareKey,
   type Side,
@@ -362,10 +363,15 @@ export function describeActivation(
     const description = pieceDescription(after, after.selection);
     // An attack is a kind of move in player-facing wording (per the rules'
     // use of "move"), so the count combines plain-move destinations and
-    // attack targets into the single number a player hears.
+    // attack targets into the single number a player hears. `layout` sizes
+    // the board's bounds and lake pattern to whichever edition was actually
+    // played (story 00000023, Step 7 - the same defect class the play/
+    // playSession threading fixes: an unthreaded call here would count
+    // moves against Battle's board even on Skirmish).
+    const layout = after.play.edition?.boardLayout ?? BATTLE_LAYOUT;
     const count =
-      legalDestinations(after.play.board, after.selection).length +
-      legalAttacks(after.play.board, after.selection).length;
+      legalDestinations(after.play.board, after.selection, layout).length +
+      legalAttacks(after.play.board, after.selection, layout).length;
     const moveWord = count === 1 ? "move" : "moves";
     return `${description} selected, ${count} ${moveWord} available.`;
   }

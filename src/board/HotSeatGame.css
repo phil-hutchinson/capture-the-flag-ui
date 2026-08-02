@@ -13,3 +13,18 @@
   color: var(--ink);
   cursor: pointer;
 }
+
+/* Visually hidden but still announced by assistive technology - the "you
+   chose <game>" live region (story 00000023, Step 7). Mirrors
+   `AccessibleGrid.css`'s `.accessible-grid__live-region` "sr-only" pattern. */
+.hot-seat-game__game-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
