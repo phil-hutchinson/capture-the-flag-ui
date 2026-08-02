@@ -1,7 +1,7 @@
-// Game-end detection for ruleset 1.2, §5 (companion capture-the-flag
+// Game-end detection for ruleset major 2 (companion capture-the-flag
 // repository, `doc/ruleset/rules.md`, the single source of truth).
 //
-// The game ends the moment any §5 condition is met. This module decides,
+// The game ends the moment any qualifying condition is met. This module decides,
 // from a snapshot of the current board, the side to move, and the single
 // shared inactivity counter, whether the game has ended and - if so - who
 // won (or that it is a draw) and why, evaluated in the precedence documented
@@ -17,12 +17,12 @@
 // geometry (board.ts, boardLayout.ts), `BoardState` (gameState.ts), and the
 // no-legal-ply primitive (movement.ts); it has no further dependencies. The
 // structural reachability machinery (`reachability.ts`) that served the 1.1
-// Unbreachable Flag win no longer exists - 1.2 has no such condition.
+// Unbreachable Flag win no longer exists - major 2 has no such condition.
 //
 // `computeOutcome` takes an optional `layout` parameter (a `BoardLayout`,
 // boardLayout.ts), defaulting to `BATTLE_LAYOUT`, threaded into the Flag
-// scan and `hasAnyLegalPly`; existing callers (the live app, still
-// Battle-only, and the frozen encoding/engine modules) are unaffected.
+// scan and `hasAnyLegalPly`; callers that pass no layout (the frozen
+// encoding/engine modules) still get Battle's bounds unchanged.
 
 import {
   allSquares,

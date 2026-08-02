@@ -1,4 +1,4 @@
-// Combat resolution rule logic for ruleset 1.2, §4.3 (companion
+// Combat resolution rule logic for ruleset major 2 (companion
 // capture-the-flag repository, `doc/ruleset/rules.md`, the single source of
 // truth).
 //
@@ -9,7 +9,7 @@
 // outright win), and the **formation bonus** - a friendly piece of equal
 // rank standing beside a piece turns what would otherwise be a clean loss,
 // for the weaker side only, into a mutual loss. There are no other special
-// cases in 1.2: no charge, no rush, no defensive support, no Sapper-only
+// cases in major 2: no charge, no rush, no defensive support, no Sapper-only
 // tower destruction, no Assassin rules.
 //
 // This module is pure rule logic - no React - and builds only on the board
@@ -19,8 +19,8 @@
 // `resolveCombat` takes an optional `layout` parameter (a `BoardLayout`,
 // boardLayout.ts), defaulting to `BATTLE_LAYOUT`, so it sizes the
 // formation-bonus neighbor scan's bounds to the board actually being played;
-// existing callers (the live app, still Battle-only, and the frozen
-// encoding/engine modules) are unaffected.
+// callers that pass no layout (the frozen encoding/engine modules) still get
+// Battle's bounds unchanged.
 
 import {
   BATTLE_LAYOUT,

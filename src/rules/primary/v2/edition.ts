@@ -7,8 +7,13 @@
 // editions differ only in those two flags. See this story's implementation
 // plan ("Grounding facts") for the source table.
 //
-// This module is not yet wired into any consumer - it is inert data,
-// unit-tested in isolation.
+// This module is threaded through the rule engine and its consumers:
+// `board.ts`/`movement.ts`/`combat.ts`/`outcome.ts`/`placement.ts` take an
+// `Edition`'s resolved `BoardLayout`; `gameState.ts`'s game-state artifacts
+// carry the resolved `Edition`; `readRecord.ts` dispatches on the `Ruleset`
+// tag by looking it up here; and `HotSeatGame.tsx`/`GameChoice.tsx` (story
+// 00000023's Step 7) let the player choose between the two registered
+// editions.
 
 import {
   armySize,

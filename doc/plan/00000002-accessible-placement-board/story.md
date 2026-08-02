@@ -88,3 +88,24 @@ screen reader on; these are hard stops for owner confirmation.
 - Decide whether to adopt `eslint-plugin-jsx-a11y` as part of this story or note
   it as a separate follow-up.
 - Confirm the target screen reader(s) / browser combinations to verify against.
+
+## Findings deferred here from story 00000023
+
+Story 00000023's peer review turned up three more accessibility findings,
+owner-deferred to this story rather than fixed there (see that story's
+`peer-review.md`, comments #3, #10, #13):
+
+- **Game-choice live region mounts together with its text.** The Battle/
+  Skirmish choice's announcement paragraph (`role="status" aria-live="polite"`)
+  only exists in the placement branch of `HotSeatGame.tsx`, which renders for
+  the first time in the same update that sets its text — a screen reader may
+  not announce content inserted together with the live region itself.
+  `src/board/HotSeatGame.tsx#L578-L584`.
+- **Focus drops to `<body>` when `GameChoice` unmounts.** Choosing a game
+  unmounts `GameChoice` (including the focused "Play &lt;Game&gt;" button)
+  without moving focus anywhere, dropping a keyboard user back on `<body>` at
+  the start of placement. `src/board/HotSeatGame.tsx#L246-L252`.
+- **Native `disabled` removes "Play against the computer" from the tab
+  order.** The start-screen button uses the native `disabled` attribute, so a
+  keyboard/screen-reader user tabbing through the start screen never reaches
+  it or its explanatory note. `src/app/StartScreen.tsx#L55-L74`.

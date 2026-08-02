@@ -948,6 +948,26 @@ undersized Skirmish record - this is exactly the kind of hardcoded-12x12
 copy Step 10 ("Copy, instructions, and accessibility audit") is scoped to
 sweep for, so it is left for that step rather than fixed here.
 
+**Explicit, justified deviation (recorded 2026-08-02, peer-review comment
+#1).** The reader does not recover the board's dimensions by counting the
+position block's lines/cells, as the Grounding facts' literal wording
+describes; it looks the `Ruleset` tag up in `EDITIONS`, takes that edition's
+`BoardLayout`, and **validates** the block against it (right row/cell count,
+right lake cells), the same shape `parsePositionBlock` already used before
+this step for the home-zone row count it cannot get from the block at all.
+This is behaviorally equivalent to counting for both published editions,
+since each pins its board layout to its edition id one-to-one — there is no
+case today where the tag and the block's actual size could disagree. Counting
+independently and reconciling against the edition would be more work for no
+observable difference in what the reader accepts or rejects, and would still
+need the edition for the home-zone row count regardless. Full block-derived
+sizing (so a reader could in principle validate a layout it does not already
+know by id) is deferred to the follow-up records story
+(`doc/plan/proposed-stories/rules-2-0-edition-experience-and-records.md`).
+`recordFile.ts`'s module comment, which previously asserted the opposite
+("board dimensions and lake layout are read back out of the block"), is
+corrected to describe the block as validated against the edition's layout.
+
 `npm run typecheck && npm run lint && npm test` all pass (596 tests, up
 from 588 at the end of Step 7). `npm run build` succeeds. `npx prettier
 --write` was run on the two test files it reformatted
@@ -1232,8 +1252,11 @@ beyond confirming (via `npm run build`) that they still typecheck.
 `npm run typecheck && npm run lint && npm test` all pass (561 tests, down
 from 604 - the 43 removed tests: 7 + 18 + 10 in `src/encoding/eng-nn-1/`, 4 +
 4 in `src/engine/`). `npm run build` succeeds. `npx prettier --check` is
-clean on every file this step touched. Manual verification (Gate F) is the
-owner's to run per the standard pipeline, not run here.
+clean on every file this step touched.
+
+Gate F result (owner): **passed** — "Play against the computer" is visible
+but disabled with the plain-language note and cannot be activated; "Review a
+game" still opens the import screen; "Play a game" still starts the picker.
 
 No deviations from the plan's substance. One judgement call, made and
 recorded per the task's explicit instruction: all five test files were
@@ -1377,6 +1400,17 @@ E, or explicitly re-scope/waive it, before relying on a keyboard-only
 placement pass as a sign-off gate. The Phase-2/diagonal-attack and
 reviewer portions of Gate E (which run entirely on `AccessibleGrid.tsx`) are
 not affected by this and should be checkable as scripted.
+
+Gate E result (owner): **passed, with its placement portion waived** — the
+owner ran the testable portions (the Battle/Skirmish choice, a Phase-2
+stretch including a diagonal attack on each board, and stepping through a
+record in the reviewer, all by keyboard with a screen reader) and confirmed
+the choice, the resulting board, the diagonal attack, and the review
+navigation are all announced correctly with nothing announced twice, and
+re-ran Gates A-D and F as a regression check with no issues. The placement
+portion is waived for the reason above (`Board.tsx` has never been
+keyboard-operable; that gap predates this story and is story 00000002's to
+close), not run as part of this story's sign-off.
 
 `npm run typecheck && npm run lint && npm test` all pass unchanged (561
 tests, same as at the end of Step 9) - no source file was edited by this

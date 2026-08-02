@@ -26,7 +26,7 @@ function sortedKeys(squares: readonly Square[]): string[] {
   return squares.map((s) => `${s.column}${s.row}`).sort();
 }
 
-describe("legalDestinations (ruleset 1.2, empty-square moves only)", () => {
+describe("legalDestinations (ruleset major 2, empty-square moves only)", () => {
   it("gives an unencumbered piece its four one-square and four two-square orthogonal empties in open space", () => {
     const state = board([["D5", "white", "champion"]]);
     const destinations = legalDestinations(state, { column: "D", row: 5 });
@@ -207,7 +207,7 @@ describe("hasAnyLegalPly", () => {
   });
 });
 
-describe("legalAttacks (ruleset 1.2, enemy-occupied attack targets)", () => {
+describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => {
   it("offers a baseline piece exactly its adjacent enemy squares", () => {
     const state = board([
       ["D5", "white", "champion"],

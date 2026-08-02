@@ -30,7 +30,8 @@ Three things change the game itself:
   player.
 - **You choose which game to play.** Starting a game now begins with a choice
   between **Battle** and **Skirmish**, with **Skirmish pre-selected** as the
-  gentler introduction.
+  gentler introduction the first time you play; after that, the choice screen
+  pre-selects whichever game you played most recently.
 
 What else a player will notice:
 
@@ -89,6 +90,11 @@ What else a player will notice:
   ruleset name is never written.
 - **Per-game ruleset choice, default Skirmish.** Starting a game offers Battle
   or Skirmish, with Skirmish pre-selected as the recommended first game.
+  **Amended 2026-08-01:** on owner feedback at Step 7's manual gate, the
+  pre-selection only defaults to Skirmish when nothing has been played yet
+  this session; after that, the picker pre-selects whichever game was played
+  most recently (Battle after a Battle game, Skirmish after a Skirmish one).
+  See the plan's Step 7 Notes.
 - **Computer play is left broken, visibly.** The start-screen option is shown
   but **disabled with a plain-language note**; the trained-engine machinery
   (`src/engine/`) and the network encoding (`src/encoding/eng-nn-1/`) are

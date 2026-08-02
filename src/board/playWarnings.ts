@@ -9,7 +9,7 @@
 // and so the wording is unit-testable in this project's `node` Vitest
 // environment.
 //
-// The warning is **side-agnostic**: 1.2 has no per-player inactivity loss
+// The warning is **side-agnostic**: major 2 has no per-player inactivity loss
 // (that mechanic is gone with ruleset 1.1), only the single shared draw, so
 // the warning is shown identically to both players regardless of whose turn
 // it is, once **10 or fewer** combined moves remain before the shared

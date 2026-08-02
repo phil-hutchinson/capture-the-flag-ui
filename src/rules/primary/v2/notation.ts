@@ -64,7 +64,19 @@ export type ParsedMoveToken =
   | { readonly kind: "plainNotation"; readonly token: string }
   | { readonly kind: "malformed"; readonly token: string };
 
-/** One square token: a single column letter A-Z followed by row 1-99, no leading zero. */
+/**
+ * One square token: a single column letter A-Z followed by row 1-99, no
+ * leading zero. This is a **syntactic** pattern only - it accepts any square
+ * that could exist on some board (up to 26 columns / 99 rows), not just one
+ * that exists on the board actually being read. Bound-checking a parsed
+ * square against the real `BoardLayout` is the reader's job
+ * (`recordFile.ts`/`replay.ts`), not this module's; a token that is
+ * syntactically valid but off the real board (e.g. `M9` in a Skirmish
+ * record) is not rejected here as malformed - it surfaces later, during
+ * replay, as `emptySource` (there is no piece on that square), which reads
+ * to the player as "there is no piece there" rather than "that is not a
+ * valid square."
+ */
 const SQUARE_PATTERN = "[A-Z](?:[1-9][0-9]?)";
 
 /** A full square token, anchored - used to parse the pieces matched by the move patterns. */

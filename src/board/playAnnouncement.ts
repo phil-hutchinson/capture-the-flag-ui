@@ -148,8 +148,8 @@ function reasonLabel(reason: GameEndReason): string {
  * for a win outcome. Names the *losing* side plainly wherever the reason
  * needs a subject to avoid reading as rules jargon - "the computer" rather
  * than its color when `perspective` says the loser is not the human (story
- * 00000019). `inactivity` and `agreement` never occur for a win in 1.2 - the
- * shared inactivity counter (rules.md §5.3) only ever produces a *draw*, and
+ * 00000019). `inactivity` and `agreement` never occur for a win in major 2 -
+ * the shared inactivity counter (rules.md §5.3) only ever produces a *draw*, and
  * `agreeDraw` only ever produces a draw - listed only so this switch is
  * exhaustive.
  */

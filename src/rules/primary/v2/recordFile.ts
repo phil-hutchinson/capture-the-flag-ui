@@ -26,9 +26,12 @@
 // `src/rules/readRecord.ts` is the version-dispatch entry point that decides
 // which ruleset (edition) a file's `Ruleset` tag names, resolves that
 // edition's `BoardLayout`, and passes it to `parseRecordFile` below - the
-// **size-parametric position block** (story 00000023's Step 8): the same
-// two published editions' board dimensions and lake layout are read back out
-// of the block by `parsePositionBlock` rather than assumed fixed at 12x12.
+// **size-parametric position block** (story 00000023's Step 8): the block is
+// **validated against** that edition's `BoardLayout` (row/cell count and lake
+// cells must match) rather than having its dimensions independently recovered
+// by counting; both published editions pin their layout to their edition id,
+// so this is behaviorally equivalent for them today (see the deviation noted
+// in Step 8's Notes).
 
 import { BATTLE_LAYOUT, type Side } from "./board.ts";
 import type { BoardLayout } from "./boardLayout.ts";

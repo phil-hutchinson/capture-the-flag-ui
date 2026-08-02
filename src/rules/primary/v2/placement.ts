@@ -300,9 +300,10 @@ function shuffle<T>(items: readonly T[], random: RandomSource): T[] {
  * place, such that none of them ends up orthogonally or diagonally adjacent
  * to another of this side's Towers - either one of `alreadyPlacedTowers` or
  * one chosen alongside it here. Tries several random shuffles of `candidates`
- * (an independent set of this size is easy to find among 48 home squares for
- * up to 6 Towers, so a handful of attempts suffices in practice) before
- * giving up. Returns the chosen squares and the remainder of `candidates`
+ * (an independent set of this size is easy to find among the side's home
+ * squares for the edition's handful of Towers, so a handful of attempts
+ * suffices in practice) before giving up. Returns the chosen squares and the
+ * remainder of `candidates`
  * (the squares not chosen), so the caller can place non-Tower pieces on what
  * is left.
  */

@@ -1,4 +1,4 @@
-// The replayer for ruleset 1.2:PRE-RELEASE - the import dry run.
+// The replayer for ruleset major 2 - the import dry run.
 //
 // Given a parsed record (`recordFile.ts`), replays every recorded move
 // against the starting board and produces the whole game as materialized

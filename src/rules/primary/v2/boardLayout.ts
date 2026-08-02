@@ -8,9 +8,12 @@
 // and each side's home-zone depth - the vocabulary the parametric board
 // (a later step) threads through the rule engine.
 //
-// This module is not yet wired into `board.ts` or any consumer - it is inert
-// data, unit-tested in isolation - so it has no dependencies elsewhere in the
-// ruleset core.
+// This module has no dependencies elsewhere in the ruleset core, but is
+// itself threaded through it: `board.ts`'s geometry functions, `movement.ts`,
+// `combat.ts`, `outcome.ts`, and `placement.ts` all take a `BoardLayout`
+// parameter; `edition.ts` resolves one per edition; `gameState.ts` sizes the
+// position block to it; and `readRecord.ts`/`HotSeatGame.tsx` thread it
+// through from the record and the picker respectively.
 
 /** Identifies one of the two published board geometries. */
 export type BoardLayoutId = "standard_144" | "standard_64";
