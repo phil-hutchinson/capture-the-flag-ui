@@ -21,6 +21,7 @@ import {
   describeResult,
   type ResultPerspective,
 } from "./playAnnouncement.ts";
+import { describeTowerLegalityViolation } from "./towerPlacementMessages.ts";
 import { PlayBoard } from "./PlayBoard.tsx";
 import {
   activateSquare,
@@ -690,7 +691,17 @@ export function EngineGame({ onBack }: EngineGameProps) {
       ? pieceAt(placement, selection.square)
       : undefined;
   const placementComplete = isComplete(placement);
-  const towerRuleOk = towerPlacementLegality(placement).legal;
+  const legality = towerPlacementLegality(placement);
+  const towerRuleOk = legality.legal;
+  // This screen is Battle-only (`spacing_only`), so `legality` can only ever
+  // report a spacing violation - there is no drop-time refusal or
+  // closed-squares hint to layer in here (story 00000025's Step 5 wires both
+  // into `HotSeatGame.tsx` only), so the confirm-time block is the whole
+  // story for this screen, exactly as it was before that story.
+  const towerMessage =
+    placementComplete && !legality.legal
+      ? describeTowerLegalityViolation(legality)
+      : "";
 
   return (
     <main className="app" data-difficulty={difficulty}>
@@ -714,7 +725,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
         side={humanSide}
         progress={progress(placement)}
         canConfirm={placementComplete && towerRuleOk}
-        towerAdjacencyBlocked={placementComplete && !towerRuleOk}
+        towerMessage={towerMessage}
         onAutoFill={handleAutoFill}
         onConfirm={handleConfirm}
       />

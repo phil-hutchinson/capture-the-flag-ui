@@ -29,6 +29,10 @@ import {
   describeDrawOffer,
   describeResult,
 } from "./playAnnouncement.ts";
+import {
+  describeTowerLaneRefusal,
+  towerLiveRegionMessage,
+} from "./towerPlacementMessages.ts";
 import { PlayBoard } from "./PlayBoard.tsx";
 import {
   acceptDraw,
@@ -55,7 +59,9 @@ import {
   placedCount,
   progress,
   returnToTray,
+  squaresClosedToTowers,
   swap,
+  towerLaneRefusesPlacement,
   towerPlacementLegality,
 } from "../rules/primary/v2/placement.ts";
 import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
@@ -188,6 +194,15 @@ export function HotSeatGame({
   // the Phase-2 live region.
   const [gameAnnouncement, setGameAnnouncement] = useState("");
   const [selection, setSelection] = useState<Selection>(null);
+  // Story 00000025, Step 5: the drop-time refusal sentence
+  // (`describeTowerLaneRefusal`) for the active player's own most recent
+  // refused Tower placement, or `null` if nothing was just refused - `null`
+  // by default and reset to `null` the moment the player starts a new
+  // selection or completes any placement action, so it is always about the
+  // click that was just refused, never a stale one (Decisions item 4: a
+  // refusal is transient). Also reset on Confirm/hand-off so it never lingers
+  // into the next player's turn.
+  const [towerRefusal, setTowerRefusal] = useState<string | null>(null);
   // Step 15: whether "Back to start" needs to ask for confirmation first.
   // Never touches `session` / `playSession` / `selection` - cancelling
   // simply closes the dialog again, leaving the game exactly as it was.
@@ -320,6 +335,7 @@ export function HotSeatGame({
       setSelection(null);
       setPlayAnnouncement("");
       setGameAnnouncement("");
+      setTowerRefusal(null);
     };
 
     // Story 00000006, Step 13: the draw-offer flow (rules.md §6.6). Each
@@ -425,6 +441,7 @@ export function HotSeatGame({
   const placement = activePlacement(session);
 
   function handleSelectType(type: PieceTypeId) {
+    setTowerRefusal(null);
     setSelection((current) =>
       current?.kind === "trayType" && current.type === type
         ? null
@@ -432,6 +449,15 @@ export function HotSeatGame({
     );
   }
 
+  // Story 00000025, Step 5: every path that could land a Tower on a closed
+  // square is checked with `towerLaneRefusesPlacement` *before* calling
+  // `place`/`move`/`swap` - those keep rejecting only structural-invariant
+  // violations (see placement.ts's header), so the UI must never ask them to
+  // perform something already known to be refused. A refusal leaves `session`
+  // and `selection` untouched (the player can immediately try another
+  // square) and only sets `towerRefusal`; every other branch below clears it,
+  // since reaching a *different* action - a new selection or a completed
+  // placement - means whatever was just refused is no longer the topic.
   function handleSquareClick(square: Square) {
     const occupied = pieceAt(placement, square) !== undefined;
 
@@ -439,6 +465,27 @@ export function HotSeatGame({
       if (selection?.kind === "boardSquare") {
         if (squareKey(selection.square) === squareKey(square)) {
           setSelection(null);
+          setTowerRefusal(null);
+          return;
+        }
+        // A swap can send a Tower either way: the piece on `selection.square`
+        // ends up on `square`, and the piece on `square` ends up on
+        // `selection.square` - both directions must be checked (Step 5's
+        // "swapping a Tower with a piece on a closed square").
+        const movingIntoClicked = pieceAt(placement, selection.square);
+        const movingIntoSelected = pieceAt(placement, square);
+        if (
+          movingIntoClicked === "tower" &&
+          towerLaneRefusesPlacement(placement, square, "tower")
+        ) {
+          setTowerRefusal(describeTowerLaneRefusal(square));
+          return;
+        }
+        if (
+          movingIntoSelected === "tower" &&
+          towerLaneRefusesPlacement(placement, selection.square, "tower")
+        ) {
+          setTowerRefusal(describeTowerLaneRefusal(selection.square));
           return;
         }
         setSession((current) =>
@@ -449,14 +496,20 @@ export function HotSeatGame({
             : current,
         );
         setSelection(null);
+        setTowerRefusal(null);
         return;
       }
       setSelection({ kind: "boardSquare", square });
+      setTowerRefusal(null);
       return;
     }
 
     if (selection?.kind === "trayType") {
       const type = selection.type;
+      if (towerLaneRefusesPlacement(placement, square, type)) {
+        setTowerRefusal(describeTowerLaneRefusal(square));
+        return;
+      }
       setSession((current) =>
         current
           ? updateActivePlacement(current, (state) =>
@@ -466,10 +519,19 @@ export function HotSeatGame({
       );
       // Keep the type selected for rapid repeat-placement until it runs out.
       setSelection(placement.remaining[type] <= 1 ? null : selection);
+      setTowerRefusal(null);
       return;
     }
 
     if (selection?.kind === "boardSquare") {
+      const movingType = pieceAt(placement, selection.square);
+      if (
+        movingType &&
+        towerLaneRefusesPlacement(placement, square, movingType)
+      ) {
+        setTowerRefusal(describeTowerLaneRefusal(square));
+        return;
+      }
       setSession((current) =>
         current
           ? updateActivePlacement(current, (state) =>
@@ -478,6 +540,7 @@ export function HotSeatGame({
           : current,
       );
       setSelection(null);
+      setTowerRefusal(null);
     }
   }
 
@@ -493,6 +556,7 @@ export function HotSeatGame({
         : current,
     );
     setSelection(null);
+    setTowerRefusal(null);
   }
 
   function handleClearBoard() {
@@ -502,6 +566,7 @@ export function HotSeatGame({
         : current,
     );
     setSelection(null);
+    setTowerRefusal(null);
   }
 
   function handleAutoFill() {
@@ -511,6 +576,7 @@ export function HotSeatGame({
         : current,
     );
     setSelection(null);
+    setTowerRefusal(null);
   }
 
   function handleConfirm() {
@@ -544,6 +610,10 @@ export function HotSeatGame({
       }
     }
     setSelection(null);
+    // The refusal is per active player and must never linger into the next
+    // player's turn (Decisions item 4) - cleared here whether this Confirm
+    // handed off to the other player or ended placement outright.
+    setTowerRefusal(null);
   }
 
   const selectedSquare =
@@ -560,11 +630,29 @@ export function HotSeatGame({
   // `spacing_and_lanes` edition) the lane rule, as a confirm-time backstop
   // for the latter. The two are tracked separately so the status bar can
   // tell "not finished yet" apart from "finished, but a Tower rule is
-  // broken" and show the latter's explanation only when it applies (the
-  // explanation itself, and drop-time refusal, are wired in story 00000025's
-  // Step 5 - `towerRuleOk` alone is unchanged behavior here).
+  // broken" and show the latter's explanation only when it applies.
   const placementComplete = isComplete(placement);
-  const towerRuleOk = towerPlacementLegality(placement).legal;
+  const legality = towerPlacementLegality(placement);
+  const towerRuleOk = legality.legal;
+  // Story 00000025, Step 5: a Tower is "in hand" exactly when the current
+  // selection is a Tower - either picked from the tray or picked up from the
+  // board (Decisions item 3). `closedSquares` is the active player's own
+  // closed-to-Towers set while that holds, and `[]` otherwise - which drives
+  // both the board's quiet marking and the live-region hint below, and is
+  // always `[]` on Battle regardless of what is in hand
+  // (`squaresClosedToTowers` is empty there by geometry).
+  const towerInHand =
+    selectedTrayType === "tower" || selectedPieceType === "tower";
+  const closedSquares = towerInHand ? squaresClosedToTowers(placement) : [];
+  // The one live-region message `PlacementStatus` shows right now (Decisions
+  // item 4's precedence: refusal, then the hint, then the confirm-time
+  // block, then nothing). The confirm-time block is only ever considered
+  // once the army is complete, matching this rule's pre-Step-5 behavior.
+  const towerMessage = towerLiveRegionMessage({
+    refusal: towerRefusal,
+    closedSquares,
+    legality: placementComplete ? legality : { legal: true },
+  });
 
   return (
     <main className="app">
@@ -600,7 +688,7 @@ export function HotSeatGame({
         side={activeSide}
         progress={progress(placement)}
         canConfirm={placementComplete && towerRuleOk}
-        towerAdjacencyBlocked={placementComplete && !towerRuleOk}
+        towerMessage={towerMessage}
         onAutoFill={handleAutoFill}
         onConfirm={handleConfirm}
       />
@@ -612,6 +700,7 @@ export function HotSeatGame({
             layout={placement.boardLayout}
             onSquareClick={handleSquareClick}
             selectedSquare={selectedSquare}
+            closedToTowerSquares={closedSquares}
           />
           <PlacementControls
             side={activeSide}

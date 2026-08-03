@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { Square } from "../rules/primary/v2/board.ts";
-import type { TowerLegalityViolation } from "../rules/primary/v2/placement.ts";
+import type {
+  TowerLegalityResult,
+  TowerLegalityViolation,
+} from "../rules/primary/v2/placement.ts";
 import {
   describeClosedToTowersHint,
   describeTowerLaneBlocked,
   describeTowerLaneRefusal,
   describeTowerLegalityViolation,
   TOWER_SPACING_BLOCKED_MESSAGE,
+  towerLiveRegionMessage,
 } from "./towerPlacementMessages.ts";
 
 const A3: Square = { column: "A", row: 3 };
@@ -65,11 +69,11 @@ describe("describeTowerLaneBlocked", () => {
     expect(message).toContain("One of your Towers");
   });
 
-  it("names every violating square, plural", () => {
+  it("names every violating square, plural, joined with 'and' (they are simultaneously true)", () => {
     const message = describeTowerLaneBlocked([A3, D3]);
-    expect(message).toContain("A3");
-    expect(message).toContain("D3");
+    expect(message).toContain("A3 and D3");
     expect(message).toContain("Some of your Towers");
+    expect(message).not.toContain("A3 or D3");
   });
 });
 
@@ -101,5 +105,66 @@ describe("describeTowerLegalityViolation", () => {
       squares: [A3],
     });
     expect(spacing).not.toBe(lane);
+  });
+});
+
+describe("towerLiveRegionMessage", () => {
+  const LEGAL: TowerLegalityResult = { legal: true };
+  const SPACING_VIOLATION: TowerLegalityResult = {
+    legal: false,
+    rule: "spacing",
+    squares: [A3, D3],
+  };
+  const LANE_VIOLATION: TowerLegalityResult = {
+    legal: false,
+    rule: "lane",
+    squares: [A3],
+  };
+
+  it("is empty when nothing applies", () => {
+    expect(
+      towerLiveRegionMessage({
+        refusal: null,
+        closedSquares: [],
+        legality: LEGAL,
+      }),
+    ).toBe("");
+  });
+
+  it("shows the confirm-time block when legality reports a violation", () => {
+    expect(
+      towerLiveRegionMessage({
+        refusal: null,
+        closedSquares: [],
+        legality: SPACING_VIOLATION,
+      }),
+    ).toBe(describeTowerLegalityViolation(SPACING_VIOLATION));
+    expect(
+      towerLiveRegionMessage({
+        refusal: null,
+        closedSquares: [],
+        legality: LANE_VIOLATION,
+      }),
+    ).toBe(describeTowerLegalityViolation(LANE_VIOLATION));
+  });
+
+  it("the closed-squares hint wins over the confirm-time block", () => {
+    const message = towerLiveRegionMessage({
+      refusal: null,
+      closedSquares: [A3, D3],
+      legality: SPACING_VIOLATION,
+    });
+    expect(message).toBe(describeClosedToTowersHint([A3, D3]));
+    expect(message).not.toBe(describeTowerLegalityViolation(SPACING_VIOLATION));
+  });
+
+  it("a refusal wins over both the hint and the confirm-time block", () => {
+    const refusal = describeTowerLaneRefusal(A3);
+    const message = towerLiveRegionMessage({
+      refusal,
+      closedSquares: [A3, D3],
+      legality: SPACING_VIOLATION,
+    });
+    expect(message).toBe(refusal);
   });
 });

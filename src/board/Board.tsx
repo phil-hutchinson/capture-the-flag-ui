@@ -8,6 +8,16 @@
 // via `onSquareClick`. This component itself is unaware of the click
 // grammar (move/swap/select/place) - App.tsx owns that - it only renders
 // whichever square is passed in as `selectedSquare` with a highlight.
+//
+// Story 00000025, Step 5: `closedToTowerSquares` draws a quiet modifier class
+// on whichever of those squares the caller names - `HotSeatGame.tsx` passes
+// `squaresClosedToTowers(placement)` only while a Tower is in hand (Decisions
+// item 3), and nothing otherwise; `EngineGame.tsx` passes nothing at all
+// (Battle-only, so the set is always empty anyway). The marking is a plain
+// CSS background (`board-square--closed-to-towers`, Board.css) - unlike the
+// lake icon it adds no new element to the accessibility tree, so there is
+// nothing to mark `aria-hidden`; its non-visual equivalent is the "Towers
+// can't go on …" hint in `PlacementStatus`'s live region.
 
 import type { CSSProperties } from "react";
 import { PieceIcon, LAKE_SYMBOL_ID } from "../art/PieceIcon.tsx";
@@ -48,6 +58,13 @@ export interface BoardProps {
    * placed piece a click will move, swap, or return to the tray.
    */
   readonly selectedSquare?: Square;
+  /**
+   * Squares to draw as closed to Towers (story 00000025, Step 5) - typically
+   * `squaresClosedToTowers(placement)`, passed only while a Tower is in hand.
+   * Omit (or pass `[]`) to draw no marking, which is always correct on
+   * Battle and whenever no Tower is in hand.
+   */
+  readonly closedToTowerSquares?: readonly Square[];
 }
 
 /** Inline style carrying the grid's own size, sized to the board layout. */
@@ -63,10 +80,14 @@ export function Board({
   layout,
   onSquareClick,
   selectedSquare,
+  closedToTowerSquares,
 }: BoardProps) {
   const rows = visibleRows(activeSide, layout);
   const columns = visibleColumns(activeSide, layout);
   const selectedKey = selectedSquare ? squareKey(selectedSquare) : undefined;
+  const closedKeys = new Set(
+    (closedToTowerSquares ?? []).map((square) => squareKey(square)),
+  );
   const gridStyle: BoardGridStyle = {
     "--columns": columns.length,
     "--rows": rows.length,
@@ -89,6 +110,7 @@ export function Board({
               selected={
                 selectedKey !== undefined && squareKey(square) === selectedKey
               }
+              closedToTowers={closedKeys.has(squareKey(square))}
               onClick={
                 band === "home" && onSquareClick
                   ? () => onSquareClick(square)
@@ -109,6 +131,7 @@ interface BoardSquareCellProps {
   readonly layout: BoardLayout;
   readonly pieceType?: PieceTypeId;
   readonly selected?: boolean;
+  readonly closedToTowers?: boolean;
   readonly onClick?: () => void;
 }
 
@@ -119,6 +142,7 @@ function BoardSquareCell({
   layout,
   pieceType,
   selected,
+  closedToTowers,
   onClick,
 }: BoardSquareCellProps) {
   const lake = isLake(square, layout);
@@ -128,6 +152,9 @@ function BoardSquareCell({
   }
   if (selected) {
     classNames.push("board-square--selected");
+  }
+  if (closedToTowers) {
+    classNames.push("board-square--closed-to-towers");
   }
 
   return (

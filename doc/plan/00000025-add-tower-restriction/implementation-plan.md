@@ -621,7 +621,71 @@ A. `npm run typecheck && npm run lint && npm test`.
 
 ## Step 5 — Placement enforcement in the UI: refusal, marking, and one voice
 
-Status: pending
+Status: committed
+
+Notes: `towerPlacementMessages.ts` gained `towerLiveRegionMessage`, the pure
+function that resolves Decisions item 4's precedence (refusal, then the
+closed-squares hint, then the confirm-time block, then nothing) into the one
+string `PlacementStatus` shows - tested directly (`towerPlacementMessages.test.ts`)
+for all four tiers, including that a higher tier wins even when a lower
+tier's inputs are also present. `PlacementStatus.tsx`'s boolean
+`towerAdjacencyBlocked` prop is replaced by `towerMessage: string` (`""` for
+none); the always-mounted `role="status"`/`aria-live="polite"` region itself
+is untouched, exactly as directed. `Board.tsx` gained an optional
+`closedToTowerSquares` prop drawn with a new `board-square--closed-to-towers`
+modifier class (`Board.css`, a quiet diagonal-hatch background) - purely a
+CSS background with no new DOM/AOM element, so (unlike the lake icon) there
+is nothing to mark `aria-hidden`; its non-visual equivalent is the hint
+sentence. `HotSeatGame.tsx`: added a `towerRefusal: string | null` state set
+only by `handleSquareClick` when `towerLaneRefusesPlacement` says a
+placement/move/swap would land a Tower on a closed square (all three
+paths - tray-place, move, and swap-in-either-direction - are checked before
+calling `place`/`move`/`swap`, which are untouched and never see a refused
+action); on a refusal, `session`/`selection` are left untouched and only
+`towerRefusal` is set, so the player can immediately try another square.
+`towerInHand` (a Tower is the current tray or board-picked-up selection)
+drives `closedSquares` (`squaresClosedToTowers(placement)` while true, `[]`
+otherwise), which feeds both `Board`'s marking and the hint tier; the
+confirm-time tier is only considered once the army is complete, matching the
+rule's pre-Step-5 behaviour. `EngineGame.tsx` needed a matching but
+self-contained update to keep typechecking against `PlacementStatus`'s new
+prop shape: it derives `towerMessage` straight from
+`describeTowerLegalityViolation` when complete-and-illegal, `""` otherwise -
+no refusal state and no closed-squares marking were added there, since that
+screen is Battle-only/`spacing_only` (the lane branch is always inert) and
+the plan's Board.tsx bullet says explicitly that `EngineGame.tsx` "passes
+nothing and is otherwise untouched."
+
+Also made this step's assigned copy fix while here: `listSquareNames` (in
+`towerPlacementMessages.ts`) now takes a `conjunction` parameter (`"and" |
+"or"`, defaulting to `"or"`), and `describeTowerLaneBlocked`'s plural
+sentence now passes `"and"` (the Towers really are on both named squares at
+once) while `describeClosedToTowersHint`'s prohibition keeps the default
+`"or"`. Updated that function's doc comment and its plural example
+accordingly, and updated `towerPlacementMessages.test.ts`'s plural
+`describeTowerLaneBlocked` case to assert `"A3 and D3"` and explicitly assert
+`"A3 or D3"` does not appear.
+
+Deviation (elaboration, not a contradiction): the plan says to clear
+`towerRefusal` "on the next successful placement action and on
+confirm/hand-off." Implemented that, and additionally clear it on every
+*selection* change (picking a tray type, picking up a placed piece,
+deselecting) - not just on a completed action. Reasoning: without this, a
+stale refusal from a prior mis-attempt would outrank the closed-squares hint
+under the plan's own precedence (Decisions item 4: refusal beats hint) even
+after the player picks up a *different* Tower with nothing yet refused about
+it - which would suppress a hint Decisions item 3 says must show whenever a
+Tower is in hand. Clearing on selection-change closes that gap without
+weakening the "transient, set the moment a placement is refused" property
+the plan asks for.
+
+`npm run typecheck`, `npm run lint`, `npm test` (610 tests, 29 files),
+`npm run build`, and `npx prettier --check` on every touched file all
+pass/clean. No component-test harness exists for `Board.tsx`/`PlacementStatus.tsx`
+(consistent with every prior step in this story), so their new behaviour is
+exercised through `HotSeatGame.tsx`'s manual gates below, plus the pure
+`towerPlacementMessages.ts` unit tests, per this project's established
+precedent for UI text/logic without such a harness.
 
 Wire Step 4's results into the placement screen so a player is refused, told
 why, and shown where Towers cannot go:

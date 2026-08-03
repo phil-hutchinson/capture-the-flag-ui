@@ -13,21 +13,27 @@
 // player's layout and hands off to the next player.
 //
 // Story 00000016, Step 6: Confirm stays disabled until the active player's
-// army is both complete *and* satisfies the Tower-adjacency rule (rules
-// §3 - no two of a side's Towers may sit next to each other, not even
-// diagonally). When the army is fully placed but that rule is violated, the
-// button being disabled is not enough on its own - `towerAdjacencyBlocked`
-// additionally surfaces a plain-language, visible explanation the player can
-// act on, so the reason Confirm won't work is never a mystery.
+// army is both complete *and* satisfies the Tower-placement rules (rules
+// §3). Story 00000025 widened those rules from spacing alone to (on a
+// `spacing_and_lanes` edition) spacing-or-lane, and replaced the boolean
+// `towerAdjacencyBlocked` prop with `towerMessage`: a single string, already
+// resolved by the caller (`towerPlacementMessages.ts`'s
+// `towerLiveRegionMessage`, per the plan's "Decisions resolved at plan time",
+// item 4) according to one precedence - a drop-time refusal, if one just
+// happened; otherwise the "Towers can't go on …" hint while a Tower is in
+// hand; otherwise the confirm-time block explanation (spacing or lane);
+// otherwise `""`. This component only ever renders whatever string it is
+// given - it does not itself know which of those four cases produced it.
 //
 // Story 00000016, Step 9 (accessibility pass): the warning's wrapping
 // `role="status"` element stays mounted at all times - even when
-// `towerAdjacencyBlocked` is false and it renders no text - following
+// `towerMessage` is `""` and it renders no text - following
 // `PlayWarnings.tsx`'s established live-region pattern, so assistive
-// technology has already registered it as a live region before the warning
-// first appears. Toggling the whole element in and out of the DOM (as an
-// earlier version of this component did) risks the first announcement being
-// missed.
+// technology has already registered it as a live region before the first
+// message ever appears. Toggling the whole element in and out of the DOM (as
+// an earlier version of this component did) risks the first announcement
+// being missed - story 00000025's Step 5 keeps this element exactly as it
+// is, for the same reason.
 
 import type { Side } from "../rules/primary/v2/board.ts";
 import type { PlacementProgress } from "../rules/primary/v2/placement.ts";
@@ -41,11 +47,13 @@ export interface PlacementStatusProps {
   /** Whether the active player's army is complete (Confirm is enabled only then). */
   readonly canConfirm: boolean;
   /**
-   * True once the active player has placed all 25 pieces but two of their
-   * Towers are adjacent (orthogonally or diagonally), which is blocking
-   * Confirm. Shows a plain-language explanation of what to fix.
+   * The one live-region message to show right now (story 00000025, Step 5),
+   * or `""` for none - already resolved by the caller
+   * (`towerLiveRegionMessage`) according to the precedence described above.
+   * Replaces the old boolean `towerAdjacencyBlocked`, which only ever covered
+   * the confirm-time spacing case.
    */
-  readonly towerAdjacencyBlocked: boolean;
+  readonly towerMessage: string;
   /** Fills every remaining empty square with the active player's remaining pieces. */
   readonly onAutoFill: () => void;
   /** Stores the active player's layout and hands off to the next player. */
@@ -56,7 +64,7 @@ export function PlacementStatus({
   side,
   progress,
   canConfirm,
-  towerAdjacencyBlocked,
+  towerMessage,
   onAutoFill,
   onConfirm,
 }: PlacementStatusProps) {
@@ -88,11 +96,8 @@ export function PlacementStatus({
         role="status"
         aria-live="polite"
       >
-        {towerAdjacencyBlocked && (
-          <p className="placement-status__tower-warning">
-            Two of your Towers are next to each other - no two Towers may touch,
-            even diagonally. Move one apart to finish.
-          </p>
+        {towerMessage && (
+          <p className="placement-status__tower-warning">{towerMessage}</p>
         )}
       </div>
     </div>

@@ -7,8 +7,7 @@
 // Mirrors `playAnnouncement.ts`/`gameNames.ts`'s precedent for testing
 // player-facing UI text as pure functions - there is no component-test
 // harness in this project, so every sentence here is unit-tested directly
-// against its input rather than by rendering a component. Nothing here is
-// wired into a live region yet; that is story 00000025's Step 5.
+// against its input rather than by rendering a component.
 //
 // Both rules are one rule family, surfaced in one voice (the plan's
 // "Decisions resolved at plan time", item 1): every sentence below follows
@@ -20,9 +19,18 @@
 // the active player's own army, so `PlacementStatus`'s existing "{Color}'s
 // turn to place their army" heading already establishes whose army is being
 // discussed.
+//
+// Step 5 adds `towerLiveRegionMessage`, the single place that resolves
+// Decisions item 4's precedence (refusal wins, then the closed-squares hint,
+// then the confirm-time block, then nothing) into the one string
+// `PlacementStatus`'s always-mounted live region shows - so `HotSeatGame.tsx`
+// never has to reason about that ordering itself.
 
 import { squareKey, type Square } from "../rules/primary/v2/board.ts";
-import type { TowerLegalityViolation } from "../rules/primary/v2/placement.ts";
+import type {
+  TowerLegalityResult,
+  TowerLegalityViolation,
+} from "../rules/primary/v2/placement.ts";
 
 /**
  * The plain-language explanation of the lane rule itself, reused by every
@@ -33,8 +41,19 @@ import type { TowerLegalityViolation } from "../rules/primary/v2/placement.ts";
 const LANE_RULE_EXPLANATION =
   "no Tower may stand directly in front of a lane, the open column running through the middle of the board";
 
-/** "A3" / "A3 or D3" / "A3, D3 or H3" - a natural-language list of square names, in the given order. */
-function listSquareNames(squares: readonly Square[]): string {
+/**
+ * "A3" / "A3 or D3" / "A3, D3 or H3" (and the "and" equivalents) - a
+ * natural-language list of square names, in the given order. `conjunction`
+ * defaults to "or", the disjunctive form used for a *prohibition* ("Towers
+ * can't go on A3 or D3" - each square alone is forbidden). Callers naming
+ * squares that are simultaneously true of a single army (e.g. "your Towers
+ * are on A3 and D3") must pass `"and"` instead - see
+ * `describeTowerLaneBlocked`, below.
+ */
+function listSquareNames(
+  squares: readonly Square[],
+  conjunction: "and" | "or" = "or",
+): string {
   const names = squares.map((square) => squareKey(square));
   if (names.length === 0) {
     return "";
@@ -42,7 +61,7 @@ function listSquareNames(squares: readonly Square[]): string {
   if (names.length === 1) {
     return names[0];
   }
-  return `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+  return `${names.slice(0, -1).join(", ")} ${conjunction} ${names[names.length - 1]}`;
 }
 
 /**
@@ -94,16 +113,19 @@ export const TOWER_SPACING_BLOCKED_MESSAGE =
  * violation. E.g. (one) "One of your Towers is on A3, directly in front of a
  * lane, the open column running through the middle of the board - no Tower
  * may stand there. Move it to another square to finish."; (more than one)
- * "Some of your Towers are on A3 or D3, directly in front of a lane, the open
- * column running through the middle of the board - no Tower may stand there.
- * Move them to other squares to finish."
+ * "Some of your Towers are on A3 and D3, directly in front of a lane, the
+ * open column running through the middle of the board - no Tower may stand
+ * there. Move them to other squares to finish." (Squares joined with "and",
+ * not "or" - unlike `describeClosedToTowersHint`'s prohibition, this sentence
+ * names squares that are simultaneously true: the Towers really are on both
+ * A3 and D3 at once.)
  */
 export function describeTowerLaneBlocked(squares: readonly Square[]): string {
   const plural = squares.length > 1;
   const subject = plural ? "Some of your Towers are" : "One of your Towers is";
   const pronoun = plural ? "them" : "it";
   const destination = plural ? "other squares" : "another square";
-  return `${subject} on ${listSquareNames(squares)}, directly in front of a lane, the open column running through the middle of the board - no Tower may stand there. Move ${pronoun} to ${destination} to finish.`;
+  return `${subject} on ${listSquareNames(squares, "and")}, directly in front of a lane, the open column running through the middle of the board - no Tower may stand there. Move ${pronoun} to ${destination} to finish.`;
 }
 
 /**
@@ -120,4 +142,62 @@ export function describeTowerLegalityViolation(
     return TOWER_SPACING_BLOCKED_MESSAGE;
   }
   return describeTowerLaneBlocked(violation.squares);
+}
+
+/** The inputs `towerLiveRegionMessage` resolves into the one live-region string. */
+export interface TowerLiveRegionInputs {
+  /**
+   * The drop-time refusal sentence (`describeTowerLaneRefusal`'s result) if a
+   * placement was just refused, or `null` if not. Transient - the caller
+   * clears it the moment the player moves on (`HotSeatGame.tsx`'s Step 5
+   * wiring), so this is only ever non-`null` for the render right after a
+   * refusal.
+   */
+  readonly refusal: string | null;
+  /**
+   * `state.side`'s closed-to-Towers squares (`squaresClosedToTowers`), but
+   * only when the caller has determined a Tower is currently in hand
+   * (Decisions item 3) - pass `[]` otherwise, which is also always correct on
+   * Battle and under `spacing_only` regardless of what is in hand, since
+   * `squaresClosedToTowers` is empty there anyway.
+   */
+  readonly closedSquares: readonly Square[];
+  /**
+   * `towerPlacementLegality`'s result, but only meaningful once the army is
+   * complete (the caller passes `{ legal: true }` beforehand, matching the
+   * pre-existing "only judge the confirm-time rule once everything is
+   * placed" behaviour `towerAdjacencyBlocked` had before this story).
+   */
+  readonly legality: TowerLegalityResult;
+}
+
+/**
+ * Resolves the one message `PlacementStatus`'s always-mounted live region
+ * shows right now (story 00000025, Step 5; the plan's "Decisions resolved at
+ * plan time", item 4) - so a player is never told two things by two
+ * mechanisms at once:
+ *
+ *  1. a drop-time refusal, if one just happened - wins outright;
+ *  2. otherwise, the "Towers can't go on …" hint, if a Tower is in hand and
+ *     `closedSquares` is non-empty (inert on Battle, where it is always
+ *     empty);
+ *  3. otherwise, the confirm-time block explanation, if `legality` reports a
+ *     violation;
+ *  4. otherwise, nothing (`""`).
+ */
+export function towerLiveRegionMessage({
+  refusal,
+  closedSquares,
+  legality,
+}: TowerLiveRegionInputs): string {
+  if (refusal !== null) {
+    return refusal;
+  }
+  if (closedSquares.length > 0) {
+    return describeClosedToTowersHint(closedSquares);
+  }
+  if (!legality.legal) {
+    return describeTowerLegalityViolation(legality);
+  }
+  return "";
 }
