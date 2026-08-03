@@ -368,9 +368,14 @@ describe("parseRecordFile - not a game record at all", () => {
 // 00000023's peer review, finding #2) `BoardLayout` to parse the position
 // block against - `readRecord.ts` resolves it from the file's own `Ruleset`
 // (edition id) tag before calling here - so a Skirmish record's 8x8 block is
-// read correctly rather than assumed to be Battle's 12x12.
+// read correctly rather than assumed to be Battle's 12x12. Retargeted to
+// `2-1:SKIRMISH` by story 00000025's Step 6 (this is a generic 8x8-layout
+// parsing check, not a deliberate exercise of the historical `2-0:SKIRMISH`
+// path - that path has its own dedicated coverage in
+// `src/rules/readRecord.test.ts`, including the checked-in
+// `doc/samples/2-0-skirmish-tower-in-lane.txt` fixture).
 describe("parseRecordFile - the Skirmish edition's 8x8 board layout", () => {
-  const skirmish = EDITIONS["2-0:SKIRMISH"];
+  const skirmish = EDITIONS["2-1:SKIRMISH"];
   const SKIRMISH_GAME_STATE: InitialGameState = {
     ruleset: skirmish.id,
     edition: skirmish,
@@ -383,17 +388,17 @@ describe("parseRecordFile - the Skirmish edition's 8x8 board layout", () => {
   const SKIRMISH_POSITION_BLOCK = renderPositionBlock(SKIRMISH_GAME_STATE);
 
   it("parses an 8x8 position block when given the Skirmish layout", () => {
-    const text = ['[Ruleset "2-0:SKIRMISH"]', SKIRMISH_POSITION_BLOCK].join(
+    const text = ['[Ruleset "2-1:SKIRMISH"]', SKIRMISH_POSITION_BLOCK].join(
       "\n\n",
     );
 
     const record = parsed(parseRecordFile(text, skirmish.boardLayout));
     expect(record.startingBoard).toEqual(SKIRMISH_GAME_STATE.board);
-    expect(record.tags).toEqual({ ruleset: "2-0:SKIRMISH" });
+    expect(record.tags).toEqual({ ruleset: "2-1:SKIRMISH" });
   });
 
   it("rejects that same 8x8 block against Battle's own layout", () => {
-    const text = ['[Ruleset "2-0:SKIRMISH"]', SKIRMISH_POSITION_BLOCK].join(
+    const text = ['[Ruleset "2-1:SKIRMISH"]', SKIRMISH_POSITION_BLOCK].join(
       "\n\n",
     );
 

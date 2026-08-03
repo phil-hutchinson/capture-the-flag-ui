@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { Edition } from "./primary/v2/edition.ts";
 import { BATTLE_EDITION, EDITIONS } from "./primary/v2/edition.ts";
@@ -10,6 +13,19 @@ import {
 import { renderMoveToken } from "./primary/v2/notation.ts";
 import { applyMove, renderGameRecord, startPlay } from "./primary/v2/play.ts";
 import { readRecord } from "./readRecord.ts";
+
+// Story 00000025's registry adds a third edition: the active `2-1:SKIRMISH`
+// (what a *new* Skirmish game is set up, played, and recorded as) and the
+// superseded `2-0:SKIRMISH` (still resolvable, so a record naming it keeps
+// reviewing, but no longer offered as a game to start - see edition.ts).
+// Fixtures below that predate that split and were only ever standing in for
+// "a Skirmish record" now use `2-1:SKIRMISH`, matching what the app actually
+// produces going forward; `2-0:SKIRMISH` stays wherever a test deliberately
+// exercises the *historical* path - the "accepts all three registered
+// edition tags" block below, and the checked-in
+// `doc/samples/2-0-skirmish-tower-in-lane.txt` fixture's own describe block,
+// which is this story's pinned proof that placement rules never leak into
+// replay.
 
 const GAME_STATE: InitialGameState = {
   ruleset: RULESET_TAG,
@@ -276,7 +292,7 @@ describe("readRecord - a small synthetic 2-0:BATTLE record round-trips", () => {
 describe("readRecord - surfaces the record's own resolved Edition (Gate D defect fix)", () => {
   it.each([
     ["2-0:BATTLE", EDITIONS["2-0:BATTLE"], 12, 12] as const,
-    ["2-0:SKIRMISH", EDITIONS["2-0:SKIRMISH"], 8, 8] as const,
+    ["2-1:SKIRMISH", EDITIONS["2-1:SKIRMISH"], 8, 8] as const,
   ])(
     "surfaces %s's own board dimensions, not Battle's default",
     (id, edition, columnCount, rowCount) => {
@@ -302,7 +318,7 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
   );
 
   it("surfaces Skirmish's own lake cells (rows 4-5, columns B/C/F/G), not Battle's (rows 6-7, B/C/F/G/J/K)", () => {
-    const skirmish = EDITIONS["2-0:SKIRMISH"];
+    const skirmish = EDITIONS["2-1:SKIRMISH"];
     const initial: InitialGameState = {
       ruleset: skirmish.id,
       edition: skirmish,
@@ -371,7 +387,7 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
 describe("readRecord - renderGameRecord's opening-position output round-trips for both editions", () => {
   it.each([
     ["2-0:BATTLE", EDITIONS["2-0:BATTLE"], 12] as const,
-    ["2-0:SKIRMISH", EDITIONS["2-0:SKIRMISH"], 8] as const,
+    ["2-1:SKIRMISH", EDITIONS["2-1:SKIRMISH"], 8] as const,
   ])("round-trips a freshly started %s game", (id, edition, size) => {
     const initial: InitialGameState = {
       ruleset: edition.id,
@@ -442,8 +458,8 @@ describe("readRecord - accepts all three registered edition tags (story 00000025
   });
 });
 
-describe("readRecord - a small synthetic 2-0:SKIRMISH record round-trips (8x8)", () => {
-  const skirmish = EDITIONS["2-0:SKIRMISH"];
+describe("readRecord - a small synthetic 2-1:SKIRMISH record round-trips (8x8)", () => {
+  const skirmish = EDITIONS["2-1:SKIRMISH"];
   const SKIRMISH_GAME_STATE: InitialGameState = {
     ruleset: skirmish.id,
     edition: skirmish,
@@ -479,7 +495,7 @@ describe("readRecord - a small synthetic 2-0:SKIRMISH record round-trips (8x8)",
   it("accepts the record and replays to the final position on the 8x8 board", () => {
     const text = [
       [
-        '[Ruleset "2-0:SKIRMISH"]',
+        '[Ruleset "2-1:SKIRMISH"]',
         '[Result "0-1"]',
         '[ResultReason "Flag Captured"]',
       ].join("\n"),
@@ -495,7 +511,7 @@ describe("readRecord - a small synthetic 2-0:SKIRMISH record round-trips (8x8)",
     const { record } = result;
 
     expect(record.tags).toEqual({
-      ruleset: "2-0:SKIRMISH",
+      ruleset: "2-1:SKIRMISH",
       result: "0-1",
       resultReason: "Flag Captured",
     });
@@ -568,7 +584,7 @@ describe("readRecord - a played game's moves round-trip through the real writer 
 
   it.each([
     ["2-0:BATTLE", EDITIONS["2-0:BATTLE"]] as const,
-    ["2-0:SKIRMISH", EDITIONS["2-0:SKIRMISH"]] as const,
+    ["2-1:SKIRMISH", EDITIONS["2-1:SKIRMISH"]] as const,
   ])(
     "round-trips a played %s game, including a one-piece and a two-piece removal",
     (id, edition) => {
@@ -601,4 +617,121 @@ describe("readRecord - a played game's moves round-trip through the real writer 
       });
     },
   );
+});
+
+// Story 00000025, Step 6: confirms - with a test, not by inspection - that a
+// *finished* game's record carries the edition it was actually played under,
+// for each active edition, and that nothing else about the record format
+// (the position block, the Result/ResultReason tags, the move notation)
+// differs between them. Skirmish now carries its own minor (`2-1:SKIRMISH`),
+// distinct from Battle's (`2-0:BATTLE`) - this is the in-scope guarantee
+// story.md's item 6 asks for.
+describe("readRecord - a finished game's record carries its own edition's Ruleset tag (story 00000025)", () => {
+  it.each([
+    ["2-0:BATTLE", EDITIONS["2-0:BATTLE"]] as const,
+    ["2-1:SKIRMISH", EDITIONS["2-1:SKIRMISH"]] as const,
+  ])(
+    "a finished %s game's record round-trips with its own tag, Result and ResultReason intact",
+    (id, edition) => {
+      const initial: InitialGameState = {
+        ruleset: edition.id,
+        edition,
+        board: {
+          A1: { side: "white", pieceType: "flag" },
+          D2: { side: "white", pieceType: "champion" },
+          D3: { side: "black", pieceType: "flag" },
+        },
+      };
+      const state = startPlay(initial);
+      // White's champion captures Black's flag: an immediate win, on both
+      // board sizes (columns A-D, rows 1-3 are ordinary home-zone ground on
+      // both editions - never a lake row on either `BoardLayout`).
+      const { state: finished } = applyMove(
+        state,
+        { column: "D", row: 2 },
+        { column: "D", row: 3 },
+      );
+
+      const text = renderGameRecord(finished);
+      expect(text).toContain(`[Ruleset "${id}"]`);
+      expect(text).toContain('[Result "1-0"]');
+      expect(text).toContain('[ResultReason "Flag Captured"]');
+      expect(text).toContain(renderPositionBlock(initial));
+
+      const result = readRecord(text);
+      expect(result.kind).toBe("parsed");
+      if (result.kind !== "parsed") {
+        return;
+      }
+
+      expect(result.record.tags).toEqual({
+        ruleset: id,
+        result: "1-0",
+        resultReason: "Flag Captured",
+      });
+      expect(result.edition.id).toBe(id);
+      expect(result.record.positions[0]).toEqual(initial.board);
+      expect(result.record.moves.map((move) => move.token)).toEqual(["D2-D3x"]);
+    },
+  );
+});
+
+// Story 00000025, Step 6: the checked-in `doc/samples/` fixture pins the
+// story's central guarantee - a `2-0:SKIRMISH` record whose *starting
+// position* has a Tower directly in front of a lane (A3, legal under the
+// historical edition, refused at placement time under `2-1:SKIRMISH`) must
+// still parse and replay to the end without complaint, because placement
+// rules are only ever consulted while a player is placing, never during
+// replay (`src/rules/primary/v2/replay.ts`/`recordFile.ts` know nothing
+// about `TOWER_PLACEMENT`). Reading the file from disk (rather than
+// hand-building the same text inline) is deliberate - it is the same file
+// the owner imports at this story's manual Gate D, so the automated
+// guarantee and the manually-verified artifact can never drift apart. See
+// `doc/samples/README.md` for what the fixture is and how it was built.
+describe("readRecord - the checked-in doc/samples/2-0-skirmish-tower-in-lane.txt fixture (story 00000025, Step 6)", () => {
+  const SAMPLE_PATH = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../doc/samples/2-0-skirmish-tower-in-lane.txt",
+  );
+  const sampleText = readFileSync(SAMPLE_PATH, "utf8");
+
+  it("parses and replays to the end even though its starting position has a Tower in front of a lane", () => {
+    const result = readRecord(sampleText);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+
+    expect(result.record.tags.ruleset).toBe("2-0:SKIRMISH");
+    expect(result.record.tags.result).toBe("1-0");
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
+    expect(result.record.positions[0].A3).toEqual({
+      side: "white",
+      pieceType: "tower",
+    });
+    // Replayed to the end: the opening position plus one played ply.
+    expect(result.record.positions).toHaveLength(2);
+    expect(result.record.moves).toHaveLength(1);
+  });
+
+  it("the mirror case: the same starting position also replays without complaint tagged 2-1:SKIRMISH, proving replay never checks placement even under the edition that would refuse this Tower", () => {
+    const activeText = sampleText.replace(
+      '[Ruleset "2-0:SKIRMISH"]',
+      '[Ruleset "2-1:SKIRMISH"]',
+    );
+    expect(activeText).not.toBe(sampleText);
+
+    const result = readRecord(activeText);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+
+    expect(result.record.tags.ruleset).toBe("2-1:SKIRMISH");
+    expect(result.record.positions[0].A3).toEqual({
+      side: "white",
+      pieceType: "tower",
+    });
+    expect(result.record.positions).toHaveLength(2);
+  });
 });

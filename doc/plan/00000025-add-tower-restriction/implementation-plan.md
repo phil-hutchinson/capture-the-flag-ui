@@ -553,7 +553,7 @@ square(s) at issue" verification bullet, `TowerSpacingViolation.squares` was
 added (the actual adjacent pair, not just a boolean) even though the
 existing spacing sentence deliberately doesn't name squares (kept verbatim,
 since the plan calls it "the existing spacing-block sentence" - a specific,
-known string) - the structured *data* names the squares either way, satisfying
+known string) - the structured _data_ names the squares either way, satisfying
 "the square(s) involved" from the step's own first bullet.
 
 `placement.test.ts`: the `towersLegallyPlaced` describe block and every call
@@ -669,11 +669,11 @@ accordingly, and updated `towerPlacementMessages.test.ts`'s plural
 Deviation (elaboration, not a contradiction): the plan says to clear
 `towerRefusal` "on the next successful placement action and on
 confirm/hand-off." Implemented that, and additionally clear it on every
-*selection* change (picking a tray type, picking up a placed piece,
+_selection_ change (picking a tray type, picking up a placed piece,
 deselecting) - not just on a completed action. Reasoning: without this, a
 stale refusal from a prior mis-attempt would outrank the closed-squares hint
 under the plan's own precedence (Decisions item 4: refusal beats hint) even
-after the player picks up a *different* Tower with nothing yet refused about
+after the player picks up a _different_ Tower with nothing yet refused about
 it - which would suppress a hint Decisions item 3 says must show whenever a
 Tower is in hand. Clearing on selection-change closes that gap without
 weakening the "transient, set the moment a placement is refused" property
@@ -755,7 +755,78 @@ file watching, so **restart the dev server** before observing:
 
 ## Step 6 — Records: the new tag, the historical edition, and a sample record
 
-Status: pending
+Status: committed
+
+Notes: No production code changed - Step 1 already made `buildInitialGameState`/
+`renderGameRecord` tag every artifact with the _actual_ played edition's own
+`id` and `readRecord.ts` already dispatched against all three registered
+editions, so this step is tests and a checked-in fixture only, as the plan
+anticipated. Added `doc/samples/2-0-skirmish-tower-in-lane.txt` (plus
+`doc/samples/README.md` explaining what it is and how it was built): a
+short, complete `2-0:SKIRMISH` game (White's Tower on A3, a champion
+capturing Black's flag on the next ply for an immediate `1-0`/"Flag
+Captured" win) produced by driving the app's own writer
+(`startPlay`/`applyMove`/`renderGameRecord`) directly against an
+`InitialGameState` built with `SUPERSEDED_SKIRMISH_EDITION` - functionally
+identical to "auto-fill a Skirmish army, dump the record, then hand-edit the
+Tower onto A3 and the tag", but scripted rather than done through the
+browser (noted as a deviation below), so the file's structure is genuinely
+well-formed by construction rather than hand-typed.
+
+`src/rules/readRecord.test.ts` gained: a `describe` block driving a real
+finished game (a flag-capture win) through `startPlay`/`applyMove`/
+`renderGameRecord`/`readRecord` for both active editions, asserting the
+record's `Ruleset` tag is the played edition's own id (`2-0:BATTLE` /
+`2-1:SKIRMISH`), the `Result`/`ResultReason` tags and move notation are
+identical in shape between them, and the position block round-trips -
+satisfying the step's first bullet "with tests, not by inspection"; and a
+`describe` block that reads `doc/samples/2-0-skirmish-tower-in-lane.txt` from
+disk (`node:fs`) and asserts `readRecord` parses **and replays it to the
+end** despite the Tower on A3, plus the mirror-image case (the same file's
+text with its `Ruleset` tag substituted to `2-1:SKIRMISH`) replaying without
+complaint too - pinning that placement rules never leak into replay under
+either tag. The disk-read-based fixture was not duplicated in
+`src/rules/primary/v2/recordFile.test.ts` - that module is structural
+parsing only, with no replay step to pin against - so no additional test was
+needed there beyond the existing coverage's retargeting described below.
+
+Per the step's last bullet, reviewed every existing record/review test that
+named a Skirmish edition and moved the ones that were only ever standing in
+for "a Skirmish record" (written before `2-1:SKIRMISH` existed) onto
+`2-1:SKIRMISH`, since that is what the app now actually plays and records:
+`readRecord.test.ts`'s "surfaces the record's own resolved Edition", "opening
+position round-trips for both editions", "a small synthetic ... record
+round-trips (8x8)" (renamed accordingly), and "a played game's moves
+round-trip through the real writer" blocks; and
+`recordFile.test.ts`'s "the Skirmish edition's 8x8 board layout" block. Left
+untouched, and deliberately still `2-0:SKIRMISH`: the "accepts all three
+registered edition tags" block (explicitly exercises all three, including
+the historical one) and the two new sample-record tests above (the dedicated
+historical-path coverage). Also left untouched as out of scope (movement/
+session behaviour, not records): `play.test.ts`'s and `playSession.test.ts`'s
+own "threads the edition's board layout" blocks, which use
+`EDITIONS["2-0:SKIRMISH"]` only to exercise board-geometry regression
+coverage unrelated to the `Ruleset` tag. A top-of-file comment was added to
+`readRecord.test.ts` (and an inline one in `recordFile.test.ts`) explaining
+which Skirmish id each fixture uses and why, per the step's instruction.
+
+Deviation: the plan says to build the sample "from the app's own developer
+record dump", implying playing a game through the browser UI and using its
+dev-build record dump. Instead it was generated by a throwaway Vitest test
+that called the exact same writer functions (`startPlay`/`applyMove`/
+`renderGameRecord`) that `GameRecord.tsx`'s dev-build dump calls, with the
+historical edition and the Tower placed directly in the `InitialGameState`
+(placement rules were never going to be consulted either way, so there is
+nothing a manual playthrough would have exercised that this did not) - then
+deleted before this commit. This produces byte-identical output to what a
+manual playthrough would have dumped, without needing a browser session
+inside this agent's environment; recorded here as the honest deviation the
+plan's own review process asks for, and the owner can re-verify the
+already-committed file matches this description at Gate D.
+
+`npm run typecheck`, `npm run lint`, `npm test` (614 tests, 29 files),
+`npm run build`, and `npx prettier --check`/`--write` on every touched file
+all pass/clean.
 
 Prove and pin the record behaviour end to end, and add the historical fixture:
 
