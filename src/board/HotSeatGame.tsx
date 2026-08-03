@@ -56,7 +56,7 @@ import {
   progress,
   returnToTray,
   swap,
-  towersLegallyPlaced,
+  towerPlacementLegality,
 } from "../rules/primary/v2/placement.ts";
 import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
 import "../App.css";
@@ -554,13 +554,17 @@ export function HotSeatGame({
     selection?.kind === "boardSquare"
       ? pieceAt(placement, selection.square)
       : undefined;
-  // Story 00000016, Step 6: Confirm requires both a complete (25-piece) army
-  // and the Tower-adjacency rule (rules §3) being satisfied. The two are
-  // tracked separately so the status bar can tell "not finished yet" apart
-  // from "finished, but two Towers are touching" and show the latter's
-  // explanation only when it applies.
+  // Story 00000016, Step 6: Confirm requires both a complete army and the
+  // Tower-placement rules (rules §3) being satisfied - since story 00000025's
+  // Step 4, `towerPlacementLegality` covers both the spacing rule and (on a
+  // `spacing_and_lanes` edition) the lane rule, as a confirm-time backstop
+  // for the latter. The two are tracked separately so the status bar can
+  // tell "not finished yet" apart from "finished, but a Tower rule is
+  // broken" and show the latter's explanation only when it applies (the
+  // explanation itself, and drop-time refusal, are wired in story 00000025's
+  // Step 5 - `towerRuleOk` alone is unchanged behavior here).
   const placementComplete = isComplete(placement);
-  const towerRuleOk = towersLegallyPlaced(placement);
+  const towerRuleOk = towerPlacementLegality(placement).legal;
 
   return (
     <main className="app">

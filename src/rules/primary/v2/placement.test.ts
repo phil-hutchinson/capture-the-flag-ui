@@ -31,7 +31,8 @@ import {
   returnToTray,
   squaresClosedToTowers,
   swap,
-  towersLegallyPlaced,
+  towerLaneRefusesPlacement,
+  towerPlacementLegality,
   type PlacementState,
   type RandomSource,
 } from "./placement.ts";
@@ -354,25 +355,25 @@ describe("progress and isComplete", () => {
   });
 });
 
-describe("towersLegallyPlaced", () => {
-  it("is true with no Towers placed at all", () => {
+describe("towerPlacementLegality", () => {
+  it("is legal with no Towers placed at all", () => {
     expect(
-      towersLegallyPlaced(
+      towerPlacementLegality(
         emptyPlacement("white", BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
-      ),
+      ).legal,
     ).toBe(true);
   });
 
-  it("is true with a single Tower placed", () => {
+  it("is legal with a single Tower placed", () => {
     const state = place(
       emptyPlacement("white", BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
       WHITE_HOME[0],
       "tower",
     );
-    expect(towersLegallyPlaced(state)).toBe(true);
+    expect(towerPlacementLegality(state).legal).toBe(true);
   });
 
-  it("is true for two Towers that are not adjacent", () => {
+  it("is legal for two Towers that are not adjacent", () => {
     let state = emptyPlacement(
       "white",
       BATTLE_LAYOUT,
@@ -381,10 +382,10 @@ describe("towersLegallyPlaced", () => {
     );
     state = place(state, { column: "A", row: 1 }, "tower");
     state = place(state, { column: "D", row: 1 }, "tower");
-    expect(towersLegallyPlaced(state)).toBe(true);
+    expect(towerPlacementLegality(state).legal).toBe(true);
   });
 
-  it("is false for two orthogonally adjacent Towers", () => {
+  it("reports a spacing violation for two orthogonally adjacent Towers", () => {
     let state = emptyPlacement(
       "white",
       BATTLE_LAYOUT,
@@ -393,10 +394,18 @@ describe("towersLegallyPlaced", () => {
     );
     state = place(state, { column: "A", row: 1 }, "tower");
     state = place(state, { column: "B", row: 1 }, "tower");
-    expect(towersLegallyPlaced(state)).toBe(false);
+    const result = towerPlacementLegality(state);
+    expect(result.legal).toBe(false);
+    if (!result.legal) {
+      expect(result.rule).toBe("spacing");
+      expect(result.squares).toEqual([
+        { column: "A", row: 1 },
+        { column: "B", row: 1 },
+      ]);
+    }
   });
 
-  it("is false for two diagonally adjacent Towers", () => {
+  it("reports a spacing violation for two diagonally adjacent Towers", () => {
     let state = emptyPlacement(
       "white",
       BATTLE_LAYOUT,
@@ -405,10 +414,14 @@ describe("towersLegallyPlaced", () => {
     );
     state = place(state, { column: "A", row: 1 }, "tower");
     state = place(state, { column: "B", row: 2 }, "tower");
-    expect(towersLegallyPlaced(state)).toBe(false);
+    const result = towerPlacementLegality(state);
+    expect(result.legal).toBe(false);
+    if (!result.legal) {
+      expect(result.rule).toBe("spacing");
+    }
   });
 
-  it("catches a violation among more than two placed Towers", () => {
+  it("catches a spacing violation among more than two placed Towers", () => {
     let state = emptyPlacement(
       "white",
       BATTLE_LAYOUT,
@@ -418,10 +431,10 @@ describe("towersLegallyPlaced", () => {
     state = place(state, { column: "A", row: 1 }, "tower");
     state = place(state, { column: "D", row: 1 }, "tower");
     state = place(state, { column: "D", row: 2 }, "tower"); // adjacent to D1
-    expect(towersLegallyPlaced(state)).toBe(false);
+    expect(towerPlacementLegality(state).legal).toBe(false);
   });
 
-  it("tracks each side's own Towers independently", () => {
+  it("tracks each side's own Towers independently for the spacing rule", () => {
     let state = emptyPlacement(
       "black",
       BATTLE_LAYOUT,
@@ -430,12 +443,167 @@ describe("towersLegallyPlaced", () => {
     );
     state = place(state, { column: "A", row: 9 }, "tower");
     state = place(state, { column: "B", row: 9 }, "tower");
-    expect(towersLegallyPlaced(state)).toBe(false);
+    expect(towerPlacementLegality(state).legal).toBe(false);
     expect(
-      towersLegallyPlaced(
+      towerPlacementLegality(
         emptyPlacement("white", BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
-      ),
+      ).legal,
     ).toBe(true);
+  });
+
+  // Story 00000025, Step 4: the lane rule, applied only under
+  // `spacing_and_lanes`, and only as a confirm-time backstop - drop-time
+  // refusal (`towerLaneRefusesPlacement`, below) is expected to keep the UI
+  // from ever reaching one of these states in practice.
+  describe("the lane rule (spacing_and_lanes)", () => {
+    const SKIRMISH = BOARD_LAYOUTS.standard_64;
+    const SKIRMISH_ROSTER = ARMY_COMPOSITIONS.standard_skirmish.roster;
+
+    it("reports a lane violation for a Tower on A3 under spacing_and_lanes", () => {
+      const state = place(
+        emptyPlacement("white", SKIRMISH, SKIRMISH_ROSTER, "spacing_and_lanes"),
+        { column: "A", row: 3 },
+        "tower",
+      );
+      const result = towerPlacementLegality(state);
+      expect(result.legal).toBe(false);
+      if (!result.legal) {
+        expect(result.rule).toBe("lane");
+        expect(result.squares).toEqual([{ column: "A", row: 3 }]);
+      }
+    });
+
+    it("is legal for a Tower on A3 under spacing_only (the historical edition)", () => {
+      const state = place(
+        emptyPlacement("white", SKIRMISH, SKIRMISH_ROSTER, "spacing_only"),
+        { column: "A", row: 3 },
+        "tower",
+      );
+      expect(towerPlacementLegality(state).legal).toBe(true);
+    });
+
+    it("is legal for a Tower on Battle's A3 under spacing_and_lanes (the closed set is empty there)", () => {
+      const state = place(
+        emptyPlacement(
+          "white",
+          BATTLE_LAYOUT,
+          BATTLE_ARMY,
+          "spacing_and_lanes",
+        ),
+        { column: "A", row: 3 },
+        "tower",
+      );
+      expect(towerPlacementLegality(state).legal).toBe(true);
+    });
+
+    it("reports every currently-placed Tower that is on a closed square", () => {
+      let state = emptyPlacement(
+        "white",
+        SKIRMISH,
+        SKIRMISH_ROSTER,
+        "spacing_and_lanes",
+      );
+      state = place(state, { column: "A", row: 3 }, "tower");
+      state = place(state, { column: "H", row: 3 }, "tower");
+      const result = towerPlacementLegality(state);
+      expect(result.legal).toBe(false);
+      if (!result.legal && result.rule === "lane") {
+        expect(result.squares).toEqual([
+          { column: "A", row: 3 },
+          { column: "H", row: 3 },
+        ]);
+      }
+    });
+
+    it("reports the spacing violation when both rules are broken at once", () => {
+      // D3 and E3 are both closed to Towers (lane) and orthogonally adjacent
+      // to each other (spacing) - a state only reachable by constructing it
+      // directly, since drop-time refusal (Step 5) would refuse the second
+      // Tower before it ever landed on a closed square.
+      let state = emptyPlacement(
+        "white",
+        SKIRMISH,
+        SKIRMISH_ROSTER,
+        "spacing_and_lanes",
+      );
+      state = place(state, { column: "D", row: 3 }, "tower");
+      state = place(state, { column: "E", row: 3 }, "tower");
+      const result = towerPlacementLegality(state);
+      expect(result.legal).toBe(false);
+      if (!result.legal) {
+        expect(result.rule).toBe("spacing");
+      }
+    });
+  });
+});
+
+// Story 00000025, Step 4: the drop-time "would this specific placement be
+// refused by the lane rule" query the UI (Step 5) consults before calling
+// `place`/`move`/`swap`.
+describe("towerLaneRefusesPlacement", () => {
+  const SKIRMISH = BOARD_LAYOUTS.standard_64;
+  const SKIRMISH_ROSTER = ARMY_COMPOSITIONS.standard_skirmish.roster;
+
+  it("refuses a Tower onto a closed square", () => {
+    const state = emptyPlacement(
+      "white",
+      SKIRMISH,
+      SKIRMISH_ROSTER,
+      "spacing_and_lanes",
+    );
+    expect(
+      towerLaneRefusesPlacement(state, { column: "A", row: 3 }, "tower"),
+    ).toBe(true);
+  });
+
+  it("does not refuse a non-Tower onto a closed square", () => {
+    const state = emptyPlacement(
+      "white",
+      SKIRMISH,
+      SKIRMISH_ROSTER,
+      "spacing_and_lanes",
+    );
+    expect(
+      towerLaneRefusesPlacement(state, { column: "A", row: 3 }, "knight"),
+    ).toBe(false);
+  });
+
+  it("does not refuse a Tower onto an open square", () => {
+    const state = emptyPlacement(
+      "white",
+      SKIRMISH,
+      SKIRMISH_ROSTER,
+      "spacing_and_lanes",
+    );
+    expect(
+      towerLaneRefusesPlacement(state, { column: "B", row: 3 }, "tower"),
+    ).toBe(false);
+  });
+
+  it("never refuses a Tower on Battle, regardless of square or variant value", () => {
+    const spacingAndLanes = emptyPlacement(
+      "white",
+      BATTLE_LAYOUT,
+      BATTLE_ARMY,
+      "spacing_and_lanes",
+    );
+    for (const square of WHITE_HOME) {
+      expect(towerLaneRefusesPlacement(spacingAndLanes, square, "tower")).toBe(
+        false,
+      );
+    }
+  });
+
+  it("never refuses a Tower under spacing_only, regardless of square", () => {
+    const state = emptyPlacement(
+      "white",
+      SKIRMISH,
+      SKIRMISH_ROSTER,
+      "spacing_only",
+    );
+    expect(
+      towerLaneRefusesPlacement(state, { column: "A", row: 3 }, "tower"),
+    ).toBe(false);
   });
 });
 
@@ -567,7 +735,7 @@ describe("autoFill", () => {
         emptyPlacement("white", BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
         seededRandom(seed),
       );
-      expect(towersLegallyPlaced(filled)).toBe(true);
+      expect(towerPlacementLegality(filled).legal).toBe(true);
 
       const towerSquares = WHITE_HOME.filter(
         (square) => pieceAt(filled, square) === "tower",
@@ -609,7 +777,7 @@ describe("autoFill", () => {
     for (const entry of pieceCatalogEntries()) {
       expect(remainingCount(filled, entry.id)).toBe(0);
     }
-    expect(towersLegallyPlaced(filled)).toBe(true);
+    expect(towerPlacementLegality(filled).legal).toBe(true);
   });
 
   it("respects the Tower rule even when a Tower is already placed before autoFill runs", () => {
@@ -621,7 +789,7 @@ describe("autoFill", () => {
     for (const seed of [7, 8, 9]) {
       const filled = autoFill(state, seededRandom(seed));
       expect(pieceAt(filled, WHITE_HOME[0])).toBe("tower");
-      expect(towersLegallyPlaced(filled)).toBe(true);
+      expect(towerPlacementLegality(filled).legal).toBe(true);
     }
   });
 
@@ -732,7 +900,7 @@ describe("PlacementState on the Skirmish layout (8x8)", () => {
     expect(placedCount(cleared)).toBe(0);
   });
 
-  it("towersLegallyPlaced is true for two Towers that are not adjacent, near the Skirmish edge (H3, White's home corner)", () => {
+  it("towerPlacementLegality is legal for two Towers that are not adjacent, near the Skirmish edge (H3, White's home corner)", () => {
     let state = emptyPlacement(
       "white",
       SKIRMISH,
@@ -741,10 +909,10 @@ describe("PlacementState on the Skirmish layout (8x8)", () => {
     );
     state = place(state, { column: "H", row: 3 }, "tower");
     state = place(state, { column: "F", row: 3 }, "tower");
-    expect(towersLegallyPlaced(state)).toBe(true);
+    expect(towerPlacementLegality(state).legal).toBe(true);
   });
 
-  it("towersLegallyPlaced is false for two Towers diagonally adjacent at the H3 corner", () => {
+  it("towerPlacementLegality is not legal for two Towers diagonally adjacent at the H3 corner", () => {
     let state = emptyPlacement(
       "white",
       SKIRMISH,
@@ -753,7 +921,7 @@ describe("PlacementState on the Skirmish layout (8x8)", () => {
     );
     state = place(state, { column: "H", row: 3 }, "tower");
     state = place(state, { column: "G", row: 2 }, "tower");
-    expect(towersLegallyPlaced(state)).toBe(false);
+    expect(towerPlacementLegality(state).legal).toBe(false);
   });
 
   it("does not disturb Battle's own board layout", () => {
@@ -863,7 +1031,7 @@ describe("PlacementState with the Skirmish army (16 pieces)", () => {
     expect(counts.get("footSoldier") ?? 0).toBe(0);
     expect(counts.get("militia") ?? 0).toBe(0);
 
-    expect(towersLegallyPlaced(filled)).toBe(true);
+    expect(towerPlacementLegality(filled).legal).toBe(true);
     const towerSquares = home.filter(
       (square) => pieceAt(filled, square) === "tower",
     );
@@ -909,7 +1077,7 @@ describe("autoFill honors squaresClosedToTowers (story 00000025)", () => {
     for (const square of towerSquares) {
       expect(closedKeys.has(`${square.column}${square.row}`)).toBe(false);
     }
-    expect(towersLegallyPlaced(filled)).toBe(true);
+    expect(towerPlacementLegality(filled).legal).toBe(true);
   }
 
   it("never lands a Tower on a closed square, across 200 seeded Skirmish auto-fills", () => {
@@ -939,7 +1107,7 @@ describe("autoFill honors squaresClosedToTowers (story 00000025)", () => {
 
     const filled = autoFill(state, random);
     expect(isComplete(filled)).toBe(true);
-    expect(towersLegallyPlaced(filled)).toBe(true);
+    expect(towerPlacementLegality(filled).legal).toBe(true);
   }
 
   it("still fills Battle reliably, across 200 seeded auto-fills (nothing regressed)", () => {

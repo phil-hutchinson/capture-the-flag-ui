@@ -19,9 +19,9 @@
 // programming-invariant violations rather than recoverable user errors:
 // violating them throws, rather than silently no-op'ing. Note that `place`,
 // `move`, and `swap` do not themselves enforce the Tower-only-rules
-// (`towersLegallyPlaced`, `squaresClosedToTowers`) - those are placement-time
-// *legality*, judged by the UI (story 00000025's Steps 4-5), not structural
-// invariants of the state.
+// (`towerPlacementLegality`, `squaresClosedToTowers`, `towerLaneRefusesPlacement`)
+// - those are placement-time *legality*, judged by the UI (story 00000025's
+// Steps 4-5), not structural invariants of the state.
 //
 // This module builds on the board geometry (Step 1; parametric over a
 // `BoardLayout` since story 00000023's Step 3) and the piece catalog /
@@ -284,25 +284,80 @@ function isAdjacentOrSame(a: Square, b: Square): boolean {
 }
 
 /**
- * True only when none of `state.side`'s currently-placed Towers sit
- * orthogonally or diagonally adjacent to another of that side's Towers (rules
- * §3's placement-only Tower rule). True whenever the side has placed fewer
- * than two Towers. Used by the UI (Step 6) to gate placement confirmation -
- * this is a placement-time rule only; Towers never move, so it is never
- * re-checked during play.
+ * A Tower-placement violation: which of the two rules was broken (rules §3's
+ * spacing rule, or, under `spacing_and_lanes`, the lane rule - story
+ * 00000025), and the square(s) involved.
+ *
+ * `spacing`'s `squares` names one adjacent (orthogonally or diagonally) pair
+ * of `state.side`'s own Towers - the same pair `towerPlacementLegality`'s
+ * unchanged nested-loop scan would have found before this story (it still
+ * scans in the same order and stops at the first pair it finds, so a
+ * `spacing_only` state reports exactly what `towersLegallyPlaced` used to).
+ * `lane`'s `squares` names every one of `state.side`'s currently-placed
+ * Towers that stands on a `squaresClosedToTowers` square - there is no
+ * "first violation" for the lane rule, since every such Tower is equally in
+ * violation.
  */
-export function towersLegallyPlaced(state: PlacementState): boolean {
+export type TowerLegalityViolation =
+  | { readonly rule: "spacing"; readonly squares: readonly [Square, Square] }
+  | { readonly rule: "lane"; readonly squares: readonly Square[] };
+
+/**
+ * The result of `towerPlacementLegality`: either legal, or exactly one
+ * `TowerLegalityViolation` naming which rule was broken.
+ */
+export type TowerLegalityResult =
+  | { readonly legal: true }
+  | ({ readonly legal: false } & TowerLegalityViolation);
+
+/**
+ * Whether `state.side`'s currently-placed Towers are legally placed, and if
+ * not, which rule they broke. Checks the spacing rule first (rules §3: no
+ * two of a side's Towers may sit orthogonally or diagonally adjacent to each
+ * other) exactly as `towersLegallyPlaced` did before this story (story
+ * 00000025) replaced it with this structured result; then, only when
+ * `state.towerPlacement` is `spacing_and_lanes`, checks whether any placed
+ * Tower stands on a `squaresClosedToTowers` square. A state that breaks both
+ * rules at once (constructible directly, though drop-time refusal - the "would
+ * placing here be refused" query below - means the UI should never actually
+ * reach one) reports the spacing violation, since that rule was checked
+ * first and already existed before the lane rule did.
+ *
+ * Used by the UI (Step 6 of story 00000016, extended by story 00000025's
+ * Step 5) to gate placement confirmation - this is a placement-time rule
+ * only; Towers never move, so it is never re-checked during play.
+ */
+export function towerPlacementLegality(
+  state: PlacementState,
+): TowerLegalityResult {
   const towerSquares = homeSquares(state.side, state.boardLayout).filter(
     (square) => pieceAt(state, square) === "tower",
   );
   for (let i = 0; i < towerSquares.length; i += 1) {
     for (let j = i + 1; j < towerSquares.length; j += 1) {
       if (isAdjacentOrSame(towerSquares[i], towerSquares[j])) {
-        return false;
+        return {
+          legal: false,
+          rule: "spacing",
+          squares: [towerSquares[i], towerSquares[j]],
+        };
       }
     }
   }
-  return true;
+
+  if (state.towerPlacement === "spacing_and_lanes") {
+    const closedKeys = new Set(
+      squaresClosedToTowers(state).map((square) => squareKey(square)),
+    );
+    const violatingTowers = towerSquares.filter((square) =>
+      closedKeys.has(squareKey(square)),
+    );
+    if (violatingTowers.length > 0) {
+      return { legal: false, rule: "lane", squares: violatingTowers };
+    }
+  }
+
+  return { legal: true };
 }
 
 /**
@@ -314,14 +369,43 @@ export function towersLegallyPlaced(state: PlacementState): boolean {
  * regardless of variant) and for a historical `2-0:SKIRMISH` placement
  * (empty by variant) with no board- or edition-specific branching of its
  * own. Does not consult what is actually placed on the board - it is the
- * static closed set, not a live legality check (see `towersLegallyPlaced`
- * for the spacing rule, which does).
+ * static closed set, not a live legality check (see `towerPlacementLegality`,
+ * which does).
  */
 export function squaresClosedToTowers(state: PlacementState): Square[] {
   if (state.towerPlacement !== "spacing_and_lanes") {
     return [];
   }
   return homeSquaresFacingLane(state.side, state.boardLayout);
+}
+
+/**
+ * True only when placing `pieceType` on `square` in `state` would be refused
+ * specifically by the Tower-lane rule (story 00000025): `pieceType` is
+ * `"tower"` and `square` is one of `squaresClosedToTowers(state)`. False for
+ * every non-Tower piece type (the lane rule never restricts anything else),
+ * false for a Tower onto any square the lane rule does not close, and always
+ * false when `state.towerPlacement` is `spacing_only` or on a board where
+ * `squaresClosedToTowers` is empty (Battle - the lane rule closes nothing
+ * there, regardless of variant).
+ *
+ * Lets the UI (story 00000025's Step 5) refuse a drop-time Tower placement -
+ * from the tray, moving an already-placed Tower, or swapping one onto a
+ * closed square - *before* calling `place`/`move`/`swap`, which keep their
+ * "programming invariant" contract (see this module's header) and must never
+ * be asked to perform something the UI already knows is refused.
+ */
+export function towerLaneRefusesPlacement(
+  state: PlacementState,
+  square: Square,
+  pieceType: PieceTypeId,
+): boolean {
+  if (pieceType !== "tower") {
+    return false;
+  }
+  return squaresClosedToTowers(state).some(
+    (closed) => squareKey(closed) === squareKey(square),
+  );
 }
 
 /**

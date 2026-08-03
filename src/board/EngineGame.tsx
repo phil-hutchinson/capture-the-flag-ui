@@ -53,7 +53,7 @@ import {
   progress,
   returnToTray,
   swap,
-  towersLegallyPlaced,
+  towerPlacementLegality,
   type PlacementState,
 } from "../rules/primary/v2/placement.ts";
 import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
@@ -690,7 +690,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
       ? pieceAt(placement, selection.square)
       : undefined;
   const placementComplete = isComplete(placement);
-  const towerRuleOk = towersLegallyPlaced(placement);
+  const towerRuleOk = towerPlacementLegality(placement).legal;
 
   return (
     <main className="app" data-difficulty={difficulty}>

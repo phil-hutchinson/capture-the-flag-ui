@@ -492,7 +492,85 @@ edition throws. `npm run typecheck && npm run lint && npm test`.
 
 ## Step 4 — One legality check for both Tower rules, and the player-facing sentences
 
-Status: pending
+Status: committed
+
+Notes: `placement.ts`'s `towersLegallyPlaced` (boolean) is replaced by
+`towerPlacementLegality(state): TowerLegalityResult` - `{ legal: true }` or
+`{ legal: false, rule: "spacing" | "lane", squares }`. The spacing check is
+the same nested-loop scan as before (unchanged behaviour/priority: checked
+first, so a state that breaks both rules at once reports `"spacing"` -
+documented as the "sensible single result" choice, since spacing existed
+first and is the only one reachable in practice once drop-time refusal is
+wired in Step 5); the lane check runs only when `state.towerPlacement ===
+"spacing_and_lanes"` and names every currently-placed Tower sitting on a
+`squaresClosedToTowers` square (there is no "first" violation to prefer for
+that rule - every such Tower is equally in violation). Added
+`towerLaneRefusesPlacement(state, square, pieceType)`, the drop-time
+"would this be refused" query: true only for `pieceType === "tower"` onto a
+closed square. `HotSeatGame.tsx` and `EngineGame.tsx` now derive
+`towerRuleOk` from `towerPlacementLegality(placement).legal` instead of the
+old boolean call; both are otherwise untouched (`EngineGame.tsx` stays
+Battle-only/`spacing_only`, so the lane branch is inert there, and it keeps
+typechecking as required).
+
+Added `src/board/towerPlacementMessages.ts`, a pure module (no React,
+mirroring `playAnnouncement.ts`/`gameNames.ts`'s precedent for testing UI
+text without a component-test harness) with: `describeTowerLaneRefusal(square)`
+(drop-time refusal, singular square - "A Tower can't go on A3 - no Tower may
+stand directly in front of a lane, the open column running through the
+middle of the board. Choose another square."); `describeClosedToTowersHint(closedSquares)`
+(the "Towers can't go on …" hint while a Tower is in hand, naming every
+closed square for the side at once - "Towers can't go on A3, D3, E3 or H3 in
+this game - those squares stand directly in front of a lane, the open column
+running through the middle of the board.", `""` for an empty list);
+`TOWER_SPACING_BLOCKED_MESSAGE`, the existing confirm-time spacing sentence
+moved here verbatim from `PlacementStatus.tsx` ("Two of your Towers are next
+to each other - no two Towers may touch, even diagonally. Move one apart to
+finish." - PlacementStatus itself is untouched until Step 5, so the string
+is temporarily duplicated in both places); `describeTowerLaneBlocked(squares)`,
+a new confirm-time backstop sentence for a lane violation (singular "One of
+your Towers is on A3, directly in front of a lane, the open column running
+through the middle of the board - no Tower may stand there. Move it to
+another square to finish."; plural "Some of your Towers are on A3 or D3, …
+Move them to other squares to finish."); and
+`describeTowerLegalityViolation(violation)`, which dispatches a
+`TowerLegalityViolation` to the spacing or lane confirm-time sentence. All
+lane sentences explain "lane" in passing (never assume it's known) and never
+say "ply". None of this is wired into `PlacementStatus`'s live region yet -
+that is Step 5.
+
+Deviation (interpretive call, not a plan contradiction): the plan's bullet
+list names three sentence categories (refusal, hint, "the existing
+spacing-block sentence"), but Decision item 4's precedence list separately
+names a fourth: "the confirm-time block explanation" as its own tier, which
+must cover the lane rule too (Decision item 2's backstop) - and the hint
+can't serve that role, since per Decision item 3 it's only ever shown while
+a Tower is in hand, which won't be true at confirm time for an
+already-completed army. So `describeTowerLaneBlocked` was added as that
+fourth sentence; reasoned through in code comments and this note so the
+extra function is not mistaken for scope creep. Also, per the "mentions the
+square(s) at issue" verification bullet, `TowerSpacingViolation.squares` was
+added (the actual adjacent pair, not just a boolean) even though the
+existing spacing sentence deliberately doesn't name squares (kept verbatim,
+since the plan calls it "the existing spacing-block sentence" - a specific,
+known string) - the structured *data* names the squares either way, satisfying
+"the square(s) involved" from the step's own first bullet.
+
+`placement.test.ts`: the `towersLegallyPlaced` describe block and every call
+site were updated to `towerPlacementLegality(...).legal`; new tests cover a
+lane violation on Skirmish A3 under `spacing_and_lanes`, legal under
+`spacing_only` and on Battle under `spacing_and_lanes`, multiple violating
+Towers reported together, and the both-rules-broken case (reports
+`"spacing"`); a new `towerLaneRefusesPlacement` describe block covers Tower
+onto closed (yes), non-Tower onto closed (no), Tower onto open (no), and
+Battle under any variant (no). `src/board/towerPlacementMessages.test.ts` is
+new, asserting each sentence names the square(s)/Towers involved as
+applicable, that "lane" is explained, that "ply" never appears, and that the
+spacing and lane confirm-time sentences are different strings (Gate A).
+
+`npm run typecheck`, `npm run lint`, `npm test` (606 tests, 29 files),
+`npm run build`, and `npx prettier --check`/`--write` on every touched file
+all pass/clean.
 
 Give the rules layer a single answer to "is this side's Tower placement legal,
 and if not, why", and give the UI layer the sentences to say — both as pure,
