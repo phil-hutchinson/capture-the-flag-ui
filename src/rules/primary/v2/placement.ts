@@ -1,5 +1,5 @@
 // Placement state model & core operations for the ruleset major-2 editions
-// (`2-0:BATTLE` / `2-0:SKIRMISH`).
+// (`2-0:BATTLE`, `2-1:SKIRMISH`, and the superseded `2-0:SKIRMISH`).
 //
 // A `PlacementState` tracks one player's in-progress army layout: which of
 // that player's own home squares hold a placed piece type, plus the derived
@@ -17,26 +17,34 @@
 // with zero remaining). Because the UI (Step 7 onward) only ever offers the
 // player's own home squares as interactive targets, these are treated as
 // programming-invariant violations rather than recoverable user errors:
-// violating them throws, rather than silently no-op'ing.
+// violating them throws, rather than silently no-op'ing. Note that `place`,
+// `move`, and `swap` do not themselves enforce the Tower-only-rules
+// (`towersLegallyPlaced`, `squaresClosedToTowers`) - those are placement-time
+// *legality*, judged by the UI (story 00000025's Steps 4-5), not structural
+// invariants of the state.
 //
 // This module builds on the board geometry (Step 1; parametric over a
 // `BoardLayout` since story 00000023's Step 3) and the piece catalog /
-// army-composition rosters (Step 2, `armyComposition.ts`); it has no further
-// dependencies.
+// army-composition rosters (Step 2, `armyComposition.ts`), and (story
+// 00000025) the `TowerPlacement` variant type (`edition.ts`, type-only - no
+// dependency cycle, since `edition.ts` never imports this module).
 //
-// A `PlacementState` carries its own `boardLayout` and `army`, both required
-// (story 00000023's peer review, findings #2 and #15: an omitted `boardLayout`
-// or `army` used to silently default to Battle's, which is exactly the class
-// of defect found live at this story's Gate B/D - and once only one of the two
-// defaulted, `emptyPlacement(side, SKIRMISH_LAYOUT)` would quietly pair
-// Battle's 25-piece roster with Skirmish's 24-square home zone, a placement
-// that can never be completed). So home squares, the Tower-adjacency rule,
-// auto-fill, and the starting/complete inventory are all sized to the board
-// and roster actually being placed for (story 00000023's Steps 3 and 4).
+// A `PlacementState` carries its own `boardLayout`, `army`, and (story
+// 00000025) `towerPlacement`, all required (story 00000023's peer review,
+// findings #2 and #15: an omitted `boardLayout` or `army` used to silently
+// default to Battle's, which is exactly the class of defect found live at
+// that story's Gate B/D - and once only one of the two defaulted,
+// `emptyPlacement(side, SKIRMISH_LAYOUT)` would quietly pair Battle's
+// 25-piece roster with Skirmish's 24-square home zone, a placement that can
+// never be completed). So home squares, the Tower-adjacency rule, the
+// Tower-lane closed-square query, auto-fill, and the starting/complete
+// inventory are all sized to the board, roster, and variant actually being
+// placed for.
 
 import {
   columnIndexOf,
   homeSquares,
+  homeSquaresFacingLane,
   isHomeSquareFor,
   squareKey,
   type Side,
@@ -48,39 +56,47 @@ import {
   freshInventory,
   type ArmyRoster,
 } from "./armyComposition.ts";
+import type { TowerPlacement } from "./edition.ts";
 import { PIECE_TYPES, type Inventory, type PieceTypeId } from "./pieces.ts";
 
 /**
  * One player's in-progress (or complete) army layout: which board it is
- * being placed on, which army roster it is being filled from, a mapping from
- * that player's home squares (by `squareKey`) to the piece type placed
- * there, and the derived remaining-inventory. Squares absent from
- * `placements` are empty.
+ * being placed on, which army roster it is being filled from, which
+ * `TOWER_PLACEMENT` variant value governs its Tower placement (story
+ * 00000025), a mapping from that player's home squares (by `squareKey`) to
+ * the piece type placed there, and the derived remaining-inventory. Squares
+ * absent from `placements` are empty.
  */
 export interface PlacementState {
   readonly side: Side;
   readonly boardLayout: BoardLayout;
   readonly army: ArmyRoster;
+  readonly towerPlacement: TowerPlacement;
   readonly placements: ReadonlyMap<string, PieceTypeId>;
   readonly remaining: Inventory;
 }
 
 /**
- * A fresh placement state for `side` on `boardLayout` and `army`, both
- * required (pass `BATTLE_LAYOUT`/`BATTLE_ARMY`, the exported constants in
- * `board.ts`/`armyComposition.ts`, explicitly for Battle): no pieces placed,
- * a full tray sized to `army`. Callers holding an `Edition` should pass its
- * own `boardLayout`/`army` so the two cannot disagree.
+ * A fresh placement state for `side` on `boardLayout`, `army`, and
+ * `towerPlacement`, all required (pass `BATTLE_LAYOUT`/`BATTLE_ARMY`/
+ * `"spacing_only"` explicitly for Battle): no pieces placed, a full tray
+ * sized to `army`. Callers holding an `Edition` should pass its own
+ * `boardLayout`/`army`/`towerPlacement` so the three can never disagree
+ * (story 00000025 widened this from two required arguments to three, for the
+ * same reason story 00000023's peer review made the first two required: a
+ * silently defaulted variant is the defect class this app must not repeat).
  */
 export function emptyPlacement(
   side: Side,
   boardLayout: BoardLayout,
   army: ArmyRoster,
+  towerPlacement: TowerPlacement,
 ): PlacementState {
   return {
     side,
     boardLayout,
     army,
+    towerPlacement,
     placements: new Map(),
     remaining: freshInventory(army),
   };
@@ -217,7 +233,12 @@ export function returnToTray(
 
 /** Clears the whole board: returns every placed piece to the tray. */
 export function clear(state: PlacementState): PlacementState {
-  return emptyPlacement(state.side, state.boardLayout, state.army);
+  return emptyPlacement(
+    state.side,
+    state.boardLayout,
+    state.army,
+    state.towerPlacement,
+  );
 }
 
 /** How many of `pieceType` remain in `state`'s tray. */
@@ -285,6 +306,25 @@ export function towersLegallyPlaced(state: PlacementState): boolean {
 }
 
 /**
+ * `state.side`'s home squares a Tower may not stand on in `state`: the Step
+ * 2 lane geometry (`homeSquaresFacingLane`) when `state.towerPlacement` is
+ * `spacing_and_lanes`, and the empty set when it is `spacing_only` (story
+ * 00000025). This is the single place the rest of the app asks "where can't
+ * a Tower go here" - it is already correct for Battle (empty by geometry,
+ * regardless of variant) and for a historical `2-0:SKIRMISH` placement
+ * (empty by variant) with no board- or edition-specific branching of its
+ * own. Does not consult what is actually placed on the board - it is the
+ * static closed set, not a live legality check (see `towersLegallyPlaced`
+ * for the spacing rule, which does).
+ */
+export function squaresClosedToTowers(state: PlacementState): Square[] {
+  if (state.towerPlacement !== "spacing_and_lanes") {
+    return [];
+  }
+  return homeSquaresFacingLane(state.side, state.boardLayout);
+}
+
+/**
  * A source of numbers in `[0, 1)`, matching the shape of `Math.random`.
  * Injectable so `autoFill` is deterministic under test (pass a seeded
  * generator) while defaulting to real randomness in the UI.
@@ -305,22 +345,22 @@ function shuffle<T>(items: readonly T[], random: RandomSource): T[] {
  * Chooses `count` squares from `candidates` for the remaining Towers to
  * place, such that none of them ends up orthogonally or diagonally adjacent
  * to another of this side's Towers - either one of `alreadyPlacedTowers` or
- * one chosen alongside it here. Tries several random shuffles of `candidates`
- * (an independent set of this size is easy to find among the side's home
- * squares for the edition's handful of Towers, so a handful of attempts
- * suffices in practice) before giving up. Returns the chosen squares and the
- * remainder of `candidates`
- * (the squares not chosen), so the caller can place non-Tower pieces on what
- * is left.
+ * one chosen alongside it here. `candidates` is expected to already exclude
+ * any square closed to Towers (`squaresClosedToTowers`, story 00000025) -
+ * this helper only knows about the spacing rule. Tries several random
+ * shuffles of `candidates` (an independent set of this size is easy to find
+ * among the side's home squares for the edition's handful of Towers, so a
+ * handful of attempts suffices in practice) before giving up. Returns the
+ * chosen squares.
  */
 function pickTowerSquares(
   candidates: readonly Square[],
   count: number,
   alreadyPlacedTowers: readonly Square[],
   random: RandomSource,
-): { chosen: Square[]; remaining: Square[] } {
+): Square[] {
   if (count === 0) {
-    return { chosen: [], remaining: [...candidates] };
+    return [];
   }
 
   const MAX_ATTEMPTS = 500;
@@ -338,11 +378,7 @@ function pickTowerSquares(
     }
 
     if (chosen.length === count) {
-      const chosenKeys = new Set(chosen.map(squareKey));
-      const remaining = candidates.filter(
-        (square) => !chosenKeys.has(squareKey(square)),
-      );
-      return { chosen, remaining };
+      return chosen;
     }
   }
 
@@ -358,11 +394,15 @@ function pickTowerSquares(
  * of 48; Skirmish 16 of 24) of a side's home squares ever hold a piece.
  * Already-placed pieces are left untouched,
  * and only `state.side`'s own home squares are ever touched (never lakes,
- * buffers, or the opponent's zone). The remaining Towers are placed first, so
- * that neither they nor any already-placed Tower ends up orthogonally or
- * diagonally adjacent to another of this side's Towers (rules §3's Tower
- * rule); the remaining non-Tower pieces then fill a random subset of what is
- * left.
+ * buffers, or the opponent's zone). The remaining Towers are placed first,
+ * choosing only among squares `squaresClosedToTowers` does not close (story
+ * 00000025 - a no-op restriction on Battle and on a `spacing_only` Skirmish
+ * placement, since that query is empty there), so that neither they nor any
+ * already-placed Tower ends up orthogonally or diagonally adjacent to
+ * another of this side's Towers (rules §3's Tower rule) nor in front of a
+ * lane where that variant applies; the remaining non-Tower pieces then fill
+ * a random subset of what is left, closed squares included - the lane
+ * restriction only ever applies to Towers.
  *
  * `random` defaults to `Math.random` (real randomness for the UI); pass a
  * seeded `RandomSource` for deterministic, reproducible results in tests.
@@ -391,9 +431,21 @@ export function autoFill(
     (square) => pieceAt(state, square) === "tower",
   );
 
-  const { chosen: towerSquares, remaining: squaresAfterTowers } =
-    pickTowerSquares(emptySquares, towersToPlace, alreadyPlacedTowers, random);
+  const closedSquareKeys = new Set(squaresClosedToTowers(state).map(squareKey));
+  const towerCandidates = emptySquares.filter(
+    (square) => !closedSquareKeys.has(squareKey(square)),
+  );
+  const towerSquares = pickTowerSquares(
+    towerCandidates,
+    towersToPlace,
+    alreadyPlacedTowers,
+    random,
+  );
 
+  const towerSquareKeys = new Set(towerSquares.map(squareKey));
+  const squaresAfterTowers = emptySquares.filter(
+    (square) => !towerSquareKeys.has(squareKey(square)),
+  );
   const nonTowerSquares = shuffle(squaresAfterTowers, random).slice(
     0,
     nonTowerPieces.length,

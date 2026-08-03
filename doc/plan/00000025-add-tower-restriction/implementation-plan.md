@@ -389,7 +389,58 @@ size alone. `npm test`.
 
 ## Step 3 — Thread the variant into placement state, and make auto-fill respect it
 
-Status: pending
+Status: committed
+
+Notes: `PlacementState` gained a required `towerPlacement: TowerPlacement`
+field (imported type-only from `edition.ts`, no dependency cycle since
+`edition.ts` never imports `placement.ts`); `emptyPlacement` takes it as a
+required fourth argument and `clear` carries it through. Added
+`squaresClosedToTowers(state)`, the placement-level query: the Step 2
+`homeSquaresFacingLane(state.side, state.boardLayout)` when
+`state.towerPlacement === "spacing_and_lanes"`, else `[]` - already correct
+for Battle and for a historical `2-0:SKIRMISH` placement with no board- or
+edition-specific branching. `autoFill` now excludes `squaresClosedToTowers`'
+squares from the Tower candidate set before `pickTowerSquares` runs, while
+still offering those squares to non-Tower pieces (only Towers are
+restricted); `pickTowerSquares` was simplified to return just the chosen
+squares (its `remaining` field was only ever used to seed the non-Tower
+candidate set, which is now computed directly from `emptySquares` minus the
+chosen Tower squares - clearer than threading a same-shaped-but-narrower
+"remaining" through). `gameState.ts`'s `buildInitialGameState` gained a
+matching invariant check - both placement states' `towerPlacement` must
+equal the given edition's, alongside the existing board-layout check -
+throwing otherwise. Updated the two live call sites:
+`src/board/placementSession.ts`'s `newSession` now passes
+`edition.towerPlacement`; `src/board/EngineGame.tsx`'s two call sites (both
+Battle-only, disabled) now pass `"spacing_only"` explicitly. Updated the ~58
+mechanical call sites in `placement.test.ts` and `gameState.test.ts`: every
+pre-existing Battle call site got `"spacing_only"`, and the pre-existing
+generic-Skirmish-board call sites (from story 00000023, not specific to the
+lane rule) also got `"spacing_only"` to preserve their current, unrelated
+intent unchanged. Added new tests: a `squaresClosedToTowers` describe block
+(the four closed squares for `spacing_and_lanes` Skirmish, none for
+`spacing_only` Skirmish, none for Battle under either variant value); an
+`autoFill honors squaresClosedToTowers` describe block running 200 iterations
+each of a seeded `RandomSource` and of `Math.random`, for both a
+`spacing_and_lanes` Skirmish placement (asserting completion, no Tower on a
+closed square, and `towersLegallyPlaced`) and a Battle placement under
+`spacing_and_lanes` (asserting the closed set is empty and nothing else
+regressed); and a `gameState.test.ts` case asserting
+`buildInitialGameState` throws when a placement's `towerPlacement` disagrees
+with the given edition's. Updated `placement.ts`'s module header and the
+affected functions' doc comments to describe the new required argument, the
+new query, and (mechanically) the three-edition list. `npm run typecheck`,
+`npm run lint`, `npm test` (584 tests, 28 files), `npm run build`, and
+`npx prettier --check` on every touched file all pass. Manually confirmed
+(via a throwaway 2000-iteration script, since removed) that the Skirmish
+auto-fill loop is reliable well beyond the plan's 200-iteration floor before
+committing it to the suite.
+
+No deviations from the plan. The confirm-time legality check
+(`towersLegallyPlaced`) and the UI are untouched, as directed - `place`,
+`move`, and `swap` still do not know about either Tower rule, so today's
+placement behavior (Battle and Skirmish alike) is unchanged apart from
+Skirmish auto-fill now avoiding the four closed squares.
 
 Wire the variant through `src/rules/primary/v2/placement.ts` and make auto-fill
 honour it:

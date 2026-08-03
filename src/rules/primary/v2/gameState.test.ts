@@ -28,7 +28,7 @@ function seededRandom(seed: number): () => number {
 
 function completeArmy(side: "white" | "black", seed: number): PlacementState {
   return autoFill(
-    emptyPlacement(side, BATTLE_LAYOUT, BATTLE_ARMY),
+    emptyPlacement(side, BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
     seededRandom(seed),
   );
 }
@@ -46,11 +46,21 @@ describe("buildInitialGameState (ruleset major 2)", () => {
   it("tags the artifact with the given edition's id (Skirmish)", () => {
     const skirmish = SKIRMISH_EDITION;
     const white = autoFill(
-      emptyPlacement("white", skirmish.boardLayout, skirmish.army),
+      emptyPlacement(
+        "white",
+        skirmish.boardLayout,
+        skirmish.army,
+        skirmish.towerPlacement,
+      ),
       seededRandom(21),
     );
     const black = autoFill(
-      emptyPlacement("black", skirmish.boardLayout, skirmish.army),
+      emptyPlacement(
+        "black",
+        skirmish.boardLayout,
+        skirmish.army,
+        skirmish.towerPlacement,
+      ),
       seededRandom(22),
     );
     const gameState = buildInitialGameState(white, black, skirmish);
@@ -108,7 +118,12 @@ describe("buildInitialGameState (ruleset major 2)", () => {
 
   it("rejects incomplete armies", () => {
     const white = completeArmy("white", 7);
-    const black = emptyPlacement("black", BATTLE_LAYOUT, BATTLE_ARMY);
+    const black = emptyPlacement(
+      "black",
+      BATTLE_LAYOUT,
+      BATTLE_ARMY,
+      "spacing_only",
+    );
     expect(() => buildInitialGameState(white, black, BATTLE_EDITION)).toThrow();
   });
 
@@ -458,14 +473,37 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
       "white",
       SKIRMISH_EDITION.boardLayout,
       SKIRMISH_EDITION.army,
+      SKIRMISH_EDITION.towerPlacement,
     );
     const black = emptyPlacement(
       "black",
       SKIRMISH_EDITION.boardLayout,
       SKIRMISH_EDITION.army,
+      SKIRMISH_EDITION.towerPlacement,
     );
     // Battle passed against Skirmish-layout placement states: the mismatch is
     // rejected rather than silently played on the wrong board.
     expect(() => buildInitialGameState(white, black, BATTLE_EDITION)).toThrow();
+  });
+
+  it("rejects placement states whose TOWER_PLACEMENT variant disagrees with the given edition (story 00000025)", () => {
+    const white = emptyPlacement(
+      "white",
+      SKIRMISH_EDITION.boardLayout,
+      SKIRMISH_EDITION.army,
+      "spacing_only", // SKIRMISH_EDITION (2-1:SKIRMISH) itself is spacing_and_lanes.
+    );
+    const black = emptyPlacement(
+      "black",
+      SKIRMISH_EDITION.boardLayout,
+      SKIRMISH_EDITION.army,
+      SKIRMISH_EDITION.towerPlacement,
+    );
+    // A placement built under the historical spacing_only variant, sealed
+    // into the active spacing_and_lanes edition's game state: rejected
+    // rather than silently played under the wrong variant.
+    expect(() =>
+      buildInitialGameState(white, black, SKIRMISH_EDITION),
+    ).toThrow();
   });
 });

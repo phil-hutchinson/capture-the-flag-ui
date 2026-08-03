@@ -413,7 +413,9 @@ export function EngineGame({ onBack }: EngineGameProps) {
           onChoose={(side, chosenDifficulty) => {
             setHumanSide(side);
             setDifficulty(chosenDifficulty);
-            setPlacement(emptyPlacement(side, BATTLE_LAYOUT, BATTLE_ARMY));
+            setPlacement(
+              emptyPlacement(side, BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
+            );
           }}
         />
       </main>
@@ -644,7 +646,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
     // same `autoFill` the human's own "Auto-fill" button uses, applied to a
     // fresh, empty placement for the computer's side.
     const computerArmy = autoFill(
-      emptyPlacement(computerSide, BATTLE_LAYOUT, BATTLE_ARMY),
+      emptyPlacement(computerSide, BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
     );
     // This screen is Battle-only and unreachable while computer play is
     // disabled (story 00000023, Step 9), so it names the Battle edition
