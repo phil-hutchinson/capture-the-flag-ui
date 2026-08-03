@@ -21,7 +21,10 @@ import {
   describeResult,
   type ResultPerspective,
 } from "./playAnnouncement.ts";
-import { describeTowerLegalityViolation } from "./towerPlacementMessages.ts";
+import {
+  describeTowerLegalityViolation,
+  type TowerLiveRegionMessage,
+} from "./towerPlacementMessages.ts";
 import { PlayBoard } from "./PlayBoard.tsx";
 import {
   activateSquare,
@@ -697,11 +700,17 @@ export function EngineGame({ onBack }: EngineGameProps) {
   // report a spacing violation - there is no drop-time refusal or
   // closed-squares hint to layer in here (story 00000025's Step 5 wires both
   // into `HotSeatGame.tsx` only), so the confirm-time block is the whole
-  // story for this screen, exactly as it was before that story.
-  const towerMessage =
-    placementComplete && !legality.legal
-      ? describeTowerLegalityViolation(legality)
-      : "";
+  // story for this screen, exactly as it was before that story. `seq` stays
+  // `0`: this screen never repeats an identical refusal in a row (it has no
+  // drop-time refusal at all), so the peer-review-#5 "same text twice"
+  // problem `PlacementStatus`'s `seq` token exists for cannot arise here.
+  const towerMessage: TowerLiveRegionMessage = {
+    text:
+      placementComplete && !legality.legal
+        ? describeTowerLegalityViolation(legality)
+        : "",
+    seq: 0,
+  };
 
   return (
     <main className="app" data-difficulty={difficulty}>

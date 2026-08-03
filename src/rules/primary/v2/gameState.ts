@@ -48,7 +48,8 @@ import { isComplete, type PlacementState } from "./placement.ts";
  * `edition`) and use this constant as their matching `ruleset` tag.
  * `buildInitialGameState` below does **not** use this constant directly; it
  * tags every artifact with the *actual* resolved edition's id, so a Skirmish
- * game is correctly tagged `2-0:SKIRMISH`, not this Battle tag.
+ * game is correctly tagged `2-1:SKIRMISH`, not this Battle tag (a record
+ * already tagged with the superseded `2-0:SKIRMISH` keeps its own tag).
  */
 export const RULESET_TAG: string = BATTLE_EDITION.id;
 

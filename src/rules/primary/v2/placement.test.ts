@@ -507,7 +507,8 @@ describe("towerPlacementLegality", () => {
       state = place(state, { column: "H", row: 3 }, "tower");
       const result = towerPlacementLegality(state);
       expect(result.legal).toBe(false);
-      if (!result.legal && result.rule === "lane") {
+      if (!result.legal) {
+        expect(result.rule).toBe("lane");
         expect(result.squares).toEqual([
           { column: "A", row: 3 },
           { column: "H", row: 3 },
@@ -1120,5 +1121,134 @@ describe("autoFill honors squaresClosedToTowers (story 00000025)", () => {
     for (let i = 0; i < ITERATIONS; i += 1) {
       assertLegalBattleFill(Math.random);
     }
+  });
+});
+
+// Peer review (story 00000025) finding #7: the earlier `autoFill` coverage
+// above only ever starts from a *fresh* Skirmish placement. This block adds
+// coverage starting from a *partially hand-filled* `spacing_and_lanes`
+// Skirmish state - closer to what a player who places some pieces by hand
+// before reaching for Auto-fill actually does - including states that
+// already have one or more Towers down.
+describe("autoFill from a partially hand-filled state (peer review finding #7)", () => {
+  const SKIRMISH = BOARD_LAYOUTS.standard_64;
+  const SKIRMISH_ROSTER = ARMY_COMPOSITIONS.standard_skirmish.roster;
+  const ITERATIONS = 200;
+
+  it("still succeeds when some non-Tower pieces are already hand-placed, across 200 seeded fills", () => {
+    for (let seed = 1; seed <= ITERATIONS; seed += 1) {
+      let state = emptyPlacement(
+        "white",
+        SKIRMISH,
+        SKIRMISH_ROSTER,
+        "spacing_and_lanes",
+      );
+      // Hand-place a handful of non-Tower pieces, spread out rather than
+      // clustered, before handing the rest to auto-fill.
+      state = place(state, { column: "B", row: 1 }, "masterOfArms");
+      state = place(state, { column: "F", row: 1 }, "champion");
+      state = place(state, { column: "D", row: 2 }, "knight");
+      state = place(state, { column: "G", row: 3 }, "halberdier");
+
+      const filled = autoFill(state, seededRandom(seed));
+      expect(isComplete(filled)).toBe(true);
+      expect(towerPlacementLegality(filled).legal).toBe(true);
+      const closedKeys = new Set(
+        squaresClosedToTowers(state).map(
+          (square) => `${square.column}${square.row}`,
+        ),
+      );
+      const towerSquares = homeSquares("white", SKIRMISH).filter(
+        (square) => pieceAt(filled, square) === "tower",
+      );
+      expect(towerSquares).toHaveLength(3);
+      for (const square of towerSquares) {
+        expect(closedKeys.has(`${square.column}${square.row}`)).toBe(false);
+      }
+    }
+  });
+
+  it("still succeeds when one Tower is already hand-placed (on an open square), across 200 seeded fills", () => {
+    for (let seed = 1; seed <= ITERATIONS; seed += 1) {
+      let state = emptyPlacement(
+        "white",
+        SKIRMISH,
+        SKIRMISH_ROSTER,
+        "spacing_and_lanes",
+      );
+      // B3/C3/F3/G3 stay open under spacing_and_lanes (they sit behind
+      // lakes, not lanes) - a legal square for a hand-placed Tower.
+      state = place(state, { column: "C", row: 3 }, "tower");
+
+      const filled = autoFill(state, seededRandom(seed));
+      expect(isComplete(filled)).toBe(true);
+      expect(towerPlacementLegality(filled).legal).toBe(true);
+    }
+  });
+
+  it("still succeeds when all three Towers are already hand-placed, across 200 seeded fills", () => {
+    for (let seed = 1; seed <= ITERATIONS; seed += 1) {
+      let state = emptyPlacement(
+        "white",
+        SKIRMISH,
+        SKIRMISH_ROSTER,
+        "spacing_and_lanes",
+      );
+      state = place(state, { column: "B", row: 1 }, "tower");
+      state = place(state, { column: "E", row: 1 }, "tower");
+      state = place(state, { column: "H", row: 1 }, "tower");
+
+      const filled = autoFill(state, seededRandom(seed));
+      expect(isComplete(filled)).toBe(true);
+      expect(towerPlacementLegality(filled).legal).toBe(true);
+    }
+  });
+
+  // This case is the reason for the peer review comment: it is a state a
+  // player could plausibly reach by hand - placing every non-Tower piece
+  // (all 13 of Skirmish's masters-of-arms/champions/knights/halberdiers/flag)
+  // before touching Auto-fill for the three Towers - that nonetheless makes
+  // `pickTowerSquares` throw. The 13 non-Tower pieces below are placed on 13
+  // of Skirmish's 20 open (non-closed) home squares, deliberately chosen so
+  // the 7 open squares left empty (A1, B1, C1, D1, A2, B2, C2 - a compact
+  // 4-column-by-2-row corner of the home zone) contain no three mutually
+  // non-adjacent squares: any two of those seven are within a king's move of
+  // each other whenever a third is added (the block's maximum independent
+  // set, under the same orthogonal-or-diagonal adjacency `isAdjacentOrSame`
+  // checks, is only 2). With exactly three Towers left to place and exactly
+  // those seven non-closed squares free, no arrangement can satisfy the
+  // spacing rule, so `autoFill` exhausts its attempts and throws - reported
+  // to the owner per the review comment rather than silently "fixed" here,
+  // since changing the throw contract (e.g. to a recoverable result) was
+  // explicitly out of scope for this fix.
+  it("demonstrates a plausible partially hand-filled state where auto-fill exhausts (reported, not fixed)", () => {
+    let state = emptyPlacement(
+      "white",
+      SKIRMISH,
+      SKIRMISH_ROSTER,
+      "spacing_and_lanes",
+    );
+    const nonTowerPlacements: readonly [Square, PieceTypeId][] = [
+      [{ column: "E", row: 1 }, "masterOfArms"],
+      [{ column: "F", row: 1 }, "masterOfArms"],
+      [{ column: "G", row: 1 }, "masterOfArms"],
+      [{ column: "H", row: 1 }, "champion"],
+      [{ column: "D", row: 2 }, "champion"],
+      [{ column: "E", row: 2 }, "champion"],
+      [{ column: "F", row: 2 }, "knight"],
+      [{ column: "G", row: 2 }, "knight"],
+      [{ column: "H", row: 2 }, "knight"],
+      [{ column: "B", row: 3 }, "halberdier"],
+      [{ column: "C", row: 3 }, "halberdier"],
+      [{ column: "F", row: 3 }, "halberdier"],
+      [{ column: "G", row: 3 }, "flag"],
+    ];
+    for (const [square, type] of nonTowerPlacements) {
+      state = place(state, square, type);
+    }
+
+    expect(() => autoFill(state, Math.random)).toThrow(
+      "autoFill: could not find Tower squares satisfying the no-adjacent-Towers rule.",
+    );
   });
 });

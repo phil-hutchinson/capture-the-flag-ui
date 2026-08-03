@@ -32,6 +32,7 @@ import {
 import {
   describeTowerLaneRefusal,
   towerLiveRegionMessage,
+  type TowerRefusal,
 } from "./towerPlacementMessages.ts";
 import { PlayBoard } from "./PlayBoard.tsx";
 import {
@@ -202,7 +203,23 @@ export function HotSeatGame({
   // click that was just refused, never a stale one (Decisions item 4: a
   // refusal is transient). Also reset on Confirm/hand-off so it never lingers
   // into the next player's turn.
-  const [towerRefusal, setTowerRefusal] = useState<string | null>(null);
+  //
+  // Peer review finding #5: pairs the text with a monotonically increasing
+  // `seq`, bumped by `refuseTowerPlacement` below every time a refusal is
+  // set - including a repeat refusal of the same square - so
+  // `PlacementStatus`'s live region always gets a fresh token to key its
+  // message element on, even when the refusal text itself repeats.
+  const [towerRefusal, setTowerRefusal] = useState<TowerRefusal | null>(null);
+
+  // Sets a fresh drop-time refusal for `square`, always incrementing `seq`
+  // (even if the previous refusal named the same square), so the live
+  // region always gets a distinguishable message (peer review finding #5).
+  function refuseTowerPlacement(square: Square) {
+    setTowerRefusal((current) => ({
+      text: describeTowerLaneRefusal(square),
+      seq: (current?.seq ?? 0) + 1,
+    }));
+  }
   // Step 15: whether "Back to start" needs to ask for confirmation first.
   // Never touches `session` / `playSession` / `selection` - cancelling
   // simply closes the dialog again, leaving the game exactly as it was.
@@ -478,14 +495,14 @@ export function HotSeatGame({
           movingIntoClicked === "tower" &&
           towerLaneRefusesPlacement(placement, square, "tower")
         ) {
-          setTowerRefusal(describeTowerLaneRefusal(square));
+          refuseTowerPlacement(square);
           return;
         }
         if (
           movingIntoSelected === "tower" &&
           towerLaneRefusesPlacement(placement, selection.square, "tower")
         ) {
-          setTowerRefusal(describeTowerLaneRefusal(selection.square));
+          refuseTowerPlacement(selection.square);
           return;
         }
         setSession((current) =>
@@ -507,7 +524,7 @@ export function HotSeatGame({
     if (selection?.kind === "trayType") {
       const type = selection.type;
       if (towerLaneRefusesPlacement(placement, square, type)) {
-        setTowerRefusal(describeTowerLaneRefusal(square));
+        refuseTowerPlacement(square);
         return;
       }
       setSession((current) =>
@@ -529,7 +546,7 @@ export function HotSeatGame({
         movingType &&
         towerLaneRefusesPlacement(placement, square, movingType)
       ) {
-        setTowerRefusal(describeTowerLaneRefusal(square));
+        refuseTowerPlacement(square);
         return;
       }
       setSession((current) =>

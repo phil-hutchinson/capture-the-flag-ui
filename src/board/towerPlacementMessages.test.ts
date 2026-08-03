@@ -128,7 +128,7 @@ describe("towerLiveRegionMessage", () => {
         closedSquares: [],
         legality: LEGAL,
       }),
-    ).toBe("");
+    ).toEqual({ text: "", seq: 0 });
   });
 
   it("shows the confirm-time block when legality reports a violation", () => {
@@ -138,14 +138,17 @@ describe("towerLiveRegionMessage", () => {
         closedSquares: [],
         legality: SPACING_VIOLATION,
       }),
-    ).toBe(describeTowerLegalityViolation(SPACING_VIOLATION));
+    ).toEqual({
+      text: describeTowerLegalityViolation(SPACING_VIOLATION),
+      seq: 0,
+    });
     expect(
       towerLiveRegionMessage({
         refusal: null,
         closedSquares: [],
         legality: LANE_VIOLATION,
       }),
-    ).toBe(describeTowerLegalityViolation(LANE_VIOLATION));
+    ).toEqual({ text: describeTowerLegalityViolation(LANE_VIOLATION), seq: 0 });
   });
 
   it("the closed-squares hint wins over the confirm-time block", () => {
@@ -154,17 +157,40 @@ describe("towerLiveRegionMessage", () => {
       closedSquares: [A3, D3],
       legality: SPACING_VIOLATION,
     });
-    expect(message).toBe(describeClosedToTowersHint([A3, D3]));
-    expect(message).not.toBe(describeTowerLegalityViolation(SPACING_VIOLATION));
+    expect(message).toEqual({
+      text: describeClosedToTowersHint([A3, D3]),
+      seq: 0,
+    });
+    expect(message.text).not.toBe(
+      describeTowerLegalityViolation(SPACING_VIOLATION),
+    );
   });
 
   it("a refusal wins over both the hint and the confirm-time block", () => {
-    const refusal = describeTowerLaneRefusal(A3);
+    const refusal = { text: describeTowerLaneRefusal(A3), seq: 3 };
     const message = towerLiveRegionMessage({
       refusal,
       closedSquares: [A3, D3],
       legality: SPACING_VIOLATION,
     });
-    expect(message).toBe(refusal);
+    expect(message).toEqual(refusal);
+  });
+
+  it("carries the refusal's seq through unchanged (peer review finding #5)", () => {
+    // A repeat refusal of the same square produces identical text but a
+    // higher seq - the token `PlacementStatus` uses to force a fresh
+    // announcement even though the text alone did not change.
+    const first = towerLiveRegionMessage({
+      refusal: { text: describeTowerLaneRefusal(A3), seq: 1 },
+      closedSquares: [],
+      legality: LEGAL,
+    });
+    const second = towerLiveRegionMessage({
+      refusal: { text: describeTowerLaneRefusal(A3), seq: 2 },
+      closedSquares: [],
+      legality: LEGAL,
+    });
+    expect(first.text).toBe(second.text);
+    expect(first.seq).not.toBe(second.seq);
   });
 });

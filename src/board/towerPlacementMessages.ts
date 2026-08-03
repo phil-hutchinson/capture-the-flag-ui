@@ -39,7 +39,7 @@ import type {
  * middle of the board) rather than assumed known, per story.md.
  */
 const LANE_RULE_EXPLANATION =
-  "no Tower may stand directly in front of a lane, the open column running through the middle of the board";
+  "no Tower may stand directly in front of a lane, one of the open columns running through the middle of the board";
 
 /**
  * "A3" / "A3 or D3" / "A3, D3 or H3" (and the "and" equivalents) - a
@@ -68,8 +68,8 @@ function listSquareNames(
  * The drop-time refusal sentence (story 00000025's Step 5) for a Tower
  * placement refused specifically by the lane rule - naming the one square
  * that was just refused, why, and what to do next. E.g. "A Tower can't go on
- * A3 - no Tower may stand directly in front of a lane, the open column
- * running through the middle of the board. Choose another square."
+ * A3 - no Tower may stand directly in front of a lane, one of the open
+ * columns running through the middle of the board. Choose another square."
  */
 export function describeTowerLaneRefusal(square: Square): string {
   return `A Tower can't go on ${squareKey(square)} - ${LANE_RULE_EXPLANATION}. Choose another square.`;
@@ -81,8 +81,8 @@ export function describeTowerLaneRefusal(square: Square): string {
  * while a Tower is selected from the tray or picked up from the board),
  * naming every one of the active player's own closed squares at once. E.g.
  * "Towers can't go on A3, D3, E3 or H3 in this game - those squares stand
- * directly in front of a lane, the open column running through the middle of
- * the board." Returns the empty string for an empty `closedSquares` (Battle,
+ * directly in front of a lane, one of the open columns running through the
+ * middle of the board." Returns the empty string for an empty `closedSquares` (Battle,
  * where the lane rule closes nothing - Step 5 is not expected to call this
  * then, but an empty result is the sensible answer if it does).
  */
@@ -92,7 +92,7 @@ export function describeClosedToTowersHint(
   if (closedSquares.length === 0) {
     return "";
   }
-  return `Towers can't go on ${listSquareNames(closedSquares)} in this game - those squares stand directly in front of a lane, the open column running through the middle of the board.`;
+  return `Towers can't go on ${listSquareNames(closedSquares)} in this game - those squares stand directly in front of a lane, one of the open columns running through the middle of the board.`;
 }
 
 /**
@@ -111,11 +111,12 @@ export const TOWER_SPACING_BLOCKED_MESSAGE =
  * but `towerPlacementLegality` still reports it, so Confirm always has an
  * explanation to show. Names every currently-placed Tower that is in
  * violation. E.g. (one) "One of your Towers is on A3, directly in front of a
- * lane, the open column running through the middle of the board - no Tower
- * may stand there. Move it to another square to finish."; (more than one)
- * "Some of your Towers are on A3 and D3, directly in front of a lane, the
- * open column running through the middle of the board - no Tower may stand
- * there. Move them to other squares to finish." (Squares joined with "and",
+ * lane, one of the open columns running through the middle of the board - no
+ * Tower may stand there. Move it to another square to finish."; (more than
+ * one) "Some of your Towers are on A3 and D3, directly in front of a lane,
+ * one of the open columns running through the middle of the board - no Tower
+ * may stand there. Move them to other squares to finish." (Squares joined
+ * with "and",
  * not "or" - unlike `describeClosedToTowersHint`'s prohibition, this sentence
  * names squares that are simultaneously true: the Towers really are on both
  * A3 and D3 at once.)
@@ -125,7 +126,7 @@ export function describeTowerLaneBlocked(squares: readonly Square[]): string {
   const subject = plural ? "Some of your Towers are" : "One of your Towers is";
   const pronoun = plural ? "them" : "it";
   const destination = plural ? "other squares" : "another square";
-  return `${subject} on ${listSquareNames(squares, "and")}, directly in front of a lane, the open column running through the middle of the board - no Tower may stand there. Move ${pronoun} to ${destination} to finish.`;
+  return `${subject} on ${listSquareNames(squares, "and")}, directly in front of a lane, one of the open columns running through the middle of the board - no Tower may stand there. Move ${pronoun} to ${destination} to finish.`;
 }
 
 /**
@@ -144,16 +145,33 @@ export function describeTowerLegalityViolation(
   return describeTowerLaneBlocked(violation.squares);
 }
 
-/** The inputs `towerLiveRegionMessage` resolves into the one live-region string. */
+/**
+ * A drop-time refusal, paired with a monotonically increasing sequence
+ * number (peer review finding #5, story 00000025): `HotSeatGame.tsx` bumps
+ * `seq` every time a Tower placement is refused, including a refusal of the
+ * *same* square as last time. Without a distinguishing token, refusing A3
+ * twice in a row produces the identical text twice, React leaves the DOM
+ * untouched, and the `aria-live="polite"` region announces nothing the
+ * second time - `seq` gives the caller something that always changes so it
+ * can force a fresh announcement (e.g. using it as the message element's
+ * `key`).
+ */
+export interface TowerRefusal {
+  /** `describeTowerLaneRefusal`'s result for the square that was just refused. */
+  readonly text: string;
+  /** Incremented on every refusal, even a repeat of the same square/text. */
+  readonly seq: number;
+}
+
+/** The inputs `towerLiveRegionMessage` resolves into the one live-region message. */
 export interface TowerLiveRegionInputs {
   /**
-   * The drop-time refusal sentence (`describeTowerLaneRefusal`'s result) if a
-   * placement was just refused, or `null` if not. Transient - the caller
-   * clears it the moment the player moves on (`HotSeatGame.tsx`'s Step 5
-   * wiring), so this is only ever non-`null` for the render right after a
-   * refusal.
+   * The most recent drop-time refusal, or `null` if none is currently
+   * pending. Transient - the caller clears it the moment the player moves on
+   * (`HotSeatGame.tsx`'s Step 5 wiring), so this is only ever non-`null` for
+   * the render right after a refusal.
    */
-  readonly refusal: string | null;
+  readonly refusal: TowerRefusal | null;
   /**
    * `state.side`'s closed-to-Towers squares (`squaresClosedToTowers`), but
    * only when the caller has determined a Tower is currently in hand
@@ -169,6 +187,20 @@ export interface TowerLiveRegionInputs {
    * placed" behaviour `towerAdjacencyBlocked` had before this story).
    */
   readonly legality: TowerLegalityResult;
+}
+
+/**
+ * The one message `PlacementStatus`'s live region shows right now, paired
+ * with a `seq` token the caller can use (e.g. as a `key`) to force a fresh
+ * DOM node - and so a fresh announcement - whenever the message changes,
+ * even when the new text is identical to what was already showing (peer
+ * review finding #5). `seq` only ever changes when a new refusal is the
+ * reason `text` is what it is; the hint and confirm-time tiers reuse `0`,
+ * since neither reported the same "identical text twice in a row" defect.
+ */
+export interface TowerLiveRegionMessage {
+  readonly text: string;
+  readonly seq: number;
 }
 
 /**
@@ -189,15 +221,15 @@ export function towerLiveRegionMessage({
   refusal,
   closedSquares,
   legality,
-}: TowerLiveRegionInputs): string {
+}: TowerLiveRegionInputs): TowerLiveRegionMessage {
   if (refusal !== null) {
-    return refusal;
+    return { text: refusal.text, seq: refusal.seq };
   }
   if (closedSquares.length > 0) {
-    return describeClosedToTowersHint(closedSquares);
+    return { text: describeClosedToTowersHint(closedSquares), seq: 0 };
   }
   if (!legality.legal) {
-    return describeTowerLegalityViolation(legality);
+    return { text: describeTowerLegalityViolation(legality), seq: 0 };
   }
-  return "";
+  return { text: "", seq: 0 };
 }

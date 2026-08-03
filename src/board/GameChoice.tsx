@@ -61,7 +61,7 @@ export interface GameChoiceProps {
  */
 const GAME_DETAIL: Readonly<Record<EditionId, string>> = {
   "2-1:SKIRMISH":
-    "A smaller game, recommended if this is your first time playing: an 8x8 board with a 16-piece army, and the armies start closer together. A tower can't be placed directly in front of a lane, one of the open columns running through the middle of the board.",
+    "A smaller game, recommended if this is your first time playing: an 8x8 board with a 16-piece army, and the armies start closer together. A Tower can't be placed directly in front of a lane, one of the open columns running through the middle of the board.",
   "2-0:SKIRMISH":
     "A smaller game, recommended if this is your first time playing: an 8x8 board with a 16-piece army, and the armies start closer together.",
   "2-0:BATTLE": "The full game: a 12x12 board with a 25-piece army.",

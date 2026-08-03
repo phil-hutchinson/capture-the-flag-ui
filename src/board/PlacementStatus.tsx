@@ -38,6 +38,7 @@
 import type { Side } from "../rules/primary/v2/board.ts";
 import type { PlacementProgress } from "../rules/primary/v2/placement.ts";
 import { sideColorName } from "./sideNames.ts";
+import type { TowerLiveRegionMessage } from "./towerPlacementMessages.ts";
 import "./PlacementStatus.css";
 
 export interface PlacementStatusProps {
@@ -51,9 +52,13 @@ export interface PlacementStatusProps {
    * or `""` for none - already resolved by the caller
    * (`towerLiveRegionMessage`) according to the precedence described above.
    * Replaces the old boolean `towerAdjacencyBlocked`, which only ever covered
-   * the confirm-time spacing case.
+   * the confirm-time spacing case. Carries a `seq` token (peer review finding
+   * #5) so the caller can force a fresh announcement even when refusing the
+   * same square twice in a row produces identical text - used as the
+   * message `<p>`'s `key` below, so a new `seq` always mounts a fresh DOM
+   * node for assistive tech to notice.
    */
-  readonly towerMessage: string;
+  readonly towerMessage: TowerLiveRegionMessage;
   /** Fills every remaining empty square with the active player's remaining pieces. */
   readonly onAutoFill: () => void;
   /** Stores the active player's layout and hands off to the next player. */
@@ -96,8 +101,10 @@ export function PlacementStatus({
         role="status"
         aria-live="polite"
       >
-        {towerMessage && (
-          <p className="placement-status__tower-warning">{towerMessage}</p>
+        {towerMessage.text && (
+          <p key={towerMessage.seq} className="placement-status__tower-warning">
+            {towerMessage.text}
+          </p>
         )}
       </div>
     </div>

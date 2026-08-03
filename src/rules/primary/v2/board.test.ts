@@ -131,7 +131,7 @@ describe("board geometry (ruleset major 2, Battle - the default BoardLayout)", (
 // the Skirmish layout (`standard_64`) instead of the Battle default, to
 // confirm they are genuinely parametric over `BoardLayout` rather than
 // hardcoding Battle's 12x12 grid.
-describe("board geometry (ruleset 2-0:SKIRMISH, an explicit BoardLayout)", () => {
+describe("board geometry (standard_64 - the Skirmish board, an explicit BoardLayout)", () => {
   const SKIRMISH = BOARD_LAYOUTS.standard_64;
   const SKIRMISH_LAKE_COLUMN_PAIRS: readonly [Column, Column][] = [
     ["B", "C"],

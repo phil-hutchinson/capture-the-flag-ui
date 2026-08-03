@@ -1,5 +1,5 @@
-// Piece catalog for the ruleset major-2 editions (`2-0:BATTLE` /
-// `2-0:SKIRMISH`).
+// Piece catalog for the ruleset major-2 editions (`2-0:BATTLE`,
+// `2-1:SKIRMISH`, and the superseded `2-0:SKIRMISH`).
 //
 // The full 8-type catalog - names, rank codes, and position-block symbols -
 // per rules.md §2.2, unchanged from major 1. `PIECE_CATALOG.quantityPerSide`
