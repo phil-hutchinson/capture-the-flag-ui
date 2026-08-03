@@ -6,15 +6,24 @@
 // both directions.
 //
 // This module is pure geometry/data - no React, no rules-engine mutation -
-// and depends only on the board geometry (`src/rules/primary/v1/board.ts`)
-// and the piece catalog (`src/rules/primary/v1/pieces.ts`).
+// and depends only on the board geometry (`src/rules/primary/v2/board.ts`)
+// and the piece catalog (`src/rules/primary/v2/pieces.ts`).
+//
+// NON-FUNCTIONAL under the major-2 rules (story 00000023, Step 9): this
+// module hardcodes a 12x12 tensor and eight orthogonal movement offsets, so
+// it can neither size itself to Skirmish's 8x8 board nor represent a
+// diagonal attack. "Play against the computer" is disabled and nothing in
+// the live app calls this module; its unit tests were removed rather than
+// kept green for a module that a future engine spec will need to reshape
+// anyway. Re-enabling computer play needs that new spec (out of scope here;
+// see story.md's "Computer play disabled").
 
 import {
   COLUMNS,
   type Side,
   type Square,
-} from "../../rules/primary/v1/board.ts";
-import type { PieceTypeId } from "../../rules/primary/v1/pieces.ts";
+} from "../../rules/primary/v2/board.ts";
+import type { PieceTypeId } from "../../rules/primary/v2/pieces.ts";
 
 /** The tensor is always 12x12 in (row, col), per ENG_NN_1. */
 export const TENSOR_SIZE = 12;
@@ -52,7 +61,7 @@ export const INACTIVITY_PLANE = 17;
 /**
  * The ENG_NN_1 piece-plane order, within each 8-plane group (mover's own or
  * the opponent's). This is the encoder's own order and is deliberately
- * distinct from `PIECE_TYPES` (`src/rules/primary/v1/pieces.ts`), which lists
+ * distinct from `PIECE_TYPES` (`src/rules/primary/v2/pieces.ts`), which lists
  * the ranked pieces first and Tower/Flag last.
  */
 export const PLANE_PIECE_ORDER: readonly PieceTypeId[] = [

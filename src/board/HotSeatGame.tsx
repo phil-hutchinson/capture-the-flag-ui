@@ -8,6 +8,8 @@ import {
   writeFlipBetweenTurns,
 } from "./flipBoardSetting.ts";
 import { FlipBoardToggle } from "./FlipBoardToggle.tsx";
+import { boardSizeDescription, gameName } from "./gameNames.ts";
+import { GameChoice } from "./GameChoice.tsx";
 import { GameRecord } from "./GameRecord.tsx";
 import { GameResult } from "./GameResult.tsx";
 import { LeaveGameDialog } from "./LeaveGameDialog.tsx";
@@ -40,8 +42,9 @@ import { PlayStatus } from "./PlayStatus.tsx";
 import { computeCountdownWarnings } from "./playWarnings.ts";
 import { PlayWarnings } from "./PlayWarnings.tsx";
 import { Tray } from "./Tray.tsx";
-import { squareKey, type Square } from "../rules/primary/v1/board.ts";
-import { buildInitialGameState } from "../rules/primary/v1/gameState.ts";
+import { squareKey, type Square } from "../rules/primary/v2/board.ts";
+import type { Edition } from "../rules/primary/v2/edition.ts";
+import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
 import {
   autoFill,
   clear,
@@ -54,29 +57,52 @@ import {
   returnToTray,
   swap,
   towersLegallyPlaced,
-} from "../rules/primary/v1/placement.ts";
-import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
+} from "../rules/primary/v2/placement.ts";
+import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
 import "../App.css";
 import "./HotSeatGame.css";
 
-// The hot-seat game: placement (Phase 1) then play (Phase 2), moved verbatim
-// out of `App.tsx` (story 00000014, Step 8) so it can live in its own
-// component with its own state. `App.tsx` mounts this whenever
-// `screen.kind === "play"` and nothing else; every bit of state below is
-// local to this component, so mounting always starts a fresh placement and
-// unmounting discards whatever game was in progress.
+// The hot-seat game: a Battle/Skirmish choice, then placement (Phase 1), then
+// play (Phase 2), moved verbatim out of `App.tsx` (story 00000014, Step 8) so
+// it can live in its own component with its own state. `App.tsx` mounts this
+// whenever `screen.kind === "play"` and nothing else; every bit of state
+// below is local to this component, so mounting always starts a fresh choice
+// and unmounting discards whatever game was in progress.
+//
+// Story 00000023, Step 7: `edition` is `null` until the player chooses Battle
+// or Skirmish on `GameChoice` - while it is `null` this component renders
+// only that choice screen, before placement even begins. `handleChooseGame`
+// sets `edition` and seeds a fresh `session` from it in the same event, so a
+// render with `edition` set but `session` still `null` never actually
+// happens (the `session === null` guard below exists only so TypeScript can
+// narrow it, mirroring the pre-existing `session.active === null` guard's
+// same "unreachable in practice" shape). "New game" resets both back to
+// `null`, returning to the choice screen rather than silently replaying the
+// same game - a fresh game is exactly the moment to reconsider which to
+// play. The `lastPlayed` prop remembers which game that was (owner feedback
+// at the Step 7 manual gate, 2026-08-01): `GameChoice` pre-selects it, so a
+// player who just finished a Battle sees Battle pre-selected again rather
+// than being reset to Skirmish every time - Skirmish, per story.md's "the
+// recommended game for a new player", stays the default only on the very
+// first game of a session, while `lastPlayed` is still `null`. Unlike every
+// other piece of state here, that memory is *not* scoped to this component's
+// lifetime: `App` holds it (and this component reports each choice through
+// `onGameStarted`) so it survives a trip back to the start screen, which is
+// the whole session story.md's amended Policy bullet asks for (peer review,
+// finding #17).
 //
 // Step 15: "Back to start" (`onBack`, supplied by `App.tsx`) sits right
-// after the title in every one of this component's three states -
-// placement, an ongoing Phase-2 game, and a finished one - the same spot
-// `ReviewScreen.tsx`'s own back button occupies. `gameInProgress` below is
-// true throughout placement and throughout an ongoing game and false only
-// once the game has ended; leaving while it is true first opens
-// `LeaveGameDialog` (a confirmation, since the game would be lost), while
-// leaving a finished game calls `onBack` straight away, exactly like leaving
-// a review. Cancelling the dialog changes nothing in `session` / `playSession`
-// / `selection`, so the game (including any in-progress selection) is left
-// exactly as it was.
+// after the title in every one of this component's four states - the
+// Battle/Skirmish choice, placement, an ongoing Phase-2 game, and a finished
+// one - the same spot `ReviewScreen.tsx`'s own back button occupies.
+// `gameInProgress` below is true throughout placement and throughout an
+// ongoing game (never during the choice screen, where nothing is yet at
+// stake) and false once the game has ended; leaving while it is true first
+// opens `LeaveGameDialog` (a confirmation, since the game would be lost),
+// while leaving the choice screen or a finished game calls `onBack` straight
+// away, exactly like leaving a review. Cancelling the dialog changes nothing
+// in `session` / `playSession` / `selection`, so the game (including any
+// in-progress selection) is left exactly as it was.
 //
 // Step 10 drives the whole app from a two-player `PlacementSession`
 // (src/board/placementSession.ts) rather than a single hardcoded active
@@ -122,6 +148,19 @@ type Selection =
 
 export interface HotSeatGameProps {
   /**
+   * The game most recently started this app session, or `null` if none has
+   * been. `GameChoice` pre-selects it; `null` falls back to Skirmish, the
+   * recommended first game. Held by `App` so it survives this component's
+   * unmount (peer review, finding #17).
+   */
+  readonly lastPlayed: Edition | null;
+  /**
+   * Reports the game the player has just chosen, so it becomes the next
+   * choice screen's pre-selection - including after a game is abandoned part
+   * way through, since it was still the last one played.
+   */
+  readonly onGameStarted: (edition: Edition) => void;
+  /**
    * Returns to the start screen. Called directly once the game has ended;
    * while the game is in progress (placing or playing), called only after
    * the player confirms in `LeaveGameDialog`, since the game is lost.
@@ -129,8 +168,25 @@ export interface HotSeatGameProps {
   readonly onBack: () => void;
 }
 
-export function HotSeatGame({ onBack }: HotSeatGameProps) {
-  const [session, setSession] = useState<PlacementSession>(() => newSession());
+export function HotSeatGame({
+  lastPlayed,
+  onGameStarted,
+  onBack,
+}: HotSeatGameProps) {
+  // Story 00000023, Step 7: the Battle/Skirmish choice - `null` until the
+  // player picks one on `GameChoice`, below. `session` stays `null` until
+  // then too; `handleChooseGame` sets both together.
+  const [edition, setEdition] = useState<Edition | null>(null);
+  const [session, setSession] = useState<PlacementSession | null>(null);
+  // Text pushed into the placement screen's own polite live region the
+  // moment a game is chosen (`handleChooseGame`, below) - names the game and
+  // its board size to assistive tech, mirroring `playAnnouncement`'s "always
+  // mounted, sometimes empty" live-region pattern (`PlacementStatus`'s tower
+  // warning) applied to a brand-new region that mounts, for the first time,
+  // already carrying this text - the same "pre-filled on first mount" shape
+  // `handleConfirm`'s immediate-ending announcement below already uses for
+  // the Phase-2 live region.
+  const [gameAnnouncement, setGameAnnouncement] = useState("");
   const [selection, setSelection] = useState<Selection>(null);
   // Step 15: whether "Back to start" needs to ask for confirmation first.
   // Never touches `session` / `playSession` / `selection` - cancelling
@@ -175,12 +231,15 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
     headingRef.current?.focus();
   }, []);
 
-  // Story 00000014, Step 15: true throughout placement (`playSession` is
-  // `null`) and throughout an ongoing Phase-2 game, false only once the game
-  // has ended - i.e. exactly the condition under which leaving would lose
-  // something.
+  // Story 00000014, Step 15 (extended by Step 7 of story 00000023): true once
+  // a game has been chosen and throughout placement (`playSession` is
+  // `null`) and throughout an ongoing Phase-2 game, false while the
+  // Battle/Skirmish choice is still showing (nothing is yet at stake) and
+  // once the game has ended - i.e. exactly the condition under which leaving
+  // would lose something.
   const gameInProgress =
-    playSession === null || playSession.play.result.kind === "ongoing";
+    edition !== null &&
+    (playSession === null || playSession.play.result.kind === "ongoing");
 
   function handleBackToStart() {
     if (gameInProgress) {
@@ -188,6 +247,45 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
       return;
     }
     onBack();
+  }
+
+  // Starts a fresh two-player session for the chosen game (`GameChoice`
+  // pre-selects the last-played game, or Skirmish on the first game of a
+  // session) and announces the choice - the selected game and its board
+  // size - to the placement screen's live region. The choice is reported to
+  // `App` here, as the game starts rather than as it ends, so a game
+  // abandoned part way through still counts as the one played most recently.
+  function handleChooseGame(chosenEdition: Edition) {
+    onGameStarted(chosenEdition);
+    setEdition(chosenEdition);
+    setSession(newSession(chosenEdition));
+    setGameAnnouncement(
+      `You chose ${gameName(chosenEdition)}. Placing on ${boardSizeDescription(chosenEdition)}.`,
+    );
+  }
+
+  if (edition === null) {
+    return (
+      <main className="app">
+        <PieceSpriteDefs />
+        <h1 className="app__title" tabIndex={-1} ref={headingRef}>
+          {APP_NAME}
+        </h1>
+        <button
+          type="button"
+          className="hot-seat-game__back"
+          onClick={handleBackToStart}
+        >
+          Back to start
+        </button>
+        <LeaveGameDialog
+          open={confirmingLeave}
+          onConfirm={onBack}
+          onCancel={() => setConfirmingLeave(false)}
+        />
+        <GameChoice onChoose={handleChooseGame} lastPlayed={lastPlayed} />
+      </main>
+    );
   }
 
   if (playSession !== null) {
@@ -204,16 +302,24 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
       setPlayAnnouncement(describeActivation(playSession, next, square));
     };
 
-    // Story 00000006, Step 10: "New game" is a full reset - a fresh, empty
-    // Phase-1 placement session for both players. Nothing from the finished
-    // game carries over: `playSession` goes back to `null` (which is what
-    // routes back to the placement branch below), and the placement
-    // selection/announcement state are cleared alongside it.
+    // Story 00000006, Step 10: "New game" is a full reset - back to the
+    // Battle/Skirmish choice (story 00000023, Step 7), rather than silently
+    // replaying the game just finished, since a fresh game is exactly the
+    // moment to reconsider which to play. `edition` and `session` both go
+    // back to `null` (which is what routes back to the choice screen above),
+    // and `playSession`/the placement selection/both announcements are
+    // cleared alongside them. The choice screen this returns to pre-selects
+    // the game just played instead of always resetting to Skirmish (owner
+    // feedback at the Step 7 manual gate, 2026-08-01) - `lastPlayed` was
+    // recorded by `handleChooseGame` when this game began, so nothing needs
+    // remembering here.
     const handleNewGame = () => {
-      setSession(newSession());
+      setEdition(null);
+      setSession(null);
       setPlaySession(null);
       setSelection(null);
       setPlayAnnouncement("");
+      setGameAnnouncement("");
     };
 
     // Story 00000006, Step 13: the draw-offer flow (rules.md §6.6). Each
@@ -296,6 +402,16 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
     );
   }
 
+  if (session === null) {
+    // Unreachable in practice: `handleChooseGame` always sets `session` in
+    // the very same event as `edition`, and React batches both updates into
+    // one render, so the branch above always handles the "no edition chosen
+    // yet" case first. Kept only so TypeScript can narrow `session` to
+    // `PlacementSession` below, mirroring `EngineGame.tsx`'s identical guard
+    // for its own nullable `placement`.
+    return null;
+  }
+
   if (session.active === null) {
     // Unreachable in practice: `handleConfirm` always starts `playSession`
     // in the very same event as advancing `session.active` to `null`, and
@@ -326,9 +442,11 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
           return;
         }
         setSession((current) =>
-          updateActivePlacement(current, (state) =>
-            swap(state, selection.square, square),
-          ),
+          current
+            ? updateActivePlacement(current, (state) =>
+                swap(state, selection.square, square),
+              )
+            : current,
         );
         setSelection(null);
         return;
@@ -340,7 +458,11 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
     if (selection?.kind === "trayType") {
       const type = selection.type;
       setSession((current) =>
-        updateActivePlacement(current, (state) => place(state, square, type)),
+        current
+          ? updateActivePlacement(current, (state) =>
+              place(state, square, type),
+            )
+          : current,
       );
       // Keep the type selected for rapid repeat-placement until it runs out.
       setSelection(placement.remaining[type] <= 1 ? null : selection);
@@ -349,9 +471,11 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
 
     if (selection?.kind === "boardSquare") {
       setSession((current) =>
-        updateActivePlacement(current, (state) =>
-          move(state, selection.square, square),
-        ),
+        current
+          ? updateActivePlacement(current, (state) =>
+              move(state, selection.square, square),
+            )
+          : current,
       );
       setSelection(null);
     }
@@ -362,35 +486,52 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
       return;
     }
     setSession((current) =>
-      updateActivePlacement(current, (state) =>
-        returnToTray(state, selection.square),
-      ),
+      current
+        ? updateActivePlacement(current, (state) =>
+            returnToTray(state, selection.square),
+          )
+        : current,
     );
     setSelection(null);
   }
 
   function handleClearBoard() {
     setSession((current) =>
-      updateActivePlacement(current, (state) => clear(state)),
+      current
+        ? updateActivePlacement(current, (state) => clear(state))
+        : current,
     );
     setSelection(null);
   }
 
   function handleAutoFill() {
     setSession((current) =>
-      updateActivePlacement(current, (state) => autoFill(state)),
+      current
+        ? updateActivePlacement(current, (state) => autoFill(state))
+        : current,
     );
     setSelection(null);
   }
 
   function handleConfirm() {
+    // `session`/`edition` are narrowed non-null by the guards above for the
+    // rest of this component's render, but TypeScript does not carry that
+    // narrowing across this nested function's own boundary (the same reason
+    // `EngineGame.tsx`'s `handleConfirm` re-checks `placement`/`humanSide`) -
+    // unreachable in practice, since both are only ever `null` before a game
+    // is chosen, at which point this handler is not yet wired to anything.
+    if (session === null || edition === null) {
+      return;
+    }
     const next = confirmActive(session);
     setSession(next);
     if (next.active === null) {
       // Both players have now confirmed: build the versioned initial
-      // game-state artifact (story 00000001) and start Phase 2 immediately -
-      // per the owner's decision, there is no separate "reveal" gate.
-      const gameState = buildInitialGameState(next.white, next.black);
+      // game-state artifact (story 00000001), tagged with the chosen edition
+      // (story 00000023, Step 7) so play, rendering, and the record all use
+      // the game just chosen, and start Phase 2 immediately - per the
+      // owner's decision, there is no separate "reveal" gate.
+      const gameState = buildInitialGameState(next.white, next.black, edition);
       const freshPlaySession = startSession(gameState);
       setPlaySession(freshPlaySession);
       // Story 00000006, Step 9: placement is unrestricted, so a game-ending
@@ -439,6 +580,18 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
         onConfirm={onBack}
         onCancel={() => setConfirmingLeave(false)}
       />
+      {/* Announces the chosen game and its board size (story 00000023, Step
+          7) - visually hidden, `role="status"`/`aria-live="polite"` like
+          `AccessibleGrid`'s own live region, so a screen-reader user hears
+          which game and board they just chose even though this text is
+          otherwise redundant with `GameChoice`'s visible confirmation. */}
+      <p
+        className="hot-seat-game__game-announcement"
+        role="status"
+        aria-live="polite"
+      >
+        {gameAnnouncement}
+      </p>
       <PlacementStatus
         side={activeSide}
         progress={progress(placement)}
@@ -452,6 +605,7 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
           <Board
             activeSide={activeSide}
             placement={placement}
+            layout={placement.boardLayout}
             onSquareClick={handleSquareClick}
             selectedSquare={selectedSquare}
           />
@@ -466,6 +620,7 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
         </div>
         <Tray
           side={activeSide}
+          army={placement.army}
           remaining={placement.remaining}
           selectedType={selectedTrayType}
           onSelect={handleSelectType}

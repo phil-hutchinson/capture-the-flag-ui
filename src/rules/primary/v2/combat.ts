@@ -1,4 +1,4 @@
-// Combat resolution rule logic for ruleset 1.2, §4.3 (companion
+// Combat resolution rule logic for ruleset major 2 (companion
 // capture-the-flag repository, `doc/ruleset/rules.md`, the single source of
 // truth).
 //
@@ -9,22 +9,27 @@
 // outright win), and the **formation bonus** - a friendly piece of equal
 // rank standing beside a piece turns what would otherwise be a clean loss,
 // for the weaker side only, into a mutual loss. There are no other special
-// cases in 1.2: no charge, no rush, no defensive support, no Sapper-only
+// cases in major 2: no charge, no rush, no defensive support, no Sapper-only
 // tower destruction, no Assassin rules.
 //
 // This module is pure rule logic - no React - and builds only on the board
-// geometry (board.ts), the piece catalog (pieces.ts), and `BoardState`
-// (gameState.ts); it has no further dependencies.
+// geometry (board.ts, boardLayout.ts), the piece catalog (pieces.ts), and
+// `BoardState` (gameState.ts); it has no further dependencies.
+//
+// `resolveCombat` takes an optional `layout` parameter (a `BoardLayout`,
+// boardLayout.ts), defaulting to `BATTLE_LAYOUT`, so it sizes the
+// formation-bonus neighbor scan's bounds to the board actually being played;
+// callers that pass no layout (the frozen encoding/engine modules) still get
+// Battle's bounds unchanged.
 
 import {
-  COLUMNS,
-  ROWS,
+  BATTLE_LAYOUT,
+  columnIndexOf,
   squareKey,
-  type Column,
-  type Row,
   type Side,
   type Square,
 } from "./board.ts";
+import { columnLetter, type BoardLayout } from "./boardLayout.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
 import { PIECE_CATALOG } from "./pieces.ts";
 
@@ -50,10 +55,6 @@ export interface CombatOutcome {
   readonly capture: boolean;
 }
 
-const COLUMN_INDEX: Readonly<Record<Column, number>> = Object.fromEntries(
-  COLUMNS.map((column, index) => [column, index]),
-) as Record<Column, number>;
-
 /** The eight squares surrounding a square (orthogonal and diagonal), used
  * only to judge the formation bonus. */
 const SURROUNDING_DIRECTIONS: readonly { dc: number; dr: number }[] = [
@@ -67,17 +68,22 @@ const SURROUNDING_DIRECTIONS: readonly { dc: number; dr: number }[] = [
   { dc: 1, dr: 1 },
 ];
 
-/** The square one step from `square` in direction `dc`/`dr`, or `null` if off-board. */
-function step(square: Square, dc: number, dr: number): Square | null {
-  const columnIndex = COLUMN_INDEX[square.column] + dc;
+/** The square one step from `square` in direction `dc`/`dr`, or `null` if off-board on `layout`. */
+function step(
+  square: Square,
+  dc: number,
+  dr: number,
+  layout: BoardLayout,
+): Square | null {
+  const columnIndex = columnIndexOf(square.column) + dc;
   const row = square.row + dr;
-  if (columnIndex < 0 || columnIndex >= COLUMNS.length) {
+  if (columnIndex < 0 || columnIndex >= layout.columnCount) {
     return null;
   }
-  if (!ROWS.includes(row as Row)) {
+  if (row < 1 || row > layout.rowCount) {
     return null;
   }
-  return { column: COLUMNS[columnIndex], row: row as Row };
+  return { column: columnLetter(columnIndex), row };
 }
 
 /**
@@ -91,9 +97,10 @@ function hasFormationBonus(
   square: Square,
   side: Side,
   rank: number,
+  layout: BoardLayout,
 ): boolean {
   for (const { dc, dr } of SURROUNDING_DIRECTIONS) {
-    const neighbor = step(square, dc, dr);
+    const neighbor = step(square, dc, dr, layout);
     if (neighbor === null) {
       continue;
     }
@@ -129,12 +136,14 @@ function hasFormationBonus(
  *
  * A legal attack always has a piece on both `from` and `to` (see
  * `legalAttacks`); this is a programming-invariant function like `applyMove`
- * and throws if either square is empty.
+ * and throws if either square is empty. `layout` sizes the formation-bonus
+ * neighbor scan's bounds; defaults to Battle.
  */
 export function resolveCombat(
   board: BoardState,
   from: Square,
   to: Square,
+  layout: BoardLayout = BATTLE_LAYOUT,
 ): CombatOutcome {
   const attacker = board[squareKey(from)];
   const defender = board[squareKey(to)];
@@ -149,7 +158,7 @@ export function resolveCombat(
     );
   }
 
-  const result = baseResult(board, attacker, defender, from, to);
+  const result = baseResult(board, attacker, defender, from, to, layout);
 
   return {
     result,
@@ -173,6 +182,7 @@ function baseResult(
   defender: PlacedPiece,
   from: Square,
   to: Square,
+  layout: BoardLayout,
 ): CombatResult {
   if (defender.pieceType === "flag") {
     return "attackerWins";
@@ -203,7 +213,7 @@ function baseResult(
     const defenderIsOneRankWeaker = defenderRank === attackerRank + 1;
     if (
       defenderIsOneRankWeaker &&
-      hasFormationBonus(board, to, defender.side, defenderRank)
+      hasFormationBonus(board, to, defender.side, defenderRank, layout)
     ) {
       return "mutualLoss";
     }
@@ -215,7 +225,7 @@ function baseResult(
   const attackerIsOneRankWeaker = attackerRank === defenderRank + 1;
   if (
     attackerIsOneRankWeaker &&
-    hasFormationBonus(board, from, attacker.side, attackerRank)
+    hasFormationBonus(board, from, attacker.side, attackerRank, layout)
   ) {
     return "mutualLoss";
   }

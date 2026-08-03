@@ -4,10 +4,11 @@
 // This is the session-level action row, distinct from PlacementControls
 // (which acts on a single selected/placed piece). It shows the active
 // player's own color (never the internal "White"/"Black" turn-order labels -
-// see story.md's "Players and colors"), a live "N / 25 placed" readout
-// (Step 3's `progress`) - placement is sparse under rules 1.2, so a complete
-// army fills only 25 of the player's 48 home squares and the rest stay empty,
-// which is expected, not an error - a one-click auto-fill/randomize button
+// see story.md's "Players and colors"), a live "N / total placed" readout
+// (Step 3's `progress`) - placement is sparse under rules major 2, so a
+// complete army fills only some of the player's home squares (the edition's
+// army size versus its home-zone size) and the rest stay empty, which is
+// expected, not an error - a one-click auto-fill/randomize button
 // (Step 4's `autoFill`), and the Confirm action that both stores the active
 // player's layout and hands off to the next player.
 //
@@ -28,8 +29,8 @@
 // earlier version of this component did) risks the first announcement being
 // missed.
 
-import type { Side } from "../rules/primary/v1/board.ts";
-import type { PlacementProgress } from "../rules/primary/v1/placement.ts";
+import type { Side } from "../rules/primary/v2/board.ts";
+import type { PlacementProgress } from "../rules/primary/v2/placement.ts";
 import { sideColorName } from "./sideNames.ts";
 import "./PlacementStatus.css";
 

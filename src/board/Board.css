@@ -1,17 +1,20 @@
-/* Board grid geometry (story 00000001, Step 7).
+/* Board grid geometry (story 00000001, Step 7; made parametric over the
+   board layout by story 00000023, Step 6).
 
-   The board is drawn from the active player's own perspective: 4 interactive
-   home rows at the bottom, a greyed non-interactive buffer row above them,
-   and the full nearest lake row above that (a visual reminder that the lakes
-   continue off-screen). Square size is driven by --square so the grid scales
-   as one. */
+   The board is drawn from the active player's own perspective: the layout's
+   own home rows at the bottom, a greyed non-interactive buffer row above
+   them (Battle only - Skirmish's layout has none), and the full nearest lake
+   row above that (a visual reminder that the lakes continue off-screen).
+   Square size is driven by --square so the grid scales as one; --columns/
+   --rows (set inline by Board.tsx, sized to the active layout and the number
+   of visible rows) drive the grid's own dimensions - 12 columns / 6 rows for
+   Battle, 8 columns / 4 rows for Skirmish's no-buffer view. */
 
 .board {
   --square: clamp(28px, 6vmin, 64px);
   display: grid;
-  grid-template-columns: repeat(12, var(--square));
-  /* 6 full-square rows: the near lake row, the buffer row, and 4 home rows. */
-  grid-template-rows: repeat(6, var(--square));
+  grid-template-columns: repeat(var(--columns, 12), var(--square));
+  grid-template-rows: repeat(var(--rows, 6), var(--square));
   border: 2px solid var(--ink);
   background: var(--parchment);
 }

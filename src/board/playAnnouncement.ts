@@ -65,18 +65,18 @@ import {
   squareKey,
   type Side,
   type Square,
-} from "../rules/primary/v1/board.ts";
-import type { PlacedPiece } from "../rules/primary/v1/gameState.ts";
+} from "../rules/primary/v2/board.ts";
+import type { PlacedPiece } from "../rules/primary/v2/gameState.ts";
 import {
   legalAttacks,
   legalDestinations,
-} from "../rules/primary/v1/movement.ts";
+} from "../rules/primary/v2/movement.ts";
 import type {
   GameEndReason,
   GameOutcome,
-} from "../rules/primary/v1/outcome.ts";
-import { PIECE_CATALOG } from "../rules/primary/v1/pieces.ts";
-import type { PlyOutcome } from "../rules/primary/v1/play.ts";
+} from "../rules/primary/v2/outcome.ts";
+import { PIECE_CATALOG } from "../rules/primary/v2/pieces.ts";
+import type { PlyOutcome } from "../rules/primary/v2/play.ts";
 import type { PlaySession } from "./playSession.ts";
 import { sideColorName } from "./sideNames.ts";
 
@@ -147,8 +147,8 @@ function reasonLabel(reason: GameEndReason): string {
  * for a win outcome. Names the *losing* side plainly wherever the reason
  * needs a subject to avoid reading as rules jargon - "the computer" rather
  * than its color when `perspective` says the loser is not the human (story
- * 00000019). `inactivity` and `agreement` never occur for a win in 1.2 - the
- * shared inactivity counter (rules.md §5.3) only ever produces a *draw*, and
+ * 00000019). `inactivity` and `agreement` never occur for a win in major 2 -
+ * the shared inactivity counter (rules.md §5.3) only ever produces a *draw*, and
  * `agreeDraw` only ever produces a draw - listed only so this switch is
  * exhaustive.
  */
@@ -362,10 +362,17 @@ export function describeActivation(
     const description = pieceDescription(after, after.selection);
     // An attack is a kind of move in player-facing wording (per the rules'
     // use of "move"), so the count combines plain-move destinations and
-    // attack targets into the single number a player hears.
+    // attack targets into the single number a player hears. `layout` sizes
+    // the board's bounds and lake pattern to whichever edition was actually
+    // played (story 00000023, Step 7 - the same defect class the play/
+    // playSession threading fixes: an unthreaded call here would count
+    // moves against Battle's board even on Skirmish). `edition` is required
+    // on `PlayState` (this story's peer review, finding #2), so there is no
+    // default to fall back to.
+    const layout = after.play.edition.boardLayout;
     const count =
-      legalDestinations(after.play.board, after.selection).length +
-      legalAttacks(after.play.board, after.selection).length;
+      legalDestinations(after.play.board, after.selection, layout).length +
+      legalAttacks(after.play.board, after.selection, layout).length;
     const moveWord = count === 1 ? "move" : "moves";
     return `${description} selected, ${count} ${moveWord} available.`;
   }

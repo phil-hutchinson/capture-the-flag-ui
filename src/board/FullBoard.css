@@ -1,14 +1,17 @@
-/* Full 12x12 board geometry (story 00000004, Step 7; the file itself moved
-   here, and gained the `--last-move` treatment below, in story 00000014,
-   Step 7, when the presentational board was extracted out of `PlayBoard.tsx`
-   into the shared `FullBoard.tsx`).
+/* Full board geometry - 12x12 for Battle, 8x8 for Skirmish (story 00000004,
+   Step 7; the file itself moved here, and gained the `--last-move` treatment
+   below, in story 00000014, Step 7, when the presentational board was
+   extracted out of `PlayBoard.tsx` into the shared `FullBoard.tsx`; made
+   parametric over the board layout by story 00000023, Step 6).
 
-   The full 12x12 board, unlike Board.css's placement view (cropped to one
-   player's half, mouse-only). Rendered through the reusable accessible grid
+   The full board, unlike Board.css's placement view (cropped to one player's
+   half, mouse-only). Rendered through the reusable accessible grid
    (AccessibleGrid.css supplies the shared `.accessible-grid` box, roving-
    tabindex focus ring, and live region); this file only supplies this
    consumer's own grid sizing (--square, template rows/columns) and square
-   styling, per AccessibleGrid.css's documented className convention. */
+   styling, per AccessibleGrid.css's documented className convention.
+   --columns/--rows (set inline by FullBoard.tsx, sized to the active layout)
+   drive the grid's own dimensions - 12/12 for Battle, 8/8 for Skirmish. */
 
 .full-board__stage {
   /* Wraps the grid so the move-slide overlay (story 00000019, Step 9, below)
@@ -20,9 +23,10 @@
      the grid and the overlay (a *sibling* of the grid, not a descendant of
      it) inherit the same values - plain CSS custom-property inheritance,
      unaffected by AccessibleGrid's own `display: contents` wrapper in
-     between. `display: inline-block` makes the stage hug the grid's own
-     rendered size (its only in-flow child), so it never adds extra
-     whitespace around the board. */
+     between (`--columns`/`--rows`, set inline by FullBoard.tsx, reach
+     `.full-board` the same way). `display: inline-block` makes the stage hug
+     the grid's own rendered size (its only in-flow child), so it never adds
+     extra whitespace around the board. */
   position: relative;
   display: inline-block;
   --square: clamp(28px, 6vmin, 64px);
@@ -30,8 +34,8 @@
 }
 
 .full-board {
-  grid-template-columns: repeat(12, var(--square));
-  grid-template-rows: repeat(12, var(--square));
+  grid-template-columns: repeat(var(--columns, 12), var(--square));
+  grid-template-rows: repeat(var(--rows, 12), var(--square));
   border: var(--board-border) solid var(--ink);
   background: var(--parchment);
 }

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { homeSquares } from "./board.ts";
-import { ARMY_SIZE, pieceCatalogEntries } from "./pieces.ts";
+import { armySize, BATTLE_ARMY } from "./armyComposition.ts";
+import { BATTLE_LAYOUT, homeSquares } from "./board.ts";
+import { BATTLE_EDITION, SKIRMISH_EDITION } from "./edition.ts";
+import { pieceCatalogEntries } from "./pieces.ts";
 import { autoFill, emptyPlacement, type PlacementState } from "./placement.ts";
+
+/** Battle's own army size (25) - the roster these Battle fixtures place. */
+const ARMY_SIZE = armySize(BATTLE_ARMY);
 import {
   buildInitialGameState,
   parsePositionBlock,
@@ -22,23 +27,42 @@ function seededRandom(seed: number): () => number {
 }
 
 function completeArmy(side: "white" | "black", seed: number): PlacementState {
-  return autoFill(emptyPlacement(side), seededRandom(seed));
+  return autoFill(
+    emptyPlacement(side, BATTLE_LAYOUT, BATTLE_ARMY),
+    seededRandom(seed),
+  );
 }
 
-describe("buildInitialGameState (ruleset 1.2:PRE-RELEASE)", () => {
-  it("tags the artifact with the ruleset version", () => {
+describe("buildInitialGameState (ruleset major 2)", () => {
+  it("tags the artifact with the resolved edition's id (Battle)", () => {
     const white = completeArmy("white", 1);
     const black = completeArmy("black", 2);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
 
-    expect(gameState.ruleset).toBe("1.2:PRE-RELEASE");
+    expect(gameState.ruleset).toBe("2-0:BATTLE");
     expect(gameState.ruleset).toBe(RULESET_TAG);
+  });
+
+  it("tags the artifact with the given edition's id (Skirmish)", () => {
+    const skirmish = SKIRMISH_EDITION;
+    const white = autoFill(
+      emptyPlacement("white", skirmish.boardLayout, skirmish.army),
+      seededRandom(21),
+    );
+    const black = autoFill(
+      emptyPlacement("black", skirmish.boardLayout, skirmish.army),
+      seededRandom(22),
+    );
+    const gameState = buildInitialGameState(white, black, skirmish);
+
+    expect(gameState.ruleset).toBe("2-0:SKIRMISH");
+    expect(gameState.edition).toBe(skirmish);
   });
 
   it("round-trips both armies exactly through JSON", () => {
     const white = completeArmy("white", 3);
     const black = completeArmy("black", 4);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
 
     const roundTripped = JSON.parse(
       JSON.stringify(gameState),
@@ -79,19 +103,19 @@ describe("buildInitialGameState (ruleset 1.2:PRE-RELEASE)", () => {
   it("rejects a White state and Black state passed in the wrong slots", () => {
     const white = completeArmy("white", 5);
     const black = completeArmy("black", 6);
-    expect(() => buildInitialGameState(black, white)).toThrow();
+    expect(() => buildInitialGameState(black, white, BATTLE_EDITION)).toThrow();
   });
 
   it("rejects incomplete armies", () => {
     const white = completeArmy("white", 7);
-    const black = emptyPlacement("black");
-    expect(() => buildInitialGameState(white, black)).toThrow();
+    const black = emptyPlacement("black", BATTLE_LAYOUT, BATTLE_ARMY);
+    expect(() => buildInitialGameState(white, black, BATTLE_EDITION)).toThrow();
   });
 
   it("includes every placed piece type at the ruleset's per-side quantity", () => {
     const white = completeArmy("white", 8);
     const black = completeArmy("black", 9);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
 
     for (const side of ["white", "black"] as const) {
       const counts = new Map<string, number>();
@@ -106,7 +130,7 @@ describe("buildInitialGameState (ruleset 1.2:PRE-RELEASE)", () => {
   });
 });
 
-describe("renderPositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
+describe("renderPositionBlock (ruleset major 2)", () => {
   it("renders a hand-constructed placement to the exact expected block", () => {
     // A small, deliberately sparse board (not a full army) so the expected
     // block below can be verified by inspection square-by-square:
@@ -118,6 +142,7 @@ describe("renderPositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
     // on rows 6-7 (XXX), per the `O L L O O L L O O L L O` pattern.
     const gameState: InitialGameState = {
       ruleset: RULESET_TAG,
+      edition: BATTLE_EDITION,
       board: {
         A1: { side: "white", pieceType: "flag" },
         L1: { side: "white", pieceType: "masterOfArms" },
@@ -147,7 +172,7 @@ describe("renderPositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
   it("is 12 lines of 12 three-character cells", () => {
     const white = completeArmy("white", 10);
     const black = completeArmy("black", 11);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
 
     const lines = renderPositionBlock(gameState).split("\n");
     expect(lines).toHaveLength(12);
@@ -163,7 +188,7 @@ describe("renderPositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
   it("renders lake squares as XXX regardless of nearby placements", () => {
     const white = completeArmy("white", 12);
     const black = completeArmy("black", 13);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
     const lines = renderPositionBlock(gameState).split("\n");
 
     // Rows 6 and 7 are the 6th and 7th lines from the bottom (row 1 is the
@@ -178,12 +203,12 @@ describe("renderPositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
   });
 });
 
-describe("parsePositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
+describe("parsePositionBlock (ruleset major 2)", () => {
   /** A full-army position block, rendered from two deterministic autoFill armies. */
   function fullBoardBlock(): { board: BoardState; block: string } {
     const white = completeArmy("white", 900);
     const black = completeArmy("black", 901);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
     return { board: gameState.board, block: renderPositionBlock(gameState) };
   }
 
@@ -196,7 +221,7 @@ describe("parsePositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
     for (let seed = 0; seed < 3; seed += 1) {
       const white = completeArmy("white", seed * 2 + 100);
       const black = completeArmy("black", seed * 2 + 101);
-      const gameState = buildInitialGameState(white, black);
+      const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
       const block = renderPositionBlock(gameState);
 
       expect(parsed(parsePositionBlock(block))).toEqual(gameState.board);
@@ -212,6 +237,7 @@ describe("parsePositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
     }
     const sparseGameState: InitialGameState = {
       ruleset: RULESET_TAG,
+      edition: BATTLE_EDITION,
       board: sparseBoard,
     };
 
@@ -236,7 +262,7 @@ describe("parsePositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
 
     expect(parsePositionBlock(tooFewRows)).toEqual({
       kind: "error",
-      error: { kind: "wrongRowCount", rowCount: 11 },
+      error: { kind: "wrongRowCount", rowCount: 11, expectedRowCount: 12 },
     });
   });
 
@@ -246,7 +272,7 @@ describe("parsePositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
 
     expect(parsePositionBlock(tooManyRows)).toEqual({
       kind: "error",
-      error: { kind: "wrongRowCount", rowCount: 13 },
+      error: { kind: "wrongRowCount", rowCount: 13, expectedRowCount: 12 },
     });
   });
 
@@ -258,7 +284,12 @@ describe("parsePositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
 
     expect(parsePositionBlock(lines.join("\n"))).toEqual({
       kind: "error",
-      error: { kind: "wrongCellCount", row: 12, cellCount: 11 },
+      error: {
+        kind: "wrongCellCount",
+        row: 12,
+        cellCount: 11,
+        expectedCellCount: 12,
+      },
     });
   });
 
@@ -337,6 +368,7 @@ describe("parsePositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
   it("does not check army composition or counts - accepts an arbitrary sparse board", () => {
     const gameState: InitialGameState = {
       ruleset: RULESET_TAG,
+      edition: BATTLE_EDITION,
       board: {
         A1: { side: "white", pieceType: "flag" },
       },
@@ -344,5 +376,96 @@ describe("parsePositionBlock (ruleset 1.2:PRE-RELEASE)", () => {
     const block = renderPositionBlock(gameState);
 
     expect(parsed(parsePositionBlock(block))).toEqual(gameState.board);
+  });
+});
+
+// Story 00000023, Step 3: the position-block render/parse and
+// `buildInitialGameState`'s layout validation, exercised on the Skirmish
+// edition (8x8) instead of the Battle default, to confirm they are
+// genuinely sized to the resolved edition's `BoardLayout` rather than
+// hardcoding Battle's 12x12 grid. (The army itself is not yet
+// edition-driven - Step 4 - so these use small, hand-built boards rather
+// than a `buildInitialGameState`-produced complete Skirmish army: Skirmish's
+// 24-square home zone cannot yet hold Battle's 25-piece roster.)
+describe("position-block render/parse on the Skirmish edition (8x8)", () => {
+  it("renders a hand-constructed Skirmish placement to an 8-line, 8-cell-per-line block", () => {
+    // A1 = White Flag, H3 = White Master-of-Arms (last White home row/column),
+    // A6 = Black Champion, H8 = Black Tower (Black's home corner). Every
+    // other square is either empty (---) or one of the two 2x2 lakes on rows
+    // 4-5, per the `O L L O O L L O` pattern.
+    const gameState: InitialGameState = {
+      ruleset: SKIRMISH_EDITION.id,
+      edition: SKIRMISH_EDITION,
+      board: {
+        A1: { side: "white", pieceType: "flag" },
+        H3: { side: "white", pieceType: "masterOfArms" },
+        A6: { side: "black", pieceType: "champion" },
+        H8: { side: "black", pieceType: "tower" },
+      },
+    };
+
+    const expected = [
+      "--- --- --- --- --- --- --- *T*",
+      "--- --- --- --- --- --- --- ---",
+      "*2* --- --- --- --- --- --- ---",
+      "--- XXX XXX --- --- XXX XXX ---",
+      "--- XXX XXX --- --- XXX XXX ---",
+      "--- --- --- --- --- --- --- [1]",
+      "--- --- --- --- --- --- --- ---",
+      "[F] --- --- --- --- --- --- ---",
+    ].join("\n");
+
+    expect(renderPositionBlock(gameState)).toBe(expected);
+  });
+
+  it("round-trips a hand-built Skirmish board through render and parse", () => {
+    const board: BoardState = {
+      A1: { side: "white", pieceType: "flag" },
+      H3: { side: "white", pieceType: "masterOfArms" },
+      A6: { side: "black", pieceType: "champion" },
+      H8: { side: "black", pieceType: "tower" },
+    };
+    const gameState: InitialGameState = {
+      ruleset: SKIRMISH_EDITION.id,
+      edition: SKIRMISH_EDITION,
+      board,
+    };
+    const block = renderPositionBlock(gameState);
+
+    const result = parsePositionBlock(block, SKIRMISH_EDITION.boardLayout);
+    expect(result.kind).toBe("parsed");
+    expect((result as { kind: "parsed"; board: BoardState }).board).toEqual(
+      board,
+    );
+  });
+
+  it("rejects an 8x8 block against the Battle-default (12x12) parse", () => {
+    const gameState: InitialGameState = {
+      ruleset: SKIRMISH_EDITION.id,
+      edition: SKIRMISH_EDITION,
+      board: { A1: { side: "white", pieceType: "flag" } },
+    };
+    const block = renderPositionBlock(gameState);
+
+    expect(parsePositionBlock(block)).toEqual({
+      kind: "error",
+      error: { kind: "wrongRowCount", rowCount: 8, expectedRowCount: 12 },
+    });
+  });
+
+  it("buildInitialGameState rejects placement states on a different board layout than the given edition", () => {
+    const white = emptyPlacement(
+      "white",
+      SKIRMISH_EDITION.boardLayout,
+      SKIRMISH_EDITION.army,
+    );
+    const black = emptyPlacement(
+      "black",
+      SKIRMISH_EDITION.boardLayout,
+      SKIRMISH_EDITION.army,
+    );
+    // Battle passed against Skirmish-layout placement states: the mismatch is
+    // rejected rather than silently played on the wrong board.
+    expect(() => buildInitialGameState(white, black, BATTLE_EDITION)).toThrow();
   });
 });

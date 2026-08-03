@@ -32,12 +32,15 @@ import { computeCountdownWarnings } from "./playWarnings.ts";
 import { PlayWarnings } from "./PlayWarnings.tsx";
 import { Tray } from "./Tray.tsx";
 import {
+  BATTLE_LAYOUT,
   otherSide,
   squareKey,
   type Side,
   type Square,
-} from "../rules/primary/v1/board.ts";
-import { buildInitialGameState } from "../rules/primary/v1/gameState.ts";
+} from "../rules/primary/v2/board.ts";
+import { BATTLE_ARMY } from "../rules/primary/v2/armyComposition.ts";
+import { BATTLE_EDITION } from "../rules/primary/v2/edition.ts";
+import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
 import {
   autoFill,
   clear,
@@ -52,8 +55,8 @@ import {
   swap,
   towersLegallyPlaced,
   type PlacementState,
-} from "../rules/primary/v1/placement.ts";
-import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
+} from "../rules/primary/v2/placement.ts";
+import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
 import "../App.css";
 import "./EngineGame.css";
 
@@ -410,7 +413,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
           onChoose={(side, chosenDifficulty) => {
             setHumanSide(side);
             setDifficulty(chosenDifficulty);
-            setPlacement(emptyPlacement(side));
+            setPlacement(emptyPlacement(side, BATTLE_LAYOUT, BATTLE_ARMY));
           }}
         />
       </main>
@@ -640,11 +643,16 @@ export function EngineGame({ onBack }: EngineGameProps) {
     // adjacent), generated silently and never shown before play begins - the
     // same `autoFill` the human's own "Auto-fill" button uses, applied to a
     // fresh, empty placement for the computer's side.
-    const computerArmy = autoFill(emptyPlacement(computerSide));
+    const computerArmy = autoFill(
+      emptyPlacement(computerSide, BATTLE_LAYOUT, BATTLE_ARMY),
+    );
+    // This screen is Battle-only and unreachable while computer play is
+    // disabled (story 00000023, Step 9), so it names the Battle edition
+    // explicitly rather than relying on a default (peer review, finding #15).
     const gameState =
       humanSide === "white"
-        ? buildInitialGameState(placement, computerArmy)
-        : buildInitialGameState(computerArmy, placement);
+        ? buildInitialGameState(placement, computerArmy, BATTLE_EDITION)
+        : buildInitialGameState(computerArmy, placement, BATTLE_EDITION);
     const freshPlaySession = startSession(gameState);
     // Play begins - create this game's worker-backed search client (story
     // 00000021, Step 5), configured for the difficulty chosen on
@@ -713,6 +721,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
           <Board
             activeSide={humanSide}
             placement={placement}
+            layout={placement.boardLayout}
             onSquareClick={handleSquareClick}
             selectedSquare={selectedSquare}
           />
@@ -727,6 +736,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
         </div>
         <Tray
           side={humanSide}
+          army={placement.army}
           remaining={placement.remaining}
           selectedType={selectedTrayType}
           onSelect={handleSelectType}

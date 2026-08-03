@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { BATTLE_LAYOUT } from "./board.ts";
+import { BATTLE_EDITION, EDITIONS } from "./edition.ts";
 import {
   renderPositionBlock,
   RULESET_TAG,
@@ -16,6 +18,7 @@ import {
  * sparse board keeps these fixtures easy to read. */
 const GAME_STATE: InitialGameState = {
   ruleset: RULESET_TAG,
+  edition: BATTLE_EDITION,
   board: {
     A1: { side: "white", pieceType: "flag" },
     L1: { side: "white", pieceType: "masterOfArms" },
@@ -51,7 +54,7 @@ const BLACK_MOVE_2 = renderMoveToken({
 });
 
 function header(extraLines: readonly string[] = []): string {
-  return ['[Ruleset "1.2:PRE-RELEASE"]', ...extraLines].join("\n");
+  return ['[Ruleset "2-0:BATTLE"]', ...extraLines].join("\n");
 }
 
 function fullRounds(): string {
@@ -74,9 +77,9 @@ describe("parseRecordFile - a full valid record", () => {
       fullRounds(),
     ].join("\n\n");
 
-    const record = parsed(parseRecordFile(text));
+    const record = parsed(parseRecordFile(text, BATTLE_LAYOUT));
     expect(record.tags).toEqual({
-      ruleset: "1.2:PRE-RELEASE",
+      ruleset: "2-0:BATTLE",
       result: "1-0",
       resultReason: "Flag Captured",
     });
@@ -113,7 +116,7 @@ describe("parseRecordFile - a full valid record", () => {
       .join("\n\n")
       .replaceAll("\n", "\r\n");
 
-    const record = parsed(parseRecordFile(text));
+    const record = parsed(parseRecordFile(text, BATTLE_LAYOUT));
     expect(record.startingBoard).toEqual(GAME_STATE.board);
     expect(record.moves).toHaveLength(4);
   });
@@ -121,7 +124,7 @@ describe("parseRecordFile - a full valid record", () => {
   it("tolerates extra blank lines between sections", () => {
     const text = [header(), POSITION_BLOCK, fullRounds()].join("\n\n\n\n");
 
-    const record = parsed(parseRecordFile(text));
+    const record = parsed(parseRecordFile(text, BATTLE_LAYOUT));
     expect(record.moves).toHaveLength(4);
   });
 
@@ -140,8 +143,8 @@ describe("parseRecordFile - a full valid record", () => {
       fullRounds(),
     ].join("\n\n");
 
-    const record = parsed(parseRecordFile(text));
-    expect(record.tags).toEqual({ ruleset: "1.2:PRE-RELEASE" });
+    const record = parsed(parseRecordFile(text, BATTLE_LAYOUT));
+    expect(record.tags).toEqual({ ruleset: "2-0:BATTLE" });
   });
 
   it("accepts a freely wrapped move sequence", () => {
@@ -154,7 +157,7 @@ describe("parseRecordFile - a full valid record", () => {
     ].join("\n");
     const text = [header(), POSITION_BLOCK, wrapped].join("\n\n");
 
-    const record = parsed(parseRecordFile(text));
+    const record = parsed(parseRecordFile(text, BATTLE_LAYOUT));
     expect(record.moves.map((move) => move.token)).toEqual([
       WHITE_MOVE_1,
       BLACK_MOVE_1,
@@ -166,7 +169,7 @@ describe("parseRecordFile - a full valid record", () => {
   it("accepts a zero-move record (no move-sequence section at all)", () => {
     const text = [header(), POSITION_BLOCK].join("\n\n");
 
-    const record = parsed(parseRecordFile(text));
+    const record = parsed(parseRecordFile(text, BATTLE_LAYOUT));
     expect(record.moves).toEqual([]);
     expect(record.startingBoard).toEqual(GAME_STATE.board);
   });
@@ -174,7 +177,7 @@ describe("parseRecordFile - a full valid record", () => {
   it("accepts a game that ended on White's move (trailing round with one move)", () => {
     const text = [header(), POSITION_BLOCK, `1. ${WHITE_MOVE_1}`].join("\n\n");
 
-    const record = parsed(parseRecordFile(text));
+    const record = parsed(parseRecordFile(text, BATTLE_LAYOUT));
     expect(record.moves).toHaveLength(1);
     expect(record.moves[0]).toMatchObject({
       ply: 1,
@@ -192,7 +195,7 @@ describe("parseRecordFile - header rejections", () => {
       fullRounds(),
     ].join("\n\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: { kind: "missingRuleset" },
     });
@@ -200,12 +203,12 @@ describe("parseRecordFile - header rejections", () => {
 
   it("rejects a duplicate Ruleset tag", () => {
     const text = [
-      header(['[Ruleset "1.2:PRE-RELEASE"]']),
+      header(['[Ruleset "2-0:BATTLE"]']),
       POSITION_BLOCK,
       fullRounds(),
     ].join("\n\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: { kind: "duplicateTag", tag: "Ruleset" },
     });
@@ -218,7 +221,7 @@ describe("parseRecordFile - header rejections", () => {
       fullRounds(),
     ].join("\n\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: { kind: "duplicateTag", tag: "Result" },
     });
@@ -234,7 +237,7 @@ describe("parseRecordFile - header rejections", () => {
       fullRounds(),
     ].join("\n\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: { kind: "duplicateTag", tag: "ResultReason" },
     });
@@ -246,7 +249,7 @@ describe("parseRecordFile - move-sequence rejections", () => {
     const rounds = `1. A1A2 ${BLACK_MOVE_1}`;
     const text = [header(), POSITION_BLOCK, rounds].join("\n\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: {
         kind: "plainNotation",
@@ -262,7 +265,7 @@ describe("parseRecordFile - move-sequence rejections", () => {
     const rounds = `1. ${WHITE_MOVE_1} F12F11`;
     const text = [header(), POSITION_BLOCK, rounds].join("\n\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: {
         kind: "plainNotation",
@@ -278,7 +281,7 @@ describe("parseRecordFile - move-sequence rejections", () => {
     const rounds = `1... ${BLACK_MOVE_1}`;
     const text = [header(), POSITION_BLOCK, rounds].join("\n\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: { kind: "midGameRecord", round: 1 },
     });
@@ -288,7 +291,7 @@ describe("parseRecordFile - move-sequence rejections", () => {
     const rounds = `2. ${WHITE_MOVE_1} ${BLACK_MOVE_1}`;
     const text = [header(), POSITION_BLOCK, rounds].join("\n\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: { kind: "roundOutOfOrder", expected: 1, found: 2 },
     });
@@ -301,7 +304,7 @@ describe("parseRecordFile - move-sequence rejections", () => {
     ].join("\n");
     const text = [header(), POSITION_BLOCK, rounds].join("\n\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: { kind: "roundOutOfOrder", expected: 2, found: 3 },
     });
@@ -311,7 +314,7 @@ describe("parseRecordFile - move-sequence rejections", () => {
     const rounds = `1. ${WHITE_MOVE_1} ${BLACK_MOVE_1} ${WHITE_MOVE_2}`;
     const text = [header(), POSITION_BLOCK, rounds].join("\n\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: { kind: "tooManyMovesInRound", round: 1 },
     });
@@ -324,7 +327,7 @@ describe("parseRecordFile - move-sequence rejections", () => {
     ].join("\n");
     const text = [header(), POSITION_BLOCK, rounds].join("\n\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: { kind: "incompleteRound", round: 1 },
     });
@@ -337,7 +340,7 @@ describe("parseRecordFile - not a game record at all", () => {
       "This is just some ordinary text file, not a game record, " +
       "with no blank lines anywhere in it at all.";
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: { kind: "notARecord" },
     });
@@ -354,9 +357,52 @@ describe("parseRecordFile - not a game record at all", () => {
       "Final junk section, still not a record.",
     ].join("\n");
 
-    expect(parseRecordFile(text)).toEqual({
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
       kind: "error",
       error: { kind: "notARecord" },
+    });
+  });
+});
+
+// Story 00000023's Step 8: `parseRecordFile` takes the (required, story
+// 00000023's peer review, finding #2) `BoardLayout` to parse the position
+// block against - `readRecord.ts` resolves it from the file's own `Ruleset`
+// (edition id) tag before calling here - so a Skirmish record's 8x8 block is
+// read correctly rather than assumed to be Battle's 12x12.
+describe("parseRecordFile - the Skirmish edition's 8x8 board layout", () => {
+  const skirmish = EDITIONS["2-0:SKIRMISH"];
+  const SKIRMISH_GAME_STATE: InitialGameState = {
+    ruleset: skirmish.id,
+    edition: skirmish,
+    board: {
+      A1: { side: "white", pieceType: "flag" },
+      H3: { side: "white", pieceType: "masterOfArms" },
+      A8: { side: "black", pieceType: "tower" },
+    },
+  };
+  const SKIRMISH_POSITION_BLOCK = renderPositionBlock(SKIRMISH_GAME_STATE);
+
+  it("parses an 8x8 position block when given the Skirmish layout", () => {
+    const text = ['[Ruleset "2-0:SKIRMISH"]', SKIRMISH_POSITION_BLOCK].join(
+      "\n\n",
+    );
+
+    const record = parsed(parseRecordFile(text, skirmish.boardLayout));
+    expect(record.startingBoard).toEqual(SKIRMISH_GAME_STATE.board);
+    expect(record.tags).toEqual({ ruleset: "2-0:SKIRMISH" });
+  });
+
+  it("rejects that same 8x8 block against Battle's own layout", () => {
+    const text = ['[Ruleset "2-0:SKIRMISH"]', SKIRMISH_POSITION_BLOCK].join(
+      "\n\n",
+    );
+
+    expect(parseRecordFile(text, BATTLE_LAYOUT)).toEqual({
+      kind: "error",
+      error: {
+        kind: "positionBlock",
+        error: { kind: "wrongRowCount", rowCount: 8, expectedRowCount: 12 },
+      },
     });
   });
 });

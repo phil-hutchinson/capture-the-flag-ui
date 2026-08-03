@@ -1,11 +1,16 @@
-// Piece catalog & army inventory for ruleset 1.2:PRE-RELEASE.
+// Piece catalog for the ruleset major-2 editions (`2-0:BATTLE` /
+// `2-0:SKIRMISH`).
 //
-// Per-type counts, rank codes, and position-block symbols per rules.md §2.2
-// (companion capture-the-flag repository, the single source of truth). Sum
-// of quantities is 25 (one full army per side): three each of six ranked
-// pieces, six Towers, one Flag. See
+// The full 8-type catalog - names, rank codes, and position-block symbols -
+// per rules.md §2.2, unchanged from major 1. `PIECE_CATALOG.quantityPerSide`
+// is Battle's own per-type count (`standard_battle`'s roster in
+// `armyComposition.ts` is derived from it, so the two never drift); it is
+// *not* the per-type count for every army - Skirmish's differs (three each
+// of ranks 1-4, three Towers, one Flag, no Foot Soldier/Militia) and lives in
+// `armyComposition.ts` instead. See
 // doc/plan/00000016-update-to-rules-1.2/implementation-plan.md "Grounding
-// facts" for the source table.
+// facts" for Battle's source table and this story's implementation plan
+// ("Grounding facts") for Skirmish's.
 //
 // This module has no knowledge of the board or of placement - it is pure
 // piece data - so it has no dependencies elsewhere in the ruleset core.
@@ -122,20 +127,12 @@ export function pieceCatalogEntries(): PieceCatalogEntry[] {
   return PIECE_TYPES.map((id) => PIECE_CATALOG[id]);
 }
 
-/** Total number of pieces in one full army (sum of every type's quantity). */
-export const ARMY_SIZE: number = pieceCatalogEntries().reduce(
-  (total, entry) => total + entry.quantityPerSide,
-  0,
-);
-
-/** Remaining-count-per-type. Used by the placement-state model (Step 3). */
+/**
+ * Remaining-count-per-type for one side's tray. Shares its shape with
+ * `armyComposition.ts`'s `ArmyRoster` (a full army is a "remaining" count
+ * that has not yet been decremented); a fresh one for a chosen roster comes
+ * from `armyComposition.ts`'s `freshInventory`, not from this module - the
+ * per-type quantities it starts from vary by army composition (story
+ * 00000023's Step 4).
+ */
 export type Inventory = Readonly<Record<PieceTypeId, number>>;
-
-/** A fresh, full 25-piece army inventory: every type at its full quantity. */
-export function freshInventory(): Inventory {
-  const inventory = {} as Record<PieceTypeId, number>;
-  for (const id of PIECE_TYPES) {
-    inventory[id] = PIECE_CATALOG[id].quantityPerSide;
-  }
-  return inventory;
-}

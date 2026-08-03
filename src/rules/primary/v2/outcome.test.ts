@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BOARD_LAYOUTS } from "./boardLayout.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
 import { computeOutcome, INACTIVITY_LIMIT } from "./outcome.ts";
 import type { PieceTypeId } from "./pieces.ts";
@@ -171,6 +172,78 @@ describe("computeOutcome - §5.3 shared inactivity draw", () => {
       kind: "win",
       winner: "black",
       reason: "noLegalMove",
+    });
+  });
+});
+
+// Story 00000023, Step 3: the same detection above, exercised on the
+// Skirmish layout (`standard_64`, 8x8) instead of the Battle default, to
+// confirm the Flag scan and `hasAnyLegalPly` are genuinely parametric over
+// `BoardLayout` rather than hardcoding Battle's 12x12 grid.
+describe("computeOutcome on the Skirmish layout (8x8)", () => {
+  const SKIRMISH = BOARD_LAYOUTS.standard_64;
+
+  it("is ongoing for an ordinary mid-game position", () => {
+    const state = board([
+      ["A1", "white", "flag"],
+      ["H8", "black", "flag"],
+      ["D3", "white", "champion"],
+      ["D6", "black", "militia"],
+    ]);
+    expect(computeOutcome(state, "white", 0, SKIRMISH)).toEqual({
+      kind: "ongoing",
+    });
+  });
+
+  it("is a win for the active side when the opponent's Flag is gone", () => {
+    const state = board([["A1", "white", "flag"]]); // no Black Flag
+    expect(computeOutcome(state, "white", 0, SKIRMISH)).toEqual({
+      kind: "win",
+      winner: "white",
+      reason: "flagCapture",
+    });
+  });
+
+  it("is a loss for the active side when it has no legal ply at all, boxed into the H8 corner", () => {
+    const state = board([
+      ["H8", "white", "champion"],
+      ["H7", "white", "tower"],
+      ["G8", "white", "tower"],
+      ["A1", "white", "flag"],
+      ["A8", "black", "flag"],
+    ]);
+    expect(computeOutcome(state, "white", 0, SKIRMISH)).toEqual({
+      kind: "win",
+      winner: "black",
+      reason: "noLegalMove",
+    });
+  });
+
+  it("is a draw once the shared counter has reached the limit", () => {
+    const state = board([
+      ["A1", "white", "flag"],
+      ["H8", "black", "flag"],
+      ["D3", "white", "champion"],
+      ["D6", "black", "militia"],
+    ]);
+    expect(computeOutcome(state, "white", INACTIVITY_LIMIT, SKIRMISH)).toEqual({
+      kind: "draw",
+      reason: "inactivity",
+    });
+  });
+
+  it("does not look past the Skirmish edge for a Flag - a square that would be on-board for Battle (row 9) but is off-board for Skirmish is never consulted", () => {
+    // White's Flag is planted at A9 - off-board for Skirmish (rows only run
+    // 1-8) but a real, on-board square for Battle. Scanning only Skirmish's
+    // own squares must not find it, so White is treated as having no Flag.
+    const state = board([
+      ["A9", "white", "flag"],
+      ["H8", "black", "flag"],
+    ]);
+    expect(computeOutcome(state, "white", 0, SKIRMISH)).toEqual({
+      kind: "win",
+      winner: "black",
+      reason: "flagCapture",
     });
   });
 });

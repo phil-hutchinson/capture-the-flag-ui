@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BATTLE_EDITION, EDITIONS } from "./edition.ts";
 import type { BoardState, InitialGameState, PlacedPiece } from "./gameState.ts";
 import { renderPositionBlock, RULESET_TAG } from "./gameState.ts";
 import { INACTIVITY_LIMIT } from "./outcome.ts";
@@ -31,7 +32,11 @@ function board(
 function initialGameState(
   pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
 ): InitialGameState {
-  return { ruleset: RULESET_TAG, board: board(pieces) };
+  return {
+    ruleset: RULESET_TAG,
+    edition: BATTLE_EDITION,
+    board: board(pieces),
+  };
 }
 
 describe("startPlay", () => {
@@ -62,7 +67,7 @@ describe("startPlay", () => {
 });
 
 describe("applyMove", () => {
-  it("moves the piece, flips the side, and appends the A2A3 move string", () => {
+  it("moves the piece, flips the side, and appends the extended-notation move string", () => {
     const initial = initialGameState([
       ["D5", "white", "champion"],
       ["A1", "white", "flag"],
@@ -78,7 +83,7 @@ describe("applyMove", () => {
     expect(next.board["D5"]).toBeUndefined();
     expect(next.board["D4"]).toEqual({ side: "white", pieceType: "champion" });
     expect(next.sideToMove).toBe("black");
-    expect(next.moves).toEqual(["D5D4"]);
+    expect(next.moves).toEqual(["D5-D4"]);
     expect(outcome).toEqual({
       kind: "move",
       piece: { side: "white", pieceType: "champion" },
@@ -135,7 +140,7 @@ describe("applyMove", () => {
     ).state;
     expect(state.sideToMove).toBe("black");
 
-    expect(state.moves).toEqual(["D5D4", "D9D10", "D4C4"]);
+    expect(state.moves).toEqual(["D5-D4", "D9-D10", "D4-C4"]);
     expect(state.initialBoard).toEqual(initial.board);
     expect(state.board).not.toEqual(initial.board);
   });
@@ -208,7 +213,7 @@ describe("applyMove", () => {
         pieceType: "champion",
       });
       expect(next.sideToMove).toBe("black");
-      expect(next.moves).toEqual(["D5D4"]);
+      expect(next.moves).toEqual(["D5-D4x"]);
       expect(outcome).toEqual({
         kind: "attack",
         result: "attackerWins",
@@ -239,7 +244,7 @@ describe("applyMove", () => {
         pieceType: "champion",
       });
       expect(next.sideToMove).toBe("black");
-      expect(next.moves).toEqual(["D5D4"]);
+      expect(next.moves).toEqual(["D5x-D4"]);
       expect(outcome).toEqual({
         kind: "attack",
         result: "attackerLoses",
@@ -267,7 +272,7 @@ describe("applyMove", () => {
       expect(next.board["D5"]).toBeUndefined();
       expect(next.board["D4"]).toBeUndefined();
       expect(next.sideToMove).toBe("black");
-      expect(next.moves).toEqual(["D5D4"]);
+      expect(next.moves).toEqual(["D5x-D4x"]);
       expect(outcome).toEqual({
         kind: "attack",
         result: "mutualLoss",
@@ -321,7 +326,7 @@ describe("applyMove", () => {
       expect(state.sideToMove).toBe("white");
     });
 
-    it("renders an attack as a plain A2A3 move in the game record", () => {
+    it("renders an attack as an extended-notation move, marking the removed defender, in the game record", () => {
       const initial = initialGameState([
         ["D5", "white", "champion"],
         ["D4", "black", "militia"],
@@ -336,8 +341,7 @@ describe("applyMove", () => {
       ).state;
 
       const record = renderGameRecord(state);
-      expect(record).toContain("1. D5D4");
-      expect(record).not.toMatch(/D5D4[^\s]/);
+      expect(record).toContain("1. D5-D4x");
     });
   });
 });
@@ -687,7 +691,11 @@ describe("renderGameRecord", () => {
     // The current board (D4/D10) must not appear as the record's position
     // block - only the opening D5/D9 position does.
     expect(record).not.toContain(
-      renderPositionBlock({ ruleset: RULESET_TAG, board: state.board }),
+      renderPositionBlock({
+        ruleset: RULESET_TAG,
+        edition: BATTLE_EDITION,
+        board: state.board,
+      }),
     );
   });
 
@@ -718,9 +726,9 @@ describe("renderGameRecord", () => {
 
     const record = renderGameRecord(state);
 
-    expect(record).toContain("1. D5D4 D9D10");
-    expect(record).toContain("2. C5C4");
-    expect(record).not.toMatch(/2\. C5C4 \S/);
+    expect(record).toContain("1. D5-D4 D9-D10");
+    expect(record).toContain("2. C5-C4");
+    expect(record).not.toMatch(/2\. C5-C4 \S/);
   });
 });
 
@@ -832,8 +840,7 @@ describe("renderGameRecord - Result/ResultReason (§5 record file format)", () =
     expect(record).toContain('[Result "1/2-1/2"]');
     expect(record).toContain('[ResultReason "Agreement"]');
     expect(drawn.moves).toBe(movesBefore);
-    expect(record).toContain("1. D5D4");
-    expect(record).not.toMatch(/D5D4[^\s]/);
+    expect(record).toContain("1. D5-D4");
   });
 
   it('writes [ResultReason "No Legal Move"] when the side to move is left with no legal ply', () => {
@@ -867,7 +874,7 @@ describe("renderGameRecord - Result/ResultReason (§5 record file format)", () =
     expect(record).toContain('[ResultReason "No Legal Move"]');
   });
 
-  it("still contains the Ruleset tag, position block, and plain-form move rounds alongside the result tags", () => {
+  it("still contains the Ruleset tag, position block, and extended-form move rounds alongside the result tags", () => {
     const initial = initialGameState([
       ["D5", "white", "champion"],
       ["D6", "black", "flag"],
@@ -884,6 +891,55 @@ describe("renderGameRecord - Result/ResultReason (§5 record file format)", () =
 
     expect(record).toContain(`[Ruleset "${RULESET_TAG}"]`);
     expect(record).toContain(renderPositionBlock(initial));
-    expect(record).toContain("1. D5D6");
+    expect(record).toContain("1. D5-D6x");
+  });
+});
+
+describe("applyMove - threads the edition's board layout (story 00000023, Step 7)", () => {
+  // Regression coverage for the defect the owner observed live at Step 6's
+  // Gate B: `applyMove` used to call `legalAttacks`/`legalDestinations`/
+  // `resolveCombat`/`computeOutcome` on their `BATTLE_LAYOUT` default
+  // regardless of which edition was actually being played, so a Skirmish
+  // game's rule enforcement read Battle's lake pattern and bounds instead of
+  // its own. Skirmish's lake rows are 4-5 (columns B/C/F/G); Battle's are
+  // 6-7 (columns B/C/F/G/J/K) - row 6, column B is therefore a lake under
+  // Battle but ordinary open ground under Skirmish, and vice versa for row 4.
+  const skirmish = EDITIONS["2-0:SKIRMISH"];
+
+  function skirmishInitialGameState(
+    pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
+  ): InitialGameState {
+    return { ruleset: RULESET_TAG, edition: skirmish, board: board(pieces) };
+  }
+
+  it("never offers a Skirmish lake square as a legal destination, even though Battle's layout would allow it", () => {
+    const initial = skirmishInitialGameState([
+      ["B3", "white", "champion"],
+      ["A1", "white", "flag"],
+      ["H8", "black", "flag"],
+    ]);
+    const state = startPlay(initial);
+    expect(() =>
+      applyMove(state, { column: "B", row: 3 }, { column: "B", row: 4 }),
+    ).toThrow(/not a legal destination/);
+  });
+
+  it("offers a square that is a Battle lake but open ground on Skirmish, and applies the move there", () => {
+    const initial = skirmishInitialGameState([
+      ["B7", "white", "champion"],
+      ["A1", "white", "flag"],
+      ["H8", "black", "flag"],
+    ]);
+    const state = startPlay(initial);
+    const { state: next } = applyMove(
+      state,
+      { column: "B", row: 7 },
+      { column: "B", row: 6 },
+    );
+    expect(next.board["B7"]).toBeUndefined();
+    expect(next.board["B6"]).toEqual({
+      side: "white",
+      pieceType: "champion",
+    });
   });
 });

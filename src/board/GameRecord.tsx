@@ -5,13 +5,14 @@
 // collapsed <details> disclosure (and, gated to dev builds, a console.log)
 // rather than anything more elaborate. Where that pattern dumped the one-shot
 // initial game state, this surfaces the *evolving* Phase-2 `PlayState` — the same
-// `Ruleset` tag and position block, plus the move sequence in the simple
-// `A2A3` coordinate form (rules.md §4.4) — re-rendered on every move via
-// `play.ts`'s `renderGameRecord` (Step 3). This is the foundation
-// recorded-game replay will build on; it does not implement replay itself.
+// `Ruleset` tag and position block, plus the move sequence in the record
+// format's extended notation (`S[x]-D[x]`, notation.ts — story 00000023's
+// Step 8a) — re-rendered on every move via `play.ts`'s `renderGameRecord`
+// (Step 3). This is the foundation recorded-game replay will build on; it
+// does not implement replay itself.
 
 import { useEffect, useMemo } from "react";
-import { renderGameRecord, type PlayState } from "../rules/primary/v1/play.ts";
+import { renderGameRecord, type PlayState } from "../rules/primary/v2/play.ts";
 import "./GameRecord.css";
 
 export interface GameRecordProps {

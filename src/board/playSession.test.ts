@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { Square } from "../rules/primary/v1/board.ts";
-import { RULESET_TAG } from "../rules/primary/v1/gameState.ts";
+import type { Square } from "../rules/primary/v2/board.ts";
+import { BATTLE_EDITION, EDITIONS } from "../rules/primary/v2/edition.ts";
+import { RULESET_TAG } from "../rules/primary/v2/gameState.ts";
 import type {
   BoardState,
   InitialGameState,
   PlacedPiece,
-} from "../rules/primary/v1/gameState.ts";
-import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
+} from "../rules/primary/v2/gameState.ts";
+import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
 import {
   acceptDraw,
   actionableSquares,
@@ -34,7 +35,11 @@ function board(
 function initialGameState(
   pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
 ): InitialGameState {
-  return { ruleset: RULESET_TAG, board: board(pieces) };
+  return {
+    ruleset: RULESET_TAG,
+    edition: BATTLE_EDITION,
+    board: board(pieces),
+  };
 }
 
 /** Sorts squares for order-independent comparison. */
@@ -277,7 +282,7 @@ describe("activateSquare - moving", () => {
       side: "white",
       pieceType: "footSoldier",
     });
-    expect(moved.play.moves).toEqual(["D5D4"]);
+    expect(moved.play.moves).toEqual(["D5-D4"]);
   });
 
   it("activating a non-destination while a piece is selected is a no-op", () => {
@@ -372,7 +377,7 @@ describe("activateSquare - turn alternation across a sequence", () => {
     session = activateSquare(session, sq("D", 4));
     session = activateSquare(session, sq("C", 4));
     expect(session.play.sideToMove).toBe("black");
-    expect(session.play.moves).toEqual(["D5D4", "D9D10", "D4C4"]);
+    expect(session.play.moves).toEqual(["D5-D4", "D9-D10", "D4-C4"]);
   });
 });
 
@@ -481,7 +486,7 @@ describe("attacks - activating a target", () => {
       side: "white",
       pieceType: "footSoldier",
     });
-    expect(attacked.play.moves).toEqual(["D5E5"]);
+    expect(attacked.play.moves).toEqual(["D5-E5x"]);
     expect(attacked.lastOutcome).toEqual({
       kind: "attack",
       result: "attackerWins",
@@ -562,7 +567,7 @@ describe("attacks - turn alternation with attacks mixed in", () => {
 
     expect(session.play.sideToMove).toBe("white");
     expect(session.selection).toBeNull();
-    expect(session.play.moves).toEqual(["D5D6", "D7D6"]);
+    expect(session.play.moves).toEqual(["D5-D6", "D7x-D6"]);
     expect(session.play.board["D7"]).toBeUndefined();
     expect(session.play.board["D6"]).toEqual({
       side: "white",
@@ -734,7 +739,7 @@ describe("draw offer state machine (story 00000006, Step 6)", () => {
 
     expect(moved.drawOffer).toBeNull();
     expect(moved.play.sideToMove).toBe("black");
-    expect(moved.play.moves).toEqual(["D5D4"]);
+    expect(moved.play.moves).toEqual(["D5-D4"]);
   });
 });
 
@@ -832,3 +837,53 @@ function finishedSessionForDrawTests(): PlaySession {
   const selected = activateSquare(session, sq("D", 5));
   return activateSquare(selected, sq("D", 4));
 }
+
+describe("playSession threads the edition's board layout (story 00000023, Step 7)", () => {
+  // Regression coverage for the defect the owner observed live at Step 6's
+  // Gate B: every `legalDestinations`/`legalAttacks`/`allSquares` call in
+  // this module used to run on the `BATTLE_LAYOUT` default regardless of
+  // `session.play.edition`, so a Skirmish game's highlighting and move
+  // application read Battle's lake pattern and bounds instead of its own.
+  // Skirmish's lake rows are 4-5 (columns B/C/F/G); Battle's are 6-7 (columns
+  // B/C/F/G/J/K) - row 6, column B is therefore a lake under Battle but
+  // ordinary open ground under Skirmish, and vice versa for row 4.
+  const skirmish = EDITIONS["2-0:SKIRMISH"];
+
+  function skirmishInitialGameState(
+    pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
+  ): InitialGameState {
+    return { ruleset: RULESET_TAG, edition: skirmish, board: board(pieces) };
+  }
+
+  it("never offers a Skirmish lake square as an actionable destination", () => {
+    const session = startSession(
+      skirmishInitialGameState([
+        ["B3", "white", "champion"],
+        ["A1", "white", "flag"],
+        ["H8", "black", "flag"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("B", 3));
+    expect(sortedKeys(actionableSquares(selected))).not.toContain("B4");
+    expect(sortedKeys(activatableSquares(selected))).not.toContain("B4");
+  });
+
+  it("offers a Battle-lake-but-Skirmish-open square as an actionable destination, and applies the move there", () => {
+    const session = startSession(
+      skirmishInitialGameState([
+        ["B7", "white", "champion"],
+        ["A1", "white", "flag"],
+        ["H8", "black", "flag"],
+      ]),
+    );
+    const selected = activateSquare(session, sq("B", 7));
+    expect(sortedKeys(actionableSquares(selected))).toContain("B6");
+
+    const moved = activateSquare(selected, sq("B", 6));
+    expect(moved.play.board["B6"]).toEqual({
+      side: "white",
+      pieceType: "champion",
+    });
+    expect(moved.play.board["B7"]).toBeUndefined();
+  });
+});

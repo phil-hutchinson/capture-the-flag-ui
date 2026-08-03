@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { PositionBlockError } from "../rules/primary/v1/gameState.ts";
-import type { RecordFileError } from "../rules/primary/v1/recordFile.ts";
-import type { ReplayError } from "../rules/primary/v1/replay.ts";
+import type { PositionBlockError } from "../rules/primary/v2/gameState.ts";
+import type { RecordFileError } from "../rules/primary/v2/recordFile.ts";
+import type { ReplayError } from "../rules/primary/v2/replay.ts";
 import type { ReadRecordError } from "../rules/readRecord.ts";
 import {
   describeMove,
@@ -13,8 +13,13 @@ import {
 
 /** Every case fed to `describeRejection` below, grouped by which layer produced it. */
 const POSITION_BLOCK_ERRORS: readonly PositionBlockError[] = [
-  { kind: "wrongRowCount", rowCount: 11 },
-  { kind: "wrongCellCount", row: 5, cellCount: 11 },
+  { kind: "wrongRowCount", rowCount: 11, expectedRowCount: 12 },
+  {
+    kind: "wrongCellCount",
+    row: 5,
+    cellCount: 11,
+    expectedCellCount: 12,
+  },
   {
     kind: "unrecognizedCell",
     square: { column: "F", row: 5 },
@@ -202,6 +207,48 @@ describe("describeRejection", () => {
     });
     expect(message).toBe(
       "Move 12 (round 6, blue) — F5F6 uses the short move notation, which doesn't record what happened to each piece, so it can't be reviewed.",
+    );
+  });
+
+  it("names the board's own expected size for a wrong row count, not a hardcoded 12x12 (Gate D defect fix)", () => {
+    const battleMessage = describeRejection({
+      kind: "recordFile",
+      error: {
+        kind: "positionBlock",
+        error: { kind: "wrongRowCount", rowCount: 11, expectedRowCount: 12 },
+      },
+    });
+    expect(battleMessage).toBe(
+      "This file's starting position isn't a full 12x12 board (it has 11 rows instead of 12), so it can't be reviewed.",
+    );
+
+    const skirmishMessage = describeRejection({
+      kind: "recordFile",
+      error: {
+        kind: "positionBlock",
+        error: { kind: "wrongRowCount", rowCount: 7, expectedRowCount: 8 },
+      },
+    });
+    expect(skirmishMessage).toBe(
+      "This file's starting position isn't a full 8x8 board (it has 7 rows instead of 8), so it can't be reviewed.",
+    );
+  });
+
+  it("names the board's own expected width for a wrong cell count, not a hardcoded 12 (Gate D defect fix)", () => {
+    const skirmishMessage = describeRejection({
+      kind: "recordFile",
+      error: {
+        kind: "positionBlock",
+        error: {
+          kind: "wrongCellCount",
+          row: 5,
+          cellCount: 7,
+          expectedCellCount: 8,
+        },
+      },
+    });
+    expect(skirmishMessage).toBe(
+      "This file's starting position has a row (row 5) that isn't 8 squares wide, so it can't be reviewed.",
     );
   });
 

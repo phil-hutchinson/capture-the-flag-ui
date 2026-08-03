@@ -57,6 +57,19 @@ describe("parseMoveToken - the four extended shapes", () => {
       },
     });
   });
+
+  it("parses a square beyond Battle's old fixed A-L/1-12 bounds (column Z, a two-digit row past 12) - story 00000023's Step 8 size-parametric widening", () => {
+    const result = parseMoveToken("Z1-Y99");
+    expect(result).toEqual({
+      kind: "parsed",
+      move: {
+        from: { column: "Z", row: 1 },
+        to: { column: "Y", row: 99 },
+        fromRemoved: false,
+        toRemoved: false,
+      },
+    });
+  });
 });
 
 describe("parseMoveToken - plain-form rejection", () => {
@@ -78,8 +91,9 @@ describe("parseMoveToken - plain-form rejection", () => {
 describe("parseMoveToken - malformed tokens", () => {
   const malformedTokens = [
     "A4-", // missing destination
-    "M4-A5", // column M does not exist
-    "A13-A5", // row 13 does not exist
+    "AA4-A5", // two-letter column - up to 26 columns is single-letter only
+    "A100-A5", // row 100 - rows only go up to 99
+    "A0-A5", // row 0 does not exist (rows are numbered from 1)
     "a4-a5", // lowercase
     "A4--A5", // doubled separator
     "A4x-A5xx", // extra x

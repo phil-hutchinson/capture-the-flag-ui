@@ -15,7 +15,7 @@
 // worker (and its warm onnxruntime session) alive.
 
 import type { Ply } from "../encoding/eng-nn-1/decoder.ts";
-import type { PlayState } from "../rules/primary/v1/play.ts";
+import type { PlayState } from "../rules/primary/v2/play.ts";
 import type { SearchDriverConfig } from "./searchDriver.ts";
 import type {
   SearchWorkerRequest,

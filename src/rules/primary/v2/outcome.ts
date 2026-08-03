@@ -1,24 +1,37 @@
-// Game-end detection for ruleset 1.2, §5 (companion capture-the-flag
+// Game-end detection for ruleset major 2 (companion capture-the-flag
 // repository, `doc/ruleset/rules.md`, the single source of truth).
 //
-// The game ends the moment any §5 condition is met. This module decides,
+// The game ends the moment any qualifying condition is met. This module decides,
 // from a snapshot of the current board, the side to move, and the single
 // shared inactivity counter, whether the game has ended and - if so - who
 // won (or that it is a draw) and why, evaluated in the precedence documented
 // on `computeOutcome` below.
 //
 // `computeOutcome` takes **plain parameters** - the board, the side to move,
-// and the shared inactivity counter - never a `PlayState`, so this module
-// never imports `play.ts` (which imports this one, to wire the result into
-// the play state).
+// the shared inactivity counter, and (since story 00000023's Step 3) an
+// optional `BoardLayout` - never a `PlayState`, so this module never imports
+// `play.ts` (which imports this one, to wire the result into the play
+// state).
 //
 // This module is pure rule logic - no React - and builds only on the board
-// geometry (board.ts), `BoardState` (gameState.ts), and the no-legal-ply
-// primitive (movement.ts); it has no further dependencies. The structural
-// reachability machinery (`reachability.ts`) that served the 1.1
-// Unbreachable Flag win no longer exists - 1.2 has no such condition.
+// geometry (board.ts, boardLayout.ts), `BoardState` (gameState.ts), and the
+// no-legal-ply primitive (movement.ts); it has no further dependencies. The
+// structural reachability machinery (`reachability.ts`) that served the 1.1
+// Unbreachable Flag win no longer exists - major 2 has no such condition.
+//
+// `computeOutcome` takes an optional `layout` parameter (a `BoardLayout`,
+// boardLayout.ts), defaulting to `BATTLE_LAYOUT`, threaded into the Flag
+// scan and `hasAnyLegalPly`; callers that pass no layout (the frozen
+// encoding/engine modules) still get Battle's bounds unchanged.
 
-import { allSquares, otherSide, squareKey, type Side } from "./board.ts";
+import {
+  allSquares,
+  BATTLE_LAYOUT,
+  otherSide,
+  squareKey,
+  type Side,
+} from "./board.ts";
+import type { BoardLayout } from "./boardLayout.ts";
 import type { BoardState } from "./gameState.ts";
 import { hasAnyLegalPly } from "./movement.ts";
 
@@ -58,8 +71,8 @@ export type GameOutcome =
   | { readonly kind: "draw"; readonly reason: GameEndReason };
 
 /** True iff `side` still has its Flag somewhere on `board` (not yet captured). */
-function hasFlag(board: BoardState, side: Side): boolean {
-  return allSquares().some((square) => {
+function hasFlag(board: BoardState, side: Side, layout: BoardLayout): boolean {
+  return allSquares(layout).some((square) => {
     const occupant = board[squareKey(square)];
     return (
       occupant !== undefined &&
@@ -85,25 +98,27 @@ function hasFlag(board: BoardState, side: Side): boolean {
  * Called once at the start of Phase 2 (`startPlay`) and again after every
  * applied ply (`applyMove`), always with the counter and board already
  * reflecting that ply and `activeSide` already the *new* side to move.
+ * `layout` sizes the board; defaults to Battle.
  */
 export function computeOutcome(
   board: BoardState,
   activeSide: Side,
   inactivityCounter: number,
+  layout: BoardLayout = BATTLE_LAYOUT,
 ): GameOutcome {
   const opponent = otherSide(activeSide);
 
   // 1. §5.1 Flag capture - "does this side still have a Flag on the board",
   // not a check of what the last ply did.
-  if (!hasFlag(board, activeSide)) {
+  if (!hasFlag(board, activeSide, layout)) {
     return { kind: "win", winner: opponent, reason: "flagCapture" };
   }
-  if (!hasFlag(board, opponent)) {
+  if (!hasFlag(board, opponent, layout)) {
     return { kind: "win", winner: activeSide, reason: "flagCapture" };
   }
 
   // 2. §5.2 No legal move - the active side has no legal ply at all.
-  if (!hasAnyLegalPly(board, activeSide)) {
+  if (!hasAnyLegalPly(board, activeSide, layout)) {
     return { kind: "win", winner: opponent, reason: "noLegalMove" };
   }
 

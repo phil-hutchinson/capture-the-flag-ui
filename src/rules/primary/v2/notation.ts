@@ -1,7 +1,11 @@
-// Move notation for the record file format, ruleset PRIMARY:1.1
-// (rules.md §4.4, companion capture-the-flag repository - the single source
-// of truth). Squares are always in the absolute White frame (board.ts):
-// column A-L, row 1-12, uppercase.
+// Move notation for the record file format, ruleset major 2 (rules.md §4.4,
+// companion capture-the-flag repository - the single source of truth).
+// Squares are always in the absolute White frame (board.ts): a single
+// uppercase column letter A-Z and a row 1-99 - size-parametric (story
+// 00000023's Step 8) since the position block, and so a square token, is no
+// longer fixed to Battle's 12x12 grid. Up to 26 columns is the rules' own
+// limit (rules.md §2.1); 99 rows is comfortably above any board either
+// published edition or a plausible future one would use.
 //
 // Two forms exist in the format; this module only ever *produces* the
 // extended (result-marking) form, and *parses* both, so that a plain-form
@@ -60,8 +64,20 @@ export type ParsedMoveToken =
   | { readonly kind: "plainNotation"; readonly token: string }
   | { readonly kind: "malformed"; readonly token: string };
 
-/** One square token: a single column letter A-L followed by row 1-12, no leading zero. */
-const SQUARE_PATTERN = "[A-L](?:1[0-2]|[1-9])";
+/**
+ * One square token: a single column letter A-Z followed by row 1-99, no
+ * leading zero. This is a **syntactic** pattern only - it accepts any square
+ * that could exist on some board (up to 26 columns / 99 rows), not just one
+ * that exists on the board actually being read. Bound-checking a parsed
+ * square against the real `BoardLayout` is the reader's job
+ * (`recordFile.ts`/`replay.ts`), not this module's; a token that is
+ * syntactically valid but off the real board (e.g. `M9` in a Skirmish
+ * record) is not rejected here as malformed - it surfaces later, during
+ * replay, as `emptySource` (there is no piece on that square), which reads
+ * to the player as "there is no piece there" rather than "that is not a
+ * valid square."
+ */
+const SQUARE_PATTERN = "[A-Z](?:[1-9][0-9]?)";
 
 /** A full square token, anchored - used to parse the pieces matched by the move patterns. */
 const SQUARE_ONLY = new RegExp(`^(${SQUARE_PATTERN})$`);

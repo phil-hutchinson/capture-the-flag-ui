@@ -36,3 +36,13 @@
 .start-screen__choice-detail {
   font-size: 0.9rem;
 }
+
+.start-screen__choice:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.start-screen__choice-note {
+  font-size: 0.8rem;
+  font-style: italic;
+}

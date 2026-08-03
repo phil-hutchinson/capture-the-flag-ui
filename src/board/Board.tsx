@@ -9,15 +9,17 @@
 // grammar (move/swap/select/place) - App.tsx owns that - it only renders
 // whichever square is passed in as `selectedSquare` with a highlight.
 
+import type { CSSProperties } from "react";
 import { PieceIcon, LAKE_SYMBOL_ID } from "../art/PieceIcon.tsx";
 import {
   isLake,
   squareKey,
   type Side,
   type Square,
-} from "../rules/primary/v1/board.ts";
-import { pieceAt, type PlacementState } from "../rules/primary/v1/placement.ts";
-import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
+} from "../rules/primary/v2/board.ts";
+import type { BoardLayout } from "../rules/primary/v2/boardLayout.ts";
+import { pieceAt, type PlacementState } from "../rules/primary/v2/placement.ts";
+import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
 import { visibleColumns, visibleRows, type RowBand } from "./boardView.ts";
 import "./Board.css";
 
@@ -29,6 +31,15 @@ export interface BoardProps {
    * pieces are drawn on their squares. Omit to render bare geometry only.
    */
   readonly placement?: PlacementState;
+  /**
+   * The board layout to render (story 00000023, Step 6; required since the
+   * peer review's finding #2 - an omitted layout used to default silently to
+   * Battle's, the same defect class found live at this story's Gate B/D).
+   * Every caller passes its own edition's `boardLayout` explicitly -
+   * typically `placement.boardLayout` when `placement` is given, or
+   * `BATTLE_LAYOUT` (`board.ts`) for a caller that only ever plays Battle.
+   */
+  readonly layout: BoardLayout;
   /** Called when an interactive (home-band) square is clicked. */
   readonly onSquareClick?: (square: Square) => void;
   /**
@@ -39,19 +50,30 @@ export interface BoardProps {
   readonly selectedSquare?: Square;
 }
 
+/** Inline style carrying the grid's own size, sized to the board layout. */
+interface BoardGridStyle extends CSSProperties {
+  readonly "--columns": number;
+  readonly "--rows": number;
+}
+
 /** Board grid, cropped and oriented to one player's own view. */
 export function Board({
   activeSide,
   placement,
+  layout,
   onSquareClick,
   selectedSquare,
 }: BoardProps) {
-  const rows = visibleRows(activeSide);
-  const columns = visibleColumns(activeSide);
+  const rows = visibleRows(activeSide, layout);
+  const columns = visibleColumns(activeSide, layout);
   const selectedKey = selectedSquare ? squareKey(selectedSquare) : undefined;
+  const gridStyle: BoardGridStyle = {
+    "--columns": columns.length,
+    "--rows": rows.length,
+  };
 
   return (
-    <div className="board" data-active-side={activeSide}>
+    <div className="board" data-active-side={activeSide} style={gridStyle}>
       {rows.map(({ row, band }) =>
         columns.map((column) => {
           const square: Square = { column, row };
@@ -62,6 +84,7 @@ export function Board({
               square={square}
               band={band}
               side={activeSide}
+              layout={layout}
               pieceType={pieceType}
               selected={
                 selectedKey !== undefined && squareKey(square) === selectedKey
@@ -83,6 +106,7 @@ interface BoardSquareCellProps {
   readonly square: Square;
   readonly band: RowBand;
   readonly side: Side;
+  readonly layout: BoardLayout;
   readonly pieceType?: PieceTypeId;
   readonly selected?: boolean;
   readonly onClick?: () => void;
@@ -92,11 +116,12 @@ function BoardSquareCell({
   square,
   band,
   side,
+  layout,
   pieceType,
   selected,
   onClick,
 }: BoardSquareCellProps) {
-  const lake = isLake(square);
+  const lake = isLake(square, layout);
   const classNames = ["board-square", `board-square--${band}`];
   if (lake) {
     classNames.push("board-square--lake");

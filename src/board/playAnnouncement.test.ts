@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { Square } from "../rules/primary/v1/board.ts";
-import { RULESET_TAG } from "../rules/primary/v1/gameState.ts";
+import type { Square } from "../rules/primary/v2/board.ts";
+import { BATTLE_EDITION } from "../rules/primary/v2/edition.ts";
+import { RULESET_TAG } from "../rules/primary/v2/gameState.ts";
 import type {
   BoardState,
   InitialGameState,
   PlacedPiece,
-} from "../rules/primary/v1/gameState.ts";
-import type { GameOutcome } from "../rules/primary/v1/outcome.ts";
-import type { PieceTypeId } from "../rules/primary/v1/pieces.ts";
-import type { PlayState } from "../rules/primary/v1/play.ts";
+} from "../rules/primary/v2/gameState.ts";
+import type { GameOutcome } from "../rules/primary/v2/outcome.ts";
+import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
+import type { PlayState } from "../rules/primary/v2/play.ts";
 import {
   describeActivation,
   describeDrawAccepted,
@@ -36,7 +37,11 @@ function board(
 function initialGameState(
   pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
 ): InitialGameState {
-  return { ruleset: RULESET_TAG, board: board(pieces) };
+  return {
+    ruleset: RULESET_TAG,
+    edition: BATTLE_EDITION,
+    board: board(pieces),
+  };
 }
 
 const sq = (column: Square["column"], row: Square["row"]): Square => ({
@@ -63,19 +68,21 @@ describe("describeActivation - selecting a piece", () => {
   });
 
   it("uses singular wording for exactly one available move", () => {
-    // Boxed in by friendly pieces on three sides (never attack targets, and
-    // never a source of encumbrance), one empty neighbor. A diagonal enemy
-    // at C4 encumbers the piece (within its eight surrounding squares) but
-    // is not itself an attack target (attacks are orthogonal only) - so this
-    // is exactly one plain move (E5) and no attacks, with the two-square
-    // option withheld everywhere by the encumbrance.
+    // Boxed in by a friendly piece on the only orthogonal direction other
+    // than the diagonal-adjacent enemy's; the enemy militia at D6 (rules
+    // major 2, §4.3: Towers/Flag excepted, so any other numbered enemy piece
+    // works) is orthogonally adjacent and offered as an attack, and D4/C5
+    // are friendly (never attack targets, never a source of encumbrance).
+    // Being encumbered (an enemy piece among the eight surrounding squares)
+    // withholds the two-square option everywhere, leaving exactly one move:
+    // the D6 attack.
     const session = startSession(
       initialGameState([
         ["D5", "white", "footSoldier"],
         ["C5", "white", "militia"],
         ["D4", "white", "militia"],
-        ["D6", "white", "militia"],
-        ["C4", "black", "militia"],
+        ["E5", "white", "militia"],
+        ["D6", "black", "militia"],
         ["A1", "white", "flag"],
         ["L12", "black", "flag"],
       ]),
@@ -357,6 +364,7 @@ describe("describeActivation - game-ending ply", () => {
     const [originKey, side, pieceType] = piece;
     const before: PlayState = {
       ruleset: RULESET_TAG,
+      edition: BATTLE_EDITION,
       initialBoard: board([piece]),
       board: board([piece]),
       sideToMove: side,
@@ -531,6 +539,7 @@ describe("describeActivation - against-the-computer perspective (story 00000019,
       ];
       const before: PlayState = {
         ruleset: RULESET_TAG,
+        edition: BATTLE_EDITION,
         initialBoard: board([piece]),
         board: board([piece]),
         sideToMove: "white",

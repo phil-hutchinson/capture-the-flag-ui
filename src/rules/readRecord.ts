@@ -1,15 +1,20 @@
 // The version-dispatch entry point for reading a recorded game file - the
 // only entry point the UI calls (`src/review/ImportScreen.tsx`).
 //
-// Reading a record is version-sensitive: the position block's piece letters
-// and the move notation belong to a specific ruleset version, so the actual
-// parsing lives with that version's rule code
-// (`src/rules/primary/v1/recordFile.ts` for `"1.2:PRE-RELEASE"`). This module
-// knows only the *set* of ruleset versions this app can read: it looks just
-// far enough into the file to find the `Ruleset` tag, and either delegates to
-// that version's reader or rejects the file as one this app doesn't know how
-// to review. A future ruleset version adds a case here rather than editing an
-// existing one.
+// Reading a record is edition-sensitive: the position block's dimensions and
+// the piece letters belong to a specific edition's `BoardLayout`, so this
+// module looks just far enough into the file to find the `Ruleset` tag - the
+// full edition id (`2-0:BATTLE` / `2-0:SKIRMISH`, no deviating flags, per
+// `technical-notes.md`'s "editions and flags" model) - and either resolves
+// that edition and delegates to the (single, edition-parametric) major-2
+// reader (`src/rules/primary/v2/recordFile.ts`) or rejects the file as one
+// this app doesn't know how to review. This app plays only major 2, so the
+// old `1.2:PRE-RELEASE` tag is not a case here at all any more (story
+// 00000023's Step 8, the owner-authorized "replace, don't version-alongside"
+// exception - see this story's story.md): such a file falls straight
+// through to the same `unknownRuleset` rejection as any other name this app
+// does not recognize. A future ruleset version adds a case here rather than
+// editing an existing one.
 //
 // Reading a record is parse-then-replay (`recordFile.ts` then `replay.ts`):
 // this entry point returns either a fully replayed recorded game - every
@@ -18,15 +23,24 @@
 // is rejected exactly as if it had failed to parse.
 
 import {
+  EDITIONS,
+  type Edition,
+  type EditionId,
+} from "./primary/v2/edition.ts";
+import {
   parseRecordFile,
   type RecordFileError,
-} from "./primary/v1/recordFile.ts";
-import { RULESET_TAG } from "./primary/v1/gameState.ts";
+} from "./primary/v2/recordFile.ts";
 import {
   replayRecord,
   type ReplayedRecord,
   type ReplayError,
-} from "./primary/v1/replay.ts";
+} from "./primary/v2/replay.ts";
+
+/** True if `ruleset` names one of this app's known editions. */
+function isKnownEditionId(ruleset: string): ruleset is EditionId {
+  return Object.hasOwn(EDITIONS, ruleset);
+}
 
 /**
  * Everything that can go wrong before a version-specific reader even gets a
@@ -43,9 +57,20 @@ export type ReadRecordError =
   | { readonly kind: "recordFile"; readonly error: RecordFileError }
   | { readonly kind: "replay"; readonly error: ReplayError };
 
-/** The result of reading a record file: a fully replayed recorded game, or a structured rejection. Never throws. */
+/**
+ * The result of reading a record file: a fully replayed recorded game
+ * together with the resolved `Edition` its `Ruleset` tag named (story
+ * 00000023's Gate D defect fix - the board a record is *rendered* on must be
+ * the record's own edition, never assumed Battle, so this is carried
+ * alongside `record` rather than discarded once dispatch is done), or a
+ * structured rejection. Never throws.
+ */
 export type ReadRecordResult =
-  | { readonly kind: "parsed"; readonly record: ReplayedRecord }
+  | {
+      readonly kind: "parsed";
+      readonly record: ReplayedRecord;
+      readonly edition: Edition;
+    }
   | { readonly kind: "error"; readonly error: ReadRecordError };
 
 /**
@@ -63,15 +88,19 @@ function unescapeTagValue(raw: string): string {
 }
 
 /**
- * Reads a recorded game file's text, dispatching to the ruleset version it
- * declares and then replaying it in full. Returns a `notARecord` rejection
- * when no `Ruleset` tag can be found at all (the file is not recognizable as
- * a game record - most likely the wrong kind of file was chosen), an
- * `unknownRuleset` rejection naming the ruleset when one is found but this
- * app does not know it, that version's own `recordFile` rejection if the
- * file's structure is unreadable, that version's own `replay` rejection if
- * the file parses but cannot be replayed to the end, or otherwise the fully
- * replayed game - there is no partial result.
+ * Reads a recorded game file's text, dispatching to the edition its
+ * `Ruleset` tag names and then replaying it in full. Returns a `notARecord`
+ * rejection when no `Ruleset` tag can be found at all (the file is not
+ * recognizable as a game record - most likely the wrong kind of file was
+ * chosen), an `unknownRuleset` rejection naming the ruleset when one is
+ * found but this app does not know it - which now includes the retired
+ * `1.2:PRE-RELEASE` tag, since major-1 records are deliberately not
+ * reviewable (story 00000023's Step 8) - the resolved edition's own
+ * `recordFile` rejection if the file's structure is unreadable (including a
+ * position block whose size does not match that edition's `BoardLayout`),
+ * that edition's own `replay` rejection if the file parses but cannot be
+ * replayed to the end, or otherwise the fully replayed game paired with the
+ * resolved `Edition` it was read as - there is no partial result.
  */
 export function readRecord(text: string): ReadRecordResult {
   const match = RULESET_TAG_LINE.exec(text);
@@ -80,11 +109,11 @@ export function readRecord(text: string): ReadRecordResult {
   }
 
   const ruleset = unescapeTagValue(match[1]);
-  if (ruleset !== RULESET_TAG) {
+  if (!isKnownEditionId(ruleset)) {
     return { kind: "error", error: { kind: "unknownRuleset", ruleset } };
   }
 
-  const parseResult = parseRecordFile(text);
+  const parseResult = parseRecordFile(text, EDITIONS[ruleset].boardLayout);
   if (parseResult.kind === "error") {
     return {
       kind: "error",
@@ -100,5 +129,9 @@ export function readRecord(text: string): ReadRecordResult {
     };
   }
 
-  return { kind: "parsed", record: replayResult.record };
+  return {
+    kind: "parsed",
+    record: replayResult.record,
+    edition: EDITIONS[ruleset],
+  };
 }

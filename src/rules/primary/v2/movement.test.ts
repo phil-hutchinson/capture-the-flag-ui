@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Square } from "./board.ts";
+import { BOARD_LAYOUTS } from "./boardLayout.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
 import { hasAnyLegalPly, legalAttacks, legalDestinations } from "./movement.ts";
 import type { PieceTypeId } from "./pieces.ts";
@@ -25,7 +26,7 @@ function sortedKeys(squares: readonly Square[]): string[] {
   return squares.map((s) => `${s.column}${s.row}`).sort();
 }
 
-describe("legalDestinations (ruleset 1.2, empty-square moves only)", () => {
+describe("legalDestinations (ruleset major 2, empty-square moves only)", () => {
   it("gives an unencumbered piece its four one-square and four two-square orthogonal empties in open space", () => {
     const state = board([["D5", "white", "champion"]]);
     const destinations = legalDestinations(state, { column: "D", row: 5 });
@@ -206,7 +207,7 @@ describe("hasAnyLegalPly", () => {
   });
 });
 
-describe("legalAttacks (ruleset 1.2, enemy-occupied attack targets)", () => {
+describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => {
   it("offers a baseline piece exactly its adjacent enemy squares", () => {
     const state = board([
       ["D5", "white", "champion"],
@@ -299,17 +300,184 @@ describe("legalAttacks (ruleset 1.2, enemy-occupied attack targets)", () => {
     expect(legalAttacks(state, { column: "D", row: 5 })).toEqual([]);
   });
 
-  it("never returns a diagonal attack target", () => {
+  it("offers a movable enemy one square diagonally as an attack (major 2, §4.3)", () => {
     const state = board([
       ["E9", "black", "knight"],
-      ["D8", "white", "militia"], // diagonally adjacent - must never be offered
-      ["F10", "white", "militia"], // diagonally adjacent - must never be offered
+      ["D8", "white", "militia"], // diagonally adjacent, movable - offered
+      ["F10", "white", "militia"], // diagonally adjacent, movable - offered
     ]);
     const attacks = legalAttacks(state, { column: "E", row: 9 });
-    for (const attack of attacks) {
-      const sameColumn = attack.column === "E";
-      const sameRow = attack.row === 9;
-      expect(sameColumn !== sameRow).toBe(true);
-    }
+    expect(sortedKeys(attacks)).toEqual(["D8", "F10"].sort());
+  });
+});
+
+describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
+  it("offers a movable enemy one square diagonally as an attack in every diagonal direction", () => {
+    // D9 is clear of every lake (lake columns B/C/F/G/J/K only apply to rows
+    // 6-7), so all four diagonals are plain empty/enemy squares.
+    const state = board([
+      ["D9", "white", "champion"],
+      ["C8", "black", "militia"],
+      ["E8", "black", "militia"],
+      ["C10", "black", "militia"],
+      ["E10", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(state, { column: "D", row: 9 });
+    expect(sortedKeys(attacks)).toEqual(["C8", "C10", "E8", "E10"].sort());
+  });
+
+  it("never offers a diagonal attack against a Tower", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "tower"],
+    ]);
+    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    expect(attacks).toEqual([]);
+  });
+
+  it("never offers a diagonal attack against the Flag", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "flag"],
+    ]);
+    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    expect(attacks).toEqual([]);
+  });
+
+  it("never offers a diagonal move onto an empty square (legalDestinations stays empty diagonally)", () => {
+    const state = board([["D5", "white", "champion"]]);
+    const destinations = legalDestinations(state, { column: "D", row: 5 });
+    expect(destinations.some((s) => s.column === "E" && s.row === 6)).toBe(
+      false,
+    );
+  });
+
+  it("never offers a two-square diagonal attack, even when unencumbered", () => {
+    const state = board([
+      ["D9", "white", "champion"],
+      ["F11", "black", "militia"], // two squares diagonally - not offered
+    ]);
+    const attacks = legalAttacks(state, { column: "D", row: 9 });
+    expect(attacks.some((s) => s.column === "F" && s.row === 11)).toBe(false);
+  });
+
+  it("withholds a diagonal attack onto a lake square, even with an occupant fixture there", () => {
+    // B is a lake column; B6 is a lake square. From A5, the diagonal target
+    // B6 must never be offered because the *attacked square itself* is a
+    // lake - this holds regardless of the (in a real game, impossible)
+    // occupant fixture placed there, confirming the check is the geometric
+    // isLake exclusion and not merely "no occupant found".
+    const state = board([
+      ["A5", "white", "champion"],
+      ["B6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(state, { column: "A", row: 5 });
+    expect(attacks.some((s) => s.column === "B" && s.row === 6)).toBe(false);
+  });
+
+  it("offers a diagonal attack across a lake corner - the skirt (Battle A6 -> B5, B6 a lake)", () => {
+    // Lake columns on Battle's lake rows (6-7) are B, C, F, G, J, K - B6 is a
+    // lake, but B5 is not (row 5 is White home, not a lake row). A diagonal
+    // attack from A6 to B5 passes the *corner* of the B6/B7/C6/C7 lake block
+    // without landing on a lake square, so it must be offered.
+    const state = board([
+      ["A6", "white", "champion"],
+      ["B5", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(state, { column: "A", row: 6 });
+    expect(sortedKeys(attacks)).toEqual(["B5"]);
+  });
+
+  it("resolves combat identically whether the attack came orthogonally or diagonally", () => {
+    // Stronger piece wins: a champion (rank 2) beats a militia (rank 6)
+    // whether adjacent orthogonally or diagonally - legalAttacks offers both
+    // as ordinary attack targets, and combat.ts (unchanged, direction-
+    // independent) resolves them the same way; this test only confirms both
+    // are offered as attacks on equal footing.
+    const state = board([
+      ["D5", "white", "champion"],
+      ["D6", "black", "militia"], // orthogonal
+      ["E6", "black", "militia"], // diagonal
+    ]);
+    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    expect(sortedKeys(attacks)).toEqual(["D6", "E6"].sort());
+  });
+});
+
+// Story 00000023, Step 3: the same functions above, exercised on the
+// Skirmish layout (`standard_64`, 8x8) instead of the Battle default, to
+// confirm the step/off-board bounds and the unencumbered scan are genuinely
+// parametric over `BoardLayout` rather than hardcoding Battle's 12x12 grid.
+describe("legalDestinations/legalAttacks on the Skirmish layout (8x8)", () => {
+  const SKIRMISH = BOARD_LAYOUTS.standard_64;
+
+  it("gives an unencumbered piece its one- and two-square orthogonal empties near the middle of the 8x8 board", () => {
+    const state = board([["D3", "white", "champion"]]);
+    const destinations = legalDestinations(
+      state,
+      { column: "D", row: 3 },
+      SKIRMISH,
+    );
+    expect(sortedKeys(destinations)).toEqual(
+      ["C3", "E3", "D2", "D4", "B3", "F3", "D1", "D5"].sort(),
+    );
+  });
+
+  it("prunes off-board directions at the H8 corner - the far edge of the 8x8 board, off-board on Skirmish but on-board on Battle", () => {
+    const state = board([["H8", "white", "champion"]]);
+    const destinations = legalDestinations(
+      state,
+      { column: "H", row: 8 },
+      SKIRMISH,
+    );
+    expect(sortedKeys(destinations)).toEqual(["G8", "H7", "F8", "H6"].sort());
+    // Column I / row 9 would be on-board for Battle (up to L/12) but must be
+    // off-board here: confirms the bounds come from the passed layout, not a
+    // hardcoded Battle default.
+    expect(destinations.some((s) => s.column === "I")).toBe(false);
+    expect(destinations.some((s) => s.row === 9)).toBe(false);
+  });
+
+  it("offers a legal one-square attack near the Skirmish edge", () => {
+    const state = board([
+      ["H8", "white", "champion"],
+      ["H7", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(state, { column: "H", row: 8 }, SKIRMISH);
+    expect(sortedKeys(attacks)).toEqual(["H7"]);
+  });
+
+  it("offers a legal two-square attack near the Skirmish edge when unencumbered", () => {
+    const state = board([
+      ["H8", "white", "champion"],
+      ["H6", "black", "militia"], // H7 clear between them
+    ]);
+    const attacks = legalAttacks(state, { column: "H", row: 8 }, SKIRMISH);
+    expect(sortedKeys(attacks)).toEqual(["H6"]);
+  });
+
+  it("excludes a two-square destination whose far square is a Skirmish lake, even with a clear intermediate square", () => {
+    // C is a lake column on Skirmish's rows 4-5. Skirmish has no buffer row,
+    // so from C2 (one row short of the lake band), moving up: C3 (row 3,
+    // still White home, not a lake row) is a clear intermediate, but C4 (row
+    // 4, a lake row) is a lake.
+    const state = board([["C2", "white", "champion"]]);
+    const destinations = legalDestinations(
+      state,
+      { column: "C", row: 2 },
+      SKIRMISH,
+    );
+    expect(destinations.some((s) => s.column === "C" && s.row === 3)).toBe(
+      true,
+    );
+    expect(destinations.some((s) => s.column === "C" && s.row === 4)).toBe(
+      false,
+    );
+  });
+
+  it("hasAnyLegalPly considers only the Skirmish board's own squares", () => {
+    const state = board([["D3", "white", "champion"]]);
+    expect(hasAnyLegalPly(state, "white", SKIRMISH)).toBe(true);
+    expect(hasAnyLegalPly(state, "black", SKIRMISH)).toBe(false);
   });
 });

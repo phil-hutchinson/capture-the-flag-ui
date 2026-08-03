@@ -1,13 +1,15 @@
-// Placement state model & core operations for ruleset 1.2:PRE-RELEASE.
+// Placement state model & core operations for the ruleset major-2 editions
+// (`2-0:BATTLE` / `2-0:SKIRMISH`).
 //
 // A `PlacementState` tracks one player's in-progress army layout: which of
-// that player's own 48 home squares hold a placed piece type, plus the
-// derived remaining-inventory (how many of each type are still in the tray).
-// Placement is sparse: a complete army is only 25 pieces (`ARMY_SIZE`), so a
-// finished layout leaves 23 of the 48 home squares empty. Operations are pure
-// and immutable-style - each returns a *new* state rather than mutating its
-// input - so the UI (Steps 8-10) can drive them directly and the serializer
-// (Step 5) can read a snapshot safely.
+// that player's own home squares hold a placed piece type, plus the derived
+// remaining-inventory (how many of each type are still in the tray).
+// Placement is sparse: a complete army is only as large as the chosen
+// `ArmyRoster` (Battle 25, Skirmish 16), so a finished layout leaves the rest
+// of the home squares empty (23 of Battle's 48; 8 of Skirmish's 24).
+// Operations are pure and immutable-style - each returns a *new* state
+// rather than mutating its input - so the UI (Steps 8-10) can drive them
+// directly and the serializer (Step 5) can read a snapshot safely.
 //
 // All operations structurally reject any square that is not one of the
 // state's own side's home squares (lakes, buffers, and the opponent's zone
@@ -17,44 +19,70 @@
 // programming-invariant violations rather than recoverable user errors:
 // violating them throws, rather than silently no-op'ing.
 //
-// This module builds on the board geometry (Step 1) and the piece catalog /
-// fresh-army inventory (Step 2); it has no further dependencies.
+// This module builds on the board geometry (Step 1; parametric over a
+// `BoardLayout` since story 00000023's Step 3) and the piece catalog /
+// army-composition rosters (Step 2, `armyComposition.ts`); it has no further
+// dependencies.
+//
+// A `PlacementState` carries its own `boardLayout` and `army`, both required
+// (story 00000023's peer review, findings #2 and #15: an omitted `boardLayout`
+// or `army` used to silently default to Battle's, which is exactly the class
+// of defect found live at this story's Gate B/D - and once only one of the two
+// defaulted, `emptyPlacement(side, SKIRMISH_LAYOUT)` would quietly pair
+// Battle's 25-piece roster with Skirmish's 24-square home zone, a placement
+// that can never be completed). So home squares, the Tower-adjacency rule,
+// auto-fill, and the starting/complete inventory are all sized to the board
+// and roster actually being placed for (story 00000023's Steps 3 and 4).
 
 import {
-  COLUMNS,
+  columnIndexOf,
   homeSquares,
   isHomeSquareFor,
   squareKey,
-  type Column,
   type Side,
   type Square,
 } from "./board.ts";
+import type { BoardLayout } from "./boardLayout.ts";
 import {
-  ARMY_SIZE,
+  armySize,
   freshInventory,
-  PIECE_TYPES,
-  type Inventory,
-  type PieceTypeId,
-} from "./pieces.ts";
+  type ArmyRoster,
+} from "./armyComposition.ts";
+import { PIECE_TYPES, type Inventory, type PieceTypeId } from "./pieces.ts";
 
 /**
- * One player's in-progress (or complete) army layout: a mapping from that
- * player's home squares (by `squareKey`) to the piece type placed there, and
- * the derived remaining-inventory. Squares absent from `placements` are
- * empty.
+ * One player's in-progress (or complete) army layout: which board it is
+ * being placed on, which army roster it is being filled from, a mapping from
+ * that player's home squares (by `squareKey`) to the piece type placed
+ * there, and the derived remaining-inventory. Squares absent from
+ * `placements` are empty.
  */
 export interface PlacementState {
   readonly side: Side;
+  readonly boardLayout: BoardLayout;
+  readonly army: ArmyRoster;
   readonly placements: ReadonlyMap<string, PieceTypeId>;
   readonly remaining: Inventory;
 }
 
-/** A fresh placement state for `side`: no pieces placed, a full 25-piece tray. */
-export function emptyPlacement(side: Side): PlacementState {
+/**
+ * A fresh placement state for `side` on `boardLayout` and `army`, both
+ * required (pass `BATTLE_LAYOUT`/`BATTLE_ARMY`, the exported constants in
+ * `board.ts`/`armyComposition.ts`, explicitly for Battle): no pieces placed,
+ * a full tray sized to `army`. Callers holding an `Edition` should pass its
+ * own `boardLayout`/`army` so the two cannot disagree.
+ */
+export function emptyPlacement(
+  side: Side,
+  boardLayout: BoardLayout,
+  army: ArmyRoster,
+): PlacementState {
   return {
     side,
+    boardLayout,
+    army,
     placements: new Map(),
-    remaining: freshInventory(),
+    remaining: freshInventory(army),
   };
 }
 
@@ -63,7 +91,7 @@ function assertOwnHomeSquare(
   square: Square,
   action: string,
 ): void {
-  if (!isHomeSquareFor(square, state.side)) {
+  if (!isHomeSquareFor(square, state.side, state.boardLayout)) {
     throw new Error(
       `Cannot ${action}: ${squareKey(square)} is not a home square for ${state.side}.`,
     );
@@ -189,7 +217,7 @@ export function returnToTray(
 
 /** Clears the whole board: returns every placed piece to the tray. */
 export function clear(state: PlacementState): PlacementState {
-  return emptyPlacement(state.side);
+  return emptyPlacement(state.side, state.boardLayout, state.army);
 }
 
 /** How many of `pieceType` remain in `state`'s tray. */
@@ -200,7 +228,7 @@ export function remainingCount(
   return state.remaining[pieceType];
 }
 
-/** How many pieces are currently placed on the board (out of `ARMY_SIZE`). */
+/** How many pieces are currently placed on the board (out of `state.army`'s size). */
 export function placedCount(state: PlacementState): number {
   return state.placements.size;
 }
@@ -210,28 +238,26 @@ export interface PlacementProgress {
   readonly total: number;
 }
 
-/** Placement progress as `{ placed, total }`, e.g. for a "12 / 25 placed" readout. */
+/** Placement progress as `{ placed, total }`, e.g. for a "12 / 25 placed" readout (`total` is `state.army`'s size). */
 export function progress(state: PlacementState): PlacementProgress {
-  return { placed: placedCount(state), total: ARMY_SIZE };
+  return { placed: placedCount(state), total: armySize(state.army) };
 }
 
 /**
- * True only once all `ARMY_SIZE` (25) pieces have been placed. Placement is
- * sparse - a complete army fills 25 of a side's 48 home squares, leaving the
- * other 23 intentionally empty.
+ * True only once every piece of `state.army` has been placed (Battle 25,
+ * Skirmish 16). Placement is sparse - a complete army fills only part of a
+ * side's home squares (25 of Battle's 48; 16 of Skirmish's 24), leaving the
+ * rest intentionally empty.
  */
 export function isComplete(state: PlacementState): boolean {
-  return placedCount(state) === ARMY_SIZE;
-}
-
-/** The index of `column` within `COLUMNS` (A=0 .. L=11), for adjacency arithmetic. */
-function columnIndex(column: Column): number {
-  return COLUMNS.indexOf(column);
+  return placedCount(state) === armySize(state.army);
 }
 
 /** True if `a` and `b` are the same square or share an edge/corner (orthogonally or diagonally adjacent). */
 function isAdjacentOrSame(a: Square, b: Square): boolean {
-  const columnDelta = Math.abs(columnIndex(a.column) - columnIndex(b.column));
+  const columnDelta = Math.abs(
+    columnIndexOf(a.column) - columnIndexOf(b.column),
+  );
   const rowDelta = Math.abs(a.row - b.row);
   return columnDelta <= 1 && rowDelta <= 1;
 }
@@ -245,7 +271,7 @@ function isAdjacentOrSame(a: Square, b: Square): boolean {
  * re-checked during play.
  */
 export function towersLegallyPlaced(state: PlacementState): boolean {
-  const towerSquares = homeSquares(state.side).filter(
+  const towerSquares = homeSquares(state.side, state.boardLayout).filter(
     (square) => pieceAt(state, square) === "tower",
   );
   for (let i = 0; i < towerSquares.length; i += 1) {
@@ -280,9 +306,10 @@ function shuffle<T>(items: readonly T[], random: RandomSource): T[] {
  * place, such that none of them ends up orthogonally or diagonally adjacent
  * to another of this side's Towers - either one of `alreadyPlacedTowers` or
  * one chosen alongside it here. Tries several random shuffles of `candidates`
- * (an independent set of this size is easy to find among 48 home squares for
- * up to 6 Towers, so a handful of attempts suffices in practice) before
- * giving up. Returns the chosen squares and the remainder of `candidates`
+ * (an independent set of this size is easy to find among the side's home
+ * squares for the edition's handful of Towers, so a handful of attempts
+ * suffices in practice) before giving up. Returns the chosen squares and the
+ * remainder of `candidates`
  * (the squares not chosen), so the caller can place non-Tower pieces on what
  * is left.
  */
@@ -327,8 +354,9 @@ function pickTowerSquares(
 /**
  * Places every one of `state`'s remaining pieces onto a randomly chosen
  * subset of `state`'s currently-empty home squares - not every empty square,
- * since placement is sparse (rules §3): only `ARMY_SIZE` (25) of a side's 48
- * home squares ever hold a piece. Already-placed pieces are left untouched,
+ * since placement is sparse (rules §3): only `state.army`'s size (Battle 25
+ * of 48; Skirmish 16 of 24) of a side's home squares ever hold a piece.
+ * Already-placed pieces are left untouched,
  * and only `state.side`'s own home squares are ever touched (never lakes,
  * buffers, or the opponent's zone). The remaining Towers are placed first, so
  * that neither they nor any already-placed Tower ends up orthogonally or
@@ -343,7 +371,7 @@ export function autoFill(
   state: PlacementState,
   random: RandomSource = Math.random,
 ): PlacementState {
-  const emptySquares = homeSquares(state.side).filter(
+  const emptySquares = homeSquares(state.side, state.boardLayout).filter(
     (square) => pieceAt(state, square) === undefined,
   );
 
@@ -359,7 +387,7 @@ export function autoFill(
     random,
   );
 
-  const alreadyPlacedTowers = homeSquares(state.side).filter(
+  const alreadyPlacedTowers = homeSquares(state.side, state.boardLayout).filter(
     (square) => pieceAt(state, square) === "tower",
   );
 

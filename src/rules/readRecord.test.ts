@@ -1,31 +1,38 @@
 import { describe, expect, it } from "vitest";
+import type { Edition } from "./primary/v2/edition.ts";
+import { BATTLE_EDITION, EDITIONS } from "./primary/v2/edition.ts";
+import { columnLetter } from "./primary/v2/boardLayout.ts";
 import {
   renderPositionBlock,
   RULESET_TAG,
   type InitialGameState,
-} from "./primary/v1/gameState.ts";
-import { renderMoveToken } from "./primary/v1/notation.ts";
+} from "./primary/v2/gameState.ts";
+import { renderMoveToken } from "./primary/v2/notation.ts";
+import { applyMove, renderGameRecord, startPlay } from "./primary/v2/play.ts";
 import { readRecord } from "./readRecord.ts";
 
 const GAME_STATE: InitialGameState = {
   ruleset: RULESET_TAG,
+  edition: BATTLE_EDITION,
   board: {
     A1: { side: "white", pieceType: "flag" },
   },
 };
 const POSITION_BLOCK = renderPositionBlock(GAME_STATE);
 
-describe("readRecord - version dispatch", () => {
-  it("delegates a 1.2:PRE-RELEASE record to the v1 reader", () => {
+describe("readRecord - edition dispatch", () => {
+  it("rejects a retired 1.2:PRE-RELEASE record as an unknown ruleset", () => {
+    // Story 00000023's Policy: major 2 is a go-forward replacement, not an
+    // addition - there is no reader for the old tag any more, so a
+    // 1.2:PRE-RELEASE file falls straight through to the same rejection as
+    // any other name this app does not recognize (major-1 records are
+    // deliberately not reviewable).
     const text = ['[Ruleset "1.2:PRE-RELEASE"]', POSITION_BLOCK].join("\n\n");
 
-    const result = readRecord(text);
-    expect(result.kind).toBe("parsed");
-    if (result.kind === "parsed") {
-      expect(result.record.tags.ruleset).toBe("1.2:PRE-RELEASE");
-      expect(result.record.positions).toEqual([GAME_STATE.board]);
-      expect(result.record.moves).toEqual([]);
-    }
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: { kind: "unknownRuleset", ruleset: "1.2:PRE-RELEASE" },
+    });
   });
 
   it("rejects a recognized-but-unknown ruleset version", () => {
@@ -38,9 +45,9 @@ describe("readRecord - version dispatch", () => {
   });
 
   it("rejects a PRIMARY:1.1-tagged record as an unknown ruleset", () => {
-    // Story 00000016: 1.2 replaces 1.1 outright, no 1.1 reader exists any
-    // more, and a 1.1 file is honestly rejected as unrecognized, not
-    // mistaken for a 1.2 file.
+    // Story 00000016: 1.2 replaced 1.1 outright, and story 00000023 replaced
+    // 1.2 outright in turn - no 1.1 reader has ever existed, and a 1.1 file
+    // is honestly rejected as unrecognized, not mistaken for anything else.
     const text = ['[Ruleset "PRIMARY:1.1"]', POSITION_BLOCK].join("\n\n");
 
     expect(readRecord(text)).toEqual({
@@ -70,10 +77,9 @@ describe("readRecord - version dispatch", () => {
   });
 
   it("surfaces the delegated reader's own structural errors", () => {
-    const text = [
-      '[Ruleset "1.2:PRE-RELEASE"]',
-      "not a valid position block",
-    ].join("\n\n");
+    const text = ['[Ruleset "2-0:BATTLE"]', "not a valid position block"].join(
+      "\n\n",
+    );
 
     const result = readRecord(text);
     expect(result.kind).toBe("error");
@@ -86,11 +92,9 @@ describe("readRecord - version dispatch", () => {
     // A move from an empty square: the file parses cleanly (it is
     // structurally a valid record) but cannot be replayed to the end - so
     // reading it is a rejection, not a part-loaded game.
-    const text = [
-      '[Ruleset "1.2:PRE-RELEASE"]',
-      POSITION_BLOCK,
-      "1. B1-B2",
-    ].join("\n\n");
+    const text = ['[Ruleset "2-0:BATTLE"]', POSITION_BLOCK, "1. B1-B2"].join(
+      "\n\n",
+    );
 
     const result = readRecord(text);
     expect(result.kind).toBe("error");
@@ -110,17 +114,19 @@ describe("readRecord - version dispatch", () => {
   });
 });
 
-// Small, hand-built 1.2:PRE-RELEASE records exercising the full
-// parse-then-replay round trip end to end (story 00000016 Step 8 - the
-// story's stated interim, ahead of story 00000017's real engine-produced
-// fixtures). Deliberately not a realistic game (a piece "attacking" from
-// several squares away, say) - replay.ts is rules-blind by design (see its
-// header comment), so these fixtures only need to be *internally
-// consistent*, not legal under the movement/combat rules; the point is
-// round-trip honesty between the writer's format and this reader.
-describe("readRecord - a small synthetic 1.2:PRE-RELEASE record round-trips", () => {
+// Small, hand-built 2-0:BATTLE records exercising the full parse-then-replay
+// round trip end to end (story 00000016 Step 8, retargeted from
+// 1.2:PRE-RELEASE to 2-0:BATTLE by story 00000023's Step 8 - the ruleset
+// tag flip - ahead of story 00000017's real engine-produced fixtures).
+// Deliberately not a realistic game (a piece "attacking" from several
+// squares away, say) - replay.ts is rules-blind by design (see its header
+// comment), so these fixtures only need to be *internally consistent*, not
+// legal under the movement/combat rules; the point is round-trip honesty
+// between the writer's format and this reader.
+describe("readRecord - a small synthetic 2-0:BATTLE record round-trips", () => {
   const ROUND_TRIP_GAME_STATE: InitialGameState = {
     ruleset: RULESET_TAG,
+    edition: BATTLE_EDITION,
     board: {
       A1: { side: "white", pieceType: "masterOfArms" },
       B1: { side: "white", pieceType: "champion" },
@@ -171,7 +177,7 @@ describe("readRecord - a small synthetic 1.2:PRE-RELEASE record round-trips", ()
   it("accepts the record and replays every move to the final position", () => {
     const text = [
       [
-        '[Ruleset "1.2:PRE-RELEASE"]',
+        '[Ruleset "2-0:BATTLE"]',
         '[Result "1-0"]',
         '[ResultReason "Flag Captured"]',
       ].join("\n"),
@@ -191,7 +197,7 @@ describe("readRecord - a small synthetic 1.2:PRE-RELEASE record round-trips", ()
     const { record } = result;
 
     expect(record.tags).toEqual({
-      ruleset: "1.2:PRE-RELEASE",
+      ruleset: "2-0:BATTLE",
       result: "1-0",
       resultReason: "Flag Captured",
     });
@@ -220,19 +226,21 @@ describe("readRecord - a small synthetic 1.2:PRE-RELEASE record round-trips", ()
     });
   });
 
-  it("rejects an intentionally malformed 1.2:PRE-RELEASE record (an unmarked capture)", () => {
+  it("rejects an intentionally malformed 2-0:BATTLE record (an unmarked capture)", () => {
     // The destination is occupied by a second piece the move token never
     // marks as removed - structurally a valid record, but not one that can
-    // be carried out: a corrupted or hand-edited 1.2 record, not a 1.1 one.
+    // be carried out: a corrupted or hand-edited record, not a different
+    // ruleset's.
     const malformedState: InitialGameState = {
       ruleset: RULESET_TAG,
+      edition: BATTLE_EDITION,
       board: {
         A1: { side: "white", pieceType: "masterOfArms" },
         A2: { side: "white", pieceType: "champion" },
       },
     };
     const text = [
-      '[Ruleset "1.2:PRE-RELEASE"]',
+      '[Ruleset "2-0:BATTLE"]',
       renderPositionBlock(malformedState),
       "1. A1-A2",
     ].join("\n\n");
@@ -253,4 +261,306 @@ describe("readRecord - a small synthetic 1.2:PRE-RELEASE record round-trips", ()
       });
     }
   });
+});
+
+// Gate D defect fix (owner-reported): "Review a game" was rendering every
+// imported record on a Battle (12x12) board regardless of its own edition,
+// because `ReviewScreen.tsx` called `FullBoard` with no `layout` prop at all
+// and `FullBoard`'s optional `layout` defaults to Battle's. `readRecord.ts`
+// already resolved the record's `Ruleset` tag to an `Edition` (to size the
+// position block correctly) but discarded it once parsing was done. It now
+// surfaces that `Edition` on `ReadRecordResult`'s "parsed" case, threaded by
+// `ImportScreen.tsx`/`App.tsx` to `ReviewScreen.tsx`. These tests cover the
+// reader's half of the fix - that the *right* edition (board dimensions and
+// lake layout) comes back for each ruleset, not just Battle's.
+describe("readRecord - surfaces the record's own resolved Edition (Gate D defect fix)", () => {
+  it.each([
+    ["2-0:BATTLE", EDITIONS["2-0:BATTLE"], 12, 12] as const,
+    ["2-0:SKIRMISH", EDITIONS["2-0:SKIRMISH"], 8, 8] as const,
+  ])(
+    "surfaces %s's own board dimensions, not Battle's default",
+    (id, edition, columnCount, rowCount) => {
+      const initial: InitialGameState = {
+        ruleset: edition.id,
+        edition,
+        board: {
+          A1: { side: "white", pieceType: "flag" },
+        },
+      };
+      const text = renderGameRecord(startPlay(initial));
+
+      const result = readRecord(text);
+      expect(result.kind).toBe("parsed");
+      if (result.kind !== "parsed") {
+        return;
+      }
+
+      expect(result.edition.id).toBe(id);
+      expect(result.edition.boardLayout.columnCount).toBe(columnCount);
+      expect(result.edition.boardLayout.rowCount).toBe(rowCount);
+    },
+  );
+
+  it("surfaces Skirmish's own lake cells (rows 4-5, columns B/C/F/G), not Battle's (rows 6-7, B/C/F/G/J/K)", () => {
+    const skirmish = EDITIONS["2-0:SKIRMISH"];
+    const initial: InitialGameState = {
+      ruleset: skirmish.id,
+      edition: skirmish,
+      board: { A1: { side: "white", pieceType: "flag" } },
+    };
+
+    const result = readRecord(renderGameRecord(startPlay(initial)));
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+
+    expect(result.edition.boardLayout.lakeRows).toEqual([4, 5]);
+    expect(
+      result.edition.boardLayout.lakeColumnIndices.map(columnLetter),
+    ).toEqual(["B", "C", "F", "G"]);
+  });
+
+  it("surfaces Battle's own lake cells (rows 6-7), unaffected by the fix", () => {
+    const battle = EDITIONS["2-0:BATTLE"];
+    const initial: InitialGameState = {
+      ruleset: battle.id,
+      edition: battle,
+      board: { A1: { side: "white", pieceType: "flag" } },
+    };
+
+    const result = readRecord(renderGameRecord(startPlay(initial)));
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+
+    expect(result.edition.boardLayout.lakeRows).toEqual([6, 7]);
+    expect(
+      result.edition.boardLayout.lakeColumnIndices.map(columnLetter),
+    ).toEqual(["B", "C", "F", "G", "J", "K"]);
+  });
+});
+
+// Story 00000023's Step 8: the writer (`renderGameRecord`/`renderPositionBlock`,
+// gameState.ts/play.ts) and this reader round-trip both published editions
+// end to end - the `Ruleset` tag is the full edition id with no deviating
+// flags, and the reader recovers the position block's dimensions and lake
+// layout from that edition's `BoardLayout` rather than assuming Battle's
+// fixed 12x12 grid. At Step 8, `renderGameRecord` still wrote the plain move
+// form (`A2A3`, no separator), which this reader deliberately does not
+// accept (`parseMoveToken`'s `"plainNotation"` rejection, notation.ts), so
+// Step 8 itself only exercised a *freshly started* game here (no moves, so
+// no move section is even written) - switching the writer to the extended
+// form was the standing "emitted record notation" backburner item (this
+// story's story.md, "Out of scope"), out of Step 8's own scope. **Step 8a**
+// brought that item into scope: `applyMove` (play.ts) now records each move
+// in the extended form (`renderMoveToken`, notation.ts) as it is applied, so
+// `renderGameRecord`'s own move sequence is extended-notation too. The block
+// below still round-trips the *opening* record (tag + position block, no
+// moves yet); the hand-built extended-notation move sequence after it
+// (mirroring the existing 2-0:BATTLE synthetic-record tests above) exercises
+// the reader directly, independent of the writer; and the
+// "a played game's moves round-trip through the real writer" block further
+// below drives `startPlay`/`applyMove`/`renderGameRecord` through a full
+// played game on both editions - Step 8a's own required coverage, including
+// a move that removed one piece and a move that removed both. Verifying the
+// reviewer against *real* engine-produced 2.0 records is out of scope here (a
+// follow-up story, per story.md's "Split delivery"); these round trips are
+// entirely app-produced.
+describe("readRecord - renderGameRecord's opening-position output round-trips for both editions", () => {
+  it.each([
+    ["2-0:BATTLE", EDITIONS["2-0:BATTLE"], 12] as const,
+    ["2-0:SKIRMISH", EDITIONS["2-0:SKIRMISH"], 8] as const,
+  ])("round-trips a freshly started %s game", (id, edition, size) => {
+    const initial: InitialGameState = {
+      ruleset: edition.id,
+      edition,
+      board: {
+        A1: { side: "white", pieceType: "flag" },
+      },
+    };
+    const state = startPlay(initial);
+
+    const text = renderGameRecord(state);
+    expect(text).toContain(`[Ruleset "${id}"]`);
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+
+    expect(result.record.tags.ruleset).toBe(id);
+    // The position block is size-describing - this confirms the reader
+    // recovered this edition's own dimensions from it, not Battle's.
+    const blockLines = renderPositionBlock(initial).split("\n");
+    expect(blockLines).toHaveLength(size);
+    for (const line of blockLines) {
+      expect(line.split(" ")).toHaveLength(size);
+    }
+    expect(result.record.positions).toEqual([initial.board]);
+    expect(result.record.moves).toEqual([]);
+  });
+});
+
+describe("readRecord - a small synthetic 2-0:SKIRMISH record round-trips (8x8)", () => {
+  const skirmish = EDITIONS["2-0:SKIRMISH"];
+  const SKIRMISH_GAME_STATE: InitialGameState = {
+    ruleset: skirmish.id,
+    edition: skirmish,
+    board: {
+      A1: { side: "white", pieceType: "masterOfArms" },
+      B1: { side: "white", pieceType: "champion" },
+      D1: { side: "white", pieceType: "flag" },
+      A8: { side: "black", pieceType: "knight" },
+      B8: { side: "black", pieceType: "tower" },
+    },
+  };
+  const SKIRMISH_POSITION_BLOCK = renderPositionBlock(SKIRMISH_GAME_STATE);
+
+  // A1 -> A8: the length of this 8x8 board's own column, well past Battle's
+  // squares on the same column - deliberately not a legal ply under the
+  // movement rules (replay.ts is rules-blind by design; see the 2-0:BATTLE
+  // fixtures above), but proof the reader accepts a destination row that
+  // only exists on Skirmish's own 8-row board. The defender is removed
+  // (Black's knight captured).
+  const WHITE_1 = renderMoveToken({
+    from: { column: "A", row: 1 },
+    to: { column: "A", row: 8 },
+    fromRemoved: false,
+    toRemoved: true,
+  });
+  const BLACK_1 = renderMoveToken({
+    from: { column: "B", row: 8 },
+    to: { column: "B", row: 1 },
+    fromRemoved: false,
+    toRemoved: true,
+  });
+
+  it("accepts the record and replays to the final position on the 8x8 board", () => {
+    const text = [
+      [
+        '[Ruleset "2-0:SKIRMISH"]',
+        '[Result "0-1"]',
+        '[ResultReason "Flag Captured"]',
+      ].join("\n"),
+      SKIRMISH_POSITION_BLOCK,
+      `1. ${WHITE_1} ${BLACK_1}`,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    const { record } = result;
+
+    expect(record.tags).toEqual({
+      ruleset: "2-0:SKIRMISH",
+      result: "0-1",
+      resultReason: "Flag Captured",
+    });
+    expect(record.positions).toHaveLength(3);
+    expect(record.positions[0]).toEqual(SKIRMISH_GAME_STATE.board);
+    expect(record.positions[1]).toEqual({
+      B1: { side: "white", pieceType: "champion" },
+      D1: { side: "white", pieceType: "flag" },
+      A8: { side: "white", pieceType: "masterOfArms" },
+      B8: { side: "black", pieceType: "tower" },
+    });
+    expect(record.positions[2]).toEqual({
+      D1: { side: "white", pieceType: "flag" },
+      A8: { side: "white", pieceType: "masterOfArms" },
+      B1: { side: "black", pieceType: "tower" },
+    });
+    expect(record.moves.map((move) => move.token)).toEqual([WHITE_1, BLACK_1]);
+  });
+});
+
+// Story 00000023's Step 8a: `applyMove` now records each move in the record
+// format's extended notation as it is applied, so `renderGameRecord`'s output
+// for a *played* game (not just a freshly started one) is something this
+// app's own reader can read back - the very thing Gate D's "re-import that
+// dump into the reviewer" clause needs. These tests drive the real writer
+// (`startPlay`/`applyMove`/`renderGameRecord`) rather than hand-building
+// extended-notation tokens, on both published editions, through a move that
+// removes exactly one piece (the attacker wins) and a move that removes both
+// (a mutual loss) - the two shapes `renderMoveToken` can mark on a `-`, and
+// exactly the outcome information the plain form used to drop. The squares
+// used (columns A-E, rows 1-3) are ordinary home-zone ground on both editions
+// (never a lake row on either `BoardLayout`), so the same fixture is valid
+// for both board sizes without adjustment.
+describe("readRecord - a played game's moves round-trip through the real writer (Step 8a)", () => {
+  function playedGame(edition: Edition): {
+    readonly initial: InitialGameState;
+    readonly text: string;
+    readonly finalBoard: InitialGameState["board"];
+  } {
+    const initial: InitialGameState = {
+      ruleset: edition.id,
+      edition,
+      board: {
+        A1: { side: "white", pieceType: "flag" },
+        E3: { side: "black", pieceType: "flag" },
+        A2: { side: "white", pieceType: "champion" }, // rank 2
+        A3: { side: "black", pieceType: "militia" }, // rank 6 - weaker
+        C2: { side: "white", pieceType: "militia" }, // rank 6
+        C3: { side: "black", pieceType: "militia" }, // rank 6 - equal
+      },
+    };
+    let state = startPlay(initial);
+    // White's champion attacks Black's militia: attacker wins - one piece
+    // (the defender) is removed.
+    state = applyMove(
+      state,
+      { column: "A", row: 2 },
+      { column: "A", row: 3 },
+    ).state;
+    // Black's militia attacks White's militia: equal rank - both pieces are
+    // removed (mutual loss).
+    state = applyMove(
+      state,
+      { column: "C", row: 3 },
+      { column: "C", row: 2 },
+    ).state;
+
+    return { initial, text: renderGameRecord(state), finalBoard: state.board };
+  }
+
+  it.each([
+    ["2-0:BATTLE", EDITIONS["2-0:BATTLE"]] as const,
+    ["2-0:SKIRMISH", EDITIONS["2-0:SKIRMISH"]] as const,
+  ])(
+    "round-trips a played %s game, including a one-piece and a two-piece removal",
+    (id, edition) => {
+      const { initial, text, finalBoard } = playedGame(edition);
+
+      // The writer itself now emits the extended form - a plain-form move
+      // token never appears in its output.
+      expect(text).toContain("1. A2-A3x C3x-C2x");
+
+      const result = readRecord(text);
+      expect(result.kind).toBe("parsed");
+      if (result.kind !== "parsed") {
+        return;
+      }
+
+      expect(result.record.tags.ruleset).toBe(id);
+      expect(result.record.positions[0]).toEqual(initial.board);
+      expect(result.record.moves.map((move) => move.token)).toEqual([
+        "A2-A3x",
+        "C3x-C2x",
+      ]);
+
+      const replayedFinalPosition =
+        result.record.positions[result.record.positions.length - 1];
+      expect(replayedFinalPosition).toEqual(finalBoard);
+      expect(replayedFinalPosition).toEqual({
+        A1: { side: "white", pieceType: "flag" },
+        E3: { side: "black", pieceType: "flag" },
+        A3: { side: "white", pieceType: "champion" },
+      });
+    },
+  );
 });

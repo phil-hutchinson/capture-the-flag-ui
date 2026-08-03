@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { BoardState, PlacedPiece } from "../rules/primary/v1/gameState.ts";
+import type { BoardState, PlacedPiece } from "../rules/primary/v2/gameState.ts";
 import type {
   ParsedRecord,
   RecordedPly,
-} from "../rules/primary/v1/recordFile.ts";
+} from "../rules/primary/v2/recordFile.ts";
 import {
   replayRecord,
   type ReplayedRecord,
-} from "../rules/primary/v1/replay.ts";
+} from "../rules/primary/v2/replay.ts";
 import {
   createReviewSession,
   currentBoard,

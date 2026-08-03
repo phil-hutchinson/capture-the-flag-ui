@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Square } from "./board.ts";
+import { BOARD_LAYOUTS } from "./boardLayout.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
 import { resolveCombat } from "./combat.ts";
 import type { PieceTypeId } from "./pieces.ts";
@@ -23,7 +24,7 @@ const D6: Square = { column: "D", row: 6 };
 // flag) - see the implementation plan's cross-step test constraint - since
 // the roster swap itself is Step 5.
 
-describe("resolveCombat (ruleset 1.2, base rank table)", () => {
+describe("resolveCombat (ruleset major 2, base rank table)", () => {
   it("has the lower-numbered attacker win against a higher-numbered defender", () => {
     const state = board([
       ["D5", "white", "champion"], // rank 2
@@ -68,7 +69,7 @@ describe("resolveCombat (ruleset 1.2, base rank table)", () => {
   });
 });
 
-describe("resolveCombat (ruleset 1.2, Tower trade and Flag capture)", () => {
+describe("resolveCombat (ruleset major 2, Tower trade and Flag capture)", () => {
   it("has any piece attacking a Tower trade with it (mutual loss)", () => {
     const state = board([
       ["D5", "white", "militia"], // rank 6, weakest ranked piece
@@ -110,7 +111,7 @@ describe("resolveCombat (ruleset 1.2, Tower trade and Flag capture)", () => {
   });
 });
 
-describe("resolveCombat (ruleset 1.2, formation bonus)", () => {
+describe("resolveCombat (ruleset major 2, formation bonus)", () => {
   it("turns a one-rank-weaker attacker's clean loss into a mutual loss when it has an adjacent equal-rank ally", () => {
     const state = board([
       ["D5", "white", "knight"], // rank 3, one rank weaker than the defender
@@ -234,6 +235,39 @@ describe("resolveCombat (ruleset 1.2, formation bonus)", () => {
       ["C5", "black", "knight"], // equal rank, but belongs to the defender's side
     ]);
     const outcome = resolveCombat(state, D5, D6);
+    expect(outcome.result).toBe("attackerLoses");
+  });
+});
+
+// Story 00000023, Step 3: the formation-bonus neighbor scan, exercised on
+// the Skirmish layout (`standard_64`, 8x8) at the board's own edge, to
+// confirm its bounds are genuinely parametric over `BoardLayout` rather than
+// hardcoding Battle's 12x12 grid.
+describe("resolveCombat's formation-bonus scan on the Skirmish layout (8x8)", () => {
+  const SKIRMISH = BOARD_LAYOUTS.standard_64;
+  const G8: Square = { column: "G", row: 8 };
+  const H8: Square = { column: "H", row: 8 };
+
+  it("grants the formation bonus from an ally within the Skirmish board's own bounds", () => {
+    const state = board([
+      ["H8", "white", "knight"], // rank 3, one rank weaker than the defender
+      ["G8", "black", "champion"], // rank 2
+      ["H7", "white", "knight"], // orthogonally adjacent ally to the attacker's origin
+    ]);
+    const outcome = resolveCombat(state, H8, G8, SKIRMISH);
+    expect(outcome.result).toBe("mutualLoss");
+  });
+
+  it("does not read past the Skirmish edge - a square that would be on-board for Battle (column I) but is off-board for Skirmish is never consulted", () => {
+    const state = board([
+      ["H8", "white", "knight"], // rank 3, one rank weaker than the defender
+      ["G8", "black", "champion"], // rank 2
+      // "I8" is one column beyond Skirmish's last column (H) - on Battle it
+      // would be a real, adjacent square (columns run to L); on Skirmish it
+      // must never be looked at.
+      ["I8", "white", "knight"],
+    ]);
+    const outcome = resolveCombat(state, H8, G8, SKIRMISH);
     expect(outcome.result).toBe("attackerLoses");
   });
 });

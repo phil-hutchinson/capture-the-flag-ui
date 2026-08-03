@@ -1,11 +1,14 @@
-// Phase 2 play-state model & move application for ruleset 1.2.
+// Phase 2 play-state model & move application for ruleset major 2.
 //
 // A `PlayState` tracks an in-progress Phase-2 game: the current board, whose
 // turn it is to move, and the ordered list of moves made so far in the
-// simple `A2A3` coordinate form (source square immediately followed by
-// destination square, no separator - rules.md §4.4, unchanged for attacks:
-// no combat-resolution markers). This is the minimum structure recorded-game
-// replay can build on later; this story does not implement replay itself.
+// record format's **extended** notation (`notation.ts`'s `renderMoveToken` -
+// source square, a `-`, destination square, with an `x` marking either square
+// whose piece did not survive the move - story 00000023's Step 8a). Recording
+// the extended form here, at the point each move is applied, is what lets the
+// writer (`renderGameRecord`, below) emit a record the app's own reader can
+// replay - the plain `A2A3` form this module used to record dropped exactly
+// the outcome information the reviewer needs.
 //
 // Operations are pure and immutable-style - `applyMove` returns a *new*
 // state rather than mutating its input - matching placement.ts. Because the
@@ -32,6 +35,7 @@
 
 import { otherSide, squareKey, type Side, type Square } from "./board.ts";
 import { resolveCombat, type CombatOutcome } from "./combat.ts";
+import type { Edition } from "./edition.ts";
 import {
   renderPositionBlock,
   type BoardState,
@@ -39,6 +43,7 @@ import {
   type PlacedPiece,
 } from "./gameState.ts";
 import { legalAttacks, legalDestinations } from "./movement.ts";
+import { renderMoveToken, type RecordedMove } from "./notation.ts";
 import {
   computeOutcome,
   type GameEndReason,
@@ -54,15 +59,27 @@ const FIRST_SIDE: Side = "white";
  * the current board so the record render, below, can always reproduce the
  * record file format's position block, which is always the *starting*
  * position, never the current one), the current board, whose turn it is,
- * every move made so far, in order, as `A2A3` coordinate strings (absolute
- * White frame - see board.ts), the single shared inactivity counter (§5.3 -
+ * every move made so far, in order, as extended-notation strings (`notation.ts`'s
+ * `renderMoveToken`, absolute White frame - see board.ts), the single shared
+ * inactivity counter (§5.3 -
  * see `applyMove` for how it evolves), and the current `GameOutcome`
  * (`result` - outcome.ts): whether the game is still ongoing, or how it
  * ended. Everything downstream (the session layer, the UI, the record) reads
- * `result` rather than recomputing detection for itself.
+ * `result` rather than recomputing detection for itself. `edition` (story
+ * 00000023's Step 3) carries the resolved edition/board-layout over from
+ * `initial.edition`, unchanged - it is **required** for the same reason
+ * `InitialGameState.edition` is (see gameState.ts, and this story's peer
+ * review, finding #2): an optional `edition` invited a call site to silently
+ * inherit Battle. Every ply-generation call below
+ * (`legalAttacks`/`legalDestinations`/`resolveCombat`/`computeOutcome`) is
+ * threaded with `edition.boardLayout` - story 00000023's Step 7, fixing a
+ * defect observed live at Step 6's Gate B where these calls stayed on the
+ * Battle default even once a non-Battle board was reachable through the
+ * picker.
  */
 export interface PlayState {
   readonly ruleset: string;
+  readonly edition: Edition;
   readonly initialBoard: BoardState;
   readonly board: BoardState;
   readonly sideToMove: Side;
@@ -84,14 +101,21 @@ export interface PlayState {
  */
 export function startPlay(initial: InitialGameState): PlayState {
   const inactivityCounter = 0;
+  const layout = initial.edition.boardLayout;
   return {
     ruleset: initial.ruleset,
+    edition: initial.edition,
     initialBoard: initial.board,
     board: initial.board,
     sideToMove: FIRST_SIDE,
     moves: [],
     inactivityCounter,
-    result: computeOutcome(initial.board, FIRST_SIDE, inactivityCounter),
+    result: computeOutcome(
+      initial.board,
+      FIRST_SIDE,
+      inactivityCounter,
+      layout,
+    ),
   };
 }
 
@@ -127,9 +151,13 @@ export type PlyOutcome =
  * `{ kind: "attack", ...combatOutcome }`.
  *
  * In every case the side to move flips and the move is appended to
- * `state.moves` in the same plain `A2A3` coordinate string
- * (`squareKey(from) + squareKey(to)`) - no combat-resolution markers, even
- * for an attack. The shared inactivity counter (rules.md §5.3) rises by 1
+ * `state.moves` in the record format's extended notation
+ * (`renderMoveToken`, notation.ts), marking whichever of `from`/`to` lost its
+ * piece - a plain move marks neither; an attack marks `to` when the attacker
+ * won, `from` when it lost (a complete sacrifice), or both on a mutual loss -
+ * so the stored move carries the outcome `renderGameRecord` (and, later, the
+ * reviewer) needs, not just the source and destination. The shared inactivity
+ * counter (rules.md §5.3) rises by 1
  * when the ply removed no piece (`outcome.kind === "move"`, or an attack
  * whose `capture` is `false`) and resets to 0 the moment any piece is
  * removed (a winning attack, a mutual loss, or - once Towers exist - a
@@ -157,6 +185,8 @@ export function applyMove(
     throw new Error("Cannot apply move: the game has already ended.");
   }
 
+  const layout = state.edition.boardLayout;
+
   const fromKey = squareKey(from);
   const toKey = squareKey(to);
   const piece = state.board[fromKey];
@@ -166,12 +196,12 @@ export function applyMove(
     );
   }
 
-  const isAttack = legalAttacks(state.board, from).some(
+  const isAttack = legalAttacks(state.board, from, layout).some(
     (square) => squareKey(square) === toKey,
   );
   const isMove =
     !isAttack &&
-    legalDestinations(state.board, from).some(
+    legalDestinations(state.board, from, layout).some(
       (square) => squareKey(square) === toKey,
     );
   if (!isAttack && !isMove) {
@@ -184,7 +214,7 @@ export function applyMove(
   let outcome: PlyOutcome;
 
   if (isAttack) {
-    const combat = resolveCombat(state.board, from, to);
+    const combat = resolveCombat(state.board, from, to, layout);
     delete board[fromKey];
     delete board[toKey];
     if (combat.result === "attackerWins") {
@@ -211,14 +241,26 @@ export function applyMove(
 
   const nextSideToMove = otherSide(state.sideToMove);
 
+  // The extended-notation move token (notation.ts) records the outcome, not
+  // just the source and destination: a plain move marks neither square; an
+  // attack marks `to` when the attacker won (the defender fell), `from` when
+  // the attacker lost (a complete sacrifice), or both on a mutual loss -
+  // mirroring `resolveCombat`'s `CombatResult` exactly.
+  const recordedMove: RecordedMove = {
+    from,
+    to,
+    fromRemoved: outcome.kind === "attack" && outcome.result !== "attackerWins",
+    toRemoved: outcome.kind === "attack" && outcome.result !== "attackerLoses",
+  };
+
   return {
     state: {
       ...state,
       board,
       sideToMove: nextSideToMove,
-      moves: [...state.moves, fromKey + toKey],
+      moves: [...state.moves, renderMoveToken(recordedMove)],
       inactivityCounter,
-      result: computeOutcome(board, nextSideToMove, inactivityCounter),
+      result: computeOutcome(board, nextSideToMove, inactivityCounter, layout),
     },
     outcome,
   };
@@ -309,12 +351,14 @@ function renderResultReasonValue(reason: GameEndReason): string {
  *   board, which evolves as moves are applied);
  * - the **move sequence**, grouped into rounds numbered from 1, each written
  *   `N. <whiteMove> <blackMove>` (a game whose last move was White's shows
- *   that trailing round with only the White move) - in the plain `A2A3`
- *   form, with no separators and no combat-resolution markers even for an
- *   attack (rules.md §4.4 - an attack's result always follows automatically
- *   from the position and the rules), and with **no** entry of any kind for
- *   a draw offer, decline, or agreement (an agreed draw appears only in the
- *   `Result`/`ResultReason` tags above).
+ *   that trailing round with only the White move) - in the record format's
+ *   **extended** notation (`S[x]-D[x]`, notation.ts's `renderMoveToken`,
+ *   already carried in `state.moves`, story 00000023's Step 8a), marking
+ *   which piece(s) a combat removed - this app's own reader
+ *   (`readRecord.ts`) deliberately rejects the plain form, so a record this
+ *   app writes must carry the outcome, not just the source and destination -
+ *   and with **no** entry of any kind for a draw offer, decline, or agreement
+ *   (an agreed draw appears only in the `Result`/`ResultReason` tags above).
  *
  * This is deliberately not a full record file (no `Event`/`Site`/`Date`/etc.
  * roster tags): it is the minimum a future replay story can build on, kept
@@ -323,6 +367,7 @@ function renderResultReasonValue(reason: GameEndReason): string {
 export function renderGameRecord(state: PlayState): string {
   const positionBlock = renderPositionBlock({
     ruleset: state.ruleset,
+    edition: state.edition,
     board: state.initialBoard,
   });
 

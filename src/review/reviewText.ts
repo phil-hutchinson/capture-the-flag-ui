@@ -41,19 +41,19 @@
 // Always "move", never "ply"; always Red/Blue via `sideColorName`, never
 // White/Black.
 
-import type { Side, Square } from "../rules/primary/v1/board.ts";
-import { squareKey } from "../rules/primary/v1/board.ts";
+import type { Side, Square } from "../rules/primary/v2/board.ts";
+import { squareKey } from "../rules/primary/v2/board.ts";
 import type {
   RecordFileError,
   RecordFileTags,
-} from "../rules/primary/v1/recordFile.ts";
-import type { PositionBlockError } from "../rules/primary/v1/gameState.ts";
-import type { ReplayError } from "../rules/primary/v1/replay.ts";
+} from "../rules/primary/v2/recordFile.ts";
+import type { PositionBlockError } from "../rules/primary/v2/gameState.ts";
+import type { ReplayError } from "../rules/primary/v2/replay.ts";
 import type {
   GameEndReason,
   GameOutcome,
-} from "../rules/primary/v1/outcome.ts";
-import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v1/pieces.ts";
+} from "../rules/primary/v2/outcome.ts";
+import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v2/pieces.ts";
 import type { ReadRecordError } from "../rules/readRecord.ts";
 import { describeResult } from "../board/playAnnouncement.ts";
 import { sideColorName } from "../board/sideNames.ts";
@@ -72,9 +72,9 @@ export function moveLabel(ply: number, round: number, side: Side): string {
 function describePositionBlockError(error: PositionBlockError): string {
   switch (error.kind) {
     case "wrongRowCount":
-      return `This file's starting position isn't a full 12x12 board (it has ${error.rowCount} row${error.rowCount === 1 ? "" : "s"} instead of 12), so it can't be reviewed.`;
+      return `This file's starting position isn't a full ${error.expectedRowCount}x${error.expectedRowCount} board (it has ${error.rowCount} row${error.rowCount === 1 ? "" : "s"} instead of ${error.expectedRowCount}), so it can't be reviewed.`;
     case "wrongCellCount":
-      return `This file's starting position has a row (row ${error.row}) that isn't 12 squares wide, so it can't be reviewed.`;
+      return `This file's starting position has a row (row ${error.row}) that isn't ${error.expectedCellCount} squares wide, so it can't be reviewed.`;
     case "unrecognizedCell":
       return `This file's starting position has something at ${squareKey(error.square)} ("${error.cell}") that isn't a piece, an empty square, or a lake, so it can't be reviewed.`;
     case "unknownPieceSymbol":

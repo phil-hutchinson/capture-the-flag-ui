@@ -1,27 +1,35 @@
 # Capture the Flag — Play in Your Browser
 
 Capture the Flag is a two-player battlefield board game. Each player secretly
-arranges an army of 25 pieces — soldiers, knights, towers, and one
-all-important flag — then the armies are revealed and the battle begins. Pieces
-move and clash in full view until one side captures the other's flag.
+arranges an army — soldiers, knights, towers, and one all-important flag —
+then the armies are revealed and the battle begins. Pieces move and clash in
+full view until one side captures the other's flag.
+
+There are two games to choose from. **Skirmish** is the shorter one: sixteen
+pieces a side on a small board, and a good place to start. **Battle** is the
+full game: twenty-five pieces a side on a board more than twice the size.
 
 This is the game's web app. It runs entirely in your browser — nothing to
-install, no account, no server. It opens on a start screen with three
-choices: play a game, play against the computer, or review a recorded one.
+install, no account, no server. It opens on a start screen where you can play
+a game or review a recorded one. Playing against the computer is temporarily
+unavailable while the computer player catches up with the latest rules.
 
 ## What you can do
 
-- **Set up a game with a friend** on the same device — take turns secretly
-  choosing where on your side of the board to place your 25-piece army (you
-  won't fill every square), then hand off. When both armies are placed, the
-  game is ready for battle.
+- **Set up a game with a friend** on the same device — pick Skirmish or
+  Battle, then take turns secretly choosing where on your side of the board to
+  place your army (you won't fill every square), then hand off. When both
+  armies are placed, the game is ready for battle.
 - **Move, attack, and capture on the battlefield** — once both armies are
   revealed, take turns moving pieces across the board in full view. Moving a
   piece onto an enemy piece attacks it, and the fight resolves immediately —
-  the losing piece (or both, if they're evenly matched) leaves the board. By
-  default the board flips to face whoever's turn it is; a "Flip board between
-  turns" switch lets you turn that off and keep the board on red's side the
-  whole game — handy if you're playing both sides yourself.
+  the losing piece (or both, if they're evenly matched) leaves the board. A
+  piece can also strike an enemy standing corner-to-corner with it, though it
+  can only ever move straight; towers and the flag can't be attacked that way,
+  so the flag must always be taken head-on. By default the board flips to face
+  whoever's turn it is; a "Flip board between turns" switch lets you turn that
+  off and keep the board on red's side the whole game — handy if you're
+  playing both sides yourself.
 - **Win, lose, or draw** — capture your opponent's flag and the game is yours.
   You can also win if your opponent is left with no legal move at all. A game
   can end in a draw too: by agreement, or if fifty moves go by in a row with
@@ -36,22 +44,16 @@ choices: play a game, play against the computer, or review a recorded one.
   from the companion
   [capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
   project's engine; a game you play here can't be saved or reviewed yet.
-- **Play against the computer** — choose to play as red or blue and pick a
-  difficulty (Easy, Medium, or Hard), then place your army as usual while the
-  computer places its own army at random and out of sight. Then you play a
-  full game against it, right in your browser, with the same moving,
-  attacking, and winning rules as playing a friend. The computer opponent
-  comes from the companion
-  [capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
-  project and now thinks ahead before choosing a move — weighing out possible
-  lines of play, more of them on Hard than on Easy — but it hasn't been
-  trained yet, so at every difficulty it still plays close to random for now,
-  and don't expect much of a fight. A properly trained opponent is on the way.
+- **Play against the computer** — temporarily unavailable. The option is still
+  on the start screen, but it can't be chosen: the rules have moved on and the
+  computer player needs to catch up before it can play the two games properly.
+  It will return, and a properly trained opponent is still on the way.
 
-> **Status:** you can play a full game from start to finish — place both
-> armies, battle on the revealed board, and reach a real result — play a game
-> against the computer, and review a recorded game move by move. Saving a
-> game you played here is still to come.
+> **Status:** you can play a full game from start to finish — pick Skirmish or
+> Battle, place both armies, battle on the revealed board, and reach a real
+> result — and review a recorded game move by move. Playing against the
+> computer is paused for now, and saving a game you played here is still to
+> come.
 
 ## The rules
 
@@ -61,8 +63,9 @@ source of truth:
 (with a [change log](https://github.com/phil-hutchinson/capture-the-flag/blob/main/doc/ruleset/changelog.md)).
 The game is still in active pre-release development, and the rules are
 evolving with it; a recorded game only plays back correctly in the ruleset
-version it was recorded under, and older recordings may stop working as the
-rules change.
+version it was recorded under. The app has now moved to the latest rules —
+which brought the two games and corner-to-corner attacks — so recordings made
+under the earlier rules can no longer be reviewed here.
 
 ## Development
 

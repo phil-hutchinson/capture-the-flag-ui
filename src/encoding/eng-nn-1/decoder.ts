@@ -12,22 +12,33 @@
 // `policyIndexForPly`.
 //
 // This module is pure - no React, no onnxruntime - and builds only on the
-// rules engine's movement generation (`src/rules/primary/v1/movement.ts`)
+// rules engine's movement generation (`src/rules/primary/v2/movement.ts`)
 // and this folder's shared coordinate transform (`shared.ts`); its mapping
 // must stay in lock-step with `encoder.ts`'s, since both walk the same
 // mover-perspective frame.
+//
+// NON-FUNCTIONAL under the major-2 rules (story 00000023, Step 9):
+// `enumerateLegalPlies` now includes diagonal attacks (major 2's new rule,
+// via `legalAttacks`), but `MOVEMENT_OFFSETS` only covers the eight
+// orthogonal offsets ENG_NN_1 originally specified, so `policyIndexForPly`
+// throws on any diagonal ply. "Play against the computer" is disabled and
+// nothing in the live app calls this module; its unit tests were removed
+// rather than kept green against a shrunken, no-longer-representative set of
+// positions that happens never to offer a diagonal attack. Re-enabling
+// computer play needs a new engine spec (out of scope here; see story.md's
+// "Computer play disabled").
 
 import {
   allSquares,
   squareKey,
   type Side,
   type Square,
-} from "../../rules/primary/v1/board.ts";
-import type { BoardState } from "../../rules/primary/v1/gameState.ts";
+} from "../../rules/primary/v2/board.ts";
+import type { BoardState } from "../../rules/primary/v2/gameState.ts";
 import {
   legalAttacks,
   legalDestinations,
-} from "../../rules/primary/v1/movement.ts";
+} from "../../rules/primary/v2/movement.ts";
 import {
   flatIndex,
   MOVEMENT_INDEX_COUNT,
@@ -46,7 +57,7 @@ export { MOVEMENT_INDEX_COUNT, POLICY_LENGTH };
  * Injectable so callers (e.g. the PUCT search's tie-breaking and sampling,
  * `src/engine/search.ts`) are deterministic under test - pass a seeded
  * generator, same pattern as `autoFill`'s `RandomSource` in
- * `src/rules/primary/v1/placement.ts` - while defaulting to real randomness
+ * `src/rules/primary/v2/placement.ts` - while defaulting to real randomness
  * in production.
  */
 export type RandomSource = () => number;

@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  ARMY_SIZE,
-  freshInventory,
   PIECE_CATALOG,
   PIECE_TYPES,
   pieceCatalogEntries,
@@ -22,7 +20,7 @@ const EXPECTED_QUANTITIES: Record<PieceTypeId, number> = {
   flag: 1,
 };
 
-describe("piece catalog (ruleset 1.2:PRE-RELEASE)", () => {
+describe("piece catalog (ruleset major 2)", () => {
   it("has exactly 8 piece types", () => {
     expect(PIECE_TYPES).toHaveLength(8);
     expect(pieceCatalogEntries()).toHaveLength(8);
@@ -36,13 +34,12 @@ describe("piece catalog (ruleset 1.2:PRE-RELEASE)", () => {
     }
   });
 
-  it("sums to exactly 25 pieces per side", () => {
+  it("sums to exactly 25 pieces per side (Battle's own catalog quantities - see armyComposition.test.ts for the roster-driven ARMY_SIZE equivalent)", () => {
     const total = pieceCatalogEntries().reduce(
       (sum, entry) => sum + entry.quantityPerSide,
       0,
     );
     expect(total).toBe(25);
-    expect(ARMY_SIZE).toBe(25);
   });
 
   it("gives every piece type a distinct position-block symbol", () => {
@@ -100,20 +97,8 @@ describe("piece catalog (ruleset 1.2:PRE-RELEASE)", () => {
   });
 });
 
-describe("freshInventory (ruleset 1.2:PRE-RELEASE)", () => {
-  it("returns a full 25-piece army with every type at its full quantity", () => {
-    const inventory = freshInventory();
-    for (const id of PIECE_TYPES) {
-      expect(inventory[id]).toBe(PIECE_CATALOG[id].quantityPerSide);
-    }
-    const total = PIECE_TYPES.reduce((sum, id) => sum + inventory[id], 0);
-    expect(total).toBe(25);
-  });
-
-  it("returns a fresh object each call (not a shared mutable reference)", () => {
-    const first = freshInventory();
-    const second = freshInventory();
-    expect(first).not.toBe(second);
-    expect(first).toEqual(second);
-  });
-});
+// `ARMY_SIZE`/`freshInventory` moved to armyComposition.ts (story 00000023's
+// Step 4): a fresh inventory and a complete army's size are now a function
+// of the chosen `ArmyRoster`, not a fixed catalog constant. See
+// armyComposition.test.ts for their coverage (both Battle's and Skirmish's
+// rosters).
