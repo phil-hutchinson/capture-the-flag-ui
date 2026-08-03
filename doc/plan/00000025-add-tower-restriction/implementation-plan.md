@@ -932,3 +932,80 @@ stay green, `npm run format:check` is clean, and `gameNames.test.ts` /
 with a restarted `npm run dev`, open the game picker and read the Skirmish
 description as a player would: it names the restriction in one clause, plainly,
 without jargon; and re-read `README.md` end to end for accuracy.
+
+---
+
+## Step 8 — Tell the player when auto-fill can't seat the Towers
+
+Status: pending
+
+**Added after the peer review** (owner decision, 2026-08-03), in response to
+finding #7. Step 3's auto-fill work and the fix pass that followed left a real,
+player-reachable dead end: `autoFill` delegates Tower placement to an internal
+search that gives up after a fixed number of attempts and **throws**, and
+`HotSeatGame.tsx`'s auto-fill click handler does not catch it. Because the throw
+happens inside a React event handler, nothing unmounts — the button simply does
+nothing at all, with only a console error to show for it.
+
+`placement.test.ts` already contains a test (added by the review fix pass,
+titled "demonstrates a plausible partially hand-filled state where auto-fill
+exhausts") that pins one such state exactly: a `spacing_and_lanes` Skirmish
+placement with all 13 non-Tower pieces placed by hand, leaving only A1–D1 and
+A2–C2 open. No three of those seven squares are mutually non-adjacent, so no
+legal arrangement of the three remaining Towers exists. **That test asserts the
+current throwing behaviour and must be rewritten by this step**, not deleted —
+it is the clearest statement of the case being fixed.
+
+The state is reachable but unusual, and it predates this story in kind (the same
+clustering was constructible before the lane rule); closing four of Skirmish's
+24 home squares shrinks the free pool from 11 squares to 7 and so makes it
+materially easier to stumble into. The player is not doing anything wrong —
+they have simply left their Towers nowhere legal to go — so the app owes them an
+explanation, not silence.
+
+Implement:
+
+- **Make exhaustion a result, not an exception.** `autoFill` in
+  `src/rules/primary/v2/placement.ts` reports "there is no legal arrangement for
+  the remaining Towers" as an ordinary outcome the caller can inspect, rather
+  than throwing. Keep the distinction sharp: this is a legitimate board state a
+  player produced, unlike the genuine programming-invariant violations elsewhere
+  in that module (placing onto an occupied square, moving from an empty one),
+  which must keep throwing. The attempt-limited search itself is unchanged — only
+  how its failure is reported.
+- **Say so in the player's own words.** Add the sentence to
+  `src/board/towerPlacementMessages.ts`, where every Tower-related player-facing
+  string now lives, and give it the same shape as its neighbours: what happened,
+  why, and what to do next — e.g. that there is nowhere left to put the Towers so
+  that no two of them touch, and that clearing some pieces and trying again will
+  help. Follow the project's player-facing conventions: "Tower" capitalised as
+  elsewhere in the app, no jargon, no edition ids, "move" never "ply".
+- **Show it where the other placement messages appear.** The auto-fill click
+  handler in `HotSeatGame.tsx` consumes the new outcome and routes the sentence
+  through the **existing single live region** in `PlacementStatus.tsx` — no
+  second region, no alert, no new UI surface. Fit it into the precedence order
+  established in "Decisions resolved at plan time" item 4 rather than bypassing
+  it, and clear it on the next successful placement action exactly as the
+  drop-time refusal is cleared. `EngineGame.tsx` also calls `autoFill`; it is the
+  disabled computer-play screen, so it needs only to keep compiling and behave as
+  it does today.
+- Leave the board untouched when auto-fill cannot complete: the player's own
+  placements stay exactly as they were.
+
+Why it comes here: last, because it depends on Step 3's auto-fill, Step 4's
+message module, and Step 5's live region and precedence order all being in place;
+and because it was raised by the peer review of the seven steps before it.
+
+How to verify: **automated** — rewrite the existing exhaustion test so it asserts
+the new reported outcome instead of a throw, and confirm the sentence is produced
+for that state; keep the existing high-iteration auto-fill tests (fresh and
+partially filled boards) green, since none of them should now be able to throw.
+`npm run typecheck && npm run lint && npm test` stay green and
+`npm run format:check` is clean. **Manual** — with a restarted `npm run dev`,
+start a Skirmish game and hand-place all 13 non-Tower pieces so the only squares
+left open are A1, B1, C1, D1, A2, B2 and C2 (the four lane squares A3/D3/E3/H3
+are refused anyway, and B3/C3/F3/G3 plus the rest of rows 1–2 should be filled).
+Click Auto-fill: instead of nothing happening, the status area explains that the
+Towers cannot be placed apart from each other and suggests clearing some pieces.
+The board is unchanged, the message clears once you move a piece, and Auto-fill
+still works normally from an empty or lightly filled board.
