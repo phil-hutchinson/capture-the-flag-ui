@@ -42,8 +42,8 @@ import type {
 /**
  * The plain-language explanation of the lane rule itself, reused by every
  * lane-related sentence below so a player reads the same "why" wherever it
- * appears. "Lane" is explained in passing (the open column through the
- * middle of the board) rather than assumed known, per story.md.
+ * appears. "Lane" is explained in passing (one of the open columns running
+ * through the middle of the board) rather than assumed known, per story.md.
  */
 const LANE_RULE_EXPLANATION =
   "no Tower may stand directly in front of a lane, one of the open columns running through the middle of the board";
@@ -231,9 +231,19 @@ export interface TowerLiveRegionInputs {
  * with a `seq` token the caller can use (e.g. as a `key`) to force a fresh
  * DOM node - and so a fresh announcement - whenever the message changes,
  * even when the new text is identical to what was already showing (peer
- * review finding #5). `seq` only ever changes when a new refusal is the
- * reason `text` is what it is; the hint and confirm-time tiers reuse `0`,
+ * review finding #5). `seq` changes whenever a new drop-time refusal *or* a
+ * new exhausted Auto-fill attempt (Step 8, second-round peer review finding
+ * #14) is the reason `text` is what it is - each of those two transient
+ * tiers carries its own counter (`TowerRefusal.seq` /
+ * `TowerAutoFillExhausted.seq`); the hint and confirm-time tiers reuse `0`,
  * since neither reported the same "identical text twice in a row" defect.
+ * Both counters restart at 1 after being cleared (`HotSeatGame.tsx`'s
+ * `clearTowerFeedback`), so `seq` is only monotonic within one uninterrupted
+ * run of the same tier's events - that is safe here because every clear
+ * coincides with that tier no longer being the one shown (a different
+ * tier's text takes its place, or the component unmounts), so a restarted
+ * counter is never compared against a still-visible message carrying the
+ * same value.
  */
 export interface TowerLiveRegionMessage {
   readonly text: string;

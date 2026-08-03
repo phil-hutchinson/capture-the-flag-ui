@@ -633,7 +633,19 @@ export function HotSeatGame({
       return;
     }
     setSession((current) =>
-      current ? updateActivePlacement(current, () => result.state) : current,
+      current
+        ? updateActivePlacement(current, (state) =>
+            // `result.state` was computed above from `placement`, a snapshot
+            // of `session`'s active side at render time - matching every
+            // sibling handler's pattern of recomputing from the `state` React
+            // hands this updater, only apply it when `current` is still that
+            // same `session` (so `state` is exactly what `result` was built
+            // from); otherwise `session` moved on since the click was
+            // handled, and the stale auto-fill result must be discarded
+            // rather than clobbering whatever `state` now is.
+            current === session ? result.state : state,
+          )
+        : current,
     );
     setSelection(null);
     clearTowerFeedback();

@@ -510,14 +510,16 @@ export type AutoFillResult =
  * a random subset of what is left, closed squares included - the lane
  * restriction only ever applies to Towers.
  *
- * Returns `{ ok: false }`, leaving `state` untouched, if no legal arrangement
- * of the remaining Towers exists (story 00000025's Step 8 - see
- * `AutoFillResult`); this is reachable on a `spacing_and_lanes` Skirmish board
- * where the player's own hand-placed pieces have left too few, too clustered
- * squares free for the remaining Towers. The caller decides what to tell the
- * player; this function itself never throws for that reason (the
- * attempt-limited search in `pickTowerSquares` is unchanged - only how its
- * exhaustion is reported).
+ * Returns `{ ok: false }`, leaving `state` untouched, if no arrangement of the
+ * remaining Towers was found within `pickTowerSquares`'s attempt limit (story
+ * 00000025's Step 8 - see `AutoFillResult`; second-round peer review finding
+ * #12 - the search is 500 randomised attempts, not an exhaustive proof that
+ * none exists, so this is the honest claim). This is reachable on a
+ * `spacing_and_lanes` Skirmish board where the player's own hand-placed
+ * pieces have left too few, too clustered squares free for the remaining
+ * Towers. The caller decides what to tell the player; this function itself
+ * never throws for that reason (the attempt-limited search in
+ * `pickTowerSquares` is unchanged - only how its exhaustion is reported).
  *
  * `random` defaults to `Math.random` (real randomness for the UI); pass a
  * seeded `RandomSource` for deterministic, reproducible results in tests.

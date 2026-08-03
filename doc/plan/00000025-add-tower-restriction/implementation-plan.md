@@ -165,7 +165,12 @@ The rules facts this plan is built on, resolved at plan time against those docs:
 4. **Live-region precedence**, so only one thing speaks at a time: a refusal
    message (transient, set the moment a placement is refused) wins; otherwise
    the "Towers can't go on …" hint while a Tower is in hand; otherwise the
-   confirm-time block explanation; otherwise nothing.
+   confirm-time block explanation; otherwise nothing. **Extended by Step 8**
+   (added after the peer review, in response to finding #7): an exhausted
+   Auto-fill attempt is its own transient tier, ranked second - after a
+   drop-time refusal, before the closed-squares hint. The two transient tiers
+   are mutually exclusive in practice (each caller-side setter clears the
+   other), so their relative order never actually matters.
 5. **Historical vs. playable is an explicit `status` field on `Edition`**
    (`"active" | "superseded"`), mirroring the rules' Appendix B tables. `EDITIONS`
    holds all three editions and is what `readRecord.ts` resolves against

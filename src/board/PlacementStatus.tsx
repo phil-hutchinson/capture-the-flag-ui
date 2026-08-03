@@ -16,14 +16,17 @@
 // army is both complete *and* satisfies the Tower-placement rules (rules
 // §3). Story 00000025 widened those rules from spacing alone to (on a
 // `spacing_and_lanes` edition) spacing-or-lane, and replaced the boolean
-// `towerAdjacencyBlocked` prop with `towerMessage`: a single string, already
-// resolved by the caller (`towerPlacementMessages.ts`'s
-// `towerLiveRegionMessage`, per the plan's "Decisions resolved at plan time",
-// item 4) according to one precedence - a drop-time refusal, if one just
-// happened; otherwise the "Towers can't go on …" hint while a Tower is in
-// hand; otherwise the confirm-time block explanation (spacing or lane);
-// otherwise `""`. This component only ever renders whatever string it is
-// given - it does not itself know which of those four cases produced it.
+// `towerAdjacencyBlocked` prop with `towerMessage`: a `{ text, seq }` pair
+// (Step 5) - `seq` forces a fresh announcement even when the same text
+// repeats (peer review finding #5) - already resolved by the caller
+// (`towerPlacementMessages.ts`'s `towerLiveRegionMessage`, per the plan's
+// "Decisions resolved at plan time", item 4, extended by Step 8's
+// peer-review fix) according to one precedence - a drop-time refusal, if one
+// just happened; otherwise an exhausted Auto-fill attempt (Step 8); otherwise
+// the "Towers can't go on …" hint while a Tower is in hand; otherwise the
+// confirm-time block explanation (spacing or lane); otherwise `""`. This
+// component only ever renders whatever `{ text, seq }` it is given - it does
+// not itself know which of those tiers produced it.
 //
 // Story 00000016, Step 9 (accessibility pass): the warning's wrapping
 // `role="status"` element stays mounted at all times - even when
@@ -59,7 +62,12 @@ export interface PlacementStatusProps {
    * node for assistive tech to notice.
    */
   readonly towerMessage: TowerLiveRegionMessage;
-  /** Fills every remaining empty square with the active player's remaining pieces. */
+  /**
+   * Fills the active player's remaining pieces onto empty home squares, or
+   * (story 00000025, Step 8) reports that it could not - Auto-fill's
+   * Tower-seating search can be exhausted on a Skirmish board where the
+   * player's own placements have left too few, too clustered squares free.
+   */
   readonly onAutoFill: () => void;
   /** Stores the active player's layout and hands off to the next player. */
   readonly onConfirm: () => void;
