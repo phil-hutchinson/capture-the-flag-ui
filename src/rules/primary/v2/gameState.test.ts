@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { armySize, BATTLE_ARMY } from "./armyComposition.ts";
 import { BATTLE_LAYOUT, homeSquares } from "./board.ts";
-import { BATTLE_EDITION, EDITIONS } from "./edition.ts";
+import { BATTLE_EDITION, SKIRMISH_EDITION } from "./edition.ts";
 import { pieceCatalogEntries } from "./pieces.ts";
 import { autoFill, emptyPlacement, type PlacementState } from "./placement.ts";
 
-/** Battle's own army size (25) - the default `emptyPlacement`/`buildInitialGameState` fall back to. */
+/** Battle's own army size (25) - the roster these Battle fixtures place. */
 const ARMY_SIZE = armySize(BATTLE_ARMY);
 import {
   buildInitialGameState,
@@ -27,21 +27,24 @@ function seededRandom(seed: number): () => number {
 }
 
 function completeArmy(side: "white" | "black", seed: number): PlacementState {
-  return autoFill(emptyPlacement(side, BATTLE_LAYOUT), seededRandom(seed));
+  return autoFill(
+    emptyPlacement(side, BATTLE_LAYOUT, BATTLE_ARMY),
+    seededRandom(seed),
+  );
 }
 
 describe("buildInitialGameState (ruleset major 2)", () => {
-  it("tags the artifact with the resolved edition's id (defaults to Battle)", () => {
+  it("tags the artifact with the resolved edition's id (Battle)", () => {
     const white = completeArmy("white", 1);
     const black = completeArmy("black", 2);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
 
     expect(gameState.ruleset).toBe("2-0:BATTLE");
     expect(gameState.ruleset).toBe(RULESET_TAG);
   });
 
-  it("tags the artifact with the given edition's id when one is passed", () => {
-    const skirmish = EDITIONS["2-0:SKIRMISH"];
+  it("tags the artifact with the given edition's id (Skirmish)", () => {
+    const skirmish = SKIRMISH_EDITION;
     const white = autoFill(
       emptyPlacement("white", skirmish.boardLayout, skirmish.army),
       seededRandom(21),
@@ -59,7 +62,7 @@ describe("buildInitialGameState (ruleset major 2)", () => {
   it("round-trips both armies exactly through JSON", () => {
     const white = completeArmy("white", 3);
     const black = completeArmy("black", 4);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
 
     const roundTripped = JSON.parse(
       JSON.stringify(gameState),
@@ -100,19 +103,19 @@ describe("buildInitialGameState (ruleset major 2)", () => {
   it("rejects a White state and Black state passed in the wrong slots", () => {
     const white = completeArmy("white", 5);
     const black = completeArmy("black", 6);
-    expect(() => buildInitialGameState(black, white)).toThrow();
+    expect(() => buildInitialGameState(black, white, BATTLE_EDITION)).toThrow();
   });
 
   it("rejects incomplete armies", () => {
     const white = completeArmy("white", 7);
-    const black = emptyPlacement("black", BATTLE_LAYOUT);
-    expect(() => buildInitialGameState(white, black)).toThrow();
+    const black = emptyPlacement("black", BATTLE_LAYOUT, BATTLE_ARMY);
+    expect(() => buildInitialGameState(white, black, BATTLE_EDITION)).toThrow();
   });
 
   it("includes every placed piece type at the ruleset's per-side quantity", () => {
     const white = completeArmy("white", 8);
     const black = completeArmy("black", 9);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
 
     for (const side of ["white", "black"] as const) {
       const counts = new Map<string, number>();
@@ -169,7 +172,7 @@ describe("renderPositionBlock (ruleset major 2)", () => {
   it("is 12 lines of 12 three-character cells", () => {
     const white = completeArmy("white", 10);
     const black = completeArmy("black", 11);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
 
     const lines = renderPositionBlock(gameState).split("\n");
     expect(lines).toHaveLength(12);
@@ -185,7 +188,7 @@ describe("renderPositionBlock (ruleset major 2)", () => {
   it("renders lake squares as XXX regardless of nearby placements", () => {
     const white = completeArmy("white", 12);
     const black = completeArmy("black", 13);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
     const lines = renderPositionBlock(gameState).split("\n");
 
     // Rows 6 and 7 are the 6th and 7th lines from the bottom (row 1 is the
@@ -205,7 +208,7 @@ describe("parsePositionBlock (ruleset major 2)", () => {
   function fullBoardBlock(): { board: BoardState; block: string } {
     const white = completeArmy("white", 900);
     const black = completeArmy("black", 901);
-    const gameState = buildInitialGameState(white, black);
+    const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
     return { board: gameState.board, block: renderPositionBlock(gameState) };
   }
 
@@ -218,7 +221,7 @@ describe("parsePositionBlock (ruleset major 2)", () => {
     for (let seed = 0; seed < 3; seed += 1) {
       const white = completeArmy("white", seed * 2 + 100);
       const black = completeArmy("black", seed * 2 + 101);
-      const gameState = buildInitialGameState(white, black);
+      const gameState = buildInitialGameState(white, black, BATTLE_EDITION);
       const block = renderPositionBlock(gameState);
 
       expect(parsed(parsePositionBlock(block))).toEqual(gameState.board);
@@ -385,8 +388,6 @@ describe("parsePositionBlock (ruleset major 2)", () => {
 // than a `buildInitialGameState`-produced complete Skirmish army: Skirmish's
 // 24-square home zone cannot yet hold Battle's 25-piece roster.)
 describe("position-block render/parse on the Skirmish edition (8x8)", () => {
-  const SKIRMISH_EDITION = EDITIONS["2-0:SKIRMISH"];
-
   it("renders a hand-constructed Skirmish placement to an 8-line, 8-cell-per-line block", () => {
     // A1 = White Flag, H3 = White Master-of-Arms (last White home row/column),
     // A6 = Black Champion, H8 = Black Tower (Black's home corner). Every
@@ -453,10 +454,18 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
   });
 
   it("buildInitialGameState rejects placement states on a different board layout than the given edition", () => {
-    const white = emptyPlacement("white", SKIRMISH_EDITION.boardLayout);
-    const black = emptyPlacement("black", SKIRMISH_EDITION.boardLayout);
-    // No edition argument - defaults to Battle, which does not match the
-    // Skirmish-layout placement states above.
-    expect(() => buildInitialGameState(white, black)).toThrow();
+    const white = emptyPlacement(
+      "white",
+      SKIRMISH_EDITION.boardLayout,
+      SKIRMISH_EDITION.army,
+    );
+    const black = emptyPlacement(
+      "black",
+      SKIRMISH_EDITION.boardLayout,
+      SKIRMISH_EDITION.army,
+    );
+    // Battle passed against Skirmish-layout placement states: the mismatch is
+    // rejected rather than silently played on the wrong board.
+    expect(() => buildInitialGameState(white, black, BATTLE_EDITION)).toThrow();
   });
 });

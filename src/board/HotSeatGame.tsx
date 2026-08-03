@@ -79,15 +79,17 @@ import "./HotSeatGame.css";
 // same "unreachable in practice" shape). "New game" resets both back to
 // `null`, returning to the choice screen rather than silently replaying the
 // same game - a fresh game is exactly the moment to reconsider which to
-// play. `lastPlayedEdition` remembers which game that was (owner feedback at
-// the Step 7 manual gate, 2026-08-01): `GameChoice` pre-selects it, so a
+// play. The `lastPlayed` prop remembers which game that was (owner feedback
+// at the Step 7 manual gate, 2026-08-01): `GameChoice` pre-selects it, so a
 // player who just finished a Battle sees Battle pre-selected again rather
 // than being reset to Skirmish every time - Skirmish, per story.md's "the
 // recommended game for a new player", stays the default only on the very
-// first game of a session, when `lastPlayedEdition` is still `null`. This
-// memory is scoped to this component's lifetime, like every other piece of
-// state here: leaving to the start screen and coming back (a fresh mount)
-// starts over at the Skirmish default.
+// first game of a session, while `lastPlayed` is still `null`. Unlike every
+// other piece of state here, that memory is *not* scoped to this component's
+// lifetime: `App` holds it (and this component reports each choice through
+// `onGameStarted`) so it survives a trip back to the start screen, which is
+// the whole session story.md's amended Policy bullet asks for (peer review,
+// finding #17).
 //
 // Step 15: "Back to start" (`onBack`, supplied by `App.tsx`) sits right
 // after the title in every one of this component's four states - the
@@ -146,6 +148,19 @@ type Selection =
 
 export interface HotSeatGameProps {
   /**
+   * The game most recently started this app session, or `null` if none has
+   * been. `GameChoice` pre-selects it; `null` falls back to Skirmish, the
+   * recommended first game. Held by `App` so it survives this component's
+   * unmount (peer review, finding #17).
+   */
+  readonly lastPlayed: Edition | null;
+  /**
+   * Reports the game the player has just chosen, so it becomes the next
+   * choice screen's pre-selection - including after a game is abandoned part
+   * way through, since it was still the last one played.
+   */
+  readonly onGameStarted: (edition: Edition) => void;
+  /**
    * Returns to the start screen. Called directly once the game has ended;
    * while the game is in progress (placing or playing), called only after
    * the player confirms in `LeaveGameDialog`, since the game is lost.
@@ -153,21 +168,16 @@ export interface HotSeatGameProps {
   readonly onBack: () => void;
 }
 
-export function HotSeatGame({ onBack }: HotSeatGameProps) {
+export function HotSeatGame({
+  lastPlayed,
+  onGameStarted,
+  onBack,
+}: HotSeatGameProps) {
   // Story 00000023, Step 7: the Battle/Skirmish choice - `null` until the
   // player picks one on `GameChoice`, below. `session` stays `null` until
   // then too; `handleChooseGame` sets both together.
   const [edition, setEdition] = useState<Edition | null>(null);
   const [session, setSession] = useState<PlacementSession | null>(null);
-  // The game most recently played this session, if any - `null` until a game
-  // has actually finished and "New game" is chosen. Fed to `GameChoice` so it
-  // pre-selects that game rather than always resetting to Skirmish (owner
-  // feedback at the Step 7 manual gate, 2026-08-01). Set by `handleNewGame`,
-  // below, from `edition` (the game just played) just before `edition` itself
-  // is reset back to `null`.
-  const [lastPlayedEdition, setLastPlayedEdition] = useState<Edition | null>(
-    null,
-  );
   // Text pushed into the placement screen's own polite live region the
   // moment a game is chosen (`handleChooseGame`, below) - names the game and
   // its board size to assistive tech, mirroring `playAnnouncement`'s "always
@@ -242,8 +252,11 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
   // Starts a fresh two-player session for the chosen game (`GameChoice`
   // pre-selects the last-played game, or Skirmish on the first game of a
   // session) and announces the choice - the selected game and its board
-  // size - to the placement screen's live region.
+  // size - to the placement screen's live region. The choice is reported to
+  // `App` here, as the game starts rather than as it ends, so a game
+  // abandoned part way through still counts as the one played most recently.
   function handleChooseGame(chosenEdition: Edition) {
+    onGameStarted(chosenEdition);
     setEdition(chosenEdition);
     setSession(newSession(chosenEdition));
     setGameAnnouncement(
@@ -270,10 +283,7 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
           onConfirm={onBack}
           onCancel={() => setConfirmingLeave(false)}
         />
-        <GameChoice
-          onChoose={handleChooseGame}
-          lastPlayed={lastPlayedEdition}
-        />
+        <GameChoice onChoose={handleChooseGame} lastPlayed={lastPlayed} />
       </main>
     );
   }
@@ -298,12 +308,12 @@ export function HotSeatGame({ onBack }: HotSeatGameProps) {
     // moment to reconsider which to play. `edition` and `session` both go
     // back to `null` (which is what routes back to the choice screen above),
     // and `playSession`/the placement selection/both announcements are
-    // cleared alongside them. `edition` is remembered as `lastPlayedEdition`
-    // first (owner feedback at the Step 7 manual gate, 2026-08-01), so the
-    // choice screen this returns to pre-selects the game just played instead
-    // of always resetting to Skirmish.
+    // cleared alongside them. The choice screen this returns to pre-selects
+    // the game just played instead of always resetting to Skirmish (owner
+    // feedback at the Step 7 manual gate, 2026-08-01) - `lastPlayed` was
+    // recorded by `handleChooseGame` when this game began, so nothing needs
+    // remembering here.
     const handleNewGame = () => {
-      setLastPlayedEdition(edition);
       setEdition(null);
       setSession(null);
       setPlaySession(null);

@@ -24,7 +24,7 @@ const D6: Square = { column: "D", row: 6 };
 // flag) - see the implementation plan's cross-step test constraint - since
 // the roster swap itself is Step 5.
 
-describe("resolveCombat (ruleset 1.2, base rank table)", () => {
+describe("resolveCombat (ruleset major 2, base rank table)", () => {
   it("has the lower-numbered attacker win against a higher-numbered defender", () => {
     const state = board([
       ["D5", "white", "champion"], // rank 2
@@ -69,7 +69,7 @@ describe("resolveCombat (ruleset 1.2, base rank table)", () => {
   });
 });
 
-describe("resolveCombat (ruleset 1.2, Tower trade and Flag capture)", () => {
+describe("resolveCombat (ruleset major 2, Tower trade and Flag capture)", () => {
   it("has any piece attacking a Tower trade with it (mutual loss)", () => {
     const state = board([
       ["D5", "white", "militia"], // rank 6, weakest ranked piece
@@ -111,7 +111,7 @@ describe("resolveCombat (ruleset 1.2, Tower trade and Flag capture)", () => {
   });
 });
 
-describe("resolveCombat (ruleset 1.2, formation bonus)", () => {
+describe("resolveCombat (ruleset major 2, formation bonus)", () => {
   it("turns a one-rank-weaker attacker's clean loss into a mutual loss when it has an adjacent equal-rank ally", () => {
     const state = board([
       ["D5", "white", "knight"], // rank 3, one rank weaker than the defender

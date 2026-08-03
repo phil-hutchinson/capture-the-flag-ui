@@ -13,7 +13,8 @@ import type { ReplayedRecord } from "./rules/primary/v2/replay.ts";
 // its own state, mounted and unmounted here as `screen` changes: mounting
 // `HotSeatGame` starts a fresh game and unmounting it discards whatever was
 // in progress, and likewise a fresh import screen begins import cleanly
-// every time "Review a game" is chosen.
+// every time "Review a game" is chosen. The one thing that outlives those
+// unmounts is `lastPlayedEdition` below, which is why it is held here.
 //
 // Every non-`start` screen can lead back to `start`: `ImportScreen` and
 // `ReviewScreen`'s own "Back" controls (Step 9) never prompt, since nothing
@@ -44,6 +45,17 @@ type Screen =
 
 export function App() {
   const [screen, setScreen] = useState<Screen>({ kind: "start" });
+  // The game (Battle or Skirmish) most recently started this app session, or
+  // `null` before the first one. `HotSeatGame` records it the moment a game
+  // is chosen and pre-selects it on its own choice screen; it lives here,
+  // rather than inside `HotSeatGame`, because that component is unmounted on
+  // every return to the start screen, which used to discard the memory the
+  // story asks to keep for the whole session (story 00000023's peer review,
+  // finding #17). Deliberately not persisted across reloads - "this session"
+  // is exactly the scope story.md's amended Policy bullet describes.
+  const [lastPlayedEdition, setLastPlayedEdition] = useState<Edition | null>(
+    null,
+  );
 
   if (screen.kind === "start") {
     return (
@@ -55,7 +67,13 @@ export function App() {
   }
 
   if (screen.kind === "play") {
-    return <HotSeatGame onBack={() => setScreen({ kind: "start" })} />;
+    return (
+      <HotSeatGame
+        lastPlayed={lastPlayedEdition}
+        onGameStarted={setLastPlayedEdition}
+        onBack={() => setScreen({ kind: "start" })}
+      />
+    );
   }
 
   if (screen.kind === "import") {

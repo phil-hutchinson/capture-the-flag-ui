@@ -20,7 +20,7 @@ const EXPECTED_QUANTITIES: Record<PieceTypeId, number> = {
   flag: 1,
 };
 
-describe("piece catalog (ruleset 1.2:PRE-RELEASE)", () => {
+describe("piece catalog (ruleset major 2)", () => {
   it("has exactly 8 piece types", () => {
     expect(PIECE_TYPES).toHaveLength(8);
     expect(pieceCatalogEntries()).toHaveLength(8);

@@ -85,9 +85,12 @@ export const BATTLE_EDITION: Edition = {
 
 /**
  * Skirmish (`2-0:SKIRMISH`): the 8x8 board with the 16-piece army - the
- * recommended game for a new player.
+ * recommended game for a new player. Exported alongside `BATTLE_EDITION` so
+ * both editions have exactly one spelling in fixtures and consumers, rather
+ * than one named constant and one map lookup (story 00000023's peer review,
+ * finding #18).
  */
-const SKIRMISH: Edition = {
+export const SKIRMISH_EDITION: Edition = {
   id: "2-0:SKIRMISH",
   boardLayoutId: "standard_64",
   armyCompositionId: "standard_skirmish",
@@ -98,7 +101,7 @@ const SKIRMISH: Edition = {
 /** Every defined edition, keyed by its id. Not all are necessarily playable - see `playableEditions`. */
 export const EDITIONS: Readonly<Record<EditionId, Edition>> = {
   "2-0:BATTLE": BATTLE_EDITION,
-  "2-0:SKIRMISH": SKIRMISH,
+  "2-0:SKIRMISH": SKIRMISH_EDITION,
 };
 
 /** Looks up an edition by its id. */

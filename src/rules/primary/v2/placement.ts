@@ -24,13 +24,15 @@
 // army-composition rosters (Step 2, `armyComposition.ts`); it has no further
 // dependencies.
 //
-// A `PlacementState` carries its own `boardLayout` (required - story
-// 00000023's peer review, finding #2: an omitted `boardLayout` used to
-// silently default to Battle's, which is exactly the class of defect found
-// live at this story's Gate B/D) and `army` (still defaulting to Battle's),
-// so home squares, the Tower-adjacency rule, auto-fill, and the
-// starting/complete inventory are all sized to the board and roster actually
-// being placed for (story 00000023's Steps 3 and 4).
+// A `PlacementState` carries its own `boardLayout` and `army`, both required
+// (story 00000023's peer review, findings #2 and #15: an omitted `boardLayout`
+// or `army` used to silently default to Battle's, which is exactly the class
+// of defect found live at this story's Gate B/D - and once only one of the two
+// defaulted, `emptyPlacement(side, SKIRMISH_LAYOUT)` would quietly pair
+// Battle's 25-piece roster with Skirmish's 24-square home zone, a placement
+// that can never be completed). So home squares, the Tower-adjacency rule,
+// auto-fill, and the starting/complete inventory are all sized to the board
+// and roster actually being placed for (story 00000023's Steps 3 and 4).
 
 import {
   columnIndexOf,
@@ -43,7 +45,6 @@ import {
 import type { BoardLayout } from "./boardLayout.ts";
 import {
   armySize,
-  BATTLE_ARMY,
   freshInventory,
   type ArmyRoster,
 } from "./armyComposition.ts";
@@ -65,15 +66,16 @@ export interface PlacementState {
 }
 
 /**
- * A fresh placement state for `side` on `boardLayout` (required - pass
- * `BATTLE_LAYOUT`, `board.ts`'s exported constant, explicitly for Battle) and
- * `army` (defaults to Battle's): no pieces placed, a full tray sized to
- * `army`.
+ * A fresh placement state for `side` on `boardLayout` and `army`, both
+ * required (pass `BATTLE_LAYOUT`/`BATTLE_ARMY`, the exported constants in
+ * `board.ts`/`armyComposition.ts`, explicitly for Battle): no pieces placed,
+ * a full tray sized to `army`. Callers holding an `Edition` should pass its
+ * own `boardLayout`/`army` so the two cannot disagree.
  */
 export function emptyPlacement(
   side: Side,
   boardLayout: BoardLayout,
-  army: ArmyRoster = BATTLE_ARMY,
+  army: ArmyRoster,
 ): PlacementState {
   return {
     side,

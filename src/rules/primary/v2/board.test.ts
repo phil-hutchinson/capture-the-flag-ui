@@ -19,7 +19,7 @@ const LAKE_COLUMN_PAIRS: readonly [Column, Column][] = [
   ["J", "K"],
 ];
 
-describe("board geometry (ruleset 1.2, Battle - the default BoardLayout)", () => {
+describe("board geometry (ruleset major 2, Battle - the default BoardLayout)", () => {
   it("has 144 squares total, one per column/row combination", () => {
     expect(allSquares()).toHaveLength(12 * 12);
   });

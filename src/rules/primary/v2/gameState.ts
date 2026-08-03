@@ -34,15 +34,12 @@ import {
 } from "./board.ts";
 import type { BoardLayout } from "./boardLayout.ts";
 import { armySize } from "./armyComposition.ts";
-import { EDITIONS, type Edition } from "./edition.ts";
+import { BATTLE_EDITION, type Edition } from "./edition.ts";
 import { PIECE_CATALOG, PIECE_TYPES, type PieceTypeId } from "./pieces.ts";
 import { isComplete, type PlacementState } from "./placement.ts";
 
-/** The edition `buildInitialGameState` falls back to when none is given. */
-const DEFAULT_EDITION: Edition = EDITIONS["2-0:BATTLE"];
-
 /**
- * The `Ruleset` record tag value for the default edition (`2-0:BATTLE`),
+ * The `Ruleset` record tag value for the Battle edition (`2-0:BATTLE`),
  * per `technical-notes.md`'s "editions and flags" model: the tag is the
  * full edition id, with no deviating flags (story 00000023's Step 8). This
  * remains exported (rather than removed) because many fixtures elsewhere in
@@ -51,9 +48,9 @@ const DEFAULT_EDITION: Edition = EDITIONS["2-0:BATTLE"];
  * `edition`) and use this constant as their matching `ruleset` tag.
  * `buildInitialGameState` below does **not** use this constant directly; it
  * tags every artifact with the *actual* resolved edition's id, so a Skirmish
- * game is correctly tagged `2-0:SKIRMISH`, not this Battle default.
+ * game is correctly tagged `2-0:SKIRMISH`, not this Battle tag.
  */
-export const RULESET_TAG: string = DEFAULT_EDITION.id;
+export const RULESET_TAG: string = BATTLE_EDITION.id;
 
 /** One placed piece on the board: which side owns it and what type it is. */
 export interface PlacedPiece {
@@ -90,8 +87,9 @@ export interface InitialGameState {
 
 /**
  * Combines both players' completed placement states into a single, versioned
- * `InitialGameState` artifact, tagged with `edition` (defaults to Battle) and
- * a `ruleset` string equal to `edition.id` - the full edition id, with no
+ * `InitialGameState` artifact, tagged with `edition` (required - pass
+ * `BATTLE_EDITION` explicitly for Battle) and a
+ * `ruleset` string equal to `edition.id` - the full edition id, with no
  * deviating flags, exactly the `Ruleset` record tag `renderGameRecord`
  * (play.ts) writes (story 00000023's Step 8). Rejects (throws) if either
  * state belongs to the wrong side, was placed on a different board layout
@@ -103,7 +101,7 @@ export interface InitialGameState {
 export function buildInitialGameState(
   white: PlacementState,
   black: PlacementState,
-  edition: Edition = DEFAULT_EDITION,
+  edition: Edition,
 ): InitialGameState {
   if (white.side !== "white") {
     throw new Error(
