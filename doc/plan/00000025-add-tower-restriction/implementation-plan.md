@@ -869,7 +869,43 @@ without complaint.
 
 ## Step 7 — Player-facing copy and the README check
 
-Status: pending
+Status: committed
+
+Notes: `src/board/GameChoice.tsx`'s `GAME_DETAIL["2-1:SKIRMISH"]` gained one
+clause: "A tower can't be placed directly in front of a lane, one of the open
+columns running through the middle of the board." - appended to the existing
+sentence, matching `towerPlacementMessages.ts`'s established phrasing for
+explaining "lane" in passing. `GAME_DETAIL["2-0:SKIRMISH"]` was deliberately
+left unchanged (that historical edition never had the rule, and the entry is
+unreachable in the picker per Step 1's `playableEditions()` filtering) - noted
+in an updated doc comment above the map so the asymmetry between the two
+Skirmish entries isn't mistaken for an oversight. The Battle entry is
+untouched. Swept `PlacementStatus.tsx`, `HotSeatGame.tsx`, `Board.tsx`, and
+`GameChoice.tsx` for stale or inaccurate copy, "ply", and edition ids in
+player-facing (rendered) strings: none found - every "ply" occurrence in
+those files is in a code comment (permitted per the project's ply/move
+convention), and no rendered string names an edition id. `README.md`'s setup
+bullet gained one clause in the same voice: "In Skirmish, a tower can't stand
+directly in front of a lane, one of the open columns running through the
+middle of the board." placed between the existing placement sentence and
+"When both armies are placed...". Edited directly rather than via
+`/update-readme`, since the story's own plan already specified the exact
+bullet and clause to add.
+
+Deviation: none. `npm run typecheck`, `npm run lint`, `npm test` (614 tests,
+29 files), and `npx prettier --check` on both touched files all pass. No
+automated test asserts the `GAME_DETAIL` string's content (there is no
+`GameChoice` component-test harness, consistent with every prior step in this
+story - Step 1's Notes record the same gap) - the "keep it type-complete"
+guarantee is still compiler-enforced (`Record<EditionId, string>`), and the
+manual gate below is how the wording itself gets checked.
+
+Manual check for the owner, with a restarted `npm run dev`: open the game
+picker and read the Skirmish description - it should end with the new tower/
+lane sentence, plainly worded, with "lane" explained rather than assumed
+known, no edition id or "ply" anywhere; the Battle description should read
+exactly as it did before. Then re-read `README.md`'s "Set up a game with a
+friend" bullet end to end for accuracy and tone.
 
 Close the story with the copy pass and the README review:
 

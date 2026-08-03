@@ -53,11 +53,15 @@ export interface GameChoiceProps {
  * playable) so the record stays type-complete as a fourth edition would fail
  * to compile here; only the ids `playableEditions()` returns are ever
  * actually rendered, so the superseded `2-0:SKIRMISH` entry below is never
- * shown to a player.
+ * shown to a player. Story 00000025, Step 7: `2-1:SKIRMISH`'s description
+ * gains a clause about the tower/lane restriction, so a player meets the
+ * rule before it ever refuses them at placement; `2-0:SKIRMISH`'s text is
+ * deliberately left without that clause (it never had the rule) even though
+ * it is unreachable in the picker.
  */
 const GAME_DETAIL: Readonly<Record<EditionId, string>> = {
   "2-1:SKIRMISH":
-    "A smaller game, recommended if this is your first time playing: an 8x8 board with a 16-piece army, and the armies start closer together.",
+    "A smaller game, recommended if this is your first time playing: an 8x8 board with a 16-piece army, and the armies start closer together. A tower can't be placed directly in front of a lane, one of the open columns running through the middle of the board.",
   "2-0:SKIRMISH":
     "A smaller game, recommended if this is your first time playing: an 8x8 board with a 16-piece army, and the armies start closer together.",
   "2-0:BATTLE": "The full game: a 12x12 board with a 25-piece army.",
