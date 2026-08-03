@@ -55,7 +55,7 @@ describe("buildInitialGameState (ruleset major 2)", () => {
     );
     const gameState = buildInitialGameState(white, black, skirmish);
 
-    expect(gameState.ruleset).toBe("2-0:SKIRMISH");
+    expect(gameState.ruleset).toBe("2-1:SKIRMISH");
     expect(gameState.edition).toBe(skirmish);
   });
 

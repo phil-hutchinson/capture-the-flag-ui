@@ -4,17 +4,21 @@
 // Reading a record is edition-sensitive: the position block's dimensions and
 // the piece letters belong to a specific edition's `BoardLayout`, so this
 // module looks just far enough into the file to find the `Ruleset` tag - the
-// full edition id (`2-0:BATTLE` / `2-0:SKIRMISH`, no deviating flags, per
-// `technical-notes.md`'s "editions and flags" model) - and either resolves
-// that edition and delegates to the (single, edition-parametric) major-2
-// reader (`src/rules/primary/v2/recordFile.ts`) or rejects the file as one
-// this app doesn't know how to review. This app plays only major 2, so the
-// old `1.2:PRE-RELEASE` tag is not a case here at all any more (story
-// 00000023's Step 8, the owner-authorized "replace, don't version-alongside"
-// exception - see this story's story.md): such a file falls straight
-// through to the same `unknownRuleset` rejection as any other name this app
-// does not recognize. A future ruleset version adds a case here rather than
-// editing an existing one.
+// full edition id (`2-0:BATTLE`, `2-1:SKIRMISH`, or the superseded
+// `2-0:SKIRMISH`, no deviating flags, per `technical-notes.md`'s "editions
+// and flags" model) - and either resolves that edition and delegates to the
+// (single, edition-parametric) major-2 reader
+// (`src/rules/primary/v2/recordFile.ts`) or rejects the file as one this app
+// doesn't know how to review. Resolution is against `EDITIONS`, which holds
+// every registered edition regardless of its `status` (story 00000025) - a
+// record naming the superseded `2-0:SKIRMISH` still reviews, even though
+// that edition is no longer offered as a game to start. This app plays only
+// major 2, so the old `1.2:PRE-RELEASE` tag is not a case here at all any
+// more (story 00000023's Step 8, the owner-authorized "replace, don't
+// version-alongside" exception - see this story's story.md): such a file
+// falls straight through to the same `unknownRuleset` rejection as any other
+// name this app does not recognize. A future ruleset version adds a case
+// here rather than editing an existing one.
 //
 // Reading a record is parse-then-replay (`recordFile.ts` then `replay.ts`):
 // this entry point returns either a fully replayed recorded game - every

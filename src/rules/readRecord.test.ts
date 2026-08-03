@@ -404,6 +404,44 @@ describe("readRecord - renderGameRecord's opening-position output round-trips fo
   });
 });
 
+// Story 00000025: the registry now holds three editions - `2-0:BATTLE` and
+// `2-1:SKIRMISH` (active) plus the superseded `2-0:SKIRMISH` (still
+// resolvable, per `EDITIONS`, so a record naming it keeps reviewing even
+// though it is no longer offered as a game to start). This confirms
+// `readRecord` accepts all three tags and still rejects an unknown one.
+describe("readRecord - accepts all three registered edition tags (story 00000025)", () => {
+  it.each([
+    ["2-0:BATTLE", EDITIONS["2-0:BATTLE"]] as const,
+    ["2-1:SKIRMISH", EDITIONS["2-1:SKIRMISH"]] as const,
+    ["2-0:SKIRMISH", EDITIONS["2-0:SKIRMISH"]] as const,
+  ])("accepts a record tagged %s", (id, edition) => {
+    const initial: InitialGameState = {
+      ruleset: edition.id,
+      edition,
+      board: { A1: { side: "white", pieceType: "flag" } },
+    };
+
+    const result = readRecord(renderGameRecord(startPlay(initial)));
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.record.tags.ruleset).toBe(id);
+    expect(result.edition.id).toBe(id);
+  });
+
+  it("still rejects an unknown ruleset tag", () => {
+    const text = ['[Ruleset "9-9:NOT_A_REAL_EDITION"]', POSITION_BLOCK].join(
+      "\n\n",
+    );
+
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: { kind: "unknownRuleset", ruleset: "9-9:NOT_A_REAL_EDITION" },
+    });
+  });
+});
+
 describe("readRecord - a small synthetic 2-0:SKIRMISH record round-trips (8x8)", () => {
   const skirmish = EDITIONS["2-0:SKIRMISH"];
   const SKIRMISH_GAME_STATE: InitialGameState = {
