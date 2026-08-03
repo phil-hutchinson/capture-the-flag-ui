@@ -333,7 +333,29 @@ still rejects an unknown tag. `npm run typecheck && npm run lint && npm test`.
 
 ## Step 2 — The closed-square geometry (pure, unwired)
 
-Status: pending
+Status: committed
+
+Notes: Added `homeSquaresFacingLane(side, layout = BATTLE_LAYOUT)` to
+`board.ts`, computed from a private `orthogonalNeighbours` helper (up to
+four in-bounds neighbours, using `columnIndexOf`/`columnLetter` for column
+arithmetic and layout bounds for row/column validity) plus `layout.lakeRows`
+and `isLake`, filtering `homeSquares(side, layout)` by "has a neighbour whose
+row is a lake row and which is not itself a lake" — the rules' verbatim
+definition. Nothing is hardcoded; the function derives the closed set purely
+from the layout. Order falls out naturally from `homeSquares`'s row-major,
+left-to-right order (itself derived from `allSquares`), so no extra sorting
+step was needed. Added tests in `board.test.ts`: Battle returns `[]` for
+both sides; Skirmish returns exactly `A3, D3, E3, H3` for White and `A6, D6,
+E6, H6` for Black (asserted by value via `toEqual`, in the expected order);
+and an explicit check that `B3, C3, F3, G3` (and the Black mirror) are
+excluded. Updated `board.ts`'s module header to name all three editions
+(previously named only the original two), matching `boardLayout.ts`'s
+existing three-edition header. No other files were touched — the function is
+not consumed anywhere yet, per the step's scope.
+
+`npm run typecheck`, `npm run lint`, `npm test` (576 tests, 28 files) and
+`npx prettier --check` on the two touched files all pass. No deviations from
+the plan.
 
 Add to `src/rules/primary/v2/board.ts` a pure geometric query that, given a
 `Side` and a `BoardLayout`, returns that side's home squares which are
