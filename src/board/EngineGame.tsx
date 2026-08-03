@@ -636,7 +636,18 @@ export function EngineGame({ onBack }: EngineGameProps) {
   }
 
   function handleAutoFill() {
-    setPlacement((current) => (current ? autoFill(current) : current));
+    // Story 00000025, Step 8: `autoFill` now reports an exhausted attempt
+    // (`{ ok: false }`) instead of throwing. This screen is disabled and
+    // unreachable (story 00000023), so it only needs to keep compiling and
+    // behave as it did before this story - it leaves `current` untouched on
+    // exhaustion, exactly as a caught throw would have.
+    setPlacement((current) => {
+      if (!current) {
+        return current;
+      }
+      const result = autoFill(current);
+      return result.ok ? result.state : current;
+    });
     setSelection(null);
   }
 
@@ -648,10 +659,20 @@ export function EngineGame({ onBack }: EngineGameProps) {
     // The computer's army: a valid random arrangement (no two Towers
     // adjacent), generated silently and never shown before play begins - the
     // same `autoFill` the human's own "Auto-fill" button uses, applied to a
-    // fresh, empty placement for the computer's side.
-    const computerArmy = autoFill(
+    // fresh, empty placement for the computer's side. An empty Battle board
+    // (25 pieces into 48 squares, `spacing_only`) never exhausts in practice
+    // (story 00000025's Step 8), so a failure here would indicate a genuine
+    // bug rather than an unlucky player-built board - hence the throw, unlike
+    // the human's own `handleAutoFill` above.
+    const computerArmyResult = autoFill(
       emptyPlacement(computerSide, BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
     );
+    if (!computerArmyResult.ok) {
+      throw new Error(
+        "autoFill: failed to seat the computer's Towers on a fresh Battle board - should be unreachable.",
+      );
+    }
+    const computerArmy = computerArmyResult.state;
     // This screen is Battle-only and unreachable while computer play is
     // disabled (story 00000023, Step 9), so it names the Battle edition
     // explicitly rather than relying on a default (peer review, finding #15).

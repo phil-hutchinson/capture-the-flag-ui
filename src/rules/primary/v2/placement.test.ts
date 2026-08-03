@@ -58,6 +58,29 @@ function adjacentOrSame(a: Square, b: Square): boolean {
   return columnDelta <= 1 && rowDelta <= 1;
 }
 
+/**
+ * `autoFill`, unwrapped for every test in this file that expects it to
+ * succeed (story 00000025's Step 8 changed `autoFill`'s return type from a
+ * bare `PlacementState` to an `AutoFillResult`, reporting exhaustion instead
+ * of throwing). Throws if `autoFill` reports `{ ok: false }`, so a test using
+ * this helper still fails loudly if a fixture that is supposed to succeed
+ * ever stops doing so. The one test that exercises the exhaustion outcome
+ * itself (below) calls `autoFill` directly instead of through this helper.
+ */
+function autoFillOrThrow(
+  state: PlacementState,
+  random?: RandomSource,
+): PlacementState {
+  const result =
+    random === undefined ? autoFill(state) : autoFill(state, random);
+  if (!result.ok) {
+    throw new Error(
+      "autoFillOrThrow: autoFill reported no legal arrangement, but this test expected one to exist.",
+    );
+  }
+  return result.state;
+}
+
 /** Fills every one of `state.side`'s 25-piece army onto its first 25 home squares (in `homeSquares` order). */
 function placeFullArmy(state: PlacementState): PlacementState {
   const squares = homeSquares(state.side);
@@ -696,7 +719,7 @@ describe("autoFill", () => {
       BATTLE_ARMY,
       "spacing_only",
     );
-    const filled = autoFill(state, seededRandom(1));
+    const filled = autoFillOrThrow(state, seededRandom(1));
 
     expect(isComplete(filled)).toBe(true);
     for (const entry of pieceCatalogEntries()) {
@@ -720,7 +743,7 @@ describe("autoFill", () => {
   });
 
   it("leaves the other 23 of the 48 home squares empty (placement is sparse, not a full-board fill)", () => {
-    const filled = autoFill(
+    const filled = autoFillOrThrow(
       emptyPlacement("white", BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
       seededRandom(20),
     );
@@ -732,7 +755,7 @@ describe("autoFill", () => {
 
   it("never places two Towers adjacently, orthogonally or diagonally", () => {
     for (const seed of [1, 2, 3, 4, 5, 42, 100, 900]) {
-      const filled = autoFill(
+      const filled = autoFillOrThrow(
         emptyPlacement("white", BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
         seededRandom(seed),
       );
@@ -751,7 +774,7 @@ describe("autoFill", () => {
   });
 
   it("never places on a lake or buffer square", () => {
-    const filled = autoFill(
+    const filled = autoFillOrThrow(
       emptyPlacement("white", BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
       seededRandom(2),
     );
@@ -770,7 +793,7 @@ describe("autoFill", () => {
     state = place(state, WHITE_HOME[0], "flag");
     state = place(state, WHITE_HOME[1], "masterOfArms");
 
-    const filled = autoFill(state, seededRandom(3));
+    const filled = autoFillOrThrow(state, seededRandom(3));
 
     expect(pieceAt(filled, WHITE_HOME[0])).toBe("flag");
     expect(pieceAt(filled, WHITE_HOME[1])).toBe("masterOfArms");
@@ -788,7 +811,7 @@ describe("autoFill", () => {
       "tower",
     );
     for (const seed of [7, 8, 9]) {
-      const filled = autoFill(state, seededRandom(seed));
+      const filled = autoFillOrThrow(state, seededRandom(seed));
       expect(pieceAt(filled, WHITE_HOME[0])).toBe("tower");
       expect(towerPlacementLegality(filled).legal).toBe(true);
     }
@@ -801,8 +824,8 @@ describe("autoFill", () => {
       BATTLE_ARMY,
       "spacing_only",
     );
-    const first = autoFill(state, seededRandom(42));
-    const second = autoFill(state, seededRandom(42));
+    const first = autoFillOrThrow(state, seededRandom(42));
+    const second = autoFillOrThrow(state, seededRandom(42));
 
     for (const square of WHITE_HOME) {
       expect(pieceAt(first, square)).toBe(pieceAt(second, square));
@@ -810,7 +833,7 @@ describe("autoFill", () => {
   });
 
   it("tracks each side's own home squares independently", () => {
-    const filled = autoFill(
+    const filled = autoFillOrThrow(
       emptyPlacement("black", BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
       seededRandom(4),
     );
@@ -1006,7 +1029,7 @@ describe("PlacementState with the Skirmish army (16 pieces)", () => {
 
   it("autoFill fills exactly the 16-piece Skirmish army onto the Skirmish board, honoring the Tower rule", () => {
     const state = emptySkirmish("white");
-    const filled = autoFill(state, seededRandom(11));
+    const filled = autoFillOrThrow(state, seededRandom(11));
 
     expect(isComplete(filled)).toBe(true);
     for (const id of PIECE_TYPES) {
@@ -1067,7 +1090,7 @@ describe("autoFill honors squaresClosedToTowers (story 00000025)", () => {
     );
     expect(closedKeys.size).toBe(4);
 
-    const filled = autoFill(state, random);
+    const filled = autoFillOrThrow(state, random);
     expect(isComplete(filled)).toBe(true);
 
     const home = homeSquares("white", SKIRMISH);
@@ -1106,7 +1129,7 @@ describe("autoFill honors squaresClosedToTowers (story 00000025)", () => {
     // it.
     expect(squaresClosedToTowers(state)).toEqual([]);
 
-    const filled = autoFill(state, random);
+    const filled = autoFillOrThrow(state, random);
     expect(isComplete(filled)).toBe(true);
     expect(towerPlacementLegality(filled).legal).toBe(true);
   }
@@ -1150,7 +1173,7 @@ describe("autoFill from a partially hand-filled state (peer review finding #7)",
       state = place(state, { column: "D", row: 2 }, "knight");
       state = place(state, { column: "G", row: 3 }, "halberdier");
 
-      const filled = autoFill(state, seededRandom(seed));
+      const filled = autoFillOrThrow(state, seededRandom(seed));
       expect(isComplete(filled)).toBe(true);
       expect(towerPlacementLegality(filled).legal).toBe(true);
       const closedKeys = new Set(
@@ -1180,7 +1203,7 @@ describe("autoFill from a partially hand-filled state (peer review finding #7)",
       // lakes, not lanes) - a legal square for a hand-placed Tower.
       state = place(state, { column: "C", row: 3 }, "tower");
 
-      const filled = autoFill(state, seededRandom(seed));
+      const filled = autoFillOrThrow(state, seededRandom(seed));
       expect(isComplete(filled)).toBe(true);
       expect(towerPlacementLegality(filled).legal).toBe(true);
     }
@@ -1198,7 +1221,7 @@ describe("autoFill from a partially hand-filled state (peer review finding #7)",
       state = place(state, { column: "E", row: 1 }, "tower");
       state = place(state, { column: "H", row: 1 }, "tower");
 
-      const filled = autoFill(state, seededRandom(seed));
+      const filled = autoFillOrThrow(state, seededRandom(seed));
       expect(isComplete(filled)).toBe(true);
       expect(towerPlacementLegality(filled).legal).toBe(true);
     }
@@ -1207,21 +1230,27 @@ describe("autoFill from a partially hand-filled state (peer review finding #7)",
   // This case is the reason for the peer review comment: it is a state a
   // player could plausibly reach by hand - placing every non-Tower piece
   // (all 13 of Skirmish's masters-of-arms/champions/knights/halberdiers/flag)
-  // before touching Auto-fill for the three Towers - that nonetheless makes
-  // `pickTowerSquares` throw. The 13 non-Tower pieces below are placed on 13
-  // of Skirmish's 20 open (non-closed) home squares, deliberately chosen so
-  // the 7 open squares left empty (A1, B1, C1, D1, A2, B2, C2 - a compact
-  // 4-column-by-2-row corner of the home zone) contain no three mutually
-  // non-adjacent squares: any two of those seven are within a king's move of
-  // each other whenever a third is added (the block's maximum independent
-  // set, under the same orthogonal-or-diagonal adjacency `isAdjacentOrSame`
-  // checks, is only 2). With exactly three Towers left to place and exactly
-  // those seven non-closed squares free, no arrangement can satisfy the
-  // spacing rule, so `autoFill` exhausts its attempts and throws - reported
-  // to the owner per the review comment rather than silently "fixed" here,
-  // since changing the throw contract (e.g. to a recoverable result) was
-  // explicitly out of scope for this fix.
-  it("demonstrates a plausible partially hand-filled state where auto-fill exhausts (reported, not fixed)", () => {
+  // before touching Auto-fill for the three Towers - that nonetheless leaves
+  // `pickTowerSquares` unable to find a legal arrangement. The 13 non-Tower
+  // pieces below are placed on 13 of Skirmish's 20 open (non-closed) home
+  // squares, deliberately chosen so the 7 open squares left empty (A1, B1,
+  // C1, D1, A2, B2, C2 - a compact 4-column-by-2-row corner of the home zone)
+  // contain no three mutually non-adjacent squares: any two of those seven
+  // are within a king's move of each other whenever a third is added (the
+  // block's maximum independent set, under the same orthogonal-or-diagonal
+  // adjacency `isAdjacentOrSame` checks, is only 2). With exactly three
+  // Towers left to place and exactly those seven non-closed squares free, no
+  // arrangement can satisfy the spacing rule.
+  //
+  // Before story 00000025's Step 8 (peer review finding #7), `autoFill`
+  // exhausted its attempts and *threw* here - this test originally pinned
+  // that throwing behaviour, reported to the owner rather than silently
+  // "fixed", since changing the throw contract was explicitly out of scope
+  // for that earlier fix. Step 8 closes that gap: `autoFill` now reports the
+  // exhaustion as an ordinary `{ ok: false }` result, the board is left
+  // exactly as the player had it, and `towerPlacementMessages.ts` has a
+  // sentence explaining what to do about it - asserted below.
+  it("reports (rather than throws) when no legal arrangement exists for the remaining Towers", () => {
     let state = emptyPlacement(
       "white",
       SKIRMISH,
@@ -1247,8 +1276,15 @@ describe("autoFill from a partially hand-filled state (peer review finding #7)",
       state = place(state, square, type);
     }
 
-    expect(() => autoFill(state, Math.random)).toThrow(
-      "autoFill: could not find Tower squares satisfying the no-adjacent-Towers rule.",
-    );
+    const result = autoFill(state, Math.random);
+    expect(result.ok).toBe(false);
+
+    // The board is left exactly as the player had it - no partial fill, no
+    // pieces moved. `towerPlacementMessages.test.ts` covers the player-facing
+    // sentence this outcome produces.
+    for (const [square, type] of nonTowerPlacements) {
+      expect(pieceAt(state, square)).toBe(type);
+    }
+    expect(placedCount(state)).toBe(nonTowerPlacements.length);
   });
 });

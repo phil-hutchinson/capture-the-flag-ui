@@ -937,7 +937,90 @@ without jargon; and re-read `README.md` end to end for accuracy.
 
 ## Step 8 — Tell the player when auto-fill can't seat the Towers
 
-Status: pending
+Status: committed
+
+Notes: `placement.ts`'s `autoFill` now returns a new `AutoFillResult`
+(`{ ok: true; state } | { ok: false }`) instead of a bare `PlacementState`;
+`pickTowerSquares` returns `Square[] | null` (was: returns squares or throws)
+and `autoFill` propagates a `null` result as `{ ok: false }`, leaving `state`
+untouched - the attempt-limited search itself is unchanged, only how its
+exhaustion is reported, per the step's own instruction. The module's header
+comment gained a paragraph naming this as the one exception to "these throw";
+`place`/`move`/`swap`'s own invariant throws are untouched.
+`towerPlacementMessages.ts` gained `AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE`
+("Auto-fill couldn't place your remaining Towers - there's no square left for
+them where two Towers wouldn't end up touching, even diagonally. Clear a few
+of your placed pieces and try Auto-fill again.") and a new
+`TowerAutoFillExhausted` (`{ seq: number }`) transient-event type, mirroring
+`TowerRefusal`'s own `seq` (peer review finding #5) so a second identical
+failure still forces a fresh announcement. `TowerLiveRegionInputs` gained a
+required `autoFillExhausted` field and `towerLiveRegionMessage`'s precedence
+gained one tier, placed second (after a drop-time refusal, before the
+closed-squares hint) - the plan's Decisions item 4 precedence extended rather
+than bypassed, as directed; the two top tiers are mutually exclusive in
+practice (each caller-side setter clears the other), so their relative order
+never actually matters. `HotSeatGame.tsx` added an `autoFillExhausted` state
+alongside the existing `towerRefusal`, a `clearTowerFeedback()` helper that
+clears both together (used at every site that used to clear only
+`towerRefusal` - a new selection, a completed placement action, and
+confirm/hand-off, matching `towerRefusal`'s own Step 5 clearing footprint
+exactly, deviation-for-deviation), and `reportAutoFillExhausted()`/an updated
+`refuseTowerPlacement()` that each clear the other's transient state so a
+stale message from a prior action can never outrank a newer one. The
+Auto-fill click handler now calls `autoFill(placement)` directly (rather than
+inside `setSession`'s functional updater, since inspecting the result and
+reporting exhaustion is a side effect a `setState` updater should not
+perform) and either reports the exhaustion or applies the successful result;
+the board is left exactly as it was on `{ ok: false }`, satisfying the step's
+"leave the board untouched" requirement structurally (the failing branch
+never calls `setSession` at all). `EngineGame.tsx` (disabled, unreachable)
+needed self-contained updates to keep compiling: its own `handleAutoFill`
+unwraps the result and silently keeps the prior placement on exhaustion (a
+close analogue of the old throw's visible effect - nothing happens - without
+the console error); the computer-army-generation call site (a fresh, mostly
+empty Battle board, where exhaustion should be practically impossible) throws
+a dedicated "should be unreachable" error if `!result.ok`, preserving that
+call site's own pre-existing "this must never fail" assumption rather than
+silently masking a genuine bug there.
+
+`placement.test.ts`: the exhaustion test (previously "demonstrates a
+plausible partially hand-filled state where auto-fill exhausts (reported, not
+fixed)") is rewritten, not deleted, to
+`"reports (rather than throws) when no legal arrangement exists for the
+remaining Towers"` - same fixture board, now asserting `result.ok === false`
+and that the 13 hand-placed non-Tower pieces are exactly as they were
+(nothing partially filled). Every other `autoFill` call site in this file
+(and in `gameState.test.ts` and `placementSession.test.ts`, which also call
+it) now goes through a small local `autoFillOrThrow` test helper that unwraps
+`{ ok: true }` and throws loudly if a fixture expected to succeed ever stops
+doing so - mechanical, but necessary since `autoFill`'s return type changed;
+none of the existing high-iteration auto-fill tests needed any behavioural
+change beyond this unwrap, confirming nothing regressed.
+`towerPlacementMessages.test.ts` gained a describe block for
+`AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE` (names Towers, explains why, says what to
+do, never says "ply" or an edition id, distinguishable from every other Tower
+sentence per Gate A) and new `towerLiveRegionMessage` cases for the new tier
+(wins over the hint and confirm-time block; loses to a refusal; carries its
+own `seq` through unchanged on repeat, mirroring the refusal's own peer-review
+finding #5 coverage).
+
+`npm run typecheck`, `npm run lint`, `npm test` (624 tests, 29 files),
+`npm run build`, and `npm run format:check` all pass/clean.
+
+Deviation: none from the step's approach. One interpretive elaboration,
+similar in spirit to Step 5's own documented one: the step's own text clears
+the message "on the next successful placement action," but (mirroring Step
+5's reasoning for `towerRefusal`) `autoFillExhausted` is also cleared on every
+_selection_ change, not just a successful action - otherwise a stale
+exhaustion message would keep outranking the closed-squares hint even after
+the player picks up a different Tower, which Decisions item 3 requires the
+hint to show. Implemented via one shared `clearTowerFeedback()` helper so the
+two transient events (`towerRefusal`, `autoFillExhausted`) can never
+accidentally drift out of sync with each other's clearing footprint.
+
+Manual verification (the board state described in the step's own "How to
+verify") is the owner's to perform at the next gate; not run here per this
+agent's standing instructions.
 
 **Added after the peer review** (owner decision, 2026-08-03), in response to
 finding #7. Step 3's auto-fill work and the fix pass that followed left a real,

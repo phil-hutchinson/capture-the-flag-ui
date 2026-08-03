@@ -6,9 +6,28 @@ import {
   newSession,
   updateActivePlacement,
 } from "./placementSession.ts";
-import { autoFill, place } from "../rules/primary/v2/placement.ts";
+import {
+  autoFill,
+  place,
+  type PlacementState,
+} from "../rules/primary/v2/placement.ts";
 import { homeSquares } from "../rules/primary/v2/board.ts";
 import { BATTLE_EDITION } from "../rules/primary/v2/edition.ts";
+
+/**
+ * `autoFill`, unwrapped (story 00000025's Step 8 changed its return type to
+ * an `AutoFillResult` reporting exhaustion instead of throwing). Every
+ * fixture below is a fresh Battle board, so none is expected to exhaust.
+ */
+function autoFillOrThrow(state: PlacementState): PlacementState {
+  const result = autoFill(state);
+  if (!result.ok) {
+    throw new Error(
+      "autoFillOrThrow: autoFill reported no legal arrangement, but this test expected one to exist.",
+    );
+  }
+  return result.state;
+}
 
 describe("newSession", () => {
   it("starts with White active and both boards empty", () => {
@@ -28,9 +47,9 @@ describe("activePlacement", () => {
 
   it("throws once the session is complete", () => {
     let session = newSession(BATTLE_EDITION);
-    session = updateActivePlacement(session, (state) => autoFill(state));
+    session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session); // White confirms, Black becomes active
-    session = updateActivePlacement(session, (state) => autoFill(state));
+    session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session); // Black confirms, session complete
     expect(() => activePlacement(session)).toThrow();
   });
@@ -49,13 +68,11 @@ describe("updateActivePlacement", () => {
 
   it("throws once the session is complete", () => {
     let session = newSession(BATTLE_EDITION);
-    session = updateActivePlacement(session, (state) => autoFill(state));
+    session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session);
-    session = updateActivePlacement(session, (state) => autoFill(state));
+    session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session);
-    expect(() =>
-      updateActivePlacement(session, (state) => autoFill(state)),
-    ).toThrow();
+    expect(() => updateActivePlacement(session, autoFillOrThrow)).toThrow();
   });
 });
 
@@ -67,7 +84,7 @@ describe("confirmActive", () => {
 
   it("hands off from White to Black on White's confirm, leaving Black's board empty", () => {
     let session = newSession(BATTLE_EDITION);
-    session = updateActivePlacement(session, (state) => autoFill(state));
+    session = updateActivePlacement(session, autoFillOrThrow);
     const whiteFilled = session.white;
     session = confirmActive(session);
 
@@ -79,9 +96,9 @@ describe("confirmActive", () => {
 
   it("completes the session (active becomes null) once Black also confirms", () => {
     let session = newSession(BATTLE_EDITION);
-    session = updateActivePlacement(session, (state) => autoFill(state));
+    session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session);
-    session = updateActivePlacement(session, (state) => autoFill(state));
+    session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session);
 
     expect(session.active).toBeNull();
@@ -90,9 +107,9 @@ describe("confirmActive", () => {
 
   it("throws when confirming an already-complete session", () => {
     let session = newSession(BATTLE_EDITION);
-    session = updateActivePlacement(session, (state) => autoFill(state));
+    session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session);
-    session = updateActivePlacement(session, (state) => autoFill(state));
+    session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session);
     expect(() => confirmActive(session)).toThrow();
   });

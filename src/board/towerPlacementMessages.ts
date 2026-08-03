@@ -25,6 +25,13 @@
 // then the confirm-time block, then nothing) into the one string
 // `PlacementStatus`'s always-mounted live region shows - so `HotSeatGame.tsx`
 // never has to reason about that ordering itself.
+//
+// Step 8 (peer review finding #7) adds one more sentence and one more tier:
+// auto-fill can find no legal arrangement for a Skirmish player's remaining
+// Towers once their own hand-placed pieces have left the free squares too
+// clustered. That is a transient "the action you just took didn't work"
+// event, exactly like a drop-time refusal, so it is reported and cleared the
+// same way and slots into the precedence right alongside it.
 
 import { squareKey, type Square } from "../rules/primary/v2/board.ts";
 import type {
@@ -163,6 +170,30 @@ export interface TowerRefusal {
   readonly seq: number;
 }
 
+/**
+ * The sentence shown when Auto-fill could not place the remaining Towers
+ * (story 00000025's Step 8, peer review finding #7): `placement.ts`'s
+ * `autoFill` reports `{ ok: false }` when no arrangement of the remaining
+ * Towers avoids two of them touching (orthogonally or diagonally) - not a
+ * bug, but a board the player themselves left with too few, too clustered
+ * squares free. Says what happened, why, and what to do next, in the same
+ * voice as its neighbours above.
+ */
+export const AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE =
+  "Auto-fill couldn't place your remaining Towers - there's no square left for them where two Towers wouldn't end up touching, even diagonally. Clear a few of your placed pieces and try Auto-fill again.";
+
+/**
+ * A transient "Auto-fill just failed" event (story 00000025's Step 8),
+ * paired with a monotonically increasing `seq` - mirroring `TowerRefusal`'s
+ * own `seq` (peer review finding #5) for the same reason: clicking Auto-fill
+ * twice in a row while stuck must still announce the (identical) message
+ * twice, not just once.
+ */
+export interface TowerAutoFillExhausted {
+  /** Incremented on every exhausted Auto-fill attempt, even a repeat. */
+  readonly seq: number;
+}
+
 /** The inputs `towerLiveRegionMessage` resolves into the one live-region message. */
 export interface TowerLiveRegionInputs {
   /**
@@ -172,6 +203,12 @@ export interface TowerLiveRegionInputs {
    * the render right after a refusal.
    */
   readonly refusal: TowerRefusal | null;
+  /**
+   * The most recent exhausted Auto-fill attempt (story 00000025's Step 8), or
+   * `null` if none is currently pending. Transient in exactly the same way as
+   * `refusal` - the caller clears it the moment the player moves on.
+   */
+  readonly autoFillExhausted: TowerAutoFillExhausted | null;
   /**
    * `state.side`'s closed-to-Towers squares (`squaresClosedToTowers`), but
    * only when the caller has determined a Tower is currently in hand
@@ -206,24 +243,34 @@ export interface TowerLiveRegionMessage {
 /**
  * Resolves the one message `PlacementStatus`'s always-mounted live region
  * shows right now (story 00000025, Step 5; the plan's "Decisions resolved at
- * plan time", item 4) - so a player is never told two things by two
- * mechanisms at once:
+ * plan time", item 4, extended by Step 8's peer-review fix) - so a player is
+ * never told two things by two mechanisms at once:
  *
  *  1. a drop-time refusal, if one just happened - wins outright;
- *  2. otherwise, the "Towers can't go on …" hint, if a Tower is in hand and
+ *  2. otherwise, an exhausted Auto-fill attempt, if one just happened (Step
+ *     8) - the two are mutually exclusive in practice (each caller-side event
+ *     clears the other), so their relative order here never matters;
+ *  3. otherwise, the "Towers can't go on …" hint, if a Tower is in hand and
  *     `closedSquares` is non-empty (inert on Battle, where it is always
  *     empty);
- *  3. otherwise, the confirm-time block explanation, if `legality` reports a
+ *  4. otherwise, the confirm-time block explanation, if `legality` reports a
  *     violation;
- *  4. otherwise, nothing (`""`).
+ *  5. otherwise, nothing (`""`).
  */
 export function towerLiveRegionMessage({
   refusal,
+  autoFillExhausted,
   closedSquares,
   legality,
 }: TowerLiveRegionInputs): TowerLiveRegionMessage {
   if (refusal !== null) {
     return { text: refusal.text, seq: refusal.seq };
+  }
+  if (autoFillExhausted !== null) {
+    return {
+      text: AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE,
+      seq: autoFillExhausted.seq,
+    };
   }
   if (closedSquares.length > 0) {
     return { text: describeClosedToTowersHint(closedSquares), seq: 0 };

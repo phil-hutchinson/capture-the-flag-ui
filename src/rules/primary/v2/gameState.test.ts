@@ -26,8 +26,28 @@ function seededRandom(seed: number): () => number {
   };
 }
 
+/**
+ * `autoFill`, unwrapped (story 00000025's Step 8 changed its return type to
+ * an `AutoFillResult` reporting exhaustion instead of throwing; every
+ * fixture in this file is a fresh or lightly-seeded Battle/Skirmish board, so
+ * none is expected to exhaust - see placement.test.ts's own
+ * `autoFillOrThrow` for the same reasoning).
+ */
+function autoFillOrThrow(
+  state: PlacementState,
+  random: () => number,
+): PlacementState {
+  const result = autoFill(state, random);
+  if (!result.ok) {
+    throw new Error(
+      "autoFillOrThrow: autoFill reported no legal arrangement, but this test expected one to exist.",
+    );
+  }
+  return result.state;
+}
+
 function completeArmy(side: "white" | "black", seed: number): PlacementState {
-  return autoFill(
+  return autoFillOrThrow(
     emptyPlacement(side, BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
     seededRandom(seed),
   );
@@ -45,7 +65,7 @@ describe("buildInitialGameState (ruleset major 2)", () => {
 
   it("tags the artifact with the given edition's id (Skirmish)", () => {
     const skirmish = SKIRMISH_EDITION;
-    const white = autoFill(
+    const white = autoFillOrThrow(
       emptyPlacement(
         "white",
         skirmish.boardLayout,
@@ -54,7 +74,7 @@ describe("buildInitialGameState (ruleset major 2)", () => {
       ),
       seededRandom(21),
     );
-    const black = autoFill(
+    const black = autoFillOrThrow(
       emptyPlacement(
         "black",
         skirmish.boardLayout,

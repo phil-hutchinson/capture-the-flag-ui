@@ -23,6 +23,14 @@
 // - those are placement-time *legality*, judged by the UI (story 00000025's
 // Steps 4-5), not structural invariants of the state.
 //
+// `autoFill` is the one exception to "these throw" above (story 00000025's
+// Step 8): a player can hand-place their non-Tower pieces into a cluster that
+// leaves no legal arrangement for the remaining Towers - a real board state
+// the player produced, not a violated invariant - so `autoFill` reports that
+// outcome as an ordinary `AutoFillResult` rather than throwing. `place`,
+// `move`, and `swap`'s own throws (occupied/empty/not-a-home-square) are
+// untouched by this distinction.
+//
 // This module builds on the board geometry (Step 1; parametric over a
 // `BoardLayout` since story 00000023's Step 3) and the piece catalog /
 // army-composition rosters (Step 2, `armyComposition.ts`), and (story
@@ -435,14 +443,17 @@ function shuffle<T>(items: readonly T[], random: RandomSource): T[] {
  * shuffles of `candidates` (an independent set of this size is easy to find
  * among the side's home squares for the edition's handful of Towers, so a
  * handful of attempts suffices in practice) before giving up. Returns the
- * chosen squares.
+ * chosen squares, or `null` if no arrangement satisfying the spacing rule was
+ * found within the attempt limit - a legitimate outcome a player can produce
+ * by hand-placing their non-Tower pieces into an unlucky cluster (story
+ * 00000025's Step 8), reported by `autoFill` rather than thrown.
  */
 function pickTowerSquares(
   candidates: readonly Square[],
   count: number,
   alreadyPlacedTowers: readonly Square[],
   random: RandomSource,
-): Square[] {
+): Square[] | null {
   if (count === 0) {
     return [];
   }
@@ -466,10 +477,21 @@ function pickTowerSquares(
     }
   }
 
-  throw new Error(
-    "autoFill: could not find Tower squares satisfying the no-adjacent-Towers rule.",
-  );
+  return null;
 }
+
+/**
+ * `autoFill`'s outcome (story 00000025's Step 8): either it completed,
+ * carrying the resulting `state`, or no legal arrangement of the remaining
+ * Towers could be found - a legitimate board state a player can produce by
+ * hand-placing their other pieces into an unlucky cluster, not a programming
+ * error (see this module's header on that distinction), so `autoFill` reports
+ * it rather than throwing. On `{ ok: false }`, `state` is left exactly as it
+ * was passed in - the caller must not assume any pieces were placed.
+ */
+export type AutoFillResult =
+  | { readonly ok: true; readonly state: PlacementState }
+  | { readonly ok: false };
 
 /**
  * Places every one of `state`'s remaining pieces onto a randomly chosen
@@ -488,13 +510,22 @@ function pickTowerSquares(
  * a random subset of what is left, closed squares included - the lane
  * restriction only ever applies to Towers.
  *
+ * Returns `{ ok: false }`, leaving `state` untouched, if no legal arrangement
+ * of the remaining Towers exists (story 00000025's Step 8 - see
+ * `AutoFillResult`); this is reachable on a `spacing_and_lanes` Skirmish board
+ * where the player's own hand-placed pieces have left too few, too clustered
+ * squares free for the remaining Towers. The caller decides what to tell the
+ * player; this function itself never throws for that reason (the
+ * attempt-limited search in `pickTowerSquares` is unchanged - only how its
+ * exhaustion is reported).
+ *
  * `random` defaults to `Math.random` (real randomness for the UI); pass a
  * seeded `RandomSource` for deterministic, reproducible results in tests.
  */
 export function autoFill(
   state: PlacementState,
   random: RandomSource = Math.random,
-): PlacementState {
+): AutoFillResult {
   const emptySquares = homeSquares(state.side, state.boardLayout).filter(
     (square) => pieceAt(state, square) === undefined,
   );
@@ -525,6 +556,9 @@ export function autoFill(
     alreadyPlacedTowers,
     random,
   );
+  if (towerSquares === null) {
+    return { ok: false };
+  }
 
   const towerSquareKeys = new Set(towerSquares.map(squareKey));
   const squaresAfterTowers = emptySquares.filter(
@@ -542,5 +576,5 @@ export function autoFill(
   for (let i = 0; i < nonTowerSquares.length; i += 1) {
     result = place(result, nonTowerSquares[i], nonTowerPieces[i]);
   }
-  return result;
+  return { ok: true, state: result };
 }

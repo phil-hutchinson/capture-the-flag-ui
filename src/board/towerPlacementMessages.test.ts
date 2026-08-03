@@ -5,6 +5,7 @@ import type {
   TowerLegalityViolation,
 } from "../rules/primary/v2/placement.ts";
 import {
+  AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE,
   describeClosedToTowersHint,
   describeTowerLaneBlocked,
   describeTowerLaneRefusal,
@@ -77,6 +78,35 @@ describe("describeTowerLaneBlocked", () => {
   });
 });
 
+describe("AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE", () => {
+  it("names Towers, explains why, and says what to do", () => {
+    expect(AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE).toContain("Towers");
+    expect(AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE.toLowerCase()).toContain(
+      "touching",
+    );
+    expect(AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE.toLowerCase()).toContain("clear");
+  });
+
+  it("never says 'ply' or names an edition id", () => {
+    const lower = AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE.toLowerCase();
+    expect(lower).not.toContain("ply");
+    expect(lower).not.toContain("2-0");
+    expect(lower).not.toContain("2-1");
+  });
+
+  it("is a distinguishable sentence from every other Tower message (Gate A)", () => {
+    expect(AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE).not.toBe(
+      TOWER_SPACING_BLOCKED_MESSAGE,
+    );
+    expect(AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE).not.toBe(
+      describeTowerLaneRefusal(A3),
+    );
+    expect(AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE).not.toBe(
+      describeClosedToTowersHint([A3]),
+    );
+  });
+});
+
 describe("describeTowerLegalityViolation", () => {
   it("returns the spacing message for a spacing violation", () => {
     const violation: TowerLegalityViolation = {
@@ -125,6 +155,7 @@ describe("towerLiveRegionMessage", () => {
     expect(
       towerLiveRegionMessage({
         refusal: null,
+        autoFillExhausted: null,
         closedSquares: [],
         legality: LEGAL,
       }),
@@ -135,6 +166,7 @@ describe("towerLiveRegionMessage", () => {
     expect(
       towerLiveRegionMessage({
         refusal: null,
+        autoFillExhausted: null,
         closedSquares: [],
         legality: SPACING_VIOLATION,
       }),
@@ -145,6 +177,7 @@ describe("towerLiveRegionMessage", () => {
     expect(
       towerLiveRegionMessage({
         refusal: null,
+        autoFillExhausted: null,
         closedSquares: [],
         legality: LANE_VIOLATION,
       }),
@@ -154,6 +187,7 @@ describe("towerLiveRegionMessage", () => {
   it("the closed-squares hint wins over the confirm-time block", () => {
     const message = towerLiveRegionMessage({
       refusal: null,
+      autoFillExhausted: null,
       closedSquares: [A3, D3],
       legality: SPACING_VIOLATION,
     });
@@ -166,10 +200,24 @@ describe("towerLiveRegionMessage", () => {
     );
   });
 
-  it("a refusal wins over both the hint and the confirm-time block", () => {
+  it("an exhausted Auto-fill attempt wins over the hint and the confirm-time block (story 00000025's Step 8)", () => {
+    const message = towerLiveRegionMessage({
+      refusal: null,
+      autoFillExhausted: { seq: 1 },
+      closedSquares: [A3, D3],
+      legality: SPACING_VIOLATION,
+    });
+    expect(message).toEqual({
+      text: AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE,
+      seq: 1,
+    });
+  });
+
+  it("a refusal wins over an exhausted Auto-fill attempt, the hint, and the confirm-time block", () => {
     const refusal = { text: describeTowerLaneRefusal(A3), seq: 3 };
     const message = towerLiveRegionMessage({
       refusal,
+      autoFillExhausted: { seq: 5 },
       closedSquares: [A3, D3],
       legality: SPACING_VIOLATION,
     });
@@ -182,11 +230,33 @@ describe("towerLiveRegionMessage", () => {
     // announcement even though the text alone did not change.
     const first = towerLiveRegionMessage({
       refusal: { text: describeTowerLaneRefusal(A3), seq: 1 },
+      autoFillExhausted: null,
       closedSquares: [],
       legality: LEGAL,
     });
     const second = towerLiveRegionMessage({
       refusal: { text: describeTowerLaneRefusal(A3), seq: 2 },
+      autoFillExhausted: null,
+      closedSquares: [],
+      legality: LEGAL,
+    });
+    expect(first.text).toBe(second.text);
+    expect(first.seq).not.toBe(second.seq);
+  });
+
+  it("carries the exhausted-Auto-fill seq through unchanged, mirroring the refusal (Step 8)", () => {
+    // Repeated Auto-fill exhaustion produces identical text but a higher
+    // seq, exactly like a repeated refusal - so a second identical failure
+    // still forces a fresh announcement.
+    const first = towerLiveRegionMessage({
+      refusal: null,
+      autoFillExhausted: { seq: 1 },
+      closedSquares: [],
+      legality: LEGAL,
+    });
+    const second = towerLiveRegionMessage({
+      refusal: null,
+      autoFillExhausted: { seq: 2 },
       closedSquares: [],
       legality: LEGAL,
     });
