@@ -21,6 +21,10 @@ import {
   describeResult,
   type ResultPerspective,
 } from "./playAnnouncement.ts";
+import {
+  describeTowerLegalityViolation,
+  type TowerLiveRegionMessage,
+} from "./towerPlacementMessages.ts";
 import { PlayBoard } from "./PlayBoard.tsx";
 import {
   activateSquare,
@@ -53,7 +57,7 @@ import {
   progress,
   returnToTray,
   swap,
-  towersLegallyPlaced,
+  towerPlacementLegality,
   type PlacementState,
 } from "../rules/primary/v2/placement.ts";
 import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
@@ -413,7 +417,9 @@ export function EngineGame({ onBack }: EngineGameProps) {
           onChoose={(side, chosenDifficulty) => {
             setHumanSide(side);
             setDifficulty(chosenDifficulty);
-            setPlacement(emptyPlacement(side, BATTLE_LAYOUT, BATTLE_ARMY));
+            setPlacement(
+              emptyPlacement(side, BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
+            );
           }}
         />
       </main>
@@ -630,7 +636,18 @@ export function EngineGame({ onBack }: EngineGameProps) {
   }
 
   function handleAutoFill() {
-    setPlacement((current) => (current ? autoFill(current) : current));
+    // Story 00000025, Step 8: `autoFill` now reports an exhausted attempt
+    // (`{ ok: false }`) instead of throwing. This screen is disabled and
+    // unreachable (story 00000023), so it only needs to keep compiling and
+    // behave as it did before this story - it leaves `current` untouched on
+    // exhaustion, exactly as a caught throw would have.
+    setPlacement((current) => {
+      if (!current) {
+        return current;
+      }
+      const result = autoFill(current);
+      return result.ok ? result.state : current;
+    });
     setSelection(null);
   }
 
@@ -642,10 +659,20 @@ export function EngineGame({ onBack }: EngineGameProps) {
     // The computer's army: a valid random arrangement (no two Towers
     // adjacent), generated silently and never shown before play begins - the
     // same `autoFill` the human's own "Auto-fill" button uses, applied to a
-    // fresh, empty placement for the computer's side.
-    const computerArmy = autoFill(
-      emptyPlacement(computerSide, BATTLE_LAYOUT, BATTLE_ARMY),
+    // fresh, empty placement for the computer's side. An empty Battle board
+    // (25 pieces into 48 squares, `spacing_only`) never exhausts in practice
+    // (story 00000025's Step 8), so a failure here would indicate a genuine
+    // bug rather than an unlucky player-built board - hence the throw, unlike
+    // the human's own `handleAutoFill` above.
+    const computerArmyResult = autoFill(
+      emptyPlacement(computerSide, BATTLE_LAYOUT, BATTLE_ARMY, "spacing_only"),
     );
+    if (!computerArmyResult.ok) {
+      throw new Error(
+        "autoFill: failed to seat the computer's Towers on a fresh Battle board - should be unreachable.",
+      );
+    }
+    const computerArmy = computerArmyResult.state;
     // This screen is Battle-only and unreachable while computer play is
     // disabled (story 00000023, Step 9), so it names the Battle edition
     // explicitly rather than relying on a default (peer review, finding #15).
@@ -688,7 +715,23 @@ export function EngineGame({ onBack }: EngineGameProps) {
       ? pieceAt(placement, selection.square)
       : undefined;
   const placementComplete = isComplete(placement);
-  const towerRuleOk = towersLegallyPlaced(placement);
+  const legality = towerPlacementLegality(placement);
+  const towerRuleOk = legality.legal;
+  // This screen is Battle-only (`spacing_only`), so `legality` can only ever
+  // report a spacing violation - there is no drop-time refusal or
+  // closed-squares hint to layer in here (story 00000025's Step 5 wires both
+  // into `HotSeatGame.tsx` only), so the confirm-time block is the whole
+  // story for this screen, exactly as it was before that story. `seq` stays
+  // `0`: this screen never repeats an identical refusal in a row (it has no
+  // drop-time refusal at all), so the peer-review-#5 "same text twice"
+  // problem `PlacementStatus`'s `seq` token exists for cannot arise here.
+  const towerMessage: TowerLiveRegionMessage = {
+    text:
+      placementComplete && !legality.legal
+        ? describeTowerLegalityViolation(legality)
+        : "",
+    seq: 0,
+  };
 
   return (
     <main className="app" data-difficulty={difficulty}>
@@ -712,7 +755,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
         side={humanSide}
         progress={progress(placement)}
         canConfirm={placementComplete && towerRuleOk}
-        towerAdjacencyBlocked={placementComplete && !towerRuleOk}
+        towerMessage={towerMessage}
         onAutoFill={handleAutoFill}
         onConfirm={handleConfirm}
       />

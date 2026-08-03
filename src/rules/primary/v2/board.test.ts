@@ -4,6 +4,7 @@ import {
   allSquares,
   COLUMNS,
   homeSquares,
+  homeSquaresFacingLane,
   isHomeSquareFor,
   isLake,
   regionOf,
@@ -119,13 +120,18 @@ describe("board geometry (ruleset major 2, Battle - the default BoardLayout)", (
     expect(squareKey({ column: "A", row: 1 })).toBe("A1");
     expect(squareKey({ column: "L", row: 12 })).toBe("L12");
   });
+
+  it("has no home square facing a lane on Battle - the neutral buffer keeps every home square off a lake row", () => {
+    expect(homeSquaresFacingLane("white")).toEqual([]);
+    expect(homeSquaresFacingLane("black")).toEqual([]);
+  });
 });
 
 // Story 00000023, Step 3: the same geometry functions above, exercised on
 // the Skirmish layout (`standard_64`) instead of the Battle default, to
 // confirm they are genuinely parametric over `BoardLayout` rather than
 // hardcoding Battle's 12x12 grid.
-describe("board geometry (ruleset 2-0:SKIRMISH, an explicit BoardLayout)", () => {
+describe("board geometry (standard_64 - the Skirmish board, an explicit BoardLayout)", () => {
   const SKIRMISH = BOARD_LAYOUTS.standard_64;
   const SKIRMISH_LAKE_COLUMN_PAIRS: readonly [Column, Column][] = [
     ["B", "C"],
@@ -233,5 +239,38 @@ describe("board geometry (ruleset 2-0:SKIRMISH, an explicit BoardLayout)", () =>
     // Battle's geometry - the two boards don't leak into one another.
     expect(allSquares()).toHaveLength(144);
     expect(homeSquares("white")).toHaveLength(48);
+  });
+
+  // Story 00000025, Step 2: the geometric definition of "directly in front
+  // of a lane" (rules Appendix A, TOWER_PLACEMENT) - a home square
+  // orthogonally adjacent to a square that lies in a lake row and is not
+  // itself a lake. Asserted by value, not just by size, and explicitly
+  // checking that the squares behind the lakes (rather than the lanes) are
+  // excluded.
+  it("closes exactly A3, D3, E3, H3 for White - the squares directly in front of a lane", () => {
+    expect(homeSquaresFacingLane("white", SKIRMISH)).toEqual([
+      { column: "A", row: 3 },
+      { column: "D", row: 3 },
+      { column: "E", row: 3 },
+      { column: "H", row: 3 },
+    ]);
+  });
+
+  it("closes exactly A6, D6, E6, H6 for Black - the mirrored squares directly in front of a lane", () => {
+    expect(homeSquaresFacingLane("black", SKIRMISH)).toEqual([
+      { column: "A", row: 6 },
+      { column: "D", row: 6 },
+      { column: "E", row: 6 },
+      { column: "H", row: 6 },
+    ]);
+  });
+
+  it("does not close B3, C3, F3, G3 (or their Black counterparts) - those sit behind a lake, not a lane", () => {
+    const white = homeSquaresFacingLane("white", SKIRMISH);
+    const black = homeSquaresFacingLane("black", SKIRMISH);
+    for (const column of ["B", "C", "F", "G"] as const) {
+      expect(white).not.toContainEqual({ column, row: 3 });
+      expect(black).not.toContainEqual({ column, row: 6 });
+    }
   });
 });

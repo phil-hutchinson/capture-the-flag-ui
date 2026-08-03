@@ -1,5 +1,5 @@
 // Army composition configuration for the ruleset major-2 editions
-// (`2-0:BATTLE` / `2-0:SKIRMISH`).
+// (`2-0:BATTLE`, `2-1:SKIRMISH`, and the superseded `2-0:SKIRMISH`).
 //
 // An army roster is a per-type piece count, keyed by `ARMY_COMPOSITION` per
 // rules.md §2.2 / Appendix B (companion capture-the-flag repository, the

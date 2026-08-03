@@ -7,9 +7,23 @@
 
 import type { Edition, EditionId } from "../rules/primary/v2/edition.ts";
 
+/**
+ * Per-edition-id player-facing name, covering all three registered ids -
+ * both Skirmish ids name the same game, "Skirmish", so a record read under
+ * the superseded `2-0:SKIRMISH` still names its game correctly. Deliberate
+ * and exhaustive (rather than "Battle if the id is `2-0:BATTLE`, else
+ * Skirmish") so a fourth registered id fails to compile here instead of
+ * silently falling into "Skirmish" (story 00000025).
+ */
+const GAME_NAME: Readonly<Record<EditionId, string>> = {
+  "2-0:BATTLE": "Battle",
+  "2-1:SKIRMISH": "Skirmish",
+  "2-0:SKIRMISH": "Skirmish",
+};
+
 /** The player-facing game name - "Battle" or "Skirmish" - never the internal edition id. */
 export function gameName(edition: Edition): string {
-  return edition.id === "2-0:BATTLE" ? "Battle" : "Skirmish";
+  return GAME_NAME[edition.id];
 }
 
 /**
@@ -32,8 +46,10 @@ export function boardSizeDescription(edition: Edition): string {
  * is `null` and Skirmish stays pre-selected, per story.md's "recommended
  * first game" - but after a finished game and "New game" (which returns to
  * this picker), the picker should default to whichever game was just played,
- * not reset to Skirmish every time.
+ * not reset to Skirmish every time. The "nothing played yet" fallback names
+ * the *active* Skirmish edition, `2-1:SKIRMISH` (story 00000025) - never the
+ * superseded `2-0:SKIRMISH`, which is not offered as a game to start.
  */
 export function defaultGameId(lastPlayed: Edition | null): EditionId {
-  return lastPlayed?.id ?? "2-0:SKIRMISH";
+  return lastPlayed?.id ?? "2-1:SKIRMISH";
 }

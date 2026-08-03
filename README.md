@@ -18,8 +18,10 @@ unavailable while the computer player catches up with the latest rules.
 
 - **Set up a game with a friend** on the same device — pick Skirmish or
   Battle, then take turns secretly choosing where on your side of the board to
-  place your army (you won't fill every square), then hand off. When both
-  armies are placed, the game is ready for battle.
+  place your army (you won't fill every square), then hand off. In Skirmish, a
+  tower can't stand directly in front of a lane, one of the open columns
+  running through the middle of the board. When both armies are placed, the
+  game is ready for battle.
 - **Move, attack, and capture on the battlefield** — once both armies are
   revealed, take turns moving pieces across the board in full view. Moving a
   piece onto an enemy piece attacks it, and the fight resolves immediately —

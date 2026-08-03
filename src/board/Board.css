@@ -41,6 +41,21 @@
   box-shadow: inset 0 0 0 3px var(--ink);
 }
 
+.board-square--closed-to-towers {
+  /* Story 00000025, Step 5: a quiet reminder that no Tower may stand here
+     (drawn only while a Tower is in hand - see Board.tsx). Deliberately
+     subtle - a diagonal hatch behind whatever else is drawn on the square -
+     since a placed piece or the square's own highlight must still read
+     clearly on top of it. */
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(43, 33, 24, 0.1),
+    rgba(43, 33, 24, 0.1) 3px,
+    transparent 3px,
+    transparent 9px
+  );
+}
+
 .board-square--buffer,
 .board-square--lake-row {
   /* Greyed, non-interactive: a visual reminder only, nothing to click. */

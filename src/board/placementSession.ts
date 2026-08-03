@@ -19,7 +19,9 @@
 // Battle default is the defect class this story's Gate B/D and its peer
 // review (findings #2 and #15) turned up; both sides' `PlacementState`s are
 // seeded with that edition's board layout and army roster (story 00000023's
-// Step 4).
+// Step 4) and, since story 00000025's Step 3, its `TOWER_PLACEMENT` value -
+// so a session's placements can never disagree with the edition they were
+// started for.
 
 import {
   emptyPlacement,
@@ -48,8 +50,18 @@ export interface PlacementSession {
 export function newSession(edition: Edition): PlacementSession {
   return {
     active: "white",
-    white: emptyPlacement("white", edition.boardLayout, edition.army),
-    black: emptyPlacement("black", edition.boardLayout, edition.army),
+    white: emptyPlacement(
+      "white",
+      edition.boardLayout,
+      edition.army,
+      edition.towerPlacement,
+    ),
+    black: emptyPlacement(
+      "black",
+      edition.boardLayout,
+      edition.army,
+      edition.towerPlacement,
+    ),
   };
 }
 

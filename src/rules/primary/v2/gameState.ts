@@ -48,7 +48,8 @@ import { isComplete, type PlacementState } from "./placement.ts";
  * `edition`) and use this constant as their matching `ruleset` tag.
  * `buildInitialGameState` below does **not** use this constant directly; it
  * tags every artifact with the *actual* resolved edition's id, so a Skirmish
- * game is correctly tagged `2-0:SKIRMISH`, not this Battle tag.
+ * game is correctly tagged `2-1:SKIRMISH`, not this Battle tag (a record
+ * already tagged with the superseded `2-0:SKIRMISH` keeps its own tag).
  */
 export const RULESET_TAG: string = BATTLE_EDITION.id;
 
@@ -93,10 +94,11 @@ export interface InitialGameState {
  * deviating flags, exactly the `Ruleset` record tag `renderGameRecord`
  * (play.ts) writes (story 00000023's Step 8). Rejects (throws) if either
  * state belongs to the wrong side, was placed on a different board layout
- * than `edition`'s, or is not a complete army for its own roster (Battle 25
- * pieces, Skirmish 16) - by this point in the flow (both players have
- * confirmed) all three are structural invariants, not recoverable user
- * errors.
+ * or `TOWER_PLACEMENT` value than `edition`'s (story 00000025's Step 3 -
+ * a placement built for one edition must never be sealed into another's game
+ * state), or is not a complete army for its own roster (Battle 25 pieces,
+ * Skirmish 16) - by this point in the flow (both players have confirmed) all
+ * three are structural invariants, not recoverable user errors.
  */
 export function buildInitialGameState(
   white: PlacementState,
@@ -119,6 +121,14 @@ export function buildInitialGameState(
   ) {
     throw new Error(
       `buildInitialGameState: both placement states must be on ${edition.boardLayoutId} for ${edition.id}.`,
+    );
+  }
+  if (
+    white.towerPlacement !== edition.towerPlacement ||
+    black.towerPlacement !== edition.towerPlacement
+  ) {
+    throw new Error(
+      `buildInitialGameState: both placement states must use ${edition.towerPlacement} Tower placement for ${edition.id}.`,
     );
   }
   if (!isComplete(white) || !isComplete(black)) {

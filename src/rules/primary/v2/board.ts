@@ -1,5 +1,6 @@
-// Board geometry & terrain for ruleset major 2 (editions `2-0:BATTLE` /
-// `2-0:SKIRMISH`), parametric over a `BoardLayout` (see `boardLayout.ts`).
+// Board geometry & terrain for ruleset major 2 (editions `2-0:BATTLE`,
+// `2-1:SKIRMISH`, and the superseded `2-0:SKIRMISH`), parametric over a
+// `BoardLayout` (see `boardLayout.ts`).
 //
 // Coordinate frame per rules.md §2.1/§4.4 (companion capture-the-flag
 // repository, the single source of truth): columns lettered from "A"
@@ -158,5 +159,49 @@ export function homeSquares(
 ): Square[] {
   return allSquares(layout).filter((square) =>
     isHomeSquareFor(square, side, layout),
+  );
+}
+
+/** The (up to four) orthogonal neighbours of `square` on `layout`, off-board neighbours omitted. */
+function orthogonalNeighbours(square: Square, layout: BoardLayout): Square[] {
+  const columnIndex = columnIndexOf(square.column);
+  const candidates: Square[] = [
+    { column: columnLetter(columnIndex - 1), row: square.row },
+    { column: columnLetter(columnIndex + 1), row: square.row },
+    { column: square.column, row: square.row - 1 },
+    { column: square.column, row: square.row + 1 },
+  ];
+  return candidates.filter(
+    (candidate) =>
+      columnIndexOf(candidate.column) >= 0 &&
+      columnIndexOf(candidate.column) < layout.columnCount &&
+      candidate.row >= 1 &&
+      candidate.row <= layout.rowCount,
+  );
+}
+
+/**
+ * `side`'s home squares on `layout` that stand directly in front of a lane -
+ * the rules' definition (Appendix A, `TOWER_PLACEMENT`) of a home square
+ * orthogonally adjacent to a square that lies in a lake row and is not
+ * itself a lake. Pure geometry, computed from `layout`'s own `lakeRows` and
+ * lake cells - it knows nothing about Towers, variants, or editions (see
+ * `placement.ts`, which applies this only under `spacing_and_lanes`).
+ *
+ * On `standard_64` this yields A3/D3/E3/H3 for White and A6/D6/E6/H6 for
+ * Black - B3/C3/F3/G3 (and their Black counterparts) sit behind a lake, not
+ * a lane, so they are excluded. On `standard_144` this is always empty: the
+ * neutral buffer row means no home square is ever adjacent to a lake row.
+ * Returned in a stable row-major, left-to-right order. Defaults to Battle.
+ */
+export function homeSquaresFacingLane(
+  side: Side,
+  layout: BoardLayout = BATTLE_LAYOUT,
+): Square[] {
+  const lakeRows = new Set(layout.lakeRows);
+  return homeSquares(side, layout).filter((square) =>
+    orthogonalNeighbours(square, layout).some(
+      (neighbour) => lakeRows.has(neighbour.row) && !isLake(neighbour, layout),
+    ),
   );
 }

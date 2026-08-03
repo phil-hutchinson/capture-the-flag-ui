@@ -28,7 +28,8 @@
 
 import { useState } from "react";
 import {
-  EDITIONS,
+  editionById,
+  playableEditions,
   type Edition,
   type EditionId,
 } from "../rules/primary/v2/edition.ts";
@@ -46,17 +47,44 @@ export interface GameChoiceProps {
   readonly lastPlayed: Edition | null;
 }
 
-/** One selectable game's plain-language description, keyed by its edition id. */
+/**
+ * One selectable game's plain-language description, keyed by its edition id.
+ * Covers all three registered ids (rather than only the two currently
+ * playable) so the record stays type-complete as a fourth edition would fail
+ * to compile here; only the ids `playableEditions()` returns are ever
+ * actually rendered, so the superseded `2-0:SKIRMISH` entry below is never
+ * shown to a player. Story 00000025, Step 7: `2-1:SKIRMISH`'s description
+ * gains a clause about the tower/lane restriction, so a player meets the
+ * rule before it ever refuses them at placement; `2-0:SKIRMISH`'s text is
+ * deliberately left without that clause (it never had the rule) even though
+ * it is unreachable in the picker.
+ */
 const GAME_DETAIL: Readonly<Record<EditionId, string>> = {
+  "2-1:SKIRMISH":
+    "A smaller game, recommended if this is your first time playing: an 8x8 board with a 16-piece army, and the armies start closer together. A Tower can't be placed directly in front of a lane, one of the open columns running through the middle of the board.",
   "2-0:SKIRMISH":
     "A smaller game, recommended if this is your first time playing: an 8x8 board with a 16-piece army, and the armies start closer together.",
   "2-0:BATTLE": "The full game: a 12x12 board with a 25-piece army.",
 };
 
-// Skirmish listed first (and selected below by default) per story.md: "the
-// recommended game for a new player" - the gentler introduction with a
-// smaller board and a smaller army.
-const GAME_ORDER: readonly EditionId[] = ["2-0:SKIRMISH", "2-0:BATTLE"];
+/**
+ * Skirmish listed first (and selected below by default) per story.md: "the
+ * recommended game for a new player" - the gentler introduction with a
+ * smaller board and a smaller army. The list itself always comes from
+ * `playableEditions()`, never a hardcoded id list, so the superseded
+ * `2-0:SKIRMISH` can never be offered here; this only decides *display
+ * order* among whatever `playableEditions()` returns.
+ */
+function gameOrderRank(id: EditionId): number {
+  switch (id) {
+    case "2-1:SKIRMISH":
+      return 0;
+    case "2-0:BATTLE":
+      return 1;
+    case "2-0:SKIRMISH":
+      return 2;
+  }
+}
 
 /**
  * "Skirmish" / "Battle" - the two games' choice screen, pre-selecting the
@@ -67,7 +95,10 @@ export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
   const [choice, setChoice] = useState<EditionId>(() =>
     defaultGameId(lastPlayed),
   );
-  const selectedEdition = EDITIONS[choice];
+  const selectedEdition = editionById(choice);
+  const games = [...playableEditions()].sort(
+    (a, b) => gameOrderRank(a.id) - gameOrderRank(b.id),
+  );
 
   return (
     <div className="game-choice">
@@ -77,16 +108,16 @@ export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
         role="group"
         aria-label="Which game"
       >
-        {GAME_ORDER.map((id) => (
+        {games.map((edition) => (
           <button
-            key={id}
+            key={edition.id}
             type="button"
             className="game-choice__option"
-            data-game={id}
-            aria-pressed={choice === id}
-            onClick={() => setChoice(id)}
+            data-game={edition.id}
+            aria-pressed={choice === edition.id}
+            onClick={() => setChoice(edition.id)}
           >
-            {gameName(EDITIONS[id])}
+            {gameName(edition)}
           </button>
         ))}
       </div>

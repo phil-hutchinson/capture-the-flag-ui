@@ -29,6 +29,12 @@ import {
   describeDrawOffer,
   describeResult,
 } from "./playAnnouncement.ts";
+import {
+  describeTowerLaneRefusal,
+  towerLiveRegionMessage,
+  type TowerAutoFillExhausted,
+  type TowerRefusal,
+} from "./towerPlacementMessages.ts";
 import { PlayBoard } from "./PlayBoard.tsx";
 import {
   acceptDraw,
@@ -55,8 +61,10 @@ import {
   placedCount,
   progress,
   returnToTray,
+  squaresClosedToTowers,
   swap,
-  towersLegallyPlaced,
+  towerLaneRefusesPlacement,
+  towerPlacementLegality,
 } from "../rules/primary/v2/placement.ts";
 import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
 import "../App.css";
@@ -188,6 +196,62 @@ export function HotSeatGame({
   // the Phase-2 live region.
   const [gameAnnouncement, setGameAnnouncement] = useState("");
   const [selection, setSelection] = useState<Selection>(null);
+  // Story 00000025, Step 5: the drop-time refusal sentence
+  // (`describeTowerLaneRefusal`) for the active player's own most recent
+  // refused Tower placement, or `null` if nothing was just refused - `null`
+  // by default and reset to `null` the moment the player starts a new
+  // selection or completes any placement action, so it is always about the
+  // click that was just refused, never a stale one (Decisions item 4: a
+  // refusal is transient). Also reset on Confirm/hand-off so it never lingers
+  // into the next player's turn.
+  //
+  // Peer review finding #5: pairs the text with a monotonically increasing
+  // `seq`, bumped by `refuseTowerPlacement` below every time a refusal is
+  // set - including a repeat refusal of the same square - so
+  // `PlacementStatus`'s live region always gets a fresh token to key its
+  // message element on, even when the refusal text itself repeats.
+  const [towerRefusal, setTowerRefusal] = useState<TowerRefusal | null>(null);
+  // Story 00000025, Step 8 (peer review finding #7): the most recent
+  // exhausted Auto-fill attempt - no legal arrangement existed for the
+  // remaining Towers - or `null` if none is pending. Transient and cleared
+  // exactly like `towerRefusal` above (see `clearTowerFeedback`), and paired
+  // with its own `seq` for the same reason (peer review finding #5): clicking
+  // Auto-fill twice in a row while stuck must announce the message twice.
+  const [autoFillExhausted, setAutoFillExhausted] =
+    useState<TowerAutoFillExhausted | null>(null);
+
+  // Clears both transient Tower-feedback events at once (a drop-time refusal
+  // and an exhausted Auto-fill attempt), so every place that "moves on" from
+  // one of them - a new selection, a completed placement action, or
+  // confirm/hand-off - never accidentally leaves the other lingering behind
+  // to outrank a lower-precedence message it shouldn't (Decisions item 4,
+  // extended by Step 8).
+  function clearTowerFeedback() {
+    setTowerRefusal(null);
+    setAutoFillExhausted(null);
+  }
+
+  // Sets a fresh drop-time refusal for `square`, always incrementing `seq`
+  // (even if the previous refusal named the same square), so the live
+  // region always gets a distinguishable message (peer review finding #5).
+  // Also clears any pending exhausted-Auto-fill event: a drop-time refusal is
+  // a newer, higher-precedence event superseding it.
+  function refuseTowerPlacement(square: Square) {
+    setAutoFillExhausted(null);
+    setTowerRefusal((current) => ({
+      text: describeTowerLaneRefusal(square),
+      seq: (current?.seq ?? 0) + 1,
+    }));
+  }
+
+  // Sets a fresh exhausted-Auto-fill event, always incrementing `seq` (peer
+  // review finding #5's reasoning applied to this event too). Also clears any
+  // pending drop-time refusal, since Auto-fill failing is itself a newer
+  // event superseding it.
+  function reportAutoFillExhausted() {
+    setTowerRefusal(null);
+    setAutoFillExhausted((current) => ({ seq: (current?.seq ?? 0) + 1 }));
+  }
   // Step 15: whether "Back to start" needs to ask for confirmation first.
   // Never touches `session` / `playSession` / `selection` - cancelling
   // simply closes the dialog again, leaving the game exactly as it was.
@@ -320,6 +384,7 @@ export function HotSeatGame({
       setSelection(null);
       setPlayAnnouncement("");
       setGameAnnouncement("");
+      clearTowerFeedback();
     };
 
     // Story 00000006, Step 13: the draw-offer flow (rules.md §6.6). Each
@@ -425,6 +490,7 @@ export function HotSeatGame({
   const placement = activePlacement(session);
 
   function handleSelectType(type: PieceTypeId) {
+    clearTowerFeedback();
     setSelection((current) =>
       current?.kind === "trayType" && current.type === type
         ? null
@@ -432,6 +498,15 @@ export function HotSeatGame({
     );
   }
 
+  // Story 00000025, Step 5: every path that could land a Tower on a closed
+  // square is checked with `towerLaneRefusesPlacement` *before* calling
+  // `place`/`move`/`swap` - those keep rejecting only structural-invariant
+  // violations (see placement.ts's header), so the UI must never ask them to
+  // perform something already known to be refused. A refusal leaves `session`
+  // and `selection` untouched (the player can immediately try another
+  // square) and only sets `towerRefusal`; every other branch below clears it,
+  // since reaching a *different* action - a new selection or a completed
+  // placement - means whatever was just refused is no longer the topic.
   function handleSquareClick(square: Square) {
     const occupied = pieceAt(placement, square) !== undefined;
 
@@ -439,6 +514,27 @@ export function HotSeatGame({
       if (selection?.kind === "boardSquare") {
         if (squareKey(selection.square) === squareKey(square)) {
           setSelection(null);
+          clearTowerFeedback();
+          return;
+        }
+        // A swap can send a Tower either way: the piece on `selection.square`
+        // ends up on `square`, and the piece on `square` ends up on
+        // `selection.square` - both directions must be checked (Step 5's
+        // "swapping a Tower with a piece on a closed square").
+        const movingIntoClicked = pieceAt(placement, selection.square);
+        const movingIntoSelected = pieceAt(placement, square);
+        if (
+          movingIntoClicked === "tower" &&
+          towerLaneRefusesPlacement(placement, square, "tower")
+        ) {
+          refuseTowerPlacement(square);
+          return;
+        }
+        if (
+          movingIntoSelected === "tower" &&
+          towerLaneRefusesPlacement(placement, selection.square, "tower")
+        ) {
+          refuseTowerPlacement(selection.square);
           return;
         }
         setSession((current) =>
@@ -449,14 +545,20 @@ export function HotSeatGame({
             : current,
         );
         setSelection(null);
+        clearTowerFeedback();
         return;
       }
       setSelection({ kind: "boardSquare", square });
+      clearTowerFeedback();
       return;
     }
 
     if (selection?.kind === "trayType") {
       const type = selection.type;
+      if (towerLaneRefusesPlacement(placement, square, type)) {
+        refuseTowerPlacement(square);
+        return;
+      }
       setSession((current) =>
         current
           ? updateActivePlacement(current, (state) =>
@@ -466,10 +568,19 @@ export function HotSeatGame({
       );
       // Keep the type selected for rapid repeat-placement until it runs out.
       setSelection(placement.remaining[type] <= 1 ? null : selection);
+      clearTowerFeedback();
       return;
     }
 
     if (selection?.kind === "boardSquare") {
+      const movingType = pieceAt(placement, selection.square);
+      if (
+        movingType &&
+        towerLaneRefusesPlacement(placement, square, movingType)
+      ) {
+        refuseTowerPlacement(square);
+        return;
+      }
       setSession((current) =>
         current
           ? updateActivePlacement(current, (state) =>
@@ -478,6 +589,7 @@ export function HotSeatGame({
           : current,
       );
       setSelection(null);
+      clearTowerFeedback();
     }
   }
 
@@ -493,6 +605,7 @@ export function HotSeatGame({
         : current,
     );
     setSelection(null);
+    clearTowerFeedback();
   }
 
   function handleClearBoard() {
@@ -502,15 +615,40 @@ export function HotSeatGame({
         : current,
     );
     setSelection(null);
+    clearTowerFeedback();
   }
 
+  // Story 00000025, Step 8 (peer review finding #7): `autoFill` is computed
+  // directly against `placement` (the active player's own state, already read
+  // above) rather than inside `setSession`'s functional updater, so this
+  // handler can inspect the result and decide what to do with it - a `setState`
+  // updater is expected to be pure and side-effect-free, and reporting an
+  // exhausted attempt is a side effect. On `{ ok: false }`, the board is left
+  // exactly as it was (`autoFill` itself never touches `state` in that case)
+  // and the exhausted-attempt message is reported instead.
   function handleAutoFill() {
+    const result = autoFill(placement);
+    if (!result.ok) {
+      reportAutoFillExhausted();
+      return;
+    }
     setSession((current) =>
       current
-        ? updateActivePlacement(current, (state) => autoFill(state))
+        ? updateActivePlacement(current, (state) =>
+            // `result.state` was computed above from `placement`, a snapshot
+            // of `session`'s active side at render time - matching every
+            // sibling handler's pattern of recomputing from the `state` React
+            // hands this updater, only apply it when `current` is still that
+            // same `session` (so `state` is exactly what `result` was built
+            // from); otherwise `session` moved on since the click was
+            // handled, and the stale auto-fill result must be discarded
+            // rather than clobbering whatever `state` now is.
+            current === session ? result.state : state,
+          )
         : current,
     );
     setSelection(null);
+    clearTowerFeedback();
   }
 
   function handleConfirm() {
@@ -544,6 +682,11 @@ export function HotSeatGame({
       }
     }
     setSelection(null);
+    // Tower feedback is per active player and must never linger into the next
+    // player's turn (Decisions item 4, extended by Step 8) - cleared here
+    // whether this Confirm handed off to the other player or ended placement
+    // outright.
+    clearTowerFeedback();
   }
 
   const selectedSquare =
@@ -554,13 +697,37 @@ export function HotSeatGame({
     selection?.kind === "boardSquare"
       ? pieceAt(placement, selection.square)
       : undefined;
-  // Story 00000016, Step 6: Confirm requires both a complete (25-piece) army
-  // and the Tower-adjacency rule (rules §3) being satisfied. The two are
-  // tracked separately so the status bar can tell "not finished yet" apart
-  // from "finished, but two Towers are touching" and show the latter's
-  // explanation only when it applies.
+  // Story 00000016, Step 6: Confirm requires both a complete army and the
+  // Tower-placement rules (rules §3) being satisfied - since story 00000025's
+  // Step 4, `towerPlacementLegality` covers both the spacing rule and (on a
+  // `spacing_and_lanes` edition) the lane rule, as a confirm-time backstop
+  // for the latter. The two are tracked separately so the status bar can
+  // tell "not finished yet" apart from "finished, but a Tower rule is
+  // broken" and show the latter's explanation only when it applies.
   const placementComplete = isComplete(placement);
-  const towerRuleOk = towersLegallyPlaced(placement);
+  const legality = towerPlacementLegality(placement);
+  const towerRuleOk = legality.legal;
+  // Story 00000025, Step 5: a Tower is "in hand" exactly when the current
+  // selection is a Tower - either picked from the tray or picked up from the
+  // board (Decisions item 3). `closedSquares` is the active player's own
+  // closed-to-Towers set while that holds, and `[]` otherwise - which drives
+  // both the board's quiet marking and the live-region hint below, and is
+  // always `[]` on Battle regardless of what is in hand
+  // (`squaresClosedToTowers` is empty there by geometry).
+  const towerInHand =
+    selectedTrayType === "tower" || selectedPieceType === "tower";
+  const closedSquares = towerInHand ? squaresClosedToTowers(placement) : [];
+  // The one live-region message `PlacementStatus` shows right now (Decisions
+  // item 4's precedence, extended by Step 8: refusal, then an exhausted
+  // Auto-fill attempt, then the hint, then the confirm-time block, then
+  // nothing). The confirm-time block is only ever considered once the army is
+  // complete, matching this rule's pre-Step-5 behavior.
+  const towerMessage = towerLiveRegionMessage({
+    refusal: towerRefusal,
+    autoFillExhausted,
+    closedSquares,
+    legality: placementComplete ? legality : { legal: true },
+  });
 
   return (
     <main className="app">
@@ -596,7 +763,7 @@ export function HotSeatGame({
         side={activeSide}
         progress={progress(placement)}
         canConfirm={placementComplete && towerRuleOk}
-        towerAdjacencyBlocked={placementComplete && !towerRuleOk}
+        towerMessage={towerMessage}
         onAutoFill={handleAutoFill}
         onConfirm={handleConfirm}
       />
@@ -608,6 +775,7 @@ export function HotSeatGame({
             layout={placement.boardLayout}
             onSquareClick={handleSquareClick}
             selectedSquare={selectedSquare}
+            closedToTowerSquares={closedSquares}
           />
           <PlacementControls
             side={activeSide}

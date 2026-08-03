@@ -1,5 +1,6 @@
-// Board layout configuration for the ruleset major-2 editions (`2-0:BATTLE` /
-// `2-0:SKIRMISH`).
+// Board layout configuration for the ruleset major-2 editions (`2-0:BATTLE`,
+// `2-1:SKIRMISH`, and the superseded `2-0:SKIRMISH`, which shares
+// `2-1:SKIRMISH`'s board layout).
 //
 // A BoardLayout is pure geometry data, keyed by `BOARD_LAYOUT` per rules.md
 // Appendix B / "editions and flags" (companion capture-the-flag repository,

@@ -1,0 +1,1099 @@
+# Implementation Plan — Story 00000025: Add tower restriction
+
+This plan adopts the companion project's new Skirmish edition **`2-1:SKIRMISH`**,
+which adds exactly one rule: **in Skirmish, no Tower may stand directly in front
+of a lane.** Battle (`2-0:BATTLE`) is untouched, and the superseded
+`2-0:SKIRMISH` stays readable (records naming it still review) but is never
+offered as a game to start.
+
+Read `story.md` in this folder in full before starting any step. Its
+**Policy (fixed by the owner)**, **In scope / Out of scope**, and
+**Design decisions & constraints** sections are settled and are not
+re-litigated here. This plan resolves the story's
+**"Open items to resolve at plan time"** — the resolutions are in
+"Decisions resolved at plan time" below, and every step is written assuming
+them.
+
+---
+
+## Grounding facts (read once — applies to every step)
+
+The single source of truth is `doc/ruleset/rules.md` in the companion
+[capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
+repository, on `main`. Fetch it if a step needs to re-check a detail:
+
+- `gh api repos/phil-hutchinson/capture-the-flag/contents/doc/ruleset/rules.md --jq '.content' | base64 -d`
+- same for `doc/ruleset/changelog.md` (the entry for that repo's story 00000037,
+  2026-08-02, records this change).
+
+The rules facts this plan is built on, resolved at plan time against those docs:
+
+- **The rule (rules §3).** "In Skirmish, no tower may stand directly in front of
+  a lane." A **lane** (glossary) is a run of columns crossing the middle of the
+  board with no lake in it — the only way from one half of the board to the
+  other. Skirmish has three lanes (column A, columns D–E, column H); Battle has
+  four (column A, columns D–E, columns H–I, column L).
+- **The closed set is geometric, not a list (rules Appendix A,
+  `TOWER_PLACEMENT`).** "Directly in front of a lane" means **a home square
+  orthogonally adjacent to a square that lies in a lake row and is not itself a
+  lake.** Applying that definition:
+  - `standard_64` (Skirmish, 8×8, home rows 1–3 / lake rows 4–5 / home rows
+    6–8, lakes at columns B, C, F, G): closes **A3, D3, E3, H3** for the side
+    whose back rank is row 1 and **A6, D6, E6, H6** for the other — four per
+    home zone. **B3, C3, F3, G3 stay open** (they sit behind lakes, not lanes).
+  - `standard_144` (Battle, 12×12, home rows 1–4 / buffer row 5 / lake rows 6–7
+    / buffer row 8 / home rows 9–12): closes **nothing** — the buffer row means
+    no home square is orthogonally adjacent to any square in a lake row.
+
+  Those square lists are what the definition must **produce**; they are the
+  tests' expected values and must never be hardcoded in the implementation
+  (story.md's Policy).
+
+- **The variant (rules Appendix A).** `TOWER_PLACEMENT`, values `spacing_only` |
+  `spacing_and_lanes`, **default `spacing_only`**. `spacing_only` = the existing
+  "no two Towers next to each other, including diagonally" rule alone;
+  `spacing_and_lanes` = that rule **and** no Tower directly in front of a lane.
+  Nothing else about Towers changes under either value, and no other piece is
+  affected by either. The variant is never invalid on any board — it can simply
+  be inert, as `spacing_and_lanes` is on `standard_144`.
+- **The editions (rules Appendix B).**
+
+  | Edition        | Variant values                                          | Table                   |
+  | -------------- | ------------------------------------------------------- | ----------------------- |
+  | `2-0:BATTLE`   | `standard_144`, `standard_battle`, `spacing_only`       | Active                  |
+  | `2-1:SKIRMISH` | `standard_64`, `standard_skirmish`, `spacing_and_lanes` | Active                  |
+  | `2-0:SKIRMISH` | `standard_64`, `standard_skirmish`, `spacing_only`      | Historical (superseded) |
+
+  `1-2:PRE-RELEASE` also appears in the rules' Historical table (retired), but
+  this app deliberately does **not** register it — story 00000023 made major-1
+  records unreviewable on purpose. Do not add it.
+
+- **The two minors now differ.** Skirmish is at minor 1, Battle at minor 0.
+  They share major 2 because they share the same rules text. **Nothing in this
+  app may assume the two active editions carry the same minor**, or derive one
+  edition id from the other.
+- **The notation is unaffected.** A placement restriction produces no new kind of
+  ply. A record stamped `2-1:SKIRMISH` reads exactly as one stamped
+  `2-0:SKIRMISH`; only the `Ruleset` tag differs, and the position block is
+  unchanged.
+- **Placement rules are never checked during replay.** A record carries a
+  completed position, and `src/rules/primary/v2/replay.ts` /
+  `recordFile.ts` do not (and must not) consult any placement rule. An old
+  `2-0:SKIRMISH` record with a Tower on A3 must review without complaint.
+
+### Where the relevant code is today
+
+- `src/rules/primary/v2/edition.ts` — the edition registry. `EditionId` is the
+  two-value union `"2-0:BATTLE" | "2-0:SKIRMISH"`; an `Edition` carries an id, a
+  `boardLayoutId`/`armyCompositionId`, and the resolved `boardLayout`/`army`.
+  Exports `BATTLE_EDITION`, `SKIRMISH_EDITION`, `EDITIONS`, `editionById`,
+  `armyFitsBoard`, `combinationFits`, `playableEditions` (which today filters
+  only on "does the army fit the board").
+- `src/rules/primary/v2/boardLayout.ts` — `BoardLayout` geometry data
+  (`columnCount`, `rowCount`, `homeRowsPerSide`, `hasBuffer`, `lakeRows`,
+  `lakeColumnIndices`) plus `lakeCells`, `rowRegion`, `homeZoneSize`,
+  `columnLetter`. It speaks in column **indices**, not `Square`s.
+- `src/rules/primary/v2/board.ts` — `Square`/`Side`/`Column`/`Row` vocabulary
+  and the layout-parametric geometry: `allSquares`, `isLake`, `regionOf`,
+  `isHomeSquareFor`, `homeSquares`, `columnIndexOf`, `columnsOf`/`rowsOf`,
+  `squareKey`, and the `BATTLE_LAYOUT` constant.
+- `src/rules/primary/v2/placement.ts` — `PlacementState` (carries `side`,
+  `boardLayout`, `army`, `placements`, `remaining`), a three-argument
+  `emptyPlacement` (side, board layout, army),
+  `place`/`move`/`swap`/`returnToTray`/`clear`,
+  `progress`/`isComplete`, `towersLegallyPlaced` (the Tower-spacing check), and
+  `autoFill` (which places Towers first via an internal `pickTowerSquares`
+  helper, then the rest).
+- `src/board/placementSession.ts` — `newSession(edition)` seeds both sides'
+  `emptyPlacement` from the edition.
+- `src/board/HotSeatGame.tsx` — the hot-seat game: the game choice, then
+  placement (click grammar: tray-place, board move, board swap, return-to-tray,
+  clear, auto-fill), then play. It computes `placementComplete` /
+  `towerRuleOk` and passes them to `PlacementStatus`.
+- `src/board/PlacementStatus.tsx` — the placement action row, including the
+  always-mounted `role="status" aria-live="polite"` region that shows the
+  "two of your Towers are next to each other" explanation when Confirm is
+  blocked.
+- `src/board/Board.tsx` — the cropped placement board. Squares are plain
+  `<div onClick>` cells; class names follow `board-square--<band>`,
+  `board-square--lake`, `board-square--selected` (styled in `Board.css`).
+- `src/board/GameChoice.tsx` / `src/board/gameNames.ts` — the Battle/Skirmish
+  picker; `GAME_ORDER` and `GAME_DETAIL` are keyed by `EditionId`, and
+  `gameName`/`defaultGameId` map edition ids to player-facing names and to the
+  pre-selected game.
+- `src/rules/readRecord.ts` — resolves a record's `Ruleset` tag by looking the
+  string up in `EDITIONS`, then parses and replays.
+- `src/board/EngineGame.tsx` — the computer-play screen. **Disabled and
+  unreachable** since story 00000023 (the start-screen button is disabled), but
+  it still uses `emptyPlacement`, `Board`, `Tray`, `PlacementStatus` and
+  `towersLegallyPlaced`, so it must keep **typechecking**. It is Battle-only;
+  give it `spacing_only` wherever this story forces a change, and change nothing
+  else about it.
+
+### Decisions resolved at plan time (these settle story.md's open items)
+
+1. **Both rules are one rule family, surfaced in one voice.** The lane rule is
+   enforced **at drop time** — a Tower dropped on a closed square is refused
+   immediately, with an explanation, and nothing is placed. The spacing rule
+   stays a **confirm-time block**, because it can only be judged once Towers are
+   down. Both messages are produced by one small pure module and are shown in
+   **one** live region (`PlacementStatus`'s existing one), so a player never
+   sees two competing mechanisms. Both sentences follow the same shape: what is
+   wrong, why, and what to do — e.g. spacing: "Two of your Towers are next to
+   each other — no two Towers may touch, even diagonally. Move one apart to
+   finish."; lane: "A Tower can't go on A3 — in this game no Tower may stand in
+   front of a lane, the open column running through the middle of the board.
+   Choose another square." (exact wording is the implementer's, within that
+   shape and reading level).
+2. **The confirm-time check covers both rules anyway**, as a backstop: an army
+   with a Tower in front of a lane can never be confirmed, no matter how it got
+   there. In practice drop-time refusal means the player never reaches that
+   state, so the lane message at confirm time is a safety net, not the primary
+   path.
+3. **Closed squares are shown while a Tower is in hand, and not otherwise.**
+   When the current selection is a Tower (from the tray, or an already-placed
+   Tower picked up on the board), the closed home squares are drawn with a quiet
+   "closed to Towers" treatment (a new `board-square--` modifier alongside the
+   existing `--lake`/`--selected` ones). Nothing is drawn when no Tower is in
+   hand, and nothing at all is ever drawn on Battle (the closed set is empty by
+   geometry). **Non-visual equivalent:** while a Tower is in hand, the same live
+   region carries a plain-language sentence naming the closed squares for the
+   player's own side (e.g. "Towers can't go on A3, D3, E3 or H3 in this game —
+   those squares stand in front of a lane."). This is the accessible equivalent
+   available today; the placement board's squares are not focusable (see
+   "Known limitation", below).
+4. **Live-region precedence**, so only one thing speaks at a time: a refusal
+   message (transient, set the moment a placement is refused) wins; otherwise
+   the "Towers can't go on …" hint while a Tower is in hand; otherwise the
+   confirm-time block explanation; otherwise nothing. **Extended by Step 8**
+   (added after the peer review, in response to finding #7): an exhausted
+   Auto-fill attempt is its own transient tier, ranked second - after a
+   drop-time refusal, before the closed-squares hint. The two transient tiers
+   are mutually exclusive in practice (each caller-side setter clears the
+   other), so their relative order never actually matters.
+5. **Historical vs. playable is an explicit `status` field on `Edition`**
+   (`"active" | "superseded"`), mirroring the rules' Appendix B tables. `EDITIONS`
+   holds all three editions and is what `readRecord.ts` resolves against
+   (**readable**); `playableEditions()` returns those that are `active` **and**
+   whose army fits their board (**playable**). The picker enumerates
+   `playableEditions()` and never the raw registry.
+6. **`TOWER_PLACEMENT` is threaded via `PlacementState`, not by passing whole
+   `Edition`s into the rules.** `PlacementState` already carries `boardLayout`
+   and `army`; it gains a third **required** field for the variant value, set
+   from the edition by `emptyPlacement`. Required, not defaulted — story
+   00000023's peer review (findings #2 and #15) made the other two required for
+   exactly this reason, and a silent Battle-ish default is the defect class that
+   escaped to a manual gate in that story. The call sites are mechanical (~58,
+   almost all in `placement.test.ts` and `gameState.test.ts`, all passing
+   `BATTLE_LAYOUT, BATTLE_ARMY`).
+7. **The geometry lives in `board.ts`; the rule lives in `placement.ts`.**
+   `boardLayout.ts` has no `Square`/`Side` vocabulary, and the closed-square
+   definition needs both plus `isLake`/`homeSquares` — so the pure geometric
+   query ("which of this side's home squares face a lane on this layout")
+   belongs in `board.ts`, and the rule that applies it only when the variant
+   says `spacing_and_lanes` belongs in `placement.ts`.
+8. **Fixtures.** `SKIRMISH_EDITION` (the exported constant) becomes
+   `2-1:SKIRMISH` — a ruleset name means its current edition — so existing
+   fixtures that use it move to `2-1:SKIRMISH` automatically, which is correct
+   for anything representing a _new_ game. A second exported constant names the
+   historical `2-0:SKIRMISH`, used only by tests that deliberately exercise the
+   historical path. A **sample `2-0:SKIRMISH` record file whose starting
+   position has a Tower on A3** is added to the repository under `doc/samples/`
+   and is both read by an automated test and used by the owner at manual Gate D
+   — one artifact, so the file can never rot.
+9. **Player-facing copy mentions the rule up front**, briefly: the picker's
+   Skirmish description gains one clause about Towers and lanes, and the README
+   gains one clause in its setup bullet. Neither restates the rules; the
+   companion repository stays the source of truth.
+10. **Records.** New Skirmish games are tagged `2-1:SKIRMISH` from Step 1
+    onward, because the tag is simply the chosen edition's id. Between Step 1
+    and Step 5 the lane rule is not yet enforced, so a record dumped in that
+    window could name `2-1:SKIRMISH` while containing a Tower in front of a
+    lane. This is called out so a cold reader does not treat it as a bug: no
+    such record is kept (the app has no save-to-file for players; the record
+    dump is a dev-build disclosure), and Step 5 closes the window.
+
+### Known limitation that affects Gate E (read before Step 5)
+
+The Phase-1 placement board (`src/board/Board.tsx`) has **never been
+keyboard-operable**: its squares are plain `<div onClick>` elements with no
+`tabIndex`, `role`, or key handling, and placed pieces are `aria-hidden` with
+nothing naming a square's contents. This predates this story — it was deferred
+to story 00000002 (`doc/plan/00000002-accessible-placement-board/`, stubbed and
+never built), and at story 00000023's Gate E the owner **waived** the placement
+portion for this reason. This story must not silently regress that, and is not
+scoped to fix it. Step 5 therefore delivers the best accessible equivalent
+available without it — every refusal, hint, and block is spoken through an
+established live region — and Gate E's "workable by keyboard alone" clause is
+expected to be waived again by the owner.
+
+### Standing requirements for every step
+
+- Every step leaves the app **green**: `npm run typecheck`, `npm run lint`,
+  `npm test` all pass, and a hot-seat game of **both** Battle and Skirmish stays
+  playable end to end.
+- Run `npx prettier --check` on the files the step touched (or
+  `npm run format:check`), matching the project's formatting.
+- Update the doc comments of any module the step reworks, including the
+  edition lists they enumerate — several modules' headers currently name
+  "`2-0:BATTLE` / `2-0:SKIRMISH`" as _the_ two editions.
+- Commit per the standard pipeline before starting the next step.
+
+---
+
+## Step 1 — The `TOWER_PLACEMENT` variant and a three-edition registry
+
+Status: committed
+
+Notes: Added `TowerPlacement` (`spacing_only` | `spacing_and_lanes`) and
+`EditionStatus` (`active` | `superseded`) to `edition.ts`; widened `EditionId`
+to the three ids; `SKIRMISH_EDITION` now names `2-1:SKIRMISH`
+(`spacing_and_lanes`, active); added `SUPERSEDED_SKIRMISH_EDITION` for
+`2-0:SKIRMISH` (`spacing_only`, superseded); `EDITIONS` holds all three;
+`playableEditions()` now filters on `status === "active"` as well as the
+existing fit check. `gameNames.ts`'s `gameName` is now an explicit
+`Record<EditionId, string>` lookup (all three ids) instead of a binary
+ternary, and `defaultGameId`'s fallback is `2-1:SKIRMISH`.
+`GameChoice.tsx` now builds its button list from `playableEditions()` (sorted
+by a small exhaustive `gameOrderRank` helper so Skirmish still shows first),
+never from the raw registry, so `2-0:SKIRMISH` can never be offered;
+`GAME_DETAIL` stays a `Record<EditionId, string>` covering all three ids for
+type-completeness even though the superseded entry is never rendered.
+Updated doc comments in `edition.ts`, `readRecord.ts`, and `boardLayout.ts` to
+describe the three-edition registry. Extended `edition.test.ts`,
+`gameNames.test.ts`, and `readRecord.test.ts` per the step's verification
+list (registry contents/statuses/variant values, `playableEditions()`
+excludes the superseded edition, `gameName`/`defaultGameId` cover all three
+ids, `readRecord` accepts all three tags and still rejects an unknown one).
+Fixed one pre-existing test in `gameState.test.ts` that hardcoded
+`"2-0:SKIRMISH"` as the expected ruleset tag from `SKIRMISH_EDITION` - this is
+exactly the "existing fixtures that use `SKIRMISH_EDITION` move to
+`2-1:SKIRMISH` automatically" case the plan's Decision item 8 anticipated, so
+it was updated to `"2-1:SKIRMISH"` rather than left broken.
+
+Deviation: did not add a `GameChoice.tsx` test file to automate "every
+playable edition has a picker description" / "Skirmish offered first" -
+this repo has no component-test harness (noted explicitly for Step 4's own
+UI-adjacent pure modules), and none existed for `GameChoice.tsx` before this
+step either. Both properties are instead compiler-enforced: `GAME_DETAIL` is
+`Record<EditionId, string>` (a missing id fails to compile) and
+`gameOrderRank`'s `switch` is exhaustive over `EditionId`. `npm run
+typecheck`, `npm run lint`, `npm test` (572 tests), `npm run build`, and
+`npx prettier --check` on the touched files all pass.
+
+Add the third variant and the third edition to `src/rules/primary/v2/edition.ts`,
+and update everything that enumerates or matches an edition id:
+
+- A `TOWER_PLACEMENT` variant type with values `spacing_only` and
+  `spacing_and_lanes`, documented as defaulting to `spacing_only` per rules
+  Appendix A. Every `Edition` names its value explicitly — no implicit default
+  in the registry.
+- An `Edition` **status** (`active` / `superseded`), mirroring rules Appendix
+  B's two tables.
+- `EditionId` widens to three values: `2-0:BATTLE`, `2-1:SKIRMISH`,
+  `2-0:SKIRMISH`. Register all three with the variant values from the Grounding
+  facts table. The exported `SKIRMISH_EDITION` constant now names
+  `2-1:SKIRMISH`; add a separately named exported constant for the historical
+  `2-0:SKIRMISH` so tests can reach it without a map lookup (mirroring the
+  existing `BATTLE_EDITION`/`SKIRMISH_EDITION` precedent).
+- `playableEditions()` returns editions that are **active** _and_ whose army
+  fits their board — the first time the readable set and the playable set
+  differ. `EDITIONS` (all three) stays what `readRecord.ts` resolves against;
+  no change is needed in `readRecord.ts` itself beyond its doc comment, since it
+  already looks tags up in `EDITIONS`.
+- `src/board/gameNames.ts`: make `gameName` **deliberate** rather than
+  accidental — an explicit per-id mapping covering all three ids (so a fourth id
+  fails to compile) rather than "Battle if `2-0:BATTLE`, else Skirmish".
+  `defaultGameId`'s "nothing played yet" fallback becomes `2-1:SKIRMISH`; its
+  "last played" path is unchanged and must keep working now that a session can
+  carry either Skirmish id.
+- `src/board/GameChoice.tsx`: build the offered games from `playableEditions()`
+  (Skirmish first, per story.md's "recommended first game"), never from the raw
+  registry, so `2-0:SKIRMISH` is never offered. Keep the per-game description
+  text keyed such that every playable edition is guaranteed to have one.
+
+Do **not** implement the lane rule here — this step is registry and naming only.
+Note that from this commit on, a new Skirmish game is chosen, played and tagged
+`2-1:SKIRMISH` while the rule itself lands in Steps 2–5; see "Decisions resolved
+at plan time", item 10, for why that transitional window is harmless.
+
+Why it comes here: every later step needs the variant value and the three-edition
+registry to exist. It introduces no rule behavior, so it is a safe first commit,
+and it is the only step that widens `EditionId` (a type change that ripples
+through the picker and the tests).
+
+How to verify (automated): extend `edition.test.ts`, `gameNames.test.ts` and
+`readRecord.test.ts` to assert — the registry holds exactly the three ids with
+the variant values and statuses from the Grounding facts table;
+`playableEditions()` returns exactly `2-0:BATTLE` and `2-1:SKIRMISH` (in that
+set, with Skirmish offered first by the picker's own ordering) and never
+`2-0:SKIRMISH`; every playable edition has a picker description;
+`gameName` gives "Battle" for `2-0:BATTLE` and "Skirmish" for **both** Skirmish
+ids; `defaultGameId(null)` is `2-1:SKIRMISH` and `defaultGameId(<edition>)`
+returns that edition's own id for all three; `readRecord` accepts a record
+tagged `2-1:SKIRMISH` and still accepts `2-0:SKIRMISH` and `2-0:BATTLE`, and
+still rejects an unknown tag. `npm run typecheck && npm run lint && npm test`.
+
+---
+
+## Step 2 — The closed-square geometry (pure, unwired)
+
+Status: committed
+
+Notes: Added `homeSquaresFacingLane(side, layout = BATTLE_LAYOUT)` to
+`board.ts`, computed from a private `orthogonalNeighbours` helper (up to
+four in-bounds neighbours, using `columnIndexOf`/`columnLetter` for column
+arithmetic and layout bounds for row/column validity) plus `layout.lakeRows`
+and `isLake`, filtering `homeSquares(side, layout)` by "has a neighbour whose
+row is a lake row and which is not itself a lake" — the rules' verbatim
+definition. Nothing is hardcoded; the function derives the closed set purely
+from the layout. Order falls out naturally from `homeSquares`'s row-major,
+left-to-right order (itself derived from `allSquares`), so no extra sorting
+step was needed. Added tests in `board.test.ts`: Battle returns `[]` for
+both sides; Skirmish returns exactly `A3, D3, E3, H3` for White and `A6, D6,
+E6, H6` for Black (asserted by value via `toEqual`, in the expected order);
+and an explicit check that `B3, C3, F3, G3` (and the Black mirror) are
+excluded. Updated `board.ts`'s module header to name all three editions
+(previously named only the original two), matching `boardLayout.ts`'s
+existing three-edition header. No other files were touched — the function is
+not consumed anywhere yet, per the step's scope.
+
+`npm run typecheck`, `npm run lint`, `npm test` (576 tests, 28 files) and
+`npx prettier --check` on the two touched files all pass. No deviations from
+the plan.
+
+Add to `src/rules/primary/v2/board.ts` a pure geometric query that, given a
+`Side` and a `BoardLayout`, returns that side's home squares which are
+**orthogonally adjacent to a square that lies in a lake row and is not itself a
+lake** — the rules' definition of "directly in front of a lane" (Appendix A,
+`TOWER_PLACEMENT`), verbatim, expressed in terms of the layout's own
+`lakeRows`/lake cells. It knows nothing about Towers, variants, or editions: it
+is board geometry, and it lives next to `homeSquares`/`isLake`/`regionOf` for
+that reason (see Decisions item 7).
+
+Constraints: it must derive everything from the layout (never a hardcoded square
+list), consider all four orthogonal neighbours (not just the one toward the
+middle), ignore off-board neighbours, and return the squares in a stable order
+so tests can compare directly.
+
+Nothing consumes it yet — this step only adds the vocabulary Step 3 threads
+through.
+
+Why it comes here: Step 3 (the rule and auto-fill) and Step 5 (the board
+marking) both consume it; defining it first as pure geometry lets it be tested in
+isolation with no forward dependency.
+
+How to verify (automated): new tests in `board.test.ts` asserting on
+`standard_64` exactly `A3, D3, E3, H3` for white and exactly `A6, D6, E6, H6`
+for black — and, explicitly, that `B3, C3, F3, G3` (and their black
+counterparts) are **not** in the set, since those sit behind lakes; and on
+`standard_144` the **empty** set for both sides. Assert the sets by value, not by
+size alone. `npm test`.
+
+---
+
+## Step 3 — Thread the variant into placement state, and make auto-fill respect it
+
+Status: committed
+
+Notes: `PlacementState` gained a required `towerPlacement: TowerPlacement`
+field (imported type-only from `edition.ts`, no dependency cycle since
+`edition.ts` never imports `placement.ts`); `emptyPlacement` takes it as a
+required fourth argument and `clear` carries it through. Added
+`squaresClosedToTowers(state)`, the placement-level query: the Step 2
+`homeSquaresFacingLane(state.side, state.boardLayout)` when
+`state.towerPlacement === "spacing_and_lanes"`, else `[]` - already correct
+for Battle and for a historical `2-0:SKIRMISH` placement with no board- or
+edition-specific branching. `autoFill` now excludes `squaresClosedToTowers`'
+squares from the Tower candidate set before `pickTowerSquares` runs, while
+still offering those squares to non-Tower pieces (only Towers are
+restricted); `pickTowerSquares` was simplified to return just the chosen
+squares (its `remaining` field was only ever used to seed the non-Tower
+candidate set, which is now computed directly from `emptySquares` minus the
+chosen Tower squares - clearer than threading a same-shaped-but-narrower
+"remaining" through). `gameState.ts`'s `buildInitialGameState` gained a
+matching invariant check - both placement states' `towerPlacement` must
+equal the given edition's, alongside the existing board-layout check -
+throwing otherwise. Updated the two live call sites:
+`src/board/placementSession.ts`'s `newSession` now passes
+`edition.towerPlacement`; `src/board/EngineGame.tsx`'s two call sites (both
+Battle-only, disabled) now pass `"spacing_only"` explicitly. Updated the ~58
+mechanical call sites in `placement.test.ts` and `gameState.test.ts`: every
+pre-existing Battle call site got `"spacing_only"`, and the pre-existing
+generic-Skirmish-board call sites (from story 00000023, not specific to the
+lane rule) also got `"spacing_only"` to preserve their current, unrelated
+intent unchanged. Added new tests: a `squaresClosedToTowers` describe block
+(the four closed squares for `spacing_and_lanes` Skirmish, none for
+`spacing_only` Skirmish, none for Battle under either variant value); an
+`autoFill honors squaresClosedToTowers` describe block running 200 iterations
+each of a seeded `RandomSource` and of `Math.random`, for both a
+`spacing_and_lanes` Skirmish placement (asserting completion, no Tower on a
+closed square, and `towersLegallyPlaced`) and a Battle placement under
+`spacing_and_lanes` (asserting the closed set is empty and nothing else
+regressed); and a `gameState.test.ts` case asserting
+`buildInitialGameState` throws when a placement's `towerPlacement` disagrees
+with the given edition's. Updated `placement.ts`'s module header and the
+affected functions' doc comments to describe the new required argument, the
+new query, and (mechanically) the three-edition list. `npm run typecheck`,
+`npm run lint`, `npm test` (584 tests, 28 files), `npm run build`, and
+`npx prettier --check` on every touched file all pass. Manually confirmed
+(via a throwaway 2000-iteration script, since removed) that the Skirmish
+auto-fill loop is reliable well beyond the plan's 200-iteration floor before
+committing it to the suite.
+
+No deviations from the plan. The confirm-time legality check
+(`towersLegallyPlaced`) and the UI are untouched, as directed - `place`,
+`move`, and `swap` still do not know about either Tower rule, so today's
+placement behavior (Battle and Skirmish alike) is unchanged apart from
+Skirmish auto-fill now avoiding the four closed squares.
+
+Wire the variant through `src/rules/primary/v2/placement.ts` and make auto-fill
+honour it:
+
+- `PlacementState` gains a **required** `TOWER_PLACEMENT` value alongside its
+  existing `boardLayout` and `army`; `emptyPlacement` takes it as a required
+  fourth argument and `clear` carries it through. Update all call sites: the
+  live ones are `src/board/placementSession.ts` (`newSession` passes the
+  edition's own value, so the three can never disagree) and
+  `src/board/EngineGame.tsx` (Battle-only, disabled: pass `spacing_only`); the
+  rest are mechanical updates in `placement.test.ts` and `gameState.test.ts`,
+  which all construct Battle states.
+- Add a placement-level query for **the squares closed to Towers in this state**:
+  the Step 2 geometry when the state's variant is `spacing_and_lanes`, and the
+  **empty set** when it is `spacing_only`. This is the single place the rest of
+  the app asks "where can't a Tower go here", so the answer is already correct
+  for Battle (empty by geometry) and for a historical `2-0:SKIRMISH` placement
+  (empty by variant) without any board- or edition-specific branching.
+- `autoFill` never places a Tower on a closed square: exclude them from the
+  Tower candidate set before the existing spacing-aware selection runs, leaving
+  those squares available to non-Tower pieces. Auto-fill must stay reliable on
+  Skirmish, where 3 Towers go into a 24-square home zone with 4 squares closed.
+- `src/rules/primary/v2/gameState.ts`'s `buildInitialGameState` already checks
+  that both placements' board layout matches the edition's; extend that
+  invariant check to the variant value too, so a placement built for one
+  edition can never be sealed into another's game state.
+
+Do **not** change the confirm-time legality check or any UI here (Steps 4–5) —
+this step keeps the app behaving exactly as it does today except that auto-fill
+on Skirmish now avoids the four closed squares.
+
+Why it comes here: it depends on Step 1 (the variant exists on an edition) and
+Step 2 (the geometry). Auto-fill is made stricter **before** the confirm-time
+check starts rejecting lane placements (Step 4), so there is never a commit where
+an auto-filled Skirmish army cannot be confirmed.
+
+How to verify (automated): unit tests in `placement.test.ts` — a
+`spacing_and_lanes` Skirmish state reports exactly the four closed squares for
+its side, while a `spacing_only` Skirmish state and a Battle state report none;
+and a loop of **at least 200 auto-fills** of a fresh `spacing_and_lanes` Skirmish
+placement (driven by a seeded `RandomSource` for reproducibility, and separately
+by `Math.random`) that each time completes the full 16-piece army, places no
+Tower on any closed square, and leaves no two Towers touching — plus the same
+loop on Battle to prove nothing regressed. Add a `gameState.test.ts` case that
+building an initial game state from placements whose variant disagrees with the
+edition throws. `npm run typecheck && npm run lint && npm test`.
+
+---
+
+## Step 4 — One legality check for both Tower rules, and the player-facing sentences
+
+Status: committed
+
+Notes: `placement.ts`'s `towersLegallyPlaced` (boolean) is replaced by
+`towerPlacementLegality(state): TowerLegalityResult` - `{ legal: true }` or
+`{ legal: false, rule: "spacing" | "lane", squares }`. The spacing check is
+the same nested-loop scan as before (unchanged behaviour/priority: checked
+first, so a state that breaks both rules at once reports `"spacing"` -
+documented as the "sensible single result" choice, since spacing existed
+first and is the only one reachable in practice once drop-time refusal is
+wired in Step 5); the lane check runs only when `state.towerPlacement ===
+"spacing_and_lanes"` and names every currently-placed Tower sitting on a
+`squaresClosedToTowers` square (there is no "first" violation to prefer for
+that rule - every such Tower is equally in violation). Added
+`towerLaneRefusesPlacement(state, square, pieceType)`, the drop-time
+"would this be refused" query: true only for `pieceType === "tower"` onto a
+closed square. `HotSeatGame.tsx` and `EngineGame.tsx` now derive
+`towerRuleOk` from `towerPlacementLegality(placement).legal` instead of the
+old boolean call; both are otherwise untouched (`EngineGame.tsx` stays
+Battle-only/`spacing_only`, so the lane branch is inert there, and it keeps
+typechecking as required).
+
+Added `src/board/towerPlacementMessages.ts`, a pure module (no React,
+mirroring `playAnnouncement.ts`/`gameNames.ts`'s precedent for testing UI
+text without a component-test harness) with: `describeTowerLaneRefusal(square)`
+(drop-time refusal, singular square - "A Tower can't go on A3 - no Tower may
+stand directly in front of a lane, the open column running through the
+middle of the board. Choose another square."); `describeClosedToTowersHint(closedSquares)`
+(the "Towers can't go on …" hint while a Tower is in hand, naming every
+closed square for the side at once - "Towers can't go on A3, D3, E3 or H3 in
+this game - those squares stand directly in front of a lane, the open column
+running through the middle of the board.", `""` for an empty list);
+`TOWER_SPACING_BLOCKED_MESSAGE`, the existing confirm-time spacing sentence
+moved here verbatim from `PlacementStatus.tsx` ("Two of your Towers are next
+to each other - no two Towers may touch, even diagonally. Move one apart to
+finish." - PlacementStatus itself is untouched until Step 5, so the string
+is temporarily duplicated in both places); `describeTowerLaneBlocked(squares)`,
+a new confirm-time backstop sentence for a lane violation (singular "One of
+your Towers is on A3, directly in front of a lane, the open column running
+through the middle of the board - no Tower may stand there. Move it to
+another square to finish."; plural "Some of your Towers are on A3 or D3, …
+Move them to other squares to finish."); and
+`describeTowerLegalityViolation(violation)`, which dispatches a
+`TowerLegalityViolation` to the spacing or lane confirm-time sentence. All
+lane sentences explain "lane" in passing (never assume it's known) and never
+say "ply". None of this is wired into `PlacementStatus`'s live region yet -
+that is Step 5.
+
+Deviation (interpretive call, not a plan contradiction): the plan's bullet
+list names three sentence categories (refusal, hint, "the existing
+spacing-block sentence"), but Decision item 4's precedence list separately
+names a fourth: "the confirm-time block explanation" as its own tier, which
+must cover the lane rule too (Decision item 2's backstop) - and the hint
+can't serve that role, since per Decision item 3 it's only ever shown while
+a Tower is in hand, which won't be true at confirm time for an
+already-completed army. So `describeTowerLaneBlocked` was added as that
+fourth sentence; reasoned through in code comments and this note so the
+extra function is not mistaken for scope creep. Also, per the "mentions the
+square(s) at issue" verification bullet, `TowerSpacingViolation.squares` was
+added (the actual adjacent pair, not just a boolean) even though the
+existing spacing sentence deliberately doesn't name squares (kept verbatim,
+since the plan calls it "the existing spacing-block sentence" - a specific,
+known string) - the structured _data_ names the squares either way, satisfying
+"the square(s) involved" from the step's own first bullet.
+
+`placement.test.ts`: the `towersLegallyPlaced` describe block and every call
+site were updated to `towerPlacementLegality(...).legal`; new tests cover a
+lane violation on Skirmish A3 under `spacing_and_lanes`, legal under
+`spacing_only` and on Battle under `spacing_and_lanes`, multiple violating
+Towers reported together, and the both-rules-broken case (reports
+`"spacing"`); a new `towerLaneRefusesPlacement` describe block covers Tower
+onto closed (yes), non-Tower onto closed (no), Tower onto open (no), and
+Battle under any variant (no). `src/board/towerPlacementMessages.test.ts` is
+new, asserting each sentence names the square(s)/Towers involved as
+applicable, that "lane" is explained, that "ply" never appears, and that the
+spacing and lane confirm-time sentences are different strings (Gate A).
+
+`npm run typecheck`, `npm run lint`, `npm test` (606 tests, 29 files),
+`npm run build`, and `npx prettier --check`/`--write` on every touched file
+all pass/clean.
+
+Give the rules layer a single answer to "is this side's Tower placement legal,
+and if not, why", and give the UI layer the sentences to say — both as pure,
+directly testable code, with no UI wiring yet:
+
+- In `placement.ts`, replace the boolean `towersLegallyPlaced` with a check that
+  returns a **structured result**: legal, or a violation naming which rule was
+  broken (Tower spacing / Tower in front of a lane) and the square(s) involved.
+  It must apply the lane rule only when the state's variant is
+  `spacing_and_lanes`, and must report the spacing rule exactly as it does
+  today. Update the two existing call sites (`HotSeatGame.tsx`,
+  `EngineGame.tsx`) to derive their existing boolean from the new result, so
+  **behaviour is unchanged in this step** apart from an army with a Tower in
+  front of a lane now also being refused at Confirm.
+- Add a **would-placing-here-be-refused** query the UI can ask before it acts:
+  given a state, a target square and a piece type, is this specifically the lane
+  rule refusing it? This is what makes drop-time refusal possible without
+  `place`/`move`/`swap` throwing (those keep their current "programming
+  invariant" contract, which the UI must never trip).
+- Add a small pure module under `src/board/` (alongside `gameNames.ts` /
+  `playAnnouncement.ts`, which are the codebase's precedent for testing UI text
+  as pure functions — there is no component-test harness in this project) that
+  turns a structured reason into the player-facing sentence: the refusal
+  sentence, the "Towers can't go on …" hint listing the closed squares for a
+  side, and the existing spacing-block sentence, all in the one voice described
+  in Decisions item 1. Player-facing wording rules apply: name sides by colour,
+  use the rules' piece names, use "move" never "ply", and explain "lane" in
+  passing ("the open column running through the middle of the board") rather
+  than assuming the word is known.
+
+Why it comes here: it depends on Step 3's state and closed-square query, and it
+gives Step 5 everything it needs as already-tested pure functions, so the UI step
+is wiring only.
+
+How to verify (automated): unit tests — the legality check returns legal for a
+lawful Skirmish army; a spacing violation for two touching Towers (on both
+editions); a lane violation for a Tower on A3 under `spacing_and_lanes`; legal
+for that same layout under `spacing_only` (the historical edition) and on Battle;
+and a sensible single result when both rules are broken at once. Tests for the
+"would this be refused" query covering a Tower onto a closed square (yes), a
+non-Tower onto a closed square (no), a Tower onto an open square (no), and any
+square on Battle (no). Tests for the sentence module asserting each sentence
+mentions the square(s) at issue, names Towers, and that the spacing and lane
+sentences are **different strings** — the two must be distinguishable, per Gate
+A. `npm run typecheck && npm run lint && npm test`.
+
+---
+
+## Step 5 — Placement enforcement in the UI: refusal, marking, and one voice
+
+Status: committed
+
+Notes: `towerPlacementMessages.ts` gained `towerLiveRegionMessage`, the pure
+function that resolves Decisions item 4's precedence (refusal, then the
+closed-squares hint, then the confirm-time block, then nothing) into the one
+string `PlacementStatus` shows - tested directly (`towerPlacementMessages.test.ts`)
+for all four tiers, including that a higher tier wins even when a lower
+tier's inputs are also present. `PlacementStatus.tsx`'s boolean
+`towerAdjacencyBlocked` prop is replaced by `towerMessage: string` (`""` for
+none); the always-mounted `role="status"`/`aria-live="polite"` region itself
+is untouched, exactly as directed. `Board.tsx` gained an optional
+`closedToTowerSquares` prop drawn with a new `board-square--closed-to-towers`
+modifier class (`Board.css`, a quiet diagonal-hatch background) - purely a
+CSS background with no new DOM/AOM element, so (unlike the lake icon) there
+is nothing to mark `aria-hidden`; its non-visual equivalent is the hint
+sentence. `HotSeatGame.tsx`: added a `towerRefusal: string | null` state set
+only by `handleSquareClick` when `towerLaneRefusesPlacement` says a
+placement/move/swap would land a Tower on a closed square (all three
+paths - tray-place, move, and swap-in-either-direction - are checked before
+calling `place`/`move`/`swap`, which are untouched and never see a refused
+action); on a refusal, `session`/`selection` are left untouched and only
+`towerRefusal` is set, so the player can immediately try another square.
+`towerInHand` (a Tower is the current tray or board-picked-up selection)
+drives `closedSquares` (`squaresClosedToTowers(placement)` while true, `[]`
+otherwise), which feeds both `Board`'s marking and the hint tier; the
+confirm-time tier is only considered once the army is complete, matching the
+rule's pre-Step-5 behaviour. `EngineGame.tsx` needed a matching but
+self-contained update to keep typechecking against `PlacementStatus`'s new
+prop shape: it derives `towerMessage` straight from
+`describeTowerLegalityViolation` when complete-and-illegal, `""` otherwise -
+no refusal state and no closed-squares marking were added there, since that
+screen is Battle-only/`spacing_only` (the lane branch is always inert) and
+the plan's Board.tsx bullet says explicitly that `EngineGame.tsx` "passes
+nothing and is otherwise untouched."
+
+Also made this step's assigned copy fix while here: `listSquareNames` (in
+`towerPlacementMessages.ts`) now takes a `conjunction` parameter (`"and" |
+"or"`, defaulting to `"or"`), and `describeTowerLaneBlocked`'s plural
+sentence now passes `"and"` (the Towers really are on both named squares at
+once) while `describeClosedToTowersHint`'s prohibition keeps the default
+`"or"`. Updated that function's doc comment and its plural example
+accordingly, and updated `towerPlacementMessages.test.ts`'s plural
+`describeTowerLaneBlocked` case to assert `"A3 and D3"` and explicitly assert
+`"A3 or D3"` does not appear.
+
+Deviation (elaboration, not a contradiction): the plan says to clear
+`towerRefusal` "on the next successful placement action and on
+confirm/hand-off." Implemented that, and additionally clear it on every
+_selection_ change (picking a tray type, picking up a placed piece,
+deselecting) - not just on a completed action. Reasoning: without this, a
+stale refusal from a prior mis-attempt would outrank the closed-squares hint
+under the plan's own precedence (Decisions item 4: refusal beats hint) even
+after the player picks up a _different_ Tower with nothing yet refused about
+it - which would suppress a hint Decisions item 3 says must show whenever a
+Tower is in hand. Clearing on selection-change closes that gap without
+weakening the "transient, set the moment a placement is refused" property
+the plan asks for.
+
+`npm run typecheck`, `npm run lint`, `npm test` (610 tests, 29 files),
+`npm run build`, and `npx prettier --check` on every touched file all
+pass/clean. No component-test harness exists for `Board.tsx`/`PlacementStatus.tsx`
+(consistent with every prior step in this story), so their new behaviour is
+exercised through `HotSeatGame.tsx`'s manual gates below, plus the pure
+`towerPlacementMessages.ts` unit tests, per this project's established
+precedent for UI text/logic without such a harness.
+
+Wire Step 4's results into the placement screen so a player is refused, told
+why, and shown where Towers cannot go:
+
+- `src/board/HotSeatGame.tsx`: before performing a placement action that would
+  put a **Tower** on a closed square, refuse it — leave the state untouched,
+  keep the current selection so the player can immediately pick another square,
+  and set the refusal message. Cover **every** path that can land a Tower there:
+  placing from the tray, moving an already-placed Tower, and swapping a Tower
+  with a piece on a closed square. Clear the refusal message on the next
+  successful placement action and on confirm/hand-off, so it never lingers into
+  the next player's turn.
+- `src/board/PlacementStatus.tsx`: replace the boolean
+  `towerAdjacencyBlocked` prop with the message to show (or none), keeping the
+  **existing always-mounted** `role="status" aria-live="polite"` region exactly
+  as it is — do not toggle the region itself in and out of the DOM (the comment
+  in that file explains why). Apply the precedence in Decisions item 4: refusal,
+  then the closed-squares hint while a Tower is in hand, then the confirm-time
+  block, then nothing. Confirm stays disabled whenever the legality check is not
+  legal.
+- `src/board/Board.tsx`: accept an optional set of squares to draw as "closed to
+  Towers" and render them with a new quiet modifier class (alongside
+  `board-square--lake` / `--selected`) styled in `Board.css`. The marker is
+  decorative (`aria-hidden`, like the lake icon) — its non-visual equivalent is
+  the hint sentence in the live region. `HotSeatGame` passes the closed squares
+  **only while a Tower is in hand** (a Tower selected in the tray, or an
+  already-placed Tower picked up on the board) and passes none otherwise.
+  `EngineGame.tsx` passes nothing and is otherwise untouched.
+
+Nothing about Battle changes anywhere in this step: its closed set is empty, so
+no square is marked, no hint is spoken, and no placement is ever refused.
+
+Why it comes here: it depends on Steps 3 and 4 (state, closed squares, legality,
+sentences) and is the first step a player can see. It closes the window opened in
+Step 1 (Decisions item 10).
+
+How to verify: **automated** — `npm run typecheck && npm run lint && npm test`
+stay green (the new logic is already covered by Step 4's pure tests; add
+coverage for any new pure helper this step introduces). **Manual (Gates A, B, C
+placement portion, and E)**, with `npm run dev` — note that this container has no
+file watching, so **restart the dev server** before observing:
+
+- **Gate A.** Start a Skirmish game. As red (White): a Tower is refused on A3,
+  D3, E3 and H3 with a message a player can act on, and nothing is placed; a
+  Tower is accepted normally on B3, C3, F3, G3 and on every square of the other
+  two home rows; non-Tower pieces are accepted on A3/D3/E3/H3. Confirm and repeat
+  as blue (Black) on A6, D6, E6, H6. Place two Towers next to each other and
+  confirm the existing "two Towers are touching" block still behaves as before,
+  and that the two messages read as clearly different problems. Check that
+  moving a placed Tower onto a closed square, and swapping a Tower onto one, are
+  refused the same way.
+- **Gate B.** Auto-fill a Skirmish army repeatedly (at least ten times, both
+  sides): every fill succeeds, no Tower ever lands on a closed square, and no two
+  Towers touch. Confirm is never blocked after an auto-fill.
+- **Gate C (placement portion).** Start a Battle game: no square is marked, no
+  hint appears, no Tower placement is refused anywhere, and placement behaves
+  exactly as before.
+- **Gate E.** With a screen reader running: the refusal is announced with its
+  reason, the closed-squares hint is announced when a Tower is taken in hand,
+  the spacing block is still announced, and nothing is announced twice from two
+  regions. The keyboard-only clause of Gate E is expected to be **waived** —
+  the placement board has never been keyboard-operable (see "Known limitation"
+  above); confirm only that this story has not made it worse, and report the
+  waiver rather than building keyboard operability here.
+
+---
+
+## Step 6 — Records: the new tag, the historical edition, and a sample record
+
+Status: committed
+
+Notes: No production code changed - Step 1 already made `buildInitialGameState`/
+`renderGameRecord` tag every artifact with the _actual_ played edition's own
+`id` and `readRecord.ts` already dispatched against all three registered
+editions, so this step is tests and a checked-in fixture only, as the plan
+anticipated. Added `doc/samples/2-0-skirmish-tower-in-lane.txt` (plus
+`doc/samples/README.md` explaining what it is and how it was built): a
+short, complete `2-0:SKIRMISH` game (White's Tower on A3, a champion
+capturing Black's flag on the next ply for an immediate `1-0`/"Flag
+Captured" win) produced by driving the app's own writer
+(`startPlay`/`applyMove`/`renderGameRecord`) directly against an
+`InitialGameState` built with `SUPERSEDED_SKIRMISH_EDITION` - functionally
+identical to "auto-fill a Skirmish army, dump the record, then hand-edit the
+Tower onto A3 and the tag", but scripted rather than done through the
+browser (noted as a deviation below), so the file's structure is genuinely
+well-formed by construction rather than hand-typed.
+
+`src/rules/readRecord.test.ts` gained: a `describe` block driving a real
+finished game (a flag-capture win) through `startPlay`/`applyMove`/
+`renderGameRecord`/`readRecord` for both active editions, asserting the
+record's `Ruleset` tag is the played edition's own id (`2-0:BATTLE` /
+`2-1:SKIRMISH`), the `Result`/`ResultReason` tags and move notation are
+identical in shape between them, and the position block round-trips -
+satisfying the step's first bullet "with tests, not by inspection"; and a
+`describe` block that reads `doc/samples/2-0-skirmish-tower-in-lane.txt` from
+disk (`node:fs`) and asserts `readRecord` parses **and replays it to the
+end** despite the Tower on A3, plus the mirror-image case (the same file's
+text with its `Ruleset` tag substituted to `2-1:SKIRMISH`) replaying without
+complaint too - pinning that placement rules never leak into replay under
+either tag. The disk-read-based fixture was not duplicated in
+`src/rules/primary/v2/recordFile.test.ts` - that module is structural
+parsing only, with no replay step to pin against - so no additional test was
+needed there beyond the existing coverage's retargeting described below.
+
+Per the step's last bullet, reviewed every existing record/review test that
+named a Skirmish edition and moved the ones that were only ever standing in
+for "a Skirmish record" (written before `2-1:SKIRMISH` existed) onto
+`2-1:SKIRMISH`, since that is what the app now actually plays and records:
+`readRecord.test.ts`'s "surfaces the record's own resolved Edition", "opening
+position round-trips for both editions", "a small synthetic ... record
+round-trips (8x8)" (renamed accordingly), and "a played game's moves
+round-trip through the real writer" blocks; and
+`recordFile.test.ts`'s "the Skirmish edition's 8x8 board layout" block. Left
+untouched, and deliberately still `2-0:SKIRMISH`: the "accepts all three
+registered edition tags" block (explicitly exercises all three, including
+the historical one) and the two new sample-record tests above (the dedicated
+historical-path coverage). Also left untouched as out of scope (movement/
+session behaviour, not records): `play.test.ts`'s and `playSession.test.ts`'s
+own "threads the edition's board layout" blocks, which use
+`EDITIONS["2-0:SKIRMISH"]` only to exercise board-geometry regression
+coverage unrelated to the `Ruleset` tag. A top-of-file comment was added to
+`readRecord.test.ts` (and an inline one in `recordFile.test.ts`) explaining
+which Skirmish id each fixture uses and why, per the step's instruction.
+
+Deviation: the plan says to build the sample "from the app's own developer
+record dump", implying playing a game through the browser UI and using its
+dev-build record dump. Instead it was generated by a throwaway Vitest test
+that called the exact same writer functions (`startPlay`/`applyMove`/
+`renderGameRecord`) that `GameRecord.tsx`'s dev-build dump calls, with the
+historical edition and the Tower placed directly in the `InitialGameState`
+(placement rules were never going to be consulted either way, so there is
+nothing a manual playthrough would have exercised that this did not) - then
+deleted before this commit. This produces byte-identical output to what a
+manual playthrough would have dumped, without needing a browser session
+inside this agent's environment; recorded here as the honest deviation the
+plan's own review process asks for, and the owner can re-verify the
+already-committed file matches this description at Gate D.
+
+`npm run typecheck`, `npm run lint`, `npm test` (614 tests, 29 files),
+`npm run build`, and `npx prettier --check`/`--write` on every touched file
+all pass/clean.
+
+Prove and pin the record behaviour end to end, and add the historical fixture:
+
+- Confirm (with tests, not by inspection) that a finished **Skirmish** game's
+  record carries `Ruleset "2-1:SKIRMISH"`, a **Battle** game's still carries
+  `2-0:BATTLE`, and that the position block and every other part of the notation
+  are unchanged.
+- Add a checked-in sample record under a new `doc/samples/` folder: a small,
+  complete `2-0:SKIRMISH` game record whose **starting position has a Tower
+  directly in front of a lane** (e.g. on A3) — a position legal under the
+  historical edition and refused under `2-1:SKIRMISH`. Build it from the app's
+  own developer record dump so it is genuinely well-formed, then hand-edit the
+  Tower onto A3 and the `Ruleset` tag as needed. Add a short README-style note
+  in that folder saying what each sample is for.
+- Add tests that read that file from disk (vitest runs in a `node`
+  environment, so `fs` is available) and assert `readRecord` parses **and
+  replays it to the end** — the guarantee that placement rules never leak into
+  replay validation. Add the mirror-image test too: the same position under a
+  `2-1:SKIRMISH` tag also replays without complaint, because replay never checks
+  placement.
+- Review the existing record/review tests and move those that represent a _new_
+  Skirmish game to `2-1:SKIRMISH`, keeping deliberate `2-0:SKIRMISH` coverage
+  for the historical path (both readers should stay exercised). Note in the test
+  file's comment which is which and why.
+
+Why it comes here: it depends on Step 1 (the registry and the tag) and Step 5
+(so a manually produced Skirmish record actually reflects the enforced rule).
+
+How to verify: **automated** — the tests above, plus
+`npm run typecheck && npm run lint && npm test`. **Manual (Gate C records
+portion + Gate D)**, with a restarted `npm run dev`: play a short Skirmish game
+to a result, take the developer record dump, confirm it is tagged
+`2-1:SKIRMISH`, save it to a file and import it in the reviewer — it replays end
+to end on the 8×8 board. Do the same for Battle and confirm `2-0:BATTLE` and an
+unchanged 12×12 review. Then import `doc/samples/`'s `2-0:SKIRMISH` sample —
+the one with a Tower in front of a lane — and confirm it imports and replays
+without complaint.
+
+---
+
+## Step 7 — Player-facing copy and the README check
+
+Status: committed
+
+Notes: `src/board/GameChoice.tsx`'s `GAME_DETAIL["2-1:SKIRMISH"]` gained one
+clause: "A tower can't be placed directly in front of a lane, one of the open
+columns running through the middle of the board." - appended to the existing
+sentence, matching `towerPlacementMessages.ts`'s established phrasing for
+explaining "lane" in passing. `GAME_DETAIL["2-0:SKIRMISH"]` was deliberately
+left unchanged (that historical edition never had the rule, and the entry is
+unreachable in the picker per Step 1's `playableEditions()` filtering) - noted
+in an updated doc comment above the map so the asymmetry between the two
+Skirmish entries isn't mistaken for an oversight. The Battle entry is
+untouched. Swept `PlacementStatus.tsx`, `HotSeatGame.tsx`, `Board.tsx`, and
+`GameChoice.tsx` for stale or inaccurate copy, "ply", and edition ids in
+player-facing (rendered) strings: none found - every "ply" occurrence in
+those files is in a code comment (permitted per the project's ply/move
+convention), and no rendered string names an edition id. `README.md`'s setup
+bullet gained one clause in the same voice: "In Skirmish, a tower can't stand
+directly in front of a lane, one of the open columns running through the
+middle of the board." placed between the existing placement sentence and
+"When both armies are placed...". Edited directly rather than via
+`/update-readme`, since the story's own plan already specified the exact
+bullet and clause to add.
+
+Deviation: none. `npm run typecheck`, `npm run lint`, `npm test` (614 tests,
+29 files), and `npx prettier --check` on both touched files all pass. No
+automated test asserts the `GAME_DETAIL` string's content (there is no
+`GameChoice` component-test harness, consistent with every prior step in this
+story - Step 1's Notes record the same gap) - the "keep it type-complete"
+guarantee is still compiler-enforced (`Record<EditionId, string>`), and the
+manual gate below is how the wording itself gets checked.
+
+Manual check for the owner, with a restarted `npm run dev`: open the game
+picker and read the Skirmish description - it should end with the new tower/
+lane sentence, plainly worded, with "lane" explained rather than assumed
+known, no edition id or "ply" anywhere; the Battle description should read
+exactly as it did before. Then re-read `README.md`'s "Set up a game with a
+friend" bullet end to end for accuracy and tone.
+
+Close the story with the copy pass and the README review:
+
+- `src/board/GameChoice.tsx`: add one short clause to the **Skirmish**
+  description mentioning that Towers can't be placed in front of the open lanes,
+  so a player meets the rule before it refuses them. Leave the Battle
+  description alone. Keep it plain and short — no rules restatement, no edition
+  ids, no jargon.
+- Sweep the placement surfaces for any copy that is now inaccurate or that says
+  "Skirmish" where it should name the rule, and for any player-facing string
+  that leaked the word "ply" or an edition id (there should be none).
+- Review `README.md` against this story: its setup bullet describes placing an
+  army, and should gain a brief clause that in Skirmish towers can't stand in
+  front of the lanes. The `/update-readme` command may be used — it reviews the
+  branch diff and updates `README.md` if warranted. Do not restate the rules;
+  the companion repository stays the linked source of truth. If nothing needs
+  changing, say so in the step's Notes rather than editing.
+
+Why it comes here: last, so the copy describes the finished behaviour.
+
+How to verify: **automated** — `npm run typecheck && npm run lint && npm test`
+stay green, `npm run format:check` is clean, and `gameNames.test.ts` /
+`GameChoice`'s description test still passes with the new text. **Manual** —
+with a restarted `npm run dev`, open the game picker and read the Skirmish
+description as a player would: it names the restriction in one clause, plainly,
+without jargon; and re-read `README.md` end to end for accuracy.
+
+---
+
+## Step 8 — Tell the player when auto-fill can't seat the Towers
+
+Status: committed
+
+Notes: `placement.ts`'s `autoFill` now returns a new `AutoFillResult`
+(`{ ok: true; state } | { ok: false }`) instead of a bare `PlacementState`;
+`pickTowerSquares` returns `Square[] | null` (was: returns squares or throws)
+and `autoFill` propagates a `null` result as `{ ok: false }`, leaving `state`
+untouched - the attempt-limited search itself is unchanged, only how its
+exhaustion is reported, per the step's own instruction. The module's header
+comment gained a paragraph naming this as the one exception to "these throw";
+`place`/`move`/`swap`'s own invariant throws are untouched.
+`towerPlacementMessages.ts` gained `AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE`
+("Auto-fill couldn't place your remaining Towers - there's no square left for
+them where two Towers wouldn't end up touching, even diagonally. Clear a few
+of your placed pieces and try Auto-fill again.") and a new
+`TowerAutoFillExhausted` (`{ seq: number }`) transient-event type, mirroring
+`TowerRefusal`'s own `seq` (peer review finding #5) so a second identical
+failure still forces a fresh announcement. `TowerLiveRegionInputs` gained a
+required `autoFillExhausted` field and `towerLiveRegionMessage`'s precedence
+gained one tier, placed second (after a drop-time refusal, before the
+closed-squares hint) - the plan's Decisions item 4 precedence extended rather
+than bypassed, as directed; the two top tiers are mutually exclusive in
+practice (each caller-side setter clears the other), so their relative order
+never actually matters. `HotSeatGame.tsx` added an `autoFillExhausted` state
+alongside the existing `towerRefusal`, a `clearTowerFeedback()` helper that
+clears both together (used at every site that used to clear only
+`towerRefusal` - a new selection, a completed placement action, and
+confirm/hand-off, matching `towerRefusal`'s own Step 5 clearing footprint
+exactly, deviation-for-deviation), and `reportAutoFillExhausted()`/an updated
+`refuseTowerPlacement()` that each clear the other's transient state so a
+stale message from a prior action can never outrank a newer one. The
+Auto-fill click handler now calls `autoFill(placement)` directly (rather than
+inside `setSession`'s functional updater, since inspecting the result and
+reporting exhaustion is a side effect a `setState` updater should not
+perform) and either reports the exhaustion or applies the successful result;
+the board is left exactly as it was on `{ ok: false }`, satisfying the step's
+"leave the board untouched" requirement structurally (the failing branch
+never calls `setSession` at all). `EngineGame.tsx` (disabled, unreachable)
+needed self-contained updates to keep compiling: its own `handleAutoFill`
+unwraps the result and silently keeps the prior placement on exhaustion (a
+close analogue of the old throw's visible effect - nothing happens - without
+the console error); the computer-army-generation call site (a fresh, mostly
+empty Battle board, where exhaustion should be practically impossible) throws
+a dedicated "should be unreachable" error if `!result.ok`, preserving that
+call site's own pre-existing "this must never fail" assumption rather than
+silently masking a genuine bug there.
+
+`placement.test.ts`: the exhaustion test (previously "demonstrates a
+plausible partially hand-filled state where auto-fill exhausts (reported, not
+fixed)") is rewritten, not deleted, to
+`"reports (rather than throws) when no legal arrangement exists for the
+remaining Towers"` - same fixture board, now asserting `result.ok === false`
+and that the 13 hand-placed non-Tower pieces are exactly as they were
+(nothing partially filled). Every other `autoFill` call site in this file
+(and in `gameState.test.ts` and `placementSession.test.ts`, which also call
+it) now goes through a small local `autoFillOrThrow` test helper that unwraps
+`{ ok: true }` and throws loudly if a fixture expected to succeed ever stops
+doing so - mechanical, but necessary since `autoFill`'s return type changed;
+none of the existing high-iteration auto-fill tests needed any behavioural
+change beyond this unwrap, confirming nothing regressed.
+`towerPlacementMessages.test.ts` gained a describe block for
+`AUTO_FILL_TOWERS_EXHAUSTED_MESSAGE` (names Towers, explains why, says what to
+do, never says "ply" or an edition id, distinguishable from every other Tower
+sentence per Gate A) and new `towerLiveRegionMessage` cases for the new tier
+(wins over the hint and confirm-time block; loses to a refusal; carries its
+own `seq` through unchanged on repeat, mirroring the refusal's own peer-review
+finding #5 coverage).
+
+`npm run typecheck`, `npm run lint`, `npm test` (624 tests, 29 files),
+`npm run build`, and `npm run format:check` all pass/clean.
+
+Deviation: none from the step's approach. One interpretive elaboration,
+similar in spirit to Step 5's own documented one: the step's own text clears
+the message "on the next successful placement action," but (mirroring Step
+5's reasoning for `towerRefusal`) `autoFillExhausted` is also cleared on every
+_selection_ change, not just a successful action - otherwise a stale
+exhaustion message would keep outranking the closed-squares hint even after
+the player picks up a different Tower, which Decisions item 3 requires the
+hint to show. Implemented via one shared `clearTowerFeedback()` helper so the
+two transient events (`towerRefusal`, `autoFillExhausted`) can never
+accidentally drift out of sync with each other's clearing footprint.
+
+Manual verification (the board state described in the step's own "How to
+verify") is the owner's to perform at the next gate; not run here per this
+agent's standing instructions.
+
+**Added after the peer review** (owner decision, 2026-08-03), in response to
+finding #7. Step 3's auto-fill work and the fix pass that followed left a real,
+player-reachable dead end: `autoFill` delegates Tower placement to an internal
+search that gives up after a fixed number of attempts and **throws**, and
+`HotSeatGame.tsx`'s auto-fill click handler does not catch it. Because the throw
+happens inside a React event handler, nothing unmounts — the button simply does
+nothing at all, with only a console error to show for it.
+
+`placement.test.ts` already contains a test (added by the review fix pass,
+titled "demonstrates a plausible partially hand-filled state where auto-fill
+exhausts") that pins one such state exactly: a `spacing_and_lanes` Skirmish
+placement with all 13 non-Tower pieces placed by hand, leaving only A1–D1 and
+A2–C2 open. No three of those seven squares are mutually non-adjacent, so no
+legal arrangement of the three remaining Towers exists. **That test asserts the
+current throwing behaviour and must be rewritten by this step**, not deleted —
+it is the clearest statement of the case being fixed.
+
+The state is reachable but unusual, and it predates this story in kind (the same
+clustering was constructible before the lane rule); closing four of Skirmish's
+24 home squares shrinks the free pool from 11 squares to 7 and so makes it
+materially easier to stumble into. The player is not doing anything wrong —
+they have simply left their Towers nowhere legal to go — so the app owes them an
+explanation, not silence.
+
+Implement:
+
+- **Make exhaustion a result, not an exception.** `autoFill` in
+  `src/rules/primary/v2/placement.ts` reports "there is no legal arrangement for
+  the remaining Towers" as an ordinary outcome the caller can inspect, rather
+  than throwing. Keep the distinction sharp: this is a legitimate board state a
+  player produced, unlike the genuine programming-invariant violations elsewhere
+  in that module (placing onto an occupied square, moving from an empty one),
+  which must keep throwing. The attempt-limited search itself is unchanged — only
+  how its failure is reported.
+- **Say so in the player's own words.** Add the sentence to
+  `src/board/towerPlacementMessages.ts`, where every Tower-related player-facing
+  string now lives, and give it the same shape as its neighbours: what happened,
+  why, and what to do next — e.g. that there is nowhere left to put the Towers so
+  that no two of them touch, and that clearing some pieces and trying again will
+  help. Follow the project's player-facing conventions: "Tower" capitalised as
+  elsewhere in the app, no jargon, no edition ids, "move" never "ply".
+- **Show it where the other placement messages appear.** The auto-fill click
+  handler in `HotSeatGame.tsx` consumes the new outcome and routes the sentence
+  through the **existing single live region** in `PlacementStatus.tsx` — no
+  second region, no alert, no new UI surface. Fit it into the precedence order
+  established in "Decisions resolved at plan time" item 4 rather than bypassing
+  it, and clear it on the next successful placement action exactly as the
+  drop-time refusal is cleared. `EngineGame.tsx` also calls `autoFill`; it is the
+  disabled computer-play screen, so it needs only to keep compiling and behave as
+  it does today.
+- Leave the board untouched when auto-fill cannot complete: the player's own
+  placements stay exactly as they were.
+
+Why it comes here: last, because it depends on Step 3's auto-fill, Step 4's
+message module, and Step 5's live region and precedence order all being in place;
+and because it was raised by the peer review of the seven steps before it.
+
+How to verify: **automated** — rewrite the existing exhaustion test so it asserts
+the new reported outcome instead of a throw, and confirm the sentence is produced
+for that state; keep the existing high-iteration auto-fill tests (fresh and
+partially filled boards) green, since none of them should now be able to throw.
+`npm run typecheck && npm run lint && npm test` stay green and
+`npm run format:check` is clean. **Manual** — with a restarted `npm run dev`,
+start a Skirmish game and hand-place all 13 non-Tower pieces so the only squares
+left open are A1, B1, C1, D1, A2, B2 and C2 (the four lane squares A3/D3/E3/H3
+are refused anyway, and B3/C3/F3/G3 plus the rest of rows 1–2 should be filled).
+Click Auto-fill: instead of nothing happening, the status area explains that the
+Towers cannot be placed apart from each other and suggests clearing some pieces.
+The board is unchanged, the message clears once you move a piece, and Auto-fill
+still works normally from an empty or lightly filled board.
