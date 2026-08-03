@@ -100,11 +100,11 @@ owner-deferred to this story rather than fixed there (see that story's
   only exists in the placement branch of `HotSeatGame.tsx`, which renders for
   the first time in the same update that sets its text — a screen reader may
   not announce content inserted together with the live region itself.
-  `src/board/HotSeatGame.tsx#L578-L584`.
+  `src/board/HotSeatGame.tsx#L588-L594`.
 - **Focus drops to `<body>` when `GameChoice` unmounts.** Choosing a game
   unmounts `GameChoice` (including the focused "Play &lt;Game&gt;" button)
   without moving focus anywhere, dropping a keyboard user back on `<body>` at
-  the start of placement. `src/board/HotSeatGame.tsx#L246-L252`.
+  the start of placement. `src/board/HotSeatGame.tsx#L258-L265`.
 - **Native `disabled` removes "Play against the computer" from the tab
   order.** The start-screen button uses the native `disabled` attribute, so a
   keyboard/screen-reader user tabbing through the start screen never reaches
