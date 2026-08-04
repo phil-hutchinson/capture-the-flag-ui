@@ -1036,7 +1036,50 @@ saying the app does not know that rule.
 
 ## Step 11 — README, final copy sweep, and the accessibility pass
 
-Status: pending
+Status: committed
+
+Notes: `README.md`'s two "corner-to-corner" mentions became "diagonal"; the
+"Move, attack, and capture on the battlefield" bullet's flat "towers and the
+flag can't be attacked that way, so the flag must always be taken head-on"
+became settings-dependent ("whether that can also reach a tower or the flag,
+and whether it needs a clear square beside the two pieces, depends on the
+diagonal-attack settings you picked when you set up the game"), with neither
+value named as standard, matching the UI; the "Set up a game with a friend"
+bullet gained one clause ("choose how you'd like diagonal attacks to work for
+this game"). A new paragraph was added to "The rules" resolving the
+plan-flagged tension: it states plainly that the two diagonal-attack settings
+"aren't official rules yet" and links to the companion repository's
+`proposed-variants.md` (confirmed to exist via `gh api`) as their source,
+satisfying "avoid language implying they are part of the official game"
+without adding any hedging to the UI itself (that constraint applies only to
+the UI, per story.md's Policy bullet and the plan's Decision 7/8 - the README
+is free to, and here does, say more than the UI does). The copy sweep across
+`GameChoice.tsx`, `HotSeatGame.tsx`, `ReviewScreen.tsx`, `GameRecord.tsx`,
+`reviewText.ts` and `ruleChoices.ts` found nothing to change: every flag id,
+value token and edition id present in those files is confined to code
+identifiers, object keys or code comments, never rendered text (confirmed by
+grep plus `ruleChoices.test.ts`'s existing jargon-guard test), and every
+occurrence of "ply" is likewise a comment, a variable name, or part of
+`reviewText.ts`'s "Move {ply} (round {round}, {color})" pattern where the
+rendered word is "Move", not "ply". The accessibility pass was a code review
+rather than new work: `GameChoice.tsx`'s two rule-choice groups already use
+`role="group"`/`aria-labelledby` tied to a visible heading and the same
+`aria-pressed` toggle-button pattern the pre-existing game buttons use (so a
+screen reader announces each button's pressed state natively, satisfying "its
+current state is announced" without a duplicate live region), the section
+nests correctly in the heading hierarchy (h2 "Choose a game" → h3 "Diagonal
+attacks" → h4 per choice), buttons are native `<button>` elements needing no
+extra keyboard wiring, and the post-choice announcement
+(`HotSeatGame.tsx`'s `gameAnnouncement` live region) is the single place the
+chosen game and any non-standard rules are spoken aloud, so nothing is
+announced twice from two regions; no code changes were needed. Ran
+`npm run typecheck`, `npm run lint`, `npm test` (707 tests, unchanged - this
+step touched only `README.md` and this plan file), `npm run format:check` and
+`npm run build`, all clean; `npm run dev` was restarted and confirmed to
+serve the app (HTTP 200) as a basic smoke check. Gate G itself, the Gate A
+re-check, and the Gate E re-check (Step 10's unrecognised-token cases) are
+left for the orchestrator's manual verification pass with the owner and a
+real screen reader, as the plan specifies. No deviation from the plan.
 
 - `README.md`: switch its two existing "corner-to-corner" mentions (lines 29 and 69) to "diagonal", per Decision 7 — the app and the README must use one word,
   and it is the rulebook's. Update the "Move, attack, and capture on the

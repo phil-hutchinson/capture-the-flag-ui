@@ -189,10 +189,12 @@ export function nonStandardRuleSentences(
  * only replay holds "for every record ever written... no rules knowledge
  * required"), but this app genuinely cannot say what the token means, so a
  * reviewer is told that plainly rather than left to guess why the game plays
- * out the way it does. No "experimental" framing, and no suggestion that
+ * out the way it does. The sentence then says the review still works, so an
+ * unfamiliar token reads as a note rather than a warning - owner wording at
+ * Step 11's manual gate. No "experimental" framing, and no suggestion that
  * such a game could be resumed - reviewing is guaranteed, playing on from a
  * record is not, and nothing in this app does that today.
  */
 export function unrecognizedRuleSentence(token: string): string {
-  return `This game also used a rule setting this app doesn't recognize ("${token}") — it can't say what that one does.`;
+  return `This game also used a rule setting this app doesn't recognize ("${token}"). The game can still be reviewed.`;
 }

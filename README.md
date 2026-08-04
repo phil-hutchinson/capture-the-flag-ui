@@ -17,21 +17,23 @@ unavailable while the computer player catches up with the latest rules.
 ## What you can do
 
 - **Set up a game with a friend** on the same device — pick Skirmish or
-  Battle, then take turns secretly choosing where on your side of the board to
-  place your army (you won't fill every square), then hand off. In Skirmish, a
-  tower can't stand directly in front of a lane, one of the open columns
-  running through the middle of the board. When both armies are placed, the
-  game is ready for battle.
+  Battle, choose how you'd like diagonal attacks to work for this game, then
+  take turns secretly choosing where on your side of the board to place your
+  army (you won't fill every square), then hand off. In Skirmish, a tower
+  can't stand directly in front of a lane, one of the open columns running
+  through the middle of the board. When both armies are placed, the game is
+  ready for battle.
 - **Move, attack, and capture on the battlefield** — once both armies are
   revealed, take turns moving pieces across the board in full view. Moving a
   piece onto an enemy piece attacks it, and the fight resolves immediately —
   the losing piece (or both, if they're evenly matched) leaves the board. A
-  piece can also strike an enemy standing corner-to-corner with it, though it
-  can only ever move straight; towers and the flag can't be attacked that way,
-  so the flag must always be taken head-on. By default the board flips to face
-  whoever's turn it is; a "Flip board between turns" switch lets you turn that
-  off and keep the board on red's side the whole game — handy if you're
-  playing both sides yourself.
+  piece can also strike an enemy standing diagonally next to it, though it can
+  only ever move straight; whether that can also reach a tower or the flag,
+  and whether it needs a clear square beside the two pieces, depends on the
+  diagonal-attack settings you picked when you set up the game. By default the
+  board flips to face whoever's turn it is; a "Flip board between turns"
+  switch lets you turn that off and keep the board on red's side the whole
+  game — handy if you're playing both sides yourself.
 - **Win, lose, or draw** — capture your opponent's flag and the game is yours.
   You can also win if your opponent is left with no legal move at all. A game
   can end in a draw too: by agreement, or if fifty moves go by in a row with
@@ -66,8 +68,13 @@ source of truth:
 The game is still in active pre-release development, and the rules are
 evolving with it; a recorded game only plays back correctly in the ruleset
 version it was recorded under. The app has now moved to the latest rules —
-which brought the two games and corner-to-corner attacks — so recordings made
-under the earlier rules can no longer be reviewed here.
+which brought the two games and diagonal attacks — so recordings made under
+the earlier rules can no longer be reviewed here.
+
+The two diagonal-attack settings on the new-game screen aren't official rules
+yet — they're proposals from the companion project's
+[proposed-variants.md](https://github.com/phil-hutchinson/capture-the-flag/blob/main/doc/ruleset/proposed-variants.md)
+sandbox, offered here so players can try them out before anything is decided.
 
 ## Development
 
