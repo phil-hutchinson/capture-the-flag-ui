@@ -1,4 +1,6 @@
-// Battle/Skirmish choice for the hot-seat game (story 00000023, Step 7).
+// Battle/Skirmish choice for the hot-seat game (story 00000023, Step 7),
+// extended by story 00000027's Step 8 to also offer the two diagonal-attack
+// rule choices.
 //
 // The first thing a player does when starting a hot-seat game: pick which of
 // the two games to play, named exactly as the rules do - "Battle" or
@@ -22,29 +24,55 @@
 // again rather than being reset to Skirmish every time. See `gameNames.ts`'s
 // `defaultGameId`.
 //
+// Story 00000027's implementation plan, Decision 8: the two diagonal-attack
+// rule choices sit in one new section between the selected game's
+// description and the "Play <Game>" button, offered identically for both
+// games and unaffected by which one is currently selected. Each choice is
+// rendered from `ruleChoices.ts`'s `RULE_CHOICES` as the same `aria-pressed`
+// two-button group the game buttons above use, with the selected option's
+// one-sentence description shown beneath it - no form controls, no
+// "experimental"/"variant" framing, no per-game variation. `onChoose` now
+// reports a full `RuleConfiguration` (the chosen edition plus both chosen
+// flag values) rather than a bare `Edition`; `lastPlayed` widens the same
+// way, so this screen pre-selects the game *and* both flag values just
+// played (Decision 9), falling back to the standard value of each flag (via
+// each choice's own "standard" option, from `RULE_CHOICE_COPY`) when there is
+// none.
+//
 // `HotSeatGame.tsx` renders this in place of its own placement UI until a
 // game is chosen; nothing is lost by choosing (or re-choosing, after "New
 // game") since this is always the very first screen of a fresh hot-seat game.
 
 import { useState } from "react";
 import {
+  configureRules,
+  type RuleConfiguration,
+  type RuleFlagOverrides,
+} from "../rules/primary/v2/configuration.ts";
+import {
   editionById,
   playableEditions,
-  type Edition,
   type EditionId,
 } from "../rules/primary/v2/edition.ts";
+import type { RuleFlagId } from "../rules/primary/v2/ruleFlags.ts";
 import { defaultGameId, gameName } from "./gameNames.ts";
+import {
+  RULE_CHOICES,
+  RULE_CHOICES_HEADING,
+  type RuleChoiceDescriptor,
+} from "./ruleChoices.ts";
 import "./GameChoice.css";
 
 export interface GameChoiceProps {
-  /** Starts placement for the chosen game. */
-  readonly onChoose: (edition: Edition) => void;
+  /** Starts placement for the chosen configuration. */
+  readonly onChoose: (configuration: RuleConfiguration) => void;
   /**
-   * The game most recently played this session, if any - pre-selects that
-   * game. `null` on the first game of a session, when Skirmish stays
-   * pre-selected as the recommended first game (story.md).
+   * The configuration most recently played this session, if any - pre-selects
+   * that game and both diagonal-attack rule choices from it. `null` on the
+   * first game of a session, when Skirmish and the standard value of each
+   * choice stay pre-selected (story.md).
    */
-  readonly lastPlayed: Edition | null;
+  readonly lastPlayed: RuleConfiguration | null;
 }
 
 /**
@@ -87,18 +115,96 @@ function gameOrderRank(id: EditionId): number {
 }
 
 /**
- * "Skirmish" / "Battle" - the two games' choice screen, pre-selecting the
- * game just played (`lastPlayed`), or Skirmish on the first game of a
- * session.
+ * Which value is currently selected for `choice`: the player's own choice
+ * from `flagOverrides` if they have touched this flag's buttons this
+ * session, otherwise the option `ruleChoices.ts` marks as standard - which is
+ * exactly what an absent override resolves to (`configureRules`), so this
+ * mirrors the rules engine's own resolution without needing to import it.
+ *
+ * Peer review #6 (owner decision: document only, no behaviour change). This
+ * fallback is the catalog default (`ruleChoices.ts`'s `isStandard`), not
+ * `configuration.ts`'s own `resolvedEditionValue` (the edition's stated
+ * value, falling back to the catalog default only when the edition doesn't
+ * state one). The two are indistinguishable today because no registered
+ * edition states a flag value - `resolvedEditionValue`'s doc comment names
+ * that as the documented extension point for the day one does, at which
+ * point this fallback would diverge from what the engine actually resolves
+ * for the *selected* edition (this function has no edition in scope at all,
+ * only the flag choice). Fixing this would mean threading `selectedEdition`
+ * in and calling `resolvedEditionValue`-equivalent logic here instead of
+ * reading `isStandard` off the catalog; out of scope for this pass.
+ */
+function selectedRuleValue(
+  choice: RuleChoiceDescriptor,
+  flagOverrides: Partial<Record<RuleFlagId, string>>,
+): string {
+  const standardOption = choice.options.find((option) => option.isStandard);
+  // Every `RuleChoiceDescriptor` has exactly one standard option
+  // (`ruleChoices.ts`'s `buildRuleChoice` marks it from the flag catalog's
+  // own default), so `?? choice.options[0].value` never actually applies -
+  // kept only so TypeScript sees a `string`, not `string | undefined`.
+  return (
+    flagOverrides[choice.flagId] ??
+    standardOption?.value ??
+    choice.options[0].value
+  );
+}
+
+/**
+ * "Skirmish" / "Battle" plus both diagonal-attack rule choices - the
+ * new-game screen, pre-selecting the game and both flag values just played
+ * (`lastPlayed`), or Skirmish and the standard value of each flag on the
+ * first game of a session.
  */
 export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
   const [choice, setChoice] = useState<EditionId>(() =>
-    defaultGameId(lastPlayed),
+    defaultGameId(lastPlayed?.edition ?? null),
   );
+  // Story 00000027, Step 8: only the flags the player has actually chosen a
+  // value for this session are recorded here - initialized from
+  // `lastPlayed`'s own resolved flags when there is one, so a returning
+  // player sees their own last choice on every button, and left empty
+  // otherwise, so `configureRules` (below, and in `selectedRuleValue` above
+  // via each choice's "standard" option) supplies the standard value of
+  // whichever flag is never touched. A `Partial<Record<...>>` of plain
+  // strings, rather than the rules engine's own `RuleFlagOverrides`, because
+  // a button's `value` is read generically off `RuleChoiceDescriptor` here
+  // and cannot carry each flag's own literal-value type - the one cast this
+  // component needs, at the "Play <Game>" button below, mirrors
+  // `ruleChoices.ts`'s own `buildRuleChoice`/`nonStandardRuleSentences` casts
+  // for the same reason.
+  //
+  // Peer review #6 (owner decision: document only, no behaviour change).
+  // Seeding from *every* flag in `lastPlayed.flags` converts a value that
+  // was merely *resolved* for the previously-played edition into an
+  // explicit *override* for whatever edition is chosen next. That's the
+  // same coupling `selectedRuleValue` above has: harmless today (no
+  // registered edition states a flag value, so "resolved" and "catalog
+  // default" always agree), but on the day one does, switching games on
+  // this screen would silently carry the previous edition's resolved value
+  // across as an override, rather than picking up the newly-selected
+  // edition's own stated value. See `configuration.ts`'s
+  // `resolvedEditionValue` for the extension point this would need to read
+  // instead. Fixing this would mean seeding only the flags that actually
+  // deviated (`deviatingFlags(lastPlayed)`) rather than every flag; out of
+  // scope for this pass.
+  const [flagOverrides, setFlagOverrides] = useState<
+    Partial<Record<RuleFlagId, string>>
+  >(() => (lastPlayed ? { ...lastPlayed.flags } : {}));
   const selectedEdition = editionById(choice);
   const games = [...playableEditions()].sort(
     (a, b) => gameOrderRank(a.id) - gameOrderRank(b.id),
   );
+
+  function handleChooseFlag(flagId: RuleFlagId, value: string) {
+    setFlagOverrides((current) => ({ ...current, [flagId]: value }));
+  }
+
+  function handlePlay() {
+    onChoose(
+      configureRules(selectedEdition, flagOverrides as RuleFlagOverrides),
+    );
+  }
 
   return (
     <div className="game-choice">
@@ -122,11 +228,48 @@ export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
         ))}
       </div>
       <p className="game-choice__detail">{GAME_DETAIL[choice]}</p>
-      <button
-        type="button"
-        className="game-choice__start"
-        onClick={() => onChoose(selectedEdition)}
-      >
+      <div className="game-choice__rules">
+        <h3 className="game-choice__rules-heading">{RULE_CHOICES_HEADING}</h3>
+        {RULE_CHOICES.map((ruleChoice) => {
+          const selectedValue = selectedRuleValue(ruleChoice, flagOverrides);
+          const selectedOption = ruleChoice.options.find(
+            (option) => option.value === selectedValue,
+          );
+          const headingId = `game-choice__rule-heading--${ruleChoice.flagId}`;
+          return (
+            <div key={ruleChoice.flagId} className="game-choice__rule">
+              <h4 id={headingId} className="game-choice__rule-heading">
+                {ruleChoice.heading}
+              </h4>
+              <div
+                className="game-choice__options"
+                role="group"
+                aria-labelledby={headingId}
+              >
+                {ruleChoice.options.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className="game-choice__option"
+                    aria-pressed={selectedValue === option.value}
+                    onClick={() =>
+                      handleChooseFlag(ruleChoice.flagId, option.value)
+                    }
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {selectedOption ? (
+                <p className="game-choice__detail">
+                  {selectedOption.description}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      <button type="button" className="game-choice__start" onClick={handlePlay}>
         Play {gameName(selectedEdition)}
       </button>
     </div>

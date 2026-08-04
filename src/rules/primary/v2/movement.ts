@@ -27,20 +27,31 @@
 // special cases in 2.0.
 //
 // A mobile piece may additionally *attack* (never move onto) an enemy
-// exactly one square diagonally (§4.3, "Diagonal attacks", major 2), but only
-// a movable/numbered enemy piece - a Tower or the Flag can never be attacked
-// diagonally. There is no two-square diagonal and it is never subject to the
-// unencumbered bonus.
+// exactly one square diagonally (§4.3, "Diagonal attacks", major 2). Under
+// the standard `DIAGONAL_ATTACKABLE=movable_only` value (story 00000027's
+// implementation plan), only a movable/numbered enemy piece is a legal
+// diagonal target - a Tower or the Flag can never be attacked diagonally.
+// Under the proposed `DIAGONAL_ATTACKABLE=all` value, a Tower or the Flag is
+// a legal diagonal target too, resolved by the same combat rules as any
+// other target. Under the standard `DIAGONAL_ATTACK_PATH=always` value, a
+// diagonal attack needs nothing further; under the proposed
+// `DIAGONAL_ATTACK_PATH=open_path` value, it additionally requires at least
+// one of the two flanking squares to be unoccupied and not a lake. The two
+// flags compose independently. There is no two-square diagonal and it is
+// never subject to the unencumbered bonus.
 //
 // Builds only on the board geometry (board.ts, boardLayout.ts), the piece
 // catalog (pieces.ts), and `BoardState` (gameState.ts); it has no further
 // dependencies.
 //
-// Every function here takes an optional `layout` parameter (a `BoardLayout`,
-// boardLayout.ts), defaulting to `BATTLE_LAYOUT` so existing callers - the
-// live app (still Battle-only) and the frozen encoding/engine modules - are
-// unaffected; passing an explicit layout (e.g. Skirmish's) sizes the
-// step/off-board bounds and the unencumbered scan to that board instead.
+// `legalDestinations` takes an optional `layout` parameter (a `BoardLayout`,
+// boardLayout.ts), defaulting to `BATTLE_LAYOUT` - neither flag touches
+// plain movement, so it keeps its pre-story-00000027 shape. `legalAttacks`
+// and `hasAnyLegalPly`, below, instead take a **required** `RuleConfiguration`
+// (story 00000027's implementation plan, Decision 3): its resolved flags are
+// what the diagonal loop reads (Steps 4-5), and its `edition.boardLayout` is
+// what sizes the board - no default, so every call site names its
+// configuration explicitly rather than silently inheriting Battle's.
 
 import {
   allSquares,
@@ -52,6 +63,7 @@ import {
   type Square,
 } from "./board.ts";
 import { columnLetter, type BoardLayout } from "./boardLayout.ts";
+import type { RuleConfiguration } from "./configuration.ts";
 import type { BoardState } from "./gameState.ts";
 import type { PieceTypeId } from "./pieces.ts";
 
@@ -204,21 +216,41 @@ export function legalDestinations(
  * target. Never off-board, never through or onto a lake.
  *
  * A mobile piece may additionally attack an enemy exactly one square
- * **diagonally** (§4.3, "Diagonal attacks") - but only a **movable
- * (numbered)** enemy piece: a Tower or the Flag can never be attacked
- * diagonally, so the Flag can only ever be captured from an orthogonally
- * adjacent square. There is no two-square diagonal and no diagonal move onto
- * an empty square - the diagonal is an attacking direction and nothing else,
- * and is never subject to the unencumbered bonus. A lake at the diagonal's
- * *corner* does not block the attack (the "skirt"); only the attacked square
- * itself must not be a lake. `layout` sizes the board's bounds and lake
- * pattern; defaults to Battle.
+ * **diagonally** (§4.3, "Diagonal attacks"). Under the standard
+ * `DIAGONAL_ATTACKABLE=movable_only` value, only a **movable (numbered)**
+ * enemy piece is a legal diagonal target: a Tower or the Flag can never be
+ * attacked diagonally, so the Flag can only ever be captured from an
+ * orthogonally adjacent square. Under the proposed `DIAGONAL_ATTACKABLE=all`
+ * value (story 00000027's implementation plan), a Tower or the Flag is a
+ * legal diagonal target too - combat resolution is unchanged (`combat.ts`
+ * already handles a Tower or Flag defender with no notion of attack
+ * direction), so a diagonal Tower attack is still a partial sacrifice and a
+ * diagonal Flag capture still ends the game. There is no two-square diagonal
+ * and no diagonal move onto an empty square - the diagonal is an attacking
+ * direction and nothing else, and is never subject to the unencumbered
+ * bonus. A lake at the diagonal's *corner* does not block the attack (the
+ * "skirt"); only the attacked square itself must not be a lake.
+ *
+ * Under the standard `DIAGONAL_ATTACK_PATH=always` value, a diagonal attack
+ * needs nothing further. Under the proposed `DIAGONAL_ATTACK_PATH=open_path`
+ * value (story 00000027's implementation plan), it additionally requires
+ * that at least one of the two squares *flanking* the diagonal - for an
+ * attack from `(c, r)` to `(c±1, r±1)`, the squares `(c±1, r)` and
+ * `(c, r±1)` - be unoccupied by a piece of either side and not a lake
+ * (derived from the attack's direction, never enumerated per board). The
+ * skirt stays legal under `open_path`, since it only ever blocks *one* flank
+ * and the target-square lake check above is untouched. `DIAGONAL_ATTACKABLE`
+ * and `DIAGONAL_ATTACK_PATH` compose independently - neither reads the
+ * other. `configuration` (story 00000027 - required, no default) sizes the
+ * board via `configuration.edition.boardLayout` and its two resolved flags
+ * govern the diagonal loop above.
  */
 export function legalAttacks(
   board: BoardState,
   origin: Square,
-  layout: BoardLayout = BATTLE_LAYOUT,
+  configuration: RuleConfiguration,
 ): Square[] {
+  const layout = configuration.edition.boardLayout;
   const occupant = board[squareKey(origin)];
   if (occupant === undefined || isImmobile(occupant.pieceType)) {
     return [];
@@ -253,6 +285,8 @@ export function legalAttacks(
     }
   }
 
+  const diagonalAttackable = configuration.flags.DIAGONAL_ATTACKABLE;
+  const diagonalAttackPath = configuration.flags.DIAGONAL_ATTACK_PATH;
   for (const { dc, dr } of DIAGONAL_DIRECTIONS) {
     const target = step(origin, dc, dr, 1, layout);
     if (target === null || isLake(target, layout)) {
@@ -260,12 +294,27 @@ export function legalAttacks(
     }
     const targetOccupant = board[squareKey(target)];
     if (
-      targetOccupant !== undefined &&
-      targetOccupant.side !== side &&
-      !isImmobile(targetOccupant.pieceType)
+      targetOccupant === undefined ||
+      targetOccupant.side === side ||
+      !(diagonalAttackable === "all" || !isImmobile(targetOccupant.pieceType))
     ) {
-      attacks.push(target);
+      continue;
     }
+    if (diagonalAttackPath === "open_path") {
+      // The two flanks - (c+dc, r) and (c, r+dr) - are each always on-board
+      // whenever both origin and target are (each reuses one of origin's
+      // coordinates and one of target's), so `step` here can never return
+      // `null`; the null checks below are defensive only, never exercised.
+      const flankOne = step(origin, dc, 0, 1, layout);
+      const flankTwo = step(origin, 0, dr, 1, layout);
+      const pathOpen =
+        (flankOne !== null && isEmpty(board, flankOne, layout)) ||
+        (flankTwo !== null && isEmpty(board, flankTwo, layout));
+      if (!pathOpen) {
+        continue;
+      }
+    }
+    attacks.push(target);
   }
 
   return attacks;
@@ -277,14 +326,17 @@ export function legalAttacks(
  * own pieces. This is the primitive the game-end detection (`outcome.ts`)
  * needs for §5's "no legal move": a side that can only attack is *not*
  * stuck (any adjacent enemy piece is always a legal, if sacrificial, attack),
- * so both destination sets must be considered. `layout` sizes the board;
- * defaults to Battle.
+ * so both destination sets must be considered. `configuration` (story
+ * 00000027 - required, no default) sizes the board via
+ * `configuration.edition.boardLayout` and is threaded into `legalAttacks`, so
+ * a diagonal-attack flag reaches this "no legal move" primitive too.
  */
 export function hasAnyLegalPly(
   board: BoardState,
   side: Side,
-  layout: BoardLayout = BATTLE_LAYOUT,
+  configuration: RuleConfiguration,
 ): boolean {
+  const layout = configuration.edition.boardLayout;
   for (const square of allSquares(layout)) {
     const placed = board[squareKey(square)];
     if (placed === undefined || placed.side !== side) {
@@ -292,7 +344,7 @@ export function hasAnyLegalPly(
     }
     if (
       legalDestinations(board, square, layout).length > 0 ||
-      legalAttacks(board, square, layout).length > 0
+      legalAttacks(board, square, configuration).length > 0
     ) {
       return true;
     }

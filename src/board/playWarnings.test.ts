@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BATTLE_EDITION } from "../rules/primary/v2/edition.ts";
+import { STANDARD_BATTLE_CONFIGURATION } from "../rules/primary/v2/configuration.ts";
 import type {
   BoardState,
   InitialGameState,
@@ -25,7 +25,7 @@ function initialGameState(
   }
   return {
     ruleset: RULESET_TAG,
-    edition: BATTLE_EDITION,
+    configuration: STANDARD_BATTLE_CONFIGURATION,
     board: board as BoardState,
   };
 }

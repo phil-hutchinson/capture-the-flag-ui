@@ -13,6 +13,7 @@
 
 import { useEffect, useMemo } from "react";
 import { renderGameRecord, type PlayState } from "../rules/primary/v2/play.ts";
+import { nonStandardRuleSentences } from "./ruleChoices.ts";
 import "./GameRecord.css";
 
 export interface GameRecordProps {
@@ -22,6 +23,10 @@ export interface GameRecordProps {
 
 export function GameRecord({ play }: GameRecordProps) {
   const record = useMemo(() => renderGameRecord(play), [play]);
+  // Empty on the standard configuration, so this line is byte-identical to
+  // before story 00000027 for any game played on the standard values
+  // (`ruleChoices.ts`'s `nonStandardRuleSentences`, Step 9).
+  const rulesSummary = nonStandardRuleSentences(play.configuration);
 
   useEffect(() => {
     // Developer inspection path (the <details> dump below covers production).
@@ -35,8 +40,9 @@ export function GameRecord({ play }: GameRecordProps) {
     <details className="game-record">
       <summary>Developer: inspect game record</summary>
       <p className="game-record__hint">
-        Ruleset <code>{play.ruleset}</code>. Updated after every move; also
-        logged to the browser console.
+        Ruleset <code>{play.ruleset}</code>.
+        {rulesSummary.length > 0 && ` ${rulesSummary.join(" ")}`} Updated after
+        every move; also logged to the browser console.
       </p>
       <pre className="game-record__text">{record}</pre>
     </details>

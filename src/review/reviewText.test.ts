@@ -119,6 +119,13 @@ const REPLAY_ERRORS: readonly ReplayError[] = [
   },
 ];
 
+// Story 00000027's Step 6 gave a `Ruleset` tag's flag tokens four ways to go
+// wrong as rejections; Step 10 corrects that defect - none of them reject a
+// record any more (`readRecord.ts`'s `parseRuleFlagTokens` never fails, and
+// `ReadRecordError` has no `ruleFlags` case), so there is nothing left here
+// for `describeRejection` to word. See `ruleChoices.test.ts` for
+// `unrecognizedRuleSentence`'s coverage instead.
+
 const READ_RECORD_ERRORS: readonly ReadRecordError[] = [
   { kind: "notARecord" },
   { kind: "unknownRuleset", ruleset: "PRIMARY:2.0" },

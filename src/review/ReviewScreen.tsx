@@ -36,17 +36,38 @@
 // second live region.
 //
 // Story 00000023, Gate D defect fix: this screen renders `FullBoard` with
-// the `edition` prop's `boardLayout` (`readRecord.ts` resolves it from the
-// record's own `Ruleset` tag) rather than letting `FullBoard`'s Battle
-// default silently apply - a Skirmish record was previously drawn on a 12x12
-// board with Battle's lakes, not Skirmish's.
+// the `configuration` prop's `edition.boardLayout` (`readRecord.ts` resolves
+// it from the record's own `Ruleset` tag) rather than letting `FullBoard`'s
+// Battle default silently apply - a Skirmish record was previously drawn on
+// a 12x12 board with Battle's lakes, not Skirmish's.
+//
+// Story 00000027, Step 9: the status line also shows the record's
+// non-standard rules, if any (`ruleChoices.ts`'s `nonStandardRuleSentences`,
+// the same summary `GameChoice.tsx`'s post-choice announcement and
+// `GameRecord.tsx`'s hint line use) - so a diagonal capture of the flag, or a
+// diagonal attack refused for lack of an open square, reads as the rules the
+// game was played under rather than a bug. Empty, and rendered as nothing,
+// for a record played on the standard values.
+//
+// Story 00000027, Step 10 (correcting a Step 6 defect): a record can also
+// carry a `FLAG=value` token this app cannot resolve at all - it still
+// reviews in full (`readRecord.ts`'s only remaining rejection is an unknown
+// *edition* id), and the status line says so plainly, one sentence per
+// unrecognized token, quoting it verbatim (`ruleChoices.ts`'s
+// `unrecognizedRuleSentence`) - so a reviewer is never misled into thinking
+// they are watching a standard game just because this app cannot describe
+// what makes it different.
 
 import { useEffect, useRef, useState } from "react";
 import "../App.css";
 import "./ReviewScreen.css";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
 import { FullBoard } from "../board/FullBoard.tsx";
-import type { Edition } from "../rules/primary/v2/edition.ts";
+import {
+  nonStandardRuleSentences,
+  unrecognizedRuleSentence,
+} from "../board/ruleChoices.ts";
+import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import type { ReplayedRecord } from "../rules/primary/v2/replay.ts";
 import {
   createReviewSession,
@@ -71,18 +92,32 @@ export interface ReviewScreenProps {
   /** The fully replayed recorded game (`readRecord.ts`'s success result). */
   readonly record: ReplayedRecord;
   /**
-   * The `Edition` the record's `Ruleset` tag resolved to (story 00000023's
-   * Gate D defect fix) - drives the board this screen renders (dimensions and
-   * lake layout), so a Skirmish record is drawn on Skirmish's 8x8 board
-   * rather than silently defaulting to Battle's 12x12.
+   * The `RuleConfiguration` the record's `Ruleset` tag resolved to (story
+   * 00000023's Gate D defect fix, widened from a bare `Edition` by story
+   * 00000027's Step 3) - `configuration.edition` drives the board this screen
+   * renders (dimensions and lake layout), so a Skirmish record is drawn on
+   * Skirmish's 8x8 board rather than silently defaulting to Battle's 12x12.
    */
-  readonly edition: Edition;
+  readonly configuration: RuleConfiguration;
+  /**
+   * Any `FLAG=value` tokens the record's `Ruleset` tag carried that this app
+   * could not resolve, verbatim (`readRecord.ts`'s
+   * `unrecognizedRuleTokens`, story 00000027's Step 10) - always `[]` for a
+   * record this app fully understands, including every record it has ever
+   * written itself.
+   */
+  readonly unrecognizedRuleTokens: readonly string[];
   /** Returns to the start screen. Never prompts - reviewing loses nothing. */
   readonly onBack: () => void;
 }
 
 /** The review screen: the recorded game, replayed on the shared board. */
-export function ReviewScreen({ record, edition, onBack }: ReviewScreenProps) {
+export function ReviewScreen({
+  record,
+  configuration,
+  unrecognizedRuleTokens,
+  onBack,
+}: ReviewScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [session, setSession] = useState<ReviewSession>(() =>
     createReviewSession(record),
@@ -112,6 +147,19 @@ export function ReviewScreen({ record, edition, onBack }: ReviewScreenProps) {
   // the record's claim. Shared with `describeStepAnnouncement` so the visible
   // text and the live-region announcement always agree.
   const recordedResult = recordedResultAt(session);
+  // Empty for a record played on the standard values, so an existing
+  // standard record's review looks exactly as it always has (story 00000027,
+  // Step 9). Fixed for the whole review - the record's rules don't change as
+  // the cursor moves, unlike `recordedResult` above. Recognized deviations
+  // first, then one sentence per unrecognized token this app cannot
+  // describe (Step 10) - a record can carry both at once.
+  const recognizedRuleSentences = nonStandardRuleSentences(configuration);
+  const rulesSummary = [
+    ...recognizedRuleSentences,
+    ...unrecognizedRuleTokens.map((token) =>
+      unrecognizedRuleSentence(token, recognizedRuleSentences.length > 0),
+    ),
+  ];
 
   return (
     <main className="app">
@@ -126,6 +174,9 @@ export function ReviewScreen({ record, edition, onBack }: ReviewScreenProps) {
         <p className="review-status__position">
           {describeCurrentPosition(session)}
         </p>
+        {rulesSummary.length > 0 && (
+          <p className="review-status__rules">{rulesSummary.join(" ")}</p>
+        )}
         {recordedResult !== null && (
           <p className="review-status__result">{recordedResult}</p>
         )}
@@ -135,7 +186,7 @@ export function ReviewScreen({ record, edition, onBack }: ReviewScreenProps) {
           <FullBoard
             board={currentBoard(session)}
             side="white"
-            layout={edition.boardLayout}
+            layout={configuration.edition.boardLayout}
             lastMove={
               move === null
                 ? undefined

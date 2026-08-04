@@ -29,7 +29,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import "../App.css";
 import "./ImportScreen.css";
 import { readRecord } from "../rules/readRecord.ts";
-import type { Edition } from "../rules/primary/v2/edition.ts";
+import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import type { ReplayedRecord } from "../rules/primary/v2/replay.ts";
 import { describeRejection } from "./reviewText.ts";
 
@@ -54,12 +54,20 @@ export interface ImportScreenProps {
   /** Returns to the start screen without choosing a file. */
   readonly onBack: () => void;
   /**
-   * Navigates to the review screen with a successfully replayed game and the
-   * `Edition` its `Ruleset` tag resolved to (story 00000023's Gate D defect
-   * fix) - so the review screen renders the record's own board, not
-   * Battle's by default.
+   * Navigates to the review screen with a successfully replayed game, the
+   * `RuleConfiguration` its `Ruleset` tag resolved to (story 00000023's Gate
+   * D defect fix; widened from a bare `Edition` by story 00000027's Step 3) -
+   * so the review screen renders the record's own board, not Battle's by
+   * default - and any `FLAG=value` tokens the tag carried that this app
+   * could not resolve (Step 10), verbatim, so the review screen can tell the
+   * player plainly it cannot describe those rules rather than staying
+   * silent about them.
    */
-  readonly onImported: (record: ReplayedRecord, edition: Edition) => void;
+  readonly onImported: (
+    record: ReplayedRecord,
+    configuration: RuleConfiguration,
+    unrecognizedRuleTokens: readonly string[],
+  ) => void;
 }
 
 export function ImportScreen({ onBack, onImported }: ImportScreenProps) {
@@ -87,7 +95,11 @@ export function ImportScreen({ onBack, onImported }: ImportScreenProps) {
       }
 
       setError(null);
-      onImported(result.record, result.edition);
+      onImported(
+        result.record,
+        result.configuration,
+        result.unrecognizedRuleTokens,
+      );
     } catch {
       setError(UNREADABLE_FILE_MESSAGE);
     }

@@ -34,6 +34,7 @@ import {
   type Side,
   type Square,
 } from "../../rules/primary/v2/board.ts";
+import { STANDARD_BATTLE_CONFIGURATION } from "../../rules/primary/v2/configuration.ts";
 import type { BoardState } from "../../rules/primary/v2/gameState.ts";
 import {
   legalAttacks,
@@ -142,7 +143,11 @@ export function enumerateLegalPlies(board: BoardState, side: Side): Ply[] {
     for (const to of legalDestinations(board, origin)) {
       plies.push({ from: origin, to });
     }
-    for (const to of legalAttacks(board, origin)) {
+    for (const to of legalAttacks(
+      board,
+      origin,
+      STANDARD_BATTLE_CONFIGURATION,
+    )) {
       plies.push({ from: origin, to });
     }
   }

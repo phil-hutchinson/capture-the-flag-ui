@@ -3,14 +3,22 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { Edition } from "./primary/v2/edition.ts";
-import { BATTLE_EDITION, EDITIONS } from "./primary/v2/edition.ts";
+import { EDITIONS } from "./primary/v2/edition.ts";
 import { columnLetter } from "./primary/v2/boardLayout.ts";
+import {
+  configureRules,
+  deviatingFlags,
+  renderRulesetTag,
+  STANDARD_BATTLE_CONFIGURATION,
+  type RuleConfiguration,
+} from "./primary/v2/configuration.ts";
 import {
   renderPositionBlock,
   RULESET_TAG,
   type InitialGameState,
 } from "./primary/v2/gameState.ts";
 import { renderMoveToken } from "./primary/v2/notation.ts";
+import type { PieceTypeId } from "./primary/v2/pieces.ts";
 import { applyMove, renderGameRecord, startPlay } from "./primary/v2/play.ts";
 import { readRecord } from "./readRecord.ts";
 
@@ -29,7 +37,7 @@ import { readRecord } from "./readRecord.ts";
 
 const GAME_STATE: InitialGameState = {
   ruleset: RULESET_TAG,
-  edition: BATTLE_EDITION,
+  configuration: STANDARD_BATTLE_CONFIGURATION,
   board: {
     A1: { side: "white", pieceType: "flag" },
   },
@@ -142,7 +150,7 @@ describe("readRecord - edition dispatch", () => {
 describe("readRecord - a small synthetic 2-0:BATTLE record round-trips", () => {
   const ROUND_TRIP_GAME_STATE: InitialGameState = {
     ruleset: RULESET_TAG,
-    edition: BATTLE_EDITION,
+    configuration: STANDARD_BATTLE_CONFIGURATION,
     board: {
       A1: { side: "white", pieceType: "masterOfArms" },
       B1: { side: "white", pieceType: "champion" },
@@ -249,7 +257,7 @@ describe("readRecord - a small synthetic 2-0:BATTLE record round-trips", () => {
     // ruleset's.
     const malformedState: InitialGameState = {
       ruleset: RULESET_TAG,
-      edition: BATTLE_EDITION,
+      configuration: STANDARD_BATTLE_CONFIGURATION,
       board: {
         A1: { side: "white", pieceType: "masterOfArms" },
         A2: { side: "white", pieceType: "champion" },
@@ -298,7 +306,7 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
     (id, edition, columnCount, rowCount) => {
       const initial: InitialGameState = {
         ruleset: edition.id,
-        edition,
+        configuration: configureRules(edition),
         board: {
           A1: { side: "white", pieceType: "flag" },
         },
@@ -311,9 +319,11 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
         return;
       }
 
-      expect(result.edition.id).toBe(id);
-      expect(result.edition.boardLayout.columnCount).toBe(columnCount);
-      expect(result.edition.boardLayout.rowCount).toBe(rowCount);
+      expect(result.configuration.edition.id).toBe(id);
+      expect(result.configuration.edition.boardLayout.columnCount).toBe(
+        columnCount,
+      );
+      expect(result.configuration.edition.boardLayout.rowCount).toBe(rowCount);
     },
   );
 
@@ -321,7 +331,7 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
     const skirmish = EDITIONS["2-1:SKIRMISH"];
     const initial: InitialGameState = {
       ruleset: skirmish.id,
-      edition: skirmish,
+      configuration: configureRules(skirmish),
       board: { A1: { side: "white", pieceType: "flag" } },
     };
 
@@ -331,9 +341,11 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
       return;
     }
 
-    expect(result.edition.boardLayout.lakeRows).toEqual([4, 5]);
+    expect(result.configuration.edition.boardLayout.lakeRows).toEqual([4, 5]);
     expect(
-      result.edition.boardLayout.lakeColumnIndices.map(columnLetter),
+      result.configuration.edition.boardLayout.lakeColumnIndices.map(
+        columnLetter,
+      ),
     ).toEqual(["B", "C", "F", "G"]);
   });
 
@@ -341,7 +353,7 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
     const battle = EDITIONS["2-0:BATTLE"];
     const initial: InitialGameState = {
       ruleset: battle.id,
-      edition: battle,
+      configuration: configureRules(battle),
       board: { A1: { side: "white", pieceType: "flag" } },
     };
 
@@ -351,9 +363,11 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
       return;
     }
 
-    expect(result.edition.boardLayout.lakeRows).toEqual([6, 7]);
+    expect(result.configuration.edition.boardLayout.lakeRows).toEqual([6, 7]);
     expect(
-      result.edition.boardLayout.lakeColumnIndices.map(columnLetter),
+      result.configuration.edition.boardLayout.lakeColumnIndices.map(
+        columnLetter,
+      ),
     ).toEqual(["B", "C", "F", "G", "J", "K"]);
   });
 });
@@ -391,7 +405,7 @@ describe("readRecord - renderGameRecord's opening-position output round-trips fo
   ])("round-trips a freshly started %s game", (id, edition, size) => {
     const initial: InitialGameState = {
       ruleset: edition.id,
-      edition,
+      configuration: configureRules(edition),
       board: {
         A1: { side: "white", pieceType: "flag" },
       },
@@ -433,7 +447,7 @@ describe("readRecord - accepts all three registered edition tags (story 00000025
   ])("accepts a record tagged %s", (id, edition) => {
     const initial: InitialGameState = {
       ruleset: edition.id,
-      edition,
+      configuration: configureRules(edition),
       board: { A1: { side: "white", pieceType: "flag" } },
     };
 
@@ -443,7 +457,7 @@ describe("readRecord - accepts all three registered edition tags (story 00000025
       return;
     }
     expect(result.record.tags.ruleset).toBe(id);
-    expect(result.edition.id).toBe(id);
+    expect(result.configuration.edition.id).toBe(id);
   });
 
   it("still rejects an unknown ruleset tag", () => {
@@ -462,7 +476,7 @@ describe("readRecord - a small synthetic 2-1:SKIRMISH record round-trips (8x8)",
   const skirmish = EDITIONS["2-1:SKIRMISH"];
   const SKIRMISH_GAME_STATE: InitialGameState = {
     ruleset: skirmish.id,
-    edition: skirmish,
+    configuration: configureRules(skirmish),
     board: {
       A1: { side: "white", pieceType: "masterOfArms" },
       B1: { side: "white", pieceType: "champion" },
@@ -553,7 +567,7 @@ describe("readRecord - a played game's moves round-trip through the real writer 
   } {
     const initial: InitialGameState = {
       ruleset: edition.id,
-      edition,
+      configuration: configureRules(edition),
       board: {
         A1: { side: "white", pieceType: "flag" },
         E3: { side: "black", pieceType: "flag" },
@@ -635,7 +649,7 @@ describe("readRecord - a finished game's record carries its own edition's Rulese
     (id, edition) => {
       const initial: InitialGameState = {
         ruleset: edition.id,
-        edition,
+        configuration: configureRules(edition),
         board: {
           A1: { side: "white", pieceType: "flag" },
           D2: { side: "white", pieceType: "champion" },
@@ -669,7 +683,7 @@ describe("readRecord - a finished game's record carries its own edition's Rulese
         result: "1-0",
         resultReason: "Flag Captured",
       });
-      expect(result.edition.id).toBe(id);
+      expect(result.configuration.edition.id).toBe(id);
       expect(result.record.positions[0]).toEqual(initial.board);
       expect(result.record.moves.map((move) => move.token)).toEqual(["D2-D3x"]);
     },
@@ -732,6 +746,302 @@ describe("readRecord - the checked-in doc/samples/2-0-skirmish-tower-in-lane.txt
       side: "white",
       pieceType: "tower",
     });
+    expect(result.record.positions).toHaveLength(2);
+  });
+});
+
+// Story 00000027, Step 6: closes the loop opened at Step 3 - a `Ruleset` tag
+// can now name deviating flags, and this is where the reader learns to
+// understand them. Each case below drives the real writer
+// (`startPlay`/`applyMove`/`renderGameRecord`) under a non-standard
+// `RuleConfiguration` built via `configureRules`, exactly like Step 4/5's own
+// `applyMove` fixtures (`play.test.ts`) - D5 white champion attacking E6, its
+// diagonal neighbor - so the record this test reads back is one the app
+// would genuinely produce, not a hand-built approximation.
+describe("readRecord - reads a Ruleset tag naming deviating flags (story 00000027, Step 6)", () => {
+  function diagonalGameState(
+    defender: PieceTypeId,
+    configuration: RuleConfiguration,
+    blockedFlank: boolean,
+  ): InitialGameState {
+    const board: Record<
+      string,
+      { side: "white" | "black"; pieceType: PieceTypeId }
+    > = {
+      D5: { side: "white", pieceType: "champion" },
+      E6: { side: "black", pieceType: defender },
+      A1: { side: "white", pieceType: "flag" },
+    };
+    if (defender !== "flag") {
+      board.L12 = { side: "black", pieceType: "flag" };
+    }
+    if (blockedFlank) {
+      // E5 (one of D5->E6's two flanks) blocked; D6, the other flank, stays
+      // open - exactly enough for `open_path` to still permit the attack.
+      board.E5 = { side: "black", pieceType: "militia" };
+    }
+    return { ruleset: renderRulesetTag(configuration), configuration, board };
+  }
+
+  function playedRecordText(initial: InitialGameState): string {
+    const state = startPlay(initial);
+    const { state: finished } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "E", row: 6 },
+    );
+    return renderGameRecord(finished);
+  }
+
+  it("DIAGONAL_ATTACKABLE=all alone: a diagonal Flag capture round-trips and the deviation is reported", () => {
+    const configuration = configureRules(EDITIONS["2-0:BATTLE"], {
+      DIAGONAL_ATTACKABLE: "all",
+    });
+    const initial = diagonalGameState("flag", configuration, false);
+    const text = playedRecordText(initial);
+    expect(text).toContain('[Ruleset "2-0:BATTLE DIAGONAL_ATTACKABLE=all"]');
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+    ]);
+    expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
+    expect(result.record.tags.result).toBe("1-0");
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
+    expect(result.record.positions).toHaveLength(2);
+    expect(result.record.positions[1].E6).toEqual({
+      side: "white",
+      pieceType: "champion",
+    });
+  });
+
+  it("DIAGONAL_ATTACK_PATH=open_path alone: an attack legal only because one flank is open round-trips and the deviation is reported", () => {
+    const configuration = configureRules(EDITIONS["2-0:BATTLE"], {
+      DIAGONAL_ATTACK_PATH: "open_path",
+    });
+    const initial = diagonalGameState("militia", configuration, true);
+    const text = playedRecordText(initial);
+    expect(text).toContain(
+      '[Ruleset "2-0:BATTLE DIAGONAL_ATTACK_PATH=open_path"]',
+    );
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACK_PATH",
+    ]);
+    expect(result.configuration.flags.DIAGONAL_ATTACK_PATH).toBe("open_path");
+    expect(result.record.positions).toHaveLength(2);
+    expect(result.record.positions[1].E6).toEqual({
+      side: "white",
+      pieceType: "champion",
+    });
+  });
+
+  it("both flags deviating: a diagonal Flag capture that also needed an open flank round-trips and both deviations are reported, alphabetically", () => {
+    const configuration = configureRules(EDITIONS["2-0:BATTLE"], {
+      DIAGONAL_ATTACKABLE: "all",
+      DIAGONAL_ATTACK_PATH: "open_path",
+    });
+    const initial = diagonalGameState("flag", configuration, true);
+    const text = playedRecordText(initial);
+    expect(text).toContain(
+      '[Ruleset "2-0:BATTLE DIAGONAL_ATTACKABLE=all DIAGONAL_ATTACK_PATH=open_path"]',
+    );
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+      "DIAGONAL_ATTACK_PATH",
+    ]);
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
+  });
+
+  it("canonicalizes a stamp naming a flag at its resolved value: reads as the standard configuration, with no deviation", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE DIAGONAL_ATTACKABLE=movable_only"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration).toEqual(STANDARD_BATTLE_CONFIGURATION);
+    expect(deviatingFlags(result.configuration)).toEqual([]);
+  });
+
+  it("accepts flag tokens out of order and separated by extra whitespace", () => {
+    const skirmish = EDITIONS["2-1:SKIRMISH"];
+    const minimalState: InitialGameState = {
+      ruleset: skirmish.id,
+      configuration: configureRules(skirmish),
+      board: { A1: { side: "white", pieceType: "flag" } },
+    };
+    const skirmishBlock = renderPositionBlock(minimalState);
+    const text = [
+      '[Ruleset "2-1:SKIRMISH   DIAGONAL_ATTACK_PATH=open_path   DIAGONAL_ATTACKABLE=all"]',
+      skirmishBlock,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+      "DIAGONAL_ATTACK_PATH",
+    ]);
+  });
+
+  // Story 00000027, Step 10 (correcting a Step 6 defect): none of these four
+  // token shapes reject the record any more - `technical-notes.md`
+  // guarantees view-only replay "for every record ever written... no rules
+  // knowledge required", and only the edition id itself may still refuse a
+  // file. Each case still replays end to end and carries the offending
+  // token, verbatim, in `unrecognizedRuleTokens` instead of an error.
+  it.each([
+    ["a malformed token (no '=')", "DIAGONAL_ATTACKABLE"],
+    ["an unknown flag id", "SOMETHING_ELSE=all"],
+    ["an unknown value for a known flag", "DIAGONAL_ATTACKABLE=bogus"],
+  ] as const)(
+    "replays a record carrying %s, naming it as an unrecognized token rather than rejecting the record",
+    (_description, badToken) => {
+      const text = [`[Ruleset "2-0:BATTLE ${badToken}"]`, POSITION_BLOCK].join(
+        "\n\n",
+      );
+
+      const result = readRecord(text);
+      expect(result.kind).toBe("parsed");
+      if (result.kind !== "parsed") {
+        return;
+      }
+      expect(result.unrecognizedRuleTokens).toEqual([badToken]);
+      // An unresolved token never affects the configuration: it reads as
+      // the standard Battle configuration here, since no other token named
+      // a flag this app could resolve.
+      expect(deviatingFlags(result.configuration)).toEqual([]);
+    },
+  );
+
+  it("replays a record naming the same flag id twice, keeping the first token's value and reporting the second as unrecognized", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE DIAGONAL_ATTACKABLE=all DIAGONAL_ATTACKABLE=movable_only"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
+    expect(result.unrecognizedRuleTokens).toEqual([
+      "DIAGONAL_ATTACKABLE=movable_only",
+    ]);
+  });
+
+  it("replays a record mixing one recognized and one unrecognized token, describing the recognized one and naming the other as unrecognized", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE DIAGONAL_ATTACKABLE=all DIAGONAL_SOMETHING=on"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+    ]);
+    expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
+    expect(result.unrecognizedRuleTokens).toEqual(["DIAGONAL_SOMETHING=on"]);
+  });
+
+  it("still rejects an unknown edition id - the one thing in the Ruleset tag that can", () => {
+    const text = [
+      '[Ruleset "9-9:NOT_A_REAL_EDITION DIAGONAL_ATTACKABLE=all"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: { kind: "unknownRuleset", ruleset: "9-9:NOT_A_REAL_EDITION" },
+    });
+  });
+});
+
+// Story 00000027, Step 6: the three checked-in `doc/samples/` fixtures, one
+// per non-standard configuration, each read from disk exactly as a player's
+// exported record would be - see `doc/samples/README.md` for what each
+// demonstrates and how it was built.
+describe("readRecord - the checked-in doc/samples/ diagonal-flag fixtures (story 00000027, Step 6)", () => {
+  function readSample(fileName: string): string {
+    const samplePath = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      `../../doc/samples/${fileName}`,
+    );
+    return readFileSync(samplePath, "utf8");
+  }
+
+  it("2-1-skirmish-diagonal-attackable-all.txt: replays a diagonal Flag capture, reporting only DIAGONAL_ATTACKABLE as deviating", () => {
+    const result = readRecord(
+      readSample("2-1-skirmish-diagonal-attackable-all.txt"),
+    );
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+    ]);
+    expect(result.record.tags.result).toBe("1-0");
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
+    expect(result.record.positions).toHaveLength(2);
+  });
+
+  it("2-1-skirmish-diagonal-attack-path-open.txt: replays a diagonal attack that needed an open flank, reporting only DIAGONAL_ATTACK_PATH as deviating", () => {
+    const result = readRecord(
+      readSample("2-1-skirmish-diagonal-attack-path-open.txt"),
+    );
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACK_PATH",
+    ]);
+    expect(result.record.positions).toHaveLength(2);
+  });
+
+  it("2-1-skirmish-diagonal-both-flags.txt: replays a diagonal Flag capture that needed an open flank, reporting both flags as deviating", () => {
+    const result = readRecord(
+      readSample("2-1-skirmish-diagonal-both-flags.txt"),
+    );
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+      "DIAGONAL_ATTACK_PATH",
+    ]);
+    expect(result.record.tags.result).toBe("1-0");
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
     expect(result.record.positions).toHaveLength(2);
   });
 });

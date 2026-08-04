@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import {
+  configureRules,
+  STANDARD_BATTLE_CONFIGURATION,
+} from "./configuration.ts";
 import { BATTLE_EDITION, EDITIONS } from "./edition.ts";
 import type { BoardState, InitialGameState, PlacedPiece } from "./gameState.ts";
 import { renderPositionBlock, RULESET_TAG } from "./gameState.ts";
@@ -31,10 +35,11 @@ function board(
 
 function initialGameState(
   pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
+  configuration = STANDARD_BATTLE_CONFIGURATION,
 ): InitialGameState {
   return {
     ruleset: RULESET_TAG,
-    edition: BATTLE_EDITION,
+    configuration,
     board: board(pieces),
   };
 }
@@ -608,6 +613,85 @@ describe("applyMove - result (§5 detection after every ply)", () => {
   });
 });
 
+describe("applyMove - diagonal attacks under DIAGONAL_ATTACKABLE (story 00000027, Step 4)", () => {
+  const ALL_CONFIGURATION = configureRules(BATTLE_EDITION, {
+    DIAGONAL_ATTACKABLE: "all",
+  });
+
+  it("under `all`, accepts a diagonal attack on an enemy Tower and resolves it as a mutual loss (partial sacrifice)", () => {
+    const initial = initialGameState(
+      [
+        ["D5", "white", "champion"],
+        ["E6", "black", "tower"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ],
+      ALL_CONFIGURATION,
+    );
+    const state = startPlay(initial);
+    const { state: next, outcome } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "E", row: 6 },
+    );
+
+    expect(next.board["D5"]).toBeUndefined();
+    expect(next.board["E6"]).toBeUndefined();
+    expect(outcome).toMatchObject({
+      kind: "attack",
+      result: "mutualLoss",
+      capture: true,
+    });
+  });
+
+  it("under `all`, accepts a diagonal attack on the enemy Flag and ends the game as a flagCapture win for the attacker", () => {
+    const initial = initialGameState(
+      [
+        ["D5", "white", "champion"],
+        ["E6", "black", "flag"],
+        ["A1", "white", "flag"],
+      ],
+      ALL_CONFIGURATION,
+    );
+    const state = startPlay(initial);
+    const { state: next, outcome } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "E", row: 6 },
+    );
+
+    expect(outcome).toMatchObject({ kind: "attack", result: "attackerWins" });
+    expect(next.result).toEqual({
+      kind: "win",
+      winner: "white",
+      reason: "flagCapture",
+    });
+  });
+
+  it("under the standard configuration, the same diagonal attack on a Tower or Flag throws (not a legal target)", () => {
+    const towerInitial = initialGameState([
+      ["D5", "white", "champion"],
+      ["E6", "black", "tower"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
+    ]);
+    const towerState = startPlay(towerInitial);
+    expect(() =>
+      applyMove(towerState, { column: "D", row: 5 }, { column: "E", row: 6 }),
+    ).toThrow();
+
+    const flagInitial = initialGameState([
+      ["D5", "white", "champion"],
+      ["E6", "black", "flag"],
+      ["A1", "white", "flag"],
+    ]);
+    const flagState = startPlay(flagInitial);
+    expect(() =>
+      applyMove(flagState, { column: "D", row: 5 }, { column: "E", row: 6 }),
+    ).toThrow();
+  });
+});
+
 describe("agreeDraw", () => {
   it("ends the game as an agreed draw, leaving the board, counter, side to move, and moves untouched", () => {
     const initial = initialGameState([
@@ -693,7 +777,7 @@ describe("renderGameRecord", () => {
     expect(record).not.toContain(
       renderPositionBlock({
         ruleset: RULESET_TAG,
-        edition: BATTLE_EDITION,
+        configuration: STANDARD_BATTLE_CONFIGURATION,
         board: state.board,
       }),
     );
@@ -909,7 +993,11 @@ describe("applyMove - threads the edition's board layout (story 00000023, Step 7
   function skirmishInitialGameState(
     pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
   ): InitialGameState {
-    return { ruleset: RULESET_TAG, edition: skirmish, board: board(pieces) };
+    return {
+      ruleset: RULESET_TAG,
+      configuration: configureRules(skirmish),
+      board: board(pieces),
+    };
   }
 
   it("never offers a Skirmish lake square as a legal destination, even though Battle's layout would allow it", () => {

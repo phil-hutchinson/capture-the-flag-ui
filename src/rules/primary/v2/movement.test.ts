@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Square } from "./board.ts";
 import { BOARD_LAYOUTS } from "./boardLayout.ts";
+import {
+  configureRules,
+  STANDARD_BATTLE_CONFIGURATION,
+  STANDARD_SKIRMISH_CONFIGURATION,
+  type RuleConfiguration,
+} from "./configuration.ts";
+import { BATTLE_EDITION } from "./edition.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
 import { hasAnyLegalPly, legalAttacks, legalDestinations } from "./movement.ts";
 import type { PieceTypeId } from "./pieces.ts";
@@ -172,12 +179,16 @@ describe("legalDestinations (ruleset major 2, empty-square moves only)", () => {
 describe("hasAnyLegalPly", () => {
   it("is true when at least one of the side's pieces has a legal destination", () => {
     const state = board([["D5", "white", "champion"]]);
-    expect(hasAnyLegalPly(state, "white")).toBe(true);
+    expect(hasAnyLegalPly(state, "white", STANDARD_BATTLE_CONFIGURATION)).toBe(
+      true,
+    );
   });
 
   it("is false for a side with no pieces on the board", () => {
     const state = board([["D5", "black", "champion"]]);
-    expect(hasAnyLegalPly(state, "white")).toBe(false);
+    expect(hasAnyLegalPly(state, "white", STANDARD_BATTLE_CONFIGURATION)).toBe(
+      false,
+    );
   });
 
   it("is true for a piece with only an attack available (no legal destination)", () => {
@@ -189,7 +200,9 @@ describe("hasAnyLegalPly", () => {
       ["B1", "black", "militia"], // adjacent enemy - a legal, sacrificial attack
     ]);
     expect(legalDestinations(state, { column: "A", row: 1 })).toEqual([]);
-    expect(hasAnyLegalPly(state, "white")).toBe(true);
+    expect(hasAnyLegalPly(state, "white", STANDARD_BATTLE_CONFIGURATION)).toBe(
+      true,
+    );
   });
 
   it("is false for a side that is truly boxed in - no legal move and no legal attack anywhere", () => {
@@ -203,7 +216,9 @@ describe("hasAnyLegalPly", () => {
       ["A2", "white", "tower"],
       ["B1", "white", "tower"],
     ]);
-    expect(hasAnyLegalPly(state, "white")).toBe(false);
+    expect(hasAnyLegalPly(state, "white", STANDARD_BATTLE_CONFIGURATION)).toBe(
+      false,
+    );
   });
 });
 
@@ -216,7 +231,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["C5", "black", "militia"], // adjacent enemy - offered
       // E5 left empty - excluded
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["C5", "D6"].sort());
   });
 
@@ -225,7 +244,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["D5", "white", "champion"],
       ["D6", "black", "flag"],
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["D6"]);
   });
 
@@ -234,7 +257,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["D5", "white", "champion"],
       ["D6", "white", "flag"],
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks).toEqual([]);
   });
 
@@ -243,7 +270,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["D5", "white", "champion"],
       ["D7", "black", "militia"], // D6 clear between them, no other enemy nearby
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["D7"]);
   });
 
@@ -253,7 +284,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["D6", "black", "militia"], // blocker at distance 1 - itself an ordinary attack target
       ["D7", "black", "militia"], // would-be two-square target at distance 2
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["D6"]);
   });
 
@@ -263,7 +298,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["B5", "white", "champion"],
       ["B8", "black", "militia"],
     ]);
-    const attacks = legalAttacks(state, { column: "B", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "B", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks.some((s) => s.column === "B" && s.row === 8)).toBe(false);
   });
 
@@ -273,7 +312,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["C5", "black", "militia"], // adjacent enemy - encumbers the champion
       ["D7", "black", "militia"], // otherwise a clear two-square line
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     // Only the adjacent enemy is offered; the far one is unreachable while
     // encumbered.
     expect(sortedKeys(attacks)).toEqual(["C5"]);
@@ -284,7 +327,13 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["A1", "white", "tower"],
       ["A2", "black", "militia"],
     ]);
-    expect(legalAttacks(state, { column: "A", row: 1 })).toEqual([]);
+    expect(
+      legalAttacks(
+        state,
+        { column: "A", row: 1 },
+        STANDARD_BATTLE_CONFIGURATION,
+      ),
+    ).toEqual([]);
   });
 
   it("gives Flag no attack targets", () => {
@@ -292,12 +341,24 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["A1", "white", "flag"],
       ["A2", "black", "militia"],
     ]);
-    expect(legalAttacks(state, { column: "A", row: 1 })).toEqual([]);
+    expect(
+      legalAttacks(
+        state,
+        { column: "A", row: 1 },
+        STANDARD_BATTLE_CONFIGURATION,
+      ),
+    ).toEqual([]);
   });
 
   it("gives no attack targets for an empty origin square", () => {
     const state = board([]);
-    expect(legalAttacks(state, { column: "D", row: 5 })).toEqual([]);
+    expect(
+      legalAttacks(
+        state,
+        { column: "D", row: 5 },
+        STANDARD_BATTLE_CONFIGURATION,
+      ),
+    ).toEqual([]);
   });
 
   it("offers a movable enemy one square diagonally as an attack (major 2, §4.3)", () => {
@@ -306,7 +367,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["D8", "white", "militia"], // diagonally adjacent, movable - offered
       ["F10", "white", "militia"], // diagonally adjacent, movable - offered
     ]);
-    const attacks = legalAttacks(state, { column: "E", row: 9 });
+    const attacks = legalAttacks(
+      state,
+      { column: "E", row: 9 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["D8", "F10"].sort());
   });
 });
@@ -322,7 +387,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["C10", "black", "militia"],
       ["E10", "black", "militia"],
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 9 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 9 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["C8", "C10", "E8", "E10"].sort());
   });
 
@@ -331,7 +400,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["D5", "white", "champion"],
       ["E6", "black", "tower"],
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks).toEqual([]);
   });
 
@@ -340,7 +413,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["D5", "white", "champion"],
       ["E6", "black", "flag"],
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks).toEqual([]);
   });
 
@@ -357,7 +434,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["D9", "white", "champion"],
       ["F11", "black", "militia"], // two squares diagonally - not offered
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 9 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 9 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks.some((s) => s.column === "F" && s.row === 11)).toBe(false);
   });
 
@@ -371,7 +452,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["A5", "white", "champion"],
       ["B6", "black", "militia"],
     ]);
-    const attacks = legalAttacks(state, { column: "A", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks.some((s) => s.column === "B" && s.row === 6)).toBe(false);
   });
 
@@ -384,7 +469,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["A6", "white", "champion"],
       ["B5", "black", "militia"],
     ]);
-    const attacks = legalAttacks(state, { column: "A", row: 6 });
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 6 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["B5"]);
   });
 
@@ -399,10 +488,365 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["D6", "black", "militia"], // orthogonal
       ["E6", "black", "militia"], // diagonal
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["D6", "E6"].sort());
   });
 });
+
+// Story 00000027, Step 4: `DIAGONAL_ATTACKABLE=all` widens the diagonal
+// loop's target set to include an enemy Tower or Flag; everything else about
+// a diagonal attack (on-board, not a lake, enemy-owned, one square only, no
+// unencumbered bonus) is untouched.
+describe("legalAttacks: diagonal attacks under DIAGONAL_ATTACKABLE=all (story 00000027)", () => {
+  const ALL_CONFIGURATION = configureRules(BATTLE_EDITION, {
+    DIAGONAL_ATTACKABLE: "all",
+  });
+
+  it("offers an enemy Tower diagonally adjacent as an attack", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "tower"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(sortedKeys(attacks)).toEqual(["E6"]);
+  });
+
+  it("offers the enemy Flag diagonally adjacent as an attack", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "flag"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(sortedKeys(attacks)).toEqual(["E6"]);
+  });
+
+  it("never offers a friendly Tower or Flag diagonally adjacent as an attack", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "white", "tower"],
+      ["C6", "white", "flag"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(attacks).toEqual([]);
+  });
+
+  it("still never offers a diagonal move onto an empty square", () => {
+    const state = board([["D5", "white", "champion"]]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(attacks).toEqual([]);
+  });
+
+  it("still withholds a diagonal attack onto a lake square", () => {
+    // Same fixture as the standard-value lake test above: B6 is a lake
+    // square, so even under `all` the target-square lake check must still
+    // block it.
+    const state = board([
+      ["A5", "white", "champion"],
+      ["B6", "black", "tower"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(attacks.some((s) => s.column === "B" && s.row === 6)).toBe(false);
+  });
+
+  it("still offers a movable enemy diagonally, unaffected by the widened target set", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(sortedKeys(attacks)).toEqual(["E6"]);
+  });
+});
+
+// Story 00000027, Step 5: `DIAGONAL_ATTACK_PATH=open_path` additionally
+// requires that at least one of the two flanking squares - `(c+dc, r)` and
+// `(c, r+dr)` for an attack in direction `dc`/`dr` - be unoccupied by a piece
+// of either side and not a lake. Everything else about a diagonal attack
+// (on-board, target not a lake, enemy-owned, one square only, no
+// unencumbered bonus) is untouched.
+describe("legalAttacks: diagonal attacks under DIAGONAL_ATTACK_PATH=open_path (story 00000027)", () => {
+  const OPEN_PATH_CONFIGURATION = configureRules(BATTLE_EDITION, {
+    DIAGONAL_ATTACK_PATH: "open_path",
+  });
+
+  // Attack D5 -> E6; its two flanks are E5 (dc=1, dr=0 from D5) and D6
+  // (dc=0, dr=1 from D5).
+  it("refuses the attack when both flanks hold a friendly piece", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "white", "militia"],
+      ["D6", "white", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    // Full-set assertion (peer review #8): both flanking squares are
+    // friendly, so the champion has no orthogonal attack either - the empty
+    // set positively confirms the diagonal refusal didn't also swallow
+    // orthogonal attacks it shouldn't have (there are none here to lose).
+    expect(sortedKeys(attacks)).toEqual([]);
+  });
+
+  it("refuses the attack when both flanks hold an enemy piece", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "black", "militia"],
+      ["D6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    // Full-set assertion (peer review #8): the diagonal (E6) is refused, but
+    // both flanking enemies (D6, E5) are themselves orthogonally adjacent
+    // and must still be offered as ordinary orthogonal attacks.
+    expect(sortedKeys(attacks)).toEqual(["D6", "E5"]);
+  });
+
+  it("refuses the attack when one flank holds a friendly piece and the other an enemy piece", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "white", "militia"],
+      ["D6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    // Full-set assertion (peer review #8): the diagonal (E6) is refused; the
+    // friendly flank (E5) is never an attack, but the enemy flank (D6) is
+    // still offered as an ordinary orthogonal attack.
+    expect(sortedKeys(attacks)).toEqual(["D6"]);
+  });
+
+  it("refuses the attack when one flank is a lake and the other holds a piece", () => {
+    // A6 -> B5 (the skirt's attack, see below); its flanks are B6 (a lake)
+    // and A5. Occupying A5 leaves no open flank.
+    const state = board([
+      ["A6", "white", "champion"],
+      ["B5", "black", "militia"],
+      ["A5", "white", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 6 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    // Full-set assertion (peer review #8): the diagonal (B5) is refused; the
+    // A5 flank is friendly (no attack) and the B6 flank is a lake (never an
+    // attack target), so no orthogonal attack survives either.
+    expect(sortedKeys(attacks)).toEqual([]);
+  });
+
+  it("keeps the skirt legal - one flank a lake, the other empty", () => {
+    const state = board([
+      ["A6", "white", "champion"],
+      ["B5", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 6 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    expect(sortedKeys(attacks)).toEqual(["B5"]);
+  });
+
+  it("becomes legal again the moment either flank is cleared", () => {
+    const withBothFlanksBlocked = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "black", "militia"],
+      ["D6", "black", "militia"],
+    ]);
+    expect(
+      legalAttacks(
+        withBothFlanksBlocked,
+        { column: "D", row: 5 },
+        OPEN_PATH_CONFIGURATION,
+      ).some((s) => s.column === "E" && s.row === 6),
+    ).toBe(false);
+
+    const withNearFlankCleared = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["D6", "black", "militia"],
+    ]);
+    expect(
+      legalAttacks(
+        withNearFlankCleared,
+        { column: "D", row: 5 },
+        OPEN_PATH_CONFIGURATION,
+      ).some((s) => s.column === "E" && s.row === 6),
+    ).toBe(true);
+
+    const withFarFlankCleared = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "black", "militia"],
+    ]);
+    expect(
+      legalAttacks(
+        withFarFlankCleared,
+        { column: "D", row: 5 },
+        OPEN_PATH_CONFIGURATION,
+      ).some((s) => s.column === "E" && s.row === 6),
+    ).toBe(true);
+  });
+
+  it("is unaffected when both flanks are already empty", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    expect(sortedKeys(attacks)).toEqual(["E6"]);
+  });
+});
+
+// Story 00000027, Step 5: the same positions as above, but under an
+// explicit `DIAGONAL_ATTACK_PATH=always` (rather than relying on the
+// standard configuration's default) - every one of them offers the attack
+// regardless of the flanks.
+describe("legalAttacks: diagonal attacks under an explicit DIAGONAL_ATTACK_PATH=always (story 00000027)", () => {
+  const ALWAYS_CONFIGURATION = configureRules(BATTLE_EDITION, {
+    DIAGONAL_ATTACK_PATH: "always",
+  });
+
+  it("offers the attack even when both flanks are blocked", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "black", "militia"],
+      ["D6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALWAYS_CONFIGURATION,
+    );
+    expect(attacks.some((s) => s.column === "E" && s.row === 6)).toBe(true);
+  });
+
+  it("offers the attack when one flank is a lake and the other holds a piece", () => {
+    const state = board([
+      ["A6", "white", "champion"],
+      ["B5", "black", "militia"],
+      ["A5", "white", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 6 },
+      ALWAYS_CONFIGURATION,
+    );
+    expect(attacks.some((s) => s.column === "B" && s.row === 5)).toBe(true);
+  });
+});
+
+// Story 00000027, Step 5: the two flags compose independently - `all`
+// widens the diagonal target set, `open_path` narrows the legal paths, and
+// neither reads the other. Fixed position: D5 white champion; E6 black
+// Tower (immobile - only a legal diagonal target under `all`); its flanks
+// E5/D6 either both blocked (only a legal path under `always`) or with one
+// cleared (a legal path under `open_path` too).
+describe("legalAttacks: DIAGONAL_ATTACKABLE and DIAGONAL_ATTACK_PATH compose (story 00000027)", () => {
+  const bothFlanksBlocked = board([
+    ["D5", "white", "champion"],
+    ["E6", "black", "tower"],
+    ["E5", "black", "militia"],
+    ["D6", "black", "militia"],
+  ]);
+  const oneFlankCleared = board([
+    ["D5", "white", "champion"],
+    ["E6", "black", "tower"],
+    ["D6", "black", "militia"],
+  ]);
+
+  function offersTowerAttack(
+    state: BoardState,
+    configuration: RuleConfiguration,
+  ): boolean {
+    return legalAttacks(state, { column: "D", row: 5 }, configuration).some(
+      (s) => s.column === "E" && s.row === 6,
+    );
+  }
+
+  it("standard (movable_only, always): never offered - the Tower is not a legal diagonal target", () => {
+    expect(
+      offersTowerAttack(bothFlanksBlocked, STANDARD_BATTLE_CONFIGURATION),
+    ).toBe(false);
+    expect(
+      offersTowerAttack(oneFlankCleared, STANDARD_BATTLE_CONFIGURATION),
+    ).toBe(false);
+  });
+
+  it("DIAGONAL_ATTACKABLE=all alone: offered regardless of the flanks", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      DIAGONAL_ATTACKABLE: "all",
+    });
+    expect(offersTowerAttack(bothFlanksBlocked, configuration)).toBe(true);
+    expect(offersTowerAttack(oneFlankCleared, configuration)).toBe(true);
+  });
+
+  it("DIAGONAL_ATTACK_PATH=open_path alone: still never offered - the Tower is still not a legal diagonal target", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      DIAGONAL_ATTACK_PATH: "open_path",
+    });
+    expect(offersTowerAttack(bothFlanksBlocked, configuration)).toBe(false);
+    expect(offersTowerAttack(oneFlankCleared, configuration)).toBe(false);
+  });
+
+  it("both together: offered only once a flank is open", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      DIAGONAL_ATTACKABLE: "all",
+      DIAGONAL_ATTACK_PATH: "open_path",
+    });
+    expect(offersTowerAttack(bothFlanksBlocked, configuration)).toBe(false);
+    expect(offersTowerAttack(oneFlankCleared, configuration)).toBe(true);
+  });
+});
+
+// Every existing diagonal test above uses STANDARD_BATTLE_CONFIGURATION and
+// keeps passing unchanged - confirming `movable_only` and `always` (both
+// defaults) leave today's behaviour exactly as it was.
 
 // Story 00000023, Step 3: the same functions above, exercised on the
 // Skirmish layout (`standard_64`, 8x8) instead of the Battle default, to
@@ -443,7 +887,11 @@ describe("legalDestinations/legalAttacks on the Skirmish layout (8x8)", () => {
       ["H8", "white", "champion"],
       ["H7", "black", "militia"],
     ]);
-    const attacks = legalAttacks(state, { column: "H", row: 8 }, SKIRMISH);
+    const attacks = legalAttacks(
+      state,
+      { column: "H", row: 8 },
+      STANDARD_SKIRMISH_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["H7"]);
   });
 
@@ -452,7 +900,11 @@ describe("legalDestinations/legalAttacks on the Skirmish layout (8x8)", () => {
       ["H8", "white", "champion"],
       ["H6", "black", "militia"], // H7 clear between them
     ]);
-    const attacks = legalAttacks(state, { column: "H", row: 8 }, SKIRMISH);
+    const attacks = legalAttacks(
+      state,
+      { column: "H", row: 8 },
+      STANDARD_SKIRMISH_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["H6"]);
   });
 
@@ -477,7 +929,11 @@ describe("legalDestinations/legalAttacks on the Skirmish layout (8x8)", () => {
 
   it("hasAnyLegalPly considers only the Skirmish board's own squares", () => {
     const state = board([["D3", "white", "champion"]]);
-    expect(hasAnyLegalPly(state, "white", SKIRMISH)).toBe(true);
-    expect(hasAnyLegalPly(state, "black", SKIRMISH)).toBe(false);
+    expect(
+      hasAnyLegalPly(state, "white", STANDARD_SKIRMISH_CONFIGURATION),
+    ).toBe(true);
+    expect(
+      hasAnyLegalPly(state, "black", STANDARD_SKIRMISH_CONFIGURATION),
+    ).toBe(false);
   });
 });

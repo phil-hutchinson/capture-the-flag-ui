@@ -1,6 +1,10 @@
-/* The hot-seat game's Battle/Skirmish choice (story 00000023, Step 7).
-   Mirrors `EngineSideChoice.css`'s choice-button chrome, itself mirroring
-   `StartScreen.css`'s. */
+/* The hot-seat game's Battle/Skirmish choice (story 00000023, Step 7),
+   extended by story 00000027's Step 8 with the two diagonal-attack rule
+   choices below the game description. Mirrors `EngineSideChoice.css`'s
+   choice-button chrome, itself mirroring `StartScreen.css`'s; the rule
+   choices reuse the same `.game-choice__option(s)`/`.game-choice__detail`
+   classes the game choice already defines, so both look and behave
+   identically. */
 
 .game-choice {
   display: flex;
@@ -41,6 +45,30 @@
   max-width: 32rem;
   text-align: center;
   margin: 0;
+}
+
+.game-choice__rules {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.game-choice__rules-heading {
+  margin: 0;
+}
+
+.game-choice__rule {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.game-choice__rule-heading {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .game-choice__start {

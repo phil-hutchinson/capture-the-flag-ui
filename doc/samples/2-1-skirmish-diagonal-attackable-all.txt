@@ -1,0 +1,14 @@
+[Result "1-0"]
+[ResultReason "Flag Captured"]
+[Ruleset "2-1:SKIRMISH DIAGONAL_ATTACKABLE=all"]
+
+--- --- --- --- --- --- --- *T*
+--- --- --- --- --- --- --- ---
+--- --- --- --- --- --- --- ---
+--- XXX XXX --- --- XXX XXX ---
+--- XXX XXX --- *F* XXX XXX ---
+--- --- --- [2] --- --- --- ---
+--- --- --- --- --- --- --- ---
+[F] --- --- --- --- --- --- ---
+
+1. D3-E4x

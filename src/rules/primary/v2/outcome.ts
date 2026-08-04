@@ -8,30 +8,27 @@
 // on `computeOutcome` below.
 //
 // `computeOutcome` takes **plain parameters** - the board, the side to move,
-// the shared inactivity counter, and (since story 00000023's Step 3) an
-// optional `BoardLayout` - never a `PlayState`, so this module never imports
+// the shared inactivity counter, and (story 00000027 - required, no default)
+// a `RuleConfiguration` - never a `PlayState`, so this module never imports
 // `play.ts` (which imports this one, to wire the result into the play
 // state).
 //
 // This module is pure rule logic - no React - and builds only on the board
-// geometry (board.ts, boardLayout.ts), `BoardState` (gameState.ts), and the
-// no-legal-ply primitive (movement.ts); it has no further dependencies. The
-// structural reachability machinery (`reachability.ts`) that served the 1.1
+// geometry (board.ts, boardLayout.ts), `BoardState` (gameState.ts), the
+// rule-configuration model (`configuration.ts`), and the no-legal-ply
+// primitive (movement.ts); it has no further dependencies. The structural
+// reachability machinery (`reachability.ts`) that served the 1.1
 // Unbreachable Flag win no longer exists - major 2 has no such condition.
 //
-// `computeOutcome` takes an optional `layout` parameter (a `BoardLayout`,
-// boardLayout.ts), defaulting to `BATTLE_LAYOUT`, threaded into the Flag
-// scan and `hasAnyLegalPly`; callers that pass no layout (the frozen
-// encoding/engine modules) still get Battle's bounds unchanged.
+// `computeOutcome`'s `configuration` parameter (story 00000027's
+// implementation plan, Decision 3) is threaded into the Flag scan (via its
+// `edition.boardLayout`) and `hasAnyLegalPly` (which additionally reads its
+// resolved flags, Steps 4-5) - no default, so every call site names its
+// configuration explicitly.
 
-import {
-  allSquares,
-  BATTLE_LAYOUT,
-  otherSide,
-  squareKey,
-  type Side,
-} from "./board.ts";
+import { allSquares, otherSide, squareKey, type Side } from "./board.ts";
 import type { BoardLayout } from "./boardLayout.ts";
+import type { RuleConfiguration } from "./configuration.ts";
 import type { BoardState } from "./gameState.ts";
 import { hasAnyLegalPly } from "./movement.ts";
 
@@ -98,14 +95,17 @@ function hasFlag(board: BoardState, side: Side, layout: BoardLayout): boolean {
  * Called once at the start of Phase 2 (`startPlay`) and again after every
  * applied ply (`applyMove`), always with the counter and board already
  * reflecting that ply and `activeSide` already the *new* side to move.
- * `layout` sizes the board; defaults to Battle.
+ * `configuration` (story 00000027 - required, no default) sizes the board
+ * via `configuration.edition.boardLayout` and is threaded into
+ * `hasAnyLegalPly`.
  */
 export function computeOutcome(
   board: BoardState,
   activeSide: Side,
   inactivityCounter: number,
-  layout: BoardLayout = BATTLE_LAYOUT,
+  configuration: RuleConfiguration,
 ): GameOutcome {
+  const layout = configuration.edition.boardLayout;
   const opponent = otherSide(activeSide);
 
   // 1. §5.1 Flag capture - "does this side still have a Flag on the board",
@@ -118,7 +118,7 @@ export function computeOutcome(
   }
 
   // 2. §5.2 No legal move - the active side has no legal ply at all.
-  if (!hasAnyLegalPly(board, activeSide, layout)) {
+  if (!hasAnyLegalPly(board, activeSide, configuration)) {
     return { kind: "win", winner: opponent, reason: "noLegalMove" };
   }
 

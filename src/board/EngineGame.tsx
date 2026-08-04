@@ -43,7 +43,7 @@ import {
   type Square,
 } from "../rules/primary/v2/board.ts";
 import { BATTLE_ARMY } from "../rules/primary/v2/armyComposition.ts";
-import { BATTLE_EDITION } from "../rules/primary/v2/edition.ts";
+import { STANDARD_BATTLE_CONFIGURATION } from "../rules/primary/v2/configuration.ts";
 import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
 import {
   autoFill,
@@ -674,12 +674,23 @@ export function EngineGame({ onBack }: EngineGameProps) {
     }
     const computerArmy = computerArmyResult.state;
     // This screen is Battle-only and unreachable while computer play is
-    // disabled (story 00000023, Step 9), so it names the Battle edition
-    // explicitly rather than relying on a default (peer review, finding #15).
+    // disabled (story 00000023, Step 9), so it names the standard Battle
+    // configuration explicitly rather than relying on a default (peer
+    // review, finding #15; story 00000027, Step 3: `buildInitialGameState`
+    // now takes a `RuleConfiguration`, and this screen never offers either
+    // flag, so it is always the standard one).
     const gameState =
       humanSide === "white"
-        ? buildInitialGameState(placement, computerArmy, BATTLE_EDITION)
-        : buildInitialGameState(computerArmy, placement, BATTLE_EDITION);
+        ? buildInitialGameState(
+            placement,
+            computerArmy,
+            STANDARD_BATTLE_CONFIGURATION,
+          )
+        : buildInitialGameState(
+            computerArmy,
+            placement,
+            STANDARD_BATTLE_CONFIGURATION,
+          );
     const freshPlaySession = startSession(gameState);
     // Play begins - create this game's worker-backed search client (story
     // 00000021, Step 5), configured for the difficulty chosen on
