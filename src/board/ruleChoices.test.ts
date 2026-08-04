@@ -10,6 +10,7 @@ import {
   nonStandardRuleSentences,
   RULE_CHOICES,
   RULE_CHOICES_HEADING,
+  unrecognizedRuleSentence,
 } from "./ruleChoices.ts";
 
 describe("RULE_CHOICES", () => {
@@ -117,6 +118,27 @@ describe("nonStandardRuleSentences", () => {
       (choice) => choice.flagId === "DIAGONAL_ATTACK_PATH",
     )?.options.find((option) => option.value === "open_path")?.description;
     expect(sentences).toEqual([attackableSentence, pathSentence]);
+  });
+});
+
+// Story 00000027, Step 10: describes a `Ruleset` tag token this app cannot
+// resolve at all, quoting it back verbatim - unlike the rest of this
+// module's copy, this one *does* embed the token's own text by design (see
+// `ruleChoices.ts`'s header comment).
+describe("unrecognizedRuleSentence", () => {
+  it("quotes the exact token back, verbatim", () => {
+    const sentence = unrecognizedRuleSentence("DIAGONAL_SOMETHING=on");
+    expect(sentence).toContain("DIAGONAL_SOMETHING=on");
+  });
+
+  it("says nothing about the game being able to resume, and uses no 'experimental' framing", () => {
+    const sentence = unrecognizedRuleSentence("DIAGONAL_ATTACKABLE=sideways");
+    expect(sentence.toLowerCase()).not.toContain("resume");
+    expect(sentence.toLowerCase()).not.toContain("experimental");
+  });
+
+  it("never says 'ply'", () => {
+    expect(unrecognizedRuleSentence("FOO=bar")).not.toMatch(/\bply\b/i);
   });
 });
 

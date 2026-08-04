@@ -48,13 +48,25 @@
 // diagonal attack refused for lack of an open square, reads as the rules the
 // game was played under rather than a bug. Empty, and rendered as nothing,
 // for a record played on the standard values.
+//
+// Story 00000027, Step 10 (correcting a Step 6 defect): a record can also
+// carry a `FLAG=value` token this app cannot resolve at all - it still
+// reviews in full (`readRecord.ts`'s only remaining rejection is an unknown
+// *edition* id), and the status line says so plainly, one sentence per
+// unrecognized token, quoting it verbatim (`ruleChoices.ts`'s
+// `unrecognizedRuleSentence`) - so a reviewer is never misled into thinking
+// they are watching a standard game just because this app cannot describe
+// what makes it different.
 
 import { useEffect, useRef, useState } from "react";
 import "../App.css";
 import "./ReviewScreen.css";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
 import { FullBoard } from "../board/FullBoard.tsx";
-import { nonStandardRuleSentences } from "../board/ruleChoices.ts";
+import {
+  nonStandardRuleSentences,
+  unrecognizedRuleSentence,
+} from "../board/ruleChoices.ts";
 import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import type { ReplayedRecord } from "../rules/primary/v2/replay.ts";
 import {
@@ -87,6 +99,14 @@ export interface ReviewScreenProps {
    * Skirmish's 8x8 board rather than silently defaulting to Battle's 12x12.
    */
   readonly configuration: RuleConfiguration;
+  /**
+   * Any `FLAG=value` tokens the record's `Ruleset` tag carried that this app
+   * could not resolve, verbatim (`readRecord.ts`'s
+   * `unrecognizedRuleTokens`, story 00000027's Step 10) - always `[]` for a
+   * record this app fully understands, including every record it has ever
+   * written itself.
+   */
+  readonly unrecognizedRuleTokens: readonly string[];
   /** Returns to the start screen. Never prompts - reviewing loses nothing. */
   readonly onBack: () => void;
 }
@@ -95,6 +115,7 @@ export interface ReviewScreenProps {
 export function ReviewScreen({
   record,
   configuration,
+  unrecognizedRuleTokens,
   onBack,
 }: ReviewScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -129,8 +150,13 @@ export function ReviewScreen({
   // Empty for a record played on the standard values, so an existing
   // standard record's review looks exactly as it always has (story 00000027,
   // Step 9). Fixed for the whole review - the record's rules don't change as
-  // the cursor moves, unlike `recordedResult` above.
-  const rulesSummary = nonStandardRuleSentences(configuration);
+  // the cursor moves, unlike `recordedResult` above. Recognized deviations
+  // first, then one sentence per unrecognized token this app cannot
+  // describe (Step 10) - a record can carry both at once.
+  const rulesSummary = [
+    ...nonStandardRuleSentences(configuration),
+    ...unrecognizedRuleTokens.map(unrecognizedRuleSentence),
+  ];
 
   return (
     <main className="app">

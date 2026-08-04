@@ -43,7 +43,6 @@
 
 import type { Side, Square } from "../rules/primary/v2/board.ts";
 import { squareKey } from "../rules/primary/v2/board.ts";
-import type { RuleFlagTokenError } from "../rules/primary/v2/configuration.ts";
 import type {
   RecordFileError,
   RecordFileTags,
@@ -116,28 +115,6 @@ function describeRecordFileError(error: RecordFileError): string {
       return `${moveLabel(error.ply, error.round, error.side)} — ${error.token} uses the short move notation, which doesn't record what happened to each piece, so it can't be reviewed.`;
     case "malformedMove":
       return `${moveLabel(error.ply, error.round, error.side)} — ${error.token} isn't a move this app recognizes, so it can't be reviewed.`;
-    default:
-      return error satisfies never;
-  }
-}
-
-/**
- * Player-facing wording for one `RuleFlagTokenError` - a problem with one of
- * the `Ruleset` tag's rule-option tokens (story 00000027), following the
- * edition id that was recognized fine. Each case names the exact offending
- * token, quoted verbatim, per the story's "never silently ignored" policy;
- * never a flag identifier or value token invented by this module itself.
- */
-function describeRuleFlagTokenError(error: RuleFlagTokenError): string {
-  switch (error.kind) {
-    case "malformedToken":
-      return `This game was recorded with a rule option this app doesn't understand ("${error.token}"), so it can't be reviewed.`;
-    case "unknownFlagId":
-      return `This game was recorded with a rule option this app doesn't recognize ("${error.token}"), so it can't be reviewed.`;
-    case "unknownFlagValue":
-      return `This game was recorded with a rule option set to a value this app doesn't recognize ("${error.token}"), so it can't be reviewed.`;
-    case "repeatedFlagId":
-      return `This game was recorded with the same rule option set twice ("${error.token}"), so it can't be reviewed.`;
     default:
       return error satisfies never;
   }
@@ -255,8 +232,6 @@ export function describeRejection(error: ReadRecordError): string {
       return "This file isn't a game record.";
     case "unknownRuleset":
       return `This game was recorded under ruleset ${error.ruleset}, which this app doesn't know how to review.`;
-    case "ruleFlags":
-      return describeRuleFlagTokenError(error.error);
     case "recordFile":
       return describeRecordFileError(error.error);
     case "replay":

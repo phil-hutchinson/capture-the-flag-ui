@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { RuleFlagTokenError } from "../rules/primary/v2/configuration.ts";
 import type { PositionBlockError } from "../rules/primary/v2/gameState.ts";
 import type { RecordFileError } from "../rules/primary/v2/recordFile.ts";
 import type { ReplayError } from "../rules/primary/v2/replay.ts";
@@ -120,21 +119,16 @@ const REPLAY_ERRORS: readonly ReplayError[] = [
   },
 ];
 
-/** Story 00000027's Step 6: the four ways a `Ruleset` tag's flag tokens can go wrong, each carrying the verbatim offending token. */
-const RULE_FLAG_TOKEN_ERRORS: readonly RuleFlagTokenError[] = [
-  { kind: "malformedToken", token: "DIAGONAL_ATTACKABLE" },
-  { kind: "unknownFlagId", token: "SOMETHING_ELSE=all" },
-  { kind: "unknownFlagValue", token: "DIAGONAL_ATTACKABLE=bogus" },
-  { kind: "repeatedFlagId", token: "DIAGONAL_ATTACKABLE=all" },
-];
+// Story 00000027's Step 6 gave a `Ruleset` tag's flag tokens four ways to go
+// wrong as rejections; Step 10 corrects that defect - none of them reject a
+// record any more (`readRecord.ts`'s `parseRuleFlagTokens` never fails, and
+// `ReadRecordError` has no `ruleFlags` case), so there is nothing left here
+// for `describeRejection` to word. See `ruleChoices.test.ts` for
+// `unrecognizedRuleSentence`'s coverage instead.
 
 const READ_RECORD_ERRORS: readonly ReadRecordError[] = [
   { kind: "notARecord" },
   { kind: "unknownRuleset", ruleset: "PRIMARY:2.0" },
-  ...RULE_FLAG_TOKEN_ERRORS.map((error): ReadRecordError => ({
-    kind: "ruleFlags",
-    error,
-  })),
   ...RECORD_FILE_ERRORS.map((error): ReadRecordError => ({
     kind: "recordFile",
     error,
@@ -171,13 +165,6 @@ describe("describeRejection", () => {
       ruleset: "PRIMARY:2.0",
     });
     expect(message).toContain("PRIMARY:2.0");
-  });
-
-  it("names the offending rule-option token for every ruleFlags rejection", () => {
-    for (const error of RULE_FLAG_TOKEN_ERRORS) {
-      const message = describeRejection({ kind: "ruleFlags", error });
-      expect(message).toContain(error.token);
-    }
   });
 
   it("names the move (number, round, color, token) for every move-specific error", () => {

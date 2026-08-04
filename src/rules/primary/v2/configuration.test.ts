@@ -205,17 +205,17 @@ describe("parseRuleFlagTokens", () => {
     ),
   );
 
-  it("parsing no tokens gives the standard configuration", () => {
+  it("parsing no tokens gives the standard configuration, with no unrecognized tokens", () => {
     const battleResult = parseRuleFlagTokens(BATTLE_EDITION, []);
     expect(battleResult).toEqual({
-      kind: "parsed",
       configuration: STANDARD_BATTLE_CONFIGURATION,
+      unrecognizedTokens: [],
     });
 
     const skirmishResult = parseRuleFlagTokens(SKIRMISH_EDITION, []);
     expect(skirmishResult).toEqual({
-      kind: "parsed",
       configuration: STANDARD_SKIRMISH_CONFIGURATION,
+      unrecognizedTokens: [],
     });
   });
 
@@ -235,10 +235,8 @@ describe("parseRuleFlagTokens", () => {
         const [, ...tokens] = rendered.split(" ");
         const parsed = parseRuleFlagTokens(edition, tokens);
 
-        expect(parsed).toEqual({ kind: "parsed", configuration });
-        if (parsed.kind === "parsed") {
-          expect(renderRulesetTag(parsed.configuration)).toBe(rendered);
-        }
+        expect(parsed).toEqual({ configuration, unrecognizedTokens: [] });
+        expect(renderRulesetTag(parsed.configuration)).toBe(rendered);
       }
     },
   );
@@ -248,14 +246,19 @@ describe("parseRuleFlagTokens", () => {
       "DIAGONAL_ATTACKABLE=movable_only",
     ]);
 
-    expect(result.kind).toBe("parsed");
-    if (result.kind !== "parsed") return;
+    expect(result.unrecognizedTokens).toEqual([]);
     expect(isStandardConfiguration(result.configuration)).toBe(true);
     expect(deviatingFlags(result.configuration)).toEqual([]);
     expect(renderRulesetTag(result.configuration)).toBe("2-0:BATTLE");
   });
 
-  it("rejects a malformed token (not exactly one NAME=value pair), naming it", () => {
+  // Story 00000027, Step 10 (correcting a Step 6 defect): none of these four
+  // token shapes fail parsing any more - `technical-notes.md`'s view-only
+  // replay guarantee means only the edition id (consumed by the caller, see
+  // `readRecord.ts`) may reject a record. Each unresolvable token is instead
+  // carried back verbatim in `unrecognizedTokens`, and the configuration
+  // resolves as if that token had been absent.
+  it("carries a malformed token (not exactly one NAME=value pair) as unrecognized, leaving the configuration standard", () => {
     const cases = [
       "DIAGONAL_ATTACKABLE",
       "DIAGONAL_ATTACKABLE=",
@@ -264,49 +267,50 @@ describe("parseRuleFlagTokens", () => {
     ];
     for (const token of cases) {
       const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
-      expect(result).toEqual({
-        kind: "error",
-        error: { kind: "malformedToken", token },
-      });
+      expect(result.unrecognizedTokens).toEqual([token]);
+      expect(isStandardConfiguration(result.configuration)).toBe(true);
     }
   });
 
-  it("rejects an unknown flag id, naming the offending token", () => {
+  it("carries an unknown flag id as unrecognized", () => {
     const token = "DIAGONAL_TELEPORT=all";
     const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
-    expect(result).toEqual({
-      kind: "error",
-      error: { kind: "unknownFlagId", token },
-    });
+    expect(result.unrecognizedTokens).toEqual([token]);
+    expect(isStandardConfiguration(result.configuration)).toBe(true);
   });
 
-  it("rejects an unknown value for a known flag, naming the offending token", () => {
+  it("carries an unknown value for a known flag as unrecognized", () => {
     const token = "DIAGONAL_ATTACKABLE=everything";
     const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
-    expect(result).toEqual({
-      kind: "error",
-      error: { kind: "unknownFlagValue", token },
-    });
+    expect(result.unrecognizedTokens).toEqual([token]);
+    expect(isStandardConfiguration(result.configuration)).toBe(true);
   });
 
-  it("is case-sensitive: a near-miss casing is rejected, not accepted", () => {
+  it("is case-sensitive: a near-miss casing is carried as unrecognized, not accepted", () => {
     const token = "diagonal_attackable=all";
     const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
-    expect(result).toEqual({
-      kind: "error",
-      error: { kind: "unknownFlagId", token },
-    });
+    expect(result.unrecognizedTokens).toEqual([token]);
+    expect(isStandardConfiguration(result.configuration)).toBe(true);
   });
 
-  it("rejects the same flag id given twice, naming the second (offending) token", () => {
+  it("resolves the same flag id given twice from its first token, carrying the second as unrecognized", () => {
     const secondToken = "DIAGONAL_ATTACKABLE=movable_only";
     const result = parseRuleFlagTokens(BATTLE_EDITION, [
       "DIAGONAL_ATTACKABLE=all",
       secondToken,
     ]);
-    expect(result).toEqual({
-      kind: "error",
-      error: { kind: "repeatedFlagId", token: secondToken },
-    });
+    expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
+    expect(result.unrecognizedTokens).toEqual([secondToken]);
+  });
+
+  it("mixes a recognized and an unrecognized token: the recognized one resolves, the other is carried as unrecognized", () => {
+    const result = parseRuleFlagTokens(BATTLE_EDITION, [
+      "DIAGONAL_ATTACKABLE=all",
+      "DIAGONAL_SOMETHING=on",
+    ]);
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+    ]);
+    expect(result.unrecognizedTokens).toEqual(["DIAGONAL_SOMETHING=on"]);
   });
 });

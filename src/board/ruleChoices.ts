@@ -12,6 +12,14 @@
 // settings, matching the owner's decision at the plan gate (story.md,
 // "Presented as plain options, with no 'experimental' framing").
 //
+// `ReviewScreen.tsx` (Step 10) additionally uses `unrecognizedRuleSentence`
+// below for a `Ruleset` tag token this app cannot resolve at all - unlike
+// everything else in this module, that sentence *does* quote the token
+// verbatim, by design: it is reporting a record's own data back, not
+// offering a player a choice, and the guarantee it serves (view-only replay
+// for every record, forever) requires saying plainly that this app cannot
+// describe that one rule.
+//
 // Owner decision at the plan gate: the word is "diagonal", never
 // "corner-to-corner" - `rules.md` §4.3 and its glossary, themselves written
 // for players, already say "diagonal", so a player who follows the link to
@@ -171,4 +179,20 @@ export function nonStandardRuleSentences(
     >;
     return options[value].description;
   });
+}
+
+/**
+ * The player-facing sentence for one `Ruleset` tag token this app cannot
+ * make sense of (story 00000027, Step 10 - `readRecord.ts`'s
+ * `unrecognizedRuleTokens`), quoting it back verbatim. Reviewing such a
+ * record is guaranteed (the companion project's `technical-notes.md`: view-
+ * only replay holds "for every record ever written... no rules knowledge
+ * required"), but this app genuinely cannot say what the token means, so a
+ * reviewer is told that plainly rather than left to guess why the game plays
+ * out the way it does. No "experimental" framing, and no suggestion that
+ * such a game could be resumed - reviewing is guaranteed, playing on from a
+ * record is not, and nothing in this app does that today.
+ */
+export function unrecognizedRuleSentence(token: string): string {
+  return `This game also used a rule setting this app doesn't recognize ("${token}") — it can't say what that one does.`;
 }

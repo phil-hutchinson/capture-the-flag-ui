@@ -42,6 +42,7 @@ type Screen =
       readonly kind: "review";
       readonly record: ReplayedRecord;
       readonly configuration: RuleConfiguration;
+      readonly unrecognizedRuleTokens: readonly string[];
     };
 
 export function App() {
@@ -85,7 +86,15 @@ export function App() {
         onImported={(
           record: ReplayedRecord,
           configuration: RuleConfiguration,
-        ) => setScreen({ kind: "review", record, configuration })}
+          unrecognizedRuleTokens: readonly string[],
+        ) =>
+          setScreen({
+            kind: "review",
+            record,
+            configuration,
+            unrecognizedRuleTokens,
+          })
+        }
       />
     );
   }
@@ -95,6 +104,7 @@ export function App() {
     <ReviewScreen
       record={screen.record}
       configuration={screen.configuration}
+      unrecognizedRuleTokens={screen.unrecognizedRuleTokens}
       onBack={() => setScreen({ kind: "start" })}
     />
   );

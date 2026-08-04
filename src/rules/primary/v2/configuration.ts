@@ -16,9 +16,20 @@
 // two pure halves of the `Ruleset` tag's stamp - rendering a configuration to
 // its tag string, and parsing the tag's flag tokens (the edition id is the
 // caller's to consume; see `readRecord.ts`) back into a canonical
-// configuration. Neither is wired into anything yet - nothing threads a
-// `RuleConfiguration` into the rule engine, game state or the app until
-// Step 3, and nothing calls the parser from a record reader until Step 6.
+// configuration.
+//
+// `parseRuleFlagTokens` never rejects a tag's flag tokens (story 00000027,
+// Step 10, correcting a Step 6 defect): a token it cannot resolve is carried
+// as an *unrecognized* token, verbatim, rather than failing the whole
+// record. The companion project's `technical-notes.md` guarantees view-only
+// replay "for every record ever written, under any edition" by
+// notation-schema stability alone, "no rules knowledge required" - a flag
+// this app has never heard of is exactly a case that guarantee covers, and
+// only the *edition* id (which the board layout and notation frame actually
+// depend on) may still reject a record. See `readRecord.ts` for how the
+// edition id and these tokens are split, and `src/review/reviewText.ts` /
+// `src/board/ruleChoices.ts` for how an unrecognized token is described to a
+// reviewer instead of hidden or refused.
 
 import { BATTLE_EDITION, SKIRMISH_EDITION, type Edition } from "./edition.ts";
 import {
@@ -148,36 +159,42 @@ export function renderRulesetTag(configuration: RuleConfiguration): string {
 }
 
 /**
- * Everything that can go wrong parsing a `Ruleset` tag's flag tokens (the
- * edition id itself is the caller's to consume and validate - see
- * `readRecord.ts`, Step 6): a token that is not exactly one `NAME=value`
- * pair, a token naming a flag id this app does not know, a token naming an
- * unknown value for a flag id it does know, or the same flag id named twice.
- * Each case carries the verbatim offending token text, so a rejection can
- * name exactly what was not understood. Matching is exact and
- * case-sensitive throughout - the writer only ever emits the canonical
- * spelling (`RULE_FLAG_CATALOG`'s), and a near-miss is more useful reported
- * than silently accepted or silently corrected.
+ * The result of `parseRuleFlagTokens` (story 00000027, Step 10): a canonical
+ * `RuleConfiguration` built from every token this app could resolve, plus
+ * the verbatim text of every token it could not - one entry per unresolved
+ * token, in the order it appeared. Parsing a `Ruleset` tag's flag tokens
+ * never fails; `readRecord.ts`'s only remaining rejection is an unknown
+ * *edition* id (the token before these), per `technical-notes.md`'s
+ * view-only-replay guarantee - see this module's header comment.
  */
-export type RuleFlagTokenError =
-  | { readonly kind: "malformedToken"; readonly token: string }
-  | { readonly kind: "unknownFlagId"; readonly token: string }
-  | { readonly kind: "unknownFlagValue"; readonly token: string }
-  | { readonly kind: "repeatedFlagId"; readonly token: string };
-
-/** The result of `parseRuleFlagTokens`: a canonical configuration, or a structured rejection. Never throws. */
-export type ParseRuleFlagTokensResult =
-  | { readonly kind: "parsed"; readonly configuration: RuleConfiguration }
-  | { readonly kind: "error"; readonly error: RuleFlagTokenError };
+export interface ParsedRuleFlagTokens {
+  readonly configuration: RuleConfiguration;
+  readonly unrecognizedTokens: readonly string[];
+}
 
 /**
  * Parses the tokens that follow a `Ruleset` tag's edition id - already split
- * on whitespace by the caller - against `edition`, producing a canonical
- * `RuleConfiguration` or the first structured rejection encountered (tokens
- * are checked in order; see `RuleFlagTokenError`). `tokens` may be empty,
- * which parses as `edition`'s standard configuration.
+ * on whitespace by the caller - against `edition`, resolving every token it
+ * can and carrying every token it cannot as an unrecognized token, verbatim.
+ * `tokens` may be empty, which resolves to `edition`'s standard
+ * configuration with no unrecognized tokens.
  *
- * A token naming a flag at the value it would resolve to anyway is accepted
+ * A token resolves when, and only when, it is exactly one `NAME=value` pair
+ * naming a flag id this app knows, a value that flag id permits, and a flag
+ * id not already resolved by an earlier token in this same call - matching
+ * is exact and case-sensitive throughout (the writer only ever emits the
+ * canonical spelling, `RULE_FLAG_CATALOG`'s). Everything else - a malformed
+ * token, an unknown flag id, an unknown value for a known flag id, or a
+ * second token naming a flag id an earlier token already resolved - is
+ * carried in `unrecognizedTokens` instead, verbatim, and does not affect the
+ * configuration at all (the flag it would have named, if any, keeps
+ * whatever an earlier token or the edition's own resolution already gave
+ * it). A record naming the same flag twice therefore keeps the *first*
+ * token's value and reports the second as unrecognized - a design call, not
+ * a spec requirement, since nothing says which of two conflicting tokens for
+ * one flag should win; open to challenge at peer review.
+ *
+ * A token naming a flag at the value it would resolve to anyway is resolved
  * and absorbed exactly like any other override - `configureRules` resolves
  * every flag the same way regardless of whether its value came from an
  * override or a default, so the returned configuration reports no deviation
@@ -189,35 +206,35 @@ export type ParseRuleFlagTokensResult =
 export function parseRuleFlagTokens(
   edition: Edition,
   tokens: readonly string[],
-): ParseRuleFlagTokensResult {
+): ParsedRuleFlagTokens {
   const overrides: Partial<Record<RuleFlagId, ResolvedRuleFlags[RuleFlagId]>> =
     {};
+  const unrecognizedTokens: string[] = [];
 
   for (const token of tokens) {
     const parts = token.split("=");
     if (parts.length !== 2 || parts[0] === "" || parts[1] === "") {
-      return { kind: "error", error: { kind: "malformedToken", token } };
+      unrecognizedTokens.push(token);
+      continue;
     }
 
     const [flagId, value] = parts;
-    if (!isKnownFlagId(flagId)) {
-      return { kind: "error", error: { kind: "unknownFlagId", token } };
-    }
-
-    if (!isPermittedValue(flagId, value)) {
-      return { kind: "error", error: { kind: "unknownFlagValue", token } };
+    if (!isKnownFlagId(flagId) || !isPermittedValue(flagId, value)) {
+      unrecognizedTokens.push(token);
+      continue;
     }
 
     if (Object.hasOwn(overrides, flagId)) {
-      return { kind: "error", error: { kind: "repeatedFlagId", token } };
+      unrecognizedTokens.push(token);
+      continue;
     }
 
     overrides[flagId] = value;
   }
 
   return {
-    kind: "parsed",
     configuration: configureRules(edition, overrides as RuleFlagOverrides),
+    unrecognizedTokens,
   };
 }
 

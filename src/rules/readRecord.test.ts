@@ -907,46 +907,80 @@ describe("readRecord - reads a Ruleset tag naming deviating flags (story 0000002
     ]);
   });
 
+  // Story 00000027, Step 10 (correcting a Step 6 defect): none of these four
+  // token shapes reject the record any more - `technical-notes.md`
+  // guarantees view-only replay "for every record ever written... no rules
+  // knowledge required", and only the edition id itself may still refuse a
+  // file. Each case still replays end to end and carries the offending
+  // token, verbatim, in `unrecognizedRuleTokens` instead of an error.
   it.each([
-    ["a malformed token (no '=')", "DIAGONAL_ATTACKABLE", "malformedToken"],
-    ["an unknown flag id", "SOMETHING_ELSE=all", "unknownFlagId"],
-    [
-      "an unknown value for a known flag",
-      "DIAGONAL_ATTACKABLE=bogus",
-      "unknownFlagValue",
-    ],
+    ["a malformed token (no '=')", "DIAGONAL_ATTACKABLE"],
+    ["an unknown flag id", "SOMETHING_ELSE=all"],
+    ["an unknown value for a known flag", "DIAGONAL_ATTACKABLE=bogus"],
   ] as const)(
-    "rejects %s, naming the offending token",
-    (_description, badToken, expectedKind) => {
+    "replays a record carrying %s, naming it as an unrecognized token rather than rejecting the record",
+    (_description, badToken) => {
       const text = [`[Ruleset "2-0:BATTLE ${badToken}"]`, POSITION_BLOCK].join(
         "\n\n",
       );
 
-      expect(readRecord(text)).toEqual({
-        kind: "error",
-        error: {
-          kind: "ruleFlags",
-          error: { kind: expectedKind, token: badToken },
-        },
-      });
+      const result = readRecord(text);
+      expect(result.kind).toBe("parsed");
+      if (result.kind !== "parsed") {
+        return;
+      }
+      expect(result.unrecognizedRuleTokens).toEqual([badToken]);
+      // An unresolved token never affects the configuration: it reads as
+      // the standard Battle configuration here, since no other token named
+      // a flag this app could resolve.
+      expect(deviatingFlags(result.configuration)).toEqual([]);
     },
   );
 
-  it("rejects the same flag id named twice, naming the second (offending) token", () => {
+  it("replays a record naming the same flag id twice, keeping the first token's value and reporting the second as unrecognized", () => {
     const text = [
       '[Ruleset "2-0:BATTLE DIAGONAL_ATTACKABLE=all DIAGONAL_ATTACKABLE=movable_only"]',
       POSITION_BLOCK,
     ].join("\n\n");
 
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
+    expect(result.unrecognizedRuleTokens).toEqual([
+      "DIAGONAL_ATTACKABLE=movable_only",
+    ]);
+  });
+
+  it("replays a record mixing one recognized and one unrecognized token, describing the recognized one and naming the other as unrecognized", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE DIAGONAL_ATTACKABLE=all DIAGONAL_SOMETHING=on"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+    ]);
+    expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
+    expect(result.unrecognizedRuleTokens).toEqual(["DIAGONAL_SOMETHING=on"]);
+  });
+
+  it("still rejects an unknown edition id - the one thing in the Ruleset tag that can", () => {
+    const text = [
+      '[Ruleset "9-9:NOT_A_REAL_EDITION DIAGONAL_ATTACKABLE=all"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
     expect(readRecord(text)).toEqual({
       kind: "error",
-      error: {
-        kind: "ruleFlags",
-        error: {
-          kind: "repeatedFlagId",
-          token: "DIAGONAL_ATTACKABLE=movable_only",
-        },
-      },
+      error: { kind: "unknownRuleset", ruleset: "9-9:NOT_A_REAL_EDITION" },
     });
   });
 });

@@ -928,7 +928,49 @@ Step 10 — such a record must **review**, not be rejected.)~~
 
 ## Step 10 — An unrecognised flag must not prevent review
 
-Status: pending
+Status: committed
+
+Notes: `configuration.ts`'s `parseRuleFlagTokens` no longer returns a
+`{kind: "parsed"|"error"}` result; it always succeeds, returning
+`{configuration, unrecognizedTokens}` — a token is resolved into the
+configuration when, and only when, it is exactly one `NAME=value` pair
+naming a known flag id, a value that flag id permits, and a flag id not
+already resolved by an earlier token in the same call; everything else
+(malformed, unknown flag id, unknown value, or a second token for an
+already-resolved flag id) is pushed onto `unrecognizedTokens` verbatim and
+left out of the configuration. The `RuleFlagTokenError`/
+`ParseRuleFlagTokensResult` types are removed rather than repurposed.
+`readRecord.ts` drops its `ruleFlags` `ReadRecordError` case entirely (the
+edition id is now the only thing that can reject a record) and its `parsed`
+result gains `unrecognizedRuleTokens: readonly string[]`, threaded through
+`ImportScreen.tsx`'s `onImported` and `App.tsx`'s `review` screen state to
+`ReviewScreen.tsx`, which now renders one sentence per unrecognized token
+(a new `unrecognizedRuleSentence(token)` in `ruleChoices.ts`, quoting the
+token verbatim — the one function in that module that deliberately embeds
+raw token text) after the existing recognised-deviation sentences, so a
+record can show both at once. `reviewText.ts` drops
+`describeRuleFlagTokenError` and its `ruleFlags` case in `describeRejection`
+entirely (the exhaustive switch's `satisfies never` forced this once the
+case was removed from the union). `GameRecord.tsx` needed no change — a live
+`PlayState` is always built from known flags, so it can never carry an
+unrecognized token. Rewrote the four rejection-focused test blocks in
+`configuration.test.ts` and `readRecord.test.ts` into pass-through
+assertions per the step's verification list (each of the four token shapes
+replays and is carried as unrecognized; a mixed recognised+unrecognised
+record describes the recognised one and names the other; the same flag
+given twice keeps the first token's value and reports the second as
+unrecognized — a design call, called out inline in both the implementation
+and its tests, matching the plan's own "open to challenge" framing), removed
+the now-nonexistent `ruleFlags` cases from `reviewText.test.ts`, and added
+`unrecognizedRuleSentence` coverage to `ruleChoices.test.ts` (quotes the
+token verbatim; no "resume"/"experimental" wording; never says "ply"). No
+deviation from the plan otherwise: existing record fixtures and the three
+Step 6 `doc/samples/` files were not touched, and all pass unedited.
+`npm run typecheck`, `npm run lint`, `npm test` (707 tests, up from 702),
+`npm run format:check` and `npm run build` are all clean; `npm run dev` was
+restarted and confirmed to serve the app (HTTP 200) as a basic smoke check,
+with this step's own manual re-check left for Step 11's Gate E re-check as
+the plan specifies.
 
 **Added after Step 9's manual gate (Gate E), on the owner's finding.** Step 6
 made an unrecognised flag token reject the whole record. That is wrong, and it
