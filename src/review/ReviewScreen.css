@@ -34,8 +34,16 @@
 }
 
 .review-status__position,
+.review-status__rules,
 .review-status__result {
   margin: 0;
+}
+
+/* The record's non-standard rules (Step 9), if any - plain weight, distinct
+   from the italicized "record's claim" styling `.review-status__result`
+   reserves for the recorded outcome. */
+.review-status__rules {
+  font-weight: normal;
 }
 
 /* Distinguishes the record's claim from the plain "where you are" line above

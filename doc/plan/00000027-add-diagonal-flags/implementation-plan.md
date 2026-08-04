@@ -864,7 +864,40 @@ covered by the manual gates below; add tests for any new pure helper).
 
 ## Step 9 — The reviewer shows what was played
 
-Status: pending
+Status: committed
+
+Notes: `ReviewScreen.tsx` now computes `nonStandardRuleSentences(configuration)`
+once per render (the record's rules are fixed for the whole review, unlike
+`recordedResult`, which is cursor-dependent) and renders it as a new
+`<p className="review-status__rules">` inside the existing `.review-status`
+block, between the position line and the recorded-result line, only when
+non-empty - a standard record therefore renders nothing new, matching
+Decision 10 exactly. `GameRecord.tsx` computes the same summary from
+`play.configuration` and appends it (space-joined, only when non-empty) to
+the existing hint paragraph alongside the `Ruleset` tag it already prints -
+one call in each of the two record surfaces, both consuming Step 7's
+`nonStandardRuleSentences` so the wording is identical everywhere it
+appears. Added `.review-status__rules` to `ReviewScreen.css` (plain weight,
+explicitly distinguished in a comment from `.review-status__result`'s
+italic "record's claim" styling, since this line states the record's rules
+as fact rather than quoting a claim). No new player-facing framing was
+added - no heading, no "non-standard"/"experimental" wording, just the same
+plain sentences Step 7 wrote. No deviation from the plan: only the two files
+Decision 10 names (`ReviewScreen.tsx`, `GameRecord.tsx`) were touched
+besides `ReviewScreen.css` for styling, no automated tests were added (the
+step's own verification lists none - `ruleChoices.test.ts` from Step 7
+already covers `nonStandardRuleSentences` itself), and the test count is
+unchanged at 702. (Step 8's notes recorded 703, which was accurate when that
+step was reported; the orchestrator then removed `ruleChoices.test.ts`'s
+"marks the standard option's label as standard" test while applying the
+owner's copy revision at Step 8's manual gate, since no value is marked as
+the standard one any more. Nothing in Step 9 changed the count.)
+`npm run typecheck`,
+`npm run lint`, `npm test` (702 tests, all passing), `npm run format:check`
+and `npm run build` are all clean; `npm run dev` was restarted and confirmed
+to serve the app (HTTP 200) as a basic smoke check, with Gate E itself left
+for the orchestrator's manual verification pass with the owner, as
+instructed.
 
 Surface a record's non-standard rules, per Decision 10:
 

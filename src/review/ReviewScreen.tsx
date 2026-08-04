@@ -40,12 +40,21 @@
 // it from the record's own `Ruleset` tag) rather than letting `FullBoard`'s
 // Battle default silently apply - a Skirmish record was previously drawn on
 // a 12x12 board with Battle's lakes, not Skirmish's.
+//
+// Story 00000027, Step 9: the status line also shows the record's
+// non-standard rules, if any (`ruleChoices.ts`'s `nonStandardRuleSentences`,
+// the same summary `GameChoice.tsx`'s post-choice announcement and
+// `GameRecord.tsx`'s hint line use) - so a diagonal capture of the flag, or a
+// diagonal attack refused for lack of an open square, reads as the rules the
+// game was played under rather than a bug. Empty, and rendered as nothing,
+// for a record played on the standard values.
 
 import { useEffect, useRef, useState } from "react";
 import "../App.css";
 import "./ReviewScreen.css";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
 import { FullBoard } from "../board/FullBoard.tsx";
+import { nonStandardRuleSentences } from "../board/ruleChoices.ts";
 import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import type { ReplayedRecord } from "../rules/primary/v2/replay.ts";
 import {
@@ -117,6 +126,11 @@ export function ReviewScreen({
   // the record's claim. Shared with `describeStepAnnouncement` so the visible
   // text and the live-region announcement always agree.
   const recordedResult = recordedResultAt(session);
+  // Empty for a record played on the standard values, so an existing
+  // standard record's review looks exactly as it always has (story 00000027,
+  // Step 9). Fixed for the whole review - the record's rules don't change as
+  // the cursor moves, unlike `recordedResult` above.
+  const rulesSummary = nonStandardRuleSentences(configuration);
 
   return (
     <main className="app">
@@ -131,6 +145,9 @@ export function ReviewScreen({
         <p className="review-status__position">
           {describeCurrentPosition(session)}
         </p>
+        {rulesSummary.length > 0 && (
+          <p className="review-status__rules">{rulesSummary.join(" ")}</p>
+        )}
         {recordedResult !== null && (
           <p className="review-status__result">{recordedResult}</p>
         )}
