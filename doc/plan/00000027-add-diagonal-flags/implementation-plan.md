@@ -921,11 +921,78 @@ the review disappears none of today's behaviour. Repeat with a standard game and
 confirm **no** rules line appears. Import each of the three `doc/samples/` files
 added in Step 6 and confirm each reviews with the right rules named. Finally,
 hand-edit one sample's tag to name a flag this app does not know and confirm the
-rejection message names that exact token.
+rejection message names that exact token. ~~(This last check is superseded by
+Step 10 — such a record must **review**, not be rejected.)~~
 
 ---
 
-## Step 10 — README, final copy sweep, and the accessibility pass
+## Step 10 — An unrecognised flag must not prevent review
+
+Status: pending
+
+**Added after Step 9's manual gate (Gate E), on the owner's finding.** Step 6
+made an unrecognised flag token reject the whole record. That is wrong, and it
+breaks a guarantee the companion project makes about this application by name.
+`technical-notes.md`, "What is guaranteed, and to whom":
+
+> **View-only replay is guaranteed for all records, forever.** A record can be
+> read, its position block rendered, and its move sequence stepped through by
+> notation-schema stability alone — no rules knowledge required. This holds for
+> every record ever written, under any edition, and survives every minor bump.
+
+and, closing that section: "The distinction is what lets rules change without
+breaking the front-end application, **whose contract is review, not
+validation**." `replay.ts` is already rule-blind and consults no rule to step a
+record, so nothing about reviewing actually needs the flags — only the
+_description_ shown to the reviewer does.
+
+Implement:
+
+- **No flag token ever rejects a record.** All four cases Step 6 introduced —
+  malformed token, unknown flag id, unknown value for a known flag, repeated
+  flag id — stop being rejections. Known tokens still resolve as they do now;
+  everything else is carried as an **unrecognised token**, verbatim.
+  _Design call (open to challenge at peer review): malformed and repeated
+  tokens pass too, not just unknown ones. Blocking review over any of them
+  denies view-only replay just the same, and the guarantee is about rules
+  knowledge, not tag tidiness._
+- **The edition id remains the one thing that can reject.** It is needed to
+  resolve the board layout and the notation frame, and it is how major-1
+  records are already refused (story 00000023's Step 8). Today's
+  `unknownRuleset` rejection and its message are unchanged.
+- **The reviewer is told, plainly, that it cannot describe those rules.** A
+  record carrying an unrecognised token reviews normally, and says in the same
+  plain voice as Step 7's copy that the game used a rule this app does not
+  know, quoting the token — so a reviewer is never misled into thinking they
+  are watching a standard game. Recognised flags keep their existing
+  sentences; a record can carry both at once.
+- **Nothing implies such a game could be resumed.** Reviewing is guaranteed;
+  playing on from a record is not, and nothing in the app does that today.
+  This is a note for the future, not code.
+- The `RuleFlagTokenError` machinery from Step 6 is repurposed or removed as
+  the implementation prefers; `reviewText.ts`'s wording for those four cases
+  goes away with the rejections, and its exhaustive switches will say so.
+
+Depends on: Steps 6, 7 and 9 (the parsing, the copy, and the reviewer's
+display).
+
+Verification (**automated**): `npm run typecheck`, `npm run lint`, `npm test`,
+`npm run format:check` and `npm run build` all clean. Tests must pin: a record
+whose tag names an unknown flag id replays end to end; the same for an unknown
+value, a malformed token and a repeated flag; a record mixing one recognised
+and one unrecognised token both replays and describes the recognised one; the
+unrecognised token is reproduced verbatim in what the reviewer is told; and an
+unknown **edition id** still rejects exactly as it does today. Existing record
+fixtures and the three Step 6 samples must keep passing unedited.
+
+Verification (**manual**, folded into Gate E's re-check at Step 11): hand-edit
+a sample's tag to `DIAGONAL_SOMETHING=on`, and separately to
+`DIAGONAL_ATTACKABLE=sideways`, and confirm each still reviews end to end while
+saying the app does not know that rule.
+
+---
+
+## Step 11 — README, final copy sweep, and the accessibility pass
 
 Status: pending
 
@@ -962,4 +1029,8 @@ reader running:
 - Re-check Gate A: a Battle and a Skirmish game left on the standard values play
   and record exactly as they did before this story, with bare `2-0:BATTLE` /
   `2-1:SKIRMISH` tags.
+- Re-check Gate E for Step 10: a sample record hand-edited to name a flag this
+  app does not know (`DIAGONAL_SOMETHING=on`) and one hand-edited to an unknown
+  value (`DIAGONAL_ATTACKABLE=sideways`) both **review end to end**, each saying
+  plainly that the app does not know that rule.
 - Re-read the two changed `README.md` bullets end to end for accuracy and tone.
