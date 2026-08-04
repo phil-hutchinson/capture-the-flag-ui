@@ -220,9 +220,14 @@ board }`, `buildInitialGameState(white, black, edition)`,
    short label per value, a one-sentence description per value, and a summary
    helper that turns a `RuleConfiguration` into the sentences describing what is
    non-standard about it (or nothing, when it is standard). Flag ids and value
-   tokens never appear in it. **Each choice names its standard value as the
+   tokens never appear in it. ~~**Each choice names its standard value as the
    standard one** (e.g. a "(standard)" suffix on that option's label), so a
-   player can tell what deviates from the official game without jargon.
+   player can tell what deviates from the official game without jargon.~~
+   **Superseded by an owner decision at Step 8's manual gate: no value is
+   marked as the standard one.** Both flags are pre-release proposals, and
+   neither value is to be presented as preferred over the other. `isStandard`
+   survives as structure (it orders the options and derives the deviation
+   sentences) but never reaches a player as a recommendation.
    **Owner decision at the plan gate: the word is "diagonal", not
    "corner-to-corner".** `rules.md` §4.3 and its glossary are themselves written
    for players and say "diagonal", so a player who follows the link to the
@@ -230,18 +235,19 @@ board }`, `buildInitialGameState(white, black, edition)`,
    "corner-to-corner" mentions (lines 29 and 69) inconsistent with the app, so
    Step 10 changes them to "diagonal" as well — that widening is intended, not
    scope creep. Proposed copy (the owner may adjust it at the Step 8 manual
-   gate):
+   gate). **The owner revised this copy at that gate; the wording below is
+   what shipped**, and `src/board/ruleChoices.ts` is its single home:
    - Section heading: **Diagonal attacks**
-   - Choice 1 — _What a diagonal attack can hit_: **"Numbered pieces only
-     (standard)"** — "A piece can only strike a numbered enemy standing
-     diagonally next to it. Towers and the flag have to be taken head-on."
-     / **"Any piece, flag included"** — "A piece can strike any enemy standing
-     diagonally next to it, towers and the flag included — so the flag can be
-     captured from a diagonal."
-   - Choice 2 — _Whether a diagonal attack needs room_: **"No room needed
-     (standard)"** — "A piece can always strike an enemy standing diagonally
-     next to it." / **"Room needed beside it"** — "A diagonal attack only works
-     if at least one of the two squares beside it is empty and isn't a lake."
+   - Choice 1 — _What can be attacked diagonally_: **"Ranked pieces only"** —
+     "Ranked (numbered) pieces can be attacked diagonally. Towers and the flag
+     cannot." / **"Any piece, flag/towers included"** — "A piece can strike any
+     enemy standing diagonally next to it, towers and the flag included — so
+     the flag can be captured from a diagonal."
+   - Choice 2 — _Diagonal attack requires open square_: **"No open square
+     required"** — "A piece can always attack an eligible enemy diagonally." /
+     **"Open square required"** — "A diagonal attack can only be made if there
+     is a common open square (no friendly or hostile piece, no lake) adjacent
+     to both pieces."
 8. **How the new-game screen accommodates the choices.** Keep its current
    shape — game buttons, the selected game's description, one "Play <Game>"
    confirm button — and add **one** section between the description and the
@@ -757,7 +763,50 @@ player" — no string in the module contains a flag id, a value token,
 
 ## Step 8 — The new-game screen offers both choices
 
-Status: pending
+Status: committed
+
+Notes: `GameChoice.tsx` now renders `ruleChoices.ts`'s `RULE_CHOICES` in one
+new `.game-choice__rules` section between the game description and the "Play
+<Game>" button - each choice is a visible `<h4>` heading wired via
+`aria-labelledby` to a `role="group"` pair of `aria-pressed` buttons (reusing
+the game choice's own `.game-choice__option(s)`/`.game-choice__detail`
+classes, so both look and behave identically), with the selected option's
+sentence shown beneath it. `onChoose` now reports a full `RuleConfiguration`
+built by `configureRules(selectedEdition, flagOverrides)`; `lastPlayed`
+widened to `RuleConfiguration | null`, pre-selecting the edition (via
+`defaultGameId(lastPlayed?.edition ?? null)`, unchanged) and seeding
+`flagOverrides` from `lastPlayed.flags` when there is one - any flag never
+touched this session falls back to `configureRules`'s own standard-value
+resolution, exactly like the record model's own canonicalization. Reported
+values are read generically off `RuleChoiceDescriptor.options[].value`
+(plain `string`s, since a rendered button can't carry each flag's own
+literal-value type), so one cast to `RuleFlagOverrides` at the "Play <Game>"
+click is needed, mirroring the casts `ruleChoices.ts` already uses for the
+same reason. `HotSeatGame.tsx`'s `edition` state became `configuration:
+RuleConfiguration | null` throughout (placement still seeds from
+`configuration.edition` via `newSession`, unaffected by either flag per the
+plan); `handleConfirm` now passes `configuration` straight to
+`buildInitialGameState` instead of calling `configureRules(edition)` itself,
+since `GameChoice` already resolved it. The "You chose …" live-region
+announcement is extended with `ruleChoices.ts`'s
+`nonStandardRuleSentences(chosenConfiguration)`, appended as additional
+sentences only when non-empty, so a standard game's announcement is
+byte-identical to before. `App.tsx`'s `lastPlayedEdition` state became
+`lastPlayedConfiguration: RuleConfiguration | null`, still in-memory only,
+passed straight through to `HotSeatGame`. `GameChoice.css` gained matching
+rules for the new section (`.game-choice__rules(-heading)`,
+`.game-choice__rule(-heading)`), reusing the existing option/detail classes
+rather than duplicating their chrome. No deviation from the plan: no form
+controls, no "experimental"/"variant" framing were added, both choices are
+offered identically for both games, and the only new cast is the one the
+plan's Step 7 notes already anticipated this component would need.
+`npm run typecheck`, `npm run lint`, `npm test` (703 tests, unchanged count -
+this step is UI-only and the plan calls for no automated test harness at the
+component level), `npm run format:check` (after `prettier --write` on
+`GameChoice.tsx`) and `npm run build` are all clean; `npm run dev` was
+restarted and confirmed to serve the app (HTTP 200) as a basic smoke check,
+but Gates B, C, D and F themselves are left for the orchestrator's manual
+verification pass with the owner, as instructed.
 
 Make the two flags selectable, per Decisions 8 and 9.
 

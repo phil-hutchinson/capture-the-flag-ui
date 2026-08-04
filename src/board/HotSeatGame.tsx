@@ -15,6 +15,7 @@ import { GameResult } from "./GameResult.tsx";
 import { LeaveGameDialog } from "./LeaveGameDialog.tsx";
 import { PlacementControls } from "./PlacementControls.tsx";
 import { PlacementStatus } from "./PlacementStatus.tsx";
+import { nonStandardRuleSentences } from "./ruleChoices.ts";
 import {
   activePlacement,
   confirmActive,
@@ -49,8 +50,7 @@ import { computeCountdownWarnings } from "./playWarnings.ts";
 import { PlayWarnings } from "./PlayWarnings.tsx";
 import { Tray } from "./Tray.tsx";
 import { squareKey, type Square } from "../rules/primary/v2/board.ts";
-import { configureRules } from "../rules/primary/v2/configuration.ts";
-import type { Edition } from "../rules/primary/v2/edition.ts";
+import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
 import {
   autoFill,
@@ -78,24 +78,28 @@ import "./HotSeatGame.css";
 // below is local to this component, so mounting always starts a fresh choice
 // and unmounting discards whatever game was in progress.
 //
-// Story 00000023, Step 7: `edition` is `null` until the player chooses Battle
-// or Skirmish on `GameChoice` - while it is `null` this component renders
-// only that choice screen, before placement even begins. `handleChooseGame`
-// sets `edition` and seeds a fresh `session` from it in the same event, so a
-// render with `edition` set but `session` still `null` never actually
-// happens (the `session === null` guard below exists only so TypeScript can
-// narrow it, mirroring the pre-existing `session.active === null` guard's
-// same "unreachable in practice" shape). "New game" resets both back to
-// `null`, returning to the choice screen rather than silently replaying the
-// same game - a fresh game is exactly the moment to reconsider which to
-// play. The `lastPlayed` prop remembers which game that was (owner feedback
-// at the Step 7 manual gate, 2026-08-01): `GameChoice` pre-selects it, so a
-// player who just finished a Battle sees Battle pre-selected again rather
-// than being reset to Skirmish every time - Skirmish, per story.md's "the
-// recommended game for a new player", stays the default only on the very
-// first game of a session, while `lastPlayed` is still `null`. Unlike every
-// other piece of state here, that memory is *not* scoped to this component's
-// lifetime: `App` holds it (and this component reports each choice through
+// Story 00000023, Step 7: `configuration` is `null` until the player chooses
+// Battle or Skirmish (and, since story 00000027's Step 8, both diagonal-attack
+// rule choices alongside it) on `GameChoice` - while it is `null` this
+// component renders only that choice screen, before placement even begins.
+// `handleChooseGame` sets `configuration` and seeds a fresh `session` from its
+// edition in the same event, so a render with `configuration` set but
+// `session` still `null` never actually happens (the `session === null` guard
+// below exists only so TypeScript can narrow it, mirroring the pre-existing
+// `session.active === null` guard's same "unreachable in practice" shape).
+// "New game" resets both back to `null`, returning to the choice screen
+// rather than silently replaying the same game - a fresh game is exactly the
+// moment to reconsider which to play. The `lastPlayed` prop remembers which
+// configuration that was (owner feedback at the Step 7 manual gate,
+// 2026-08-01, extended by story 00000027's Step 8 from a bare `Edition` to a
+// full `RuleConfiguration`): `GameChoice` pre-selects the game and both flags
+// from it, so a player who just finished a Battle on non-standard flags sees
+// all three pre-selected again rather than being reset every time -
+// Skirmish and the standard flag values, per story.md's "the recommended
+// game for a new player", stay the default only on the very first game of a
+// session, while `lastPlayed` is still `null`. Unlike every other piece of
+// state here, that memory is *not* scoped to this component's lifetime:
+// `App` holds it (and this component reports each choice through
 // `onGameStarted`) so it survives a trip back to the start screen, which is
 // the whole session story.md's amended Policy bullet asks for (peer review,
 // finding #17).
@@ -157,18 +161,19 @@ type Selection =
 
 export interface HotSeatGameProps {
   /**
-   * The game most recently started this app session, or `null` if none has
-   * been. `GameChoice` pre-selects it; `null` falls back to Skirmish, the
-   * recommended first game. Held by `App` so it survives this component's
-   * unmount (peer review, finding #17).
+   * The configuration (game plus both diagonal-attack rule choices, story
+   * 00000027) most recently started this app session, or `null` if none has
+   * been. `GameChoice` pre-selects the game and both flags from it; `null`
+   * falls back to Skirmish and the standard values. Held by `App` so it
+   * survives this component's unmount (peer review, finding #17).
    */
-  readonly lastPlayed: Edition | null;
+  readonly lastPlayed: RuleConfiguration | null;
   /**
-   * Reports the game the player has just chosen, so it becomes the next
-   * choice screen's pre-selection - including after a game is abandoned part
-   * way through, since it was still the last one played.
+   * Reports the configuration the player has just chosen, so it becomes the
+   * next choice screen's pre-selection - including after a game is abandoned
+   * part way through, since it was still the last one played.
    */
-  readonly onGameStarted: (edition: Edition) => void;
+  readonly onGameStarted: (configuration: RuleConfiguration) => void;
   /**
    * Returns to the start screen. Called directly once the game has ended;
    * while the game is in progress (placing or playing), called only after
@@ -182,10 +187,14 @@ export function HotSeatGame({
   onGameStarted,
   onBack,
 }: HotSeatGameProps) {
-  // Story 00000023, Step 7: the Battle/Skirmish choice - `null` until the
-  // player picks one on `GameChoice`, below. `session` stays `null` until
-  // then too; `handleChooseGame` sets both together.
-  const [edition, setEdition] = useState<Edition | null>(null);
+  // Story 00000023, Step 7: the Battle/Skirmish choice, widened by story
+  // 00000027's Step 8 to the full rule configuration (game plus both
+  // diagonal-attack flags) - `null` until the player picks one on
+  // `GameChoice`, below. `session` stays `null` until then too;
+  // `handleChooseGame` sets both together.
+  const [configuration, setConfiguration] = useState<RuleConfiguration | null>(
+    null,
+  );
   const [session, setSession] = useState<PlacementSession | null>(null);
   // Text pushed into the placement screen's own polite live region the
   // moment a game is chosen (`handleChooseGame`, below) - names the game and
@@ -303,7 +312,7 @@ export function HotSeatGame({
   // once the game has ended - i.e. exactly the condition under which leaving
   // would lose something.
   const gameInProgress =
-    edition !== null &&
+    configuration !== null &&
     (playSession === null || playSession.play.result.kind === "ongoing");
 
   function handleBackToStart() {
@@ -314,22 +323,27 @@ export function HotSeatGame({
     onBack();
   }
 
-  // Starts a fresh two-player session for the chosen game (`GameChoice`
-  // pre-selects the last-played game, or Skirmish on the first game of a
-  // session) and announces the choice - the selected game and its board
-  // size - to the placement screen's live region. The choice is reported to
-  // `App` here, as the game starts rather than as it ends, so a game
-  // abandoned part way through still counts as the one played most recently.
-  function handleChooseGame(chosenEdition: Edition) {
-    onGameStarted(chosenEdition);
-    setEdition(chosenEdition);
-    setSession(newSession(chosenEdition));
+  // Starts a fresh two-player session for the chosen configuration
+  // (`GameChoice` pre-selects the last-played game and both flags, or the
+  // recommended first game on the standard values) and announces the choice
+  // - the selected game, its board size, and (story 00000027, Step 8) any
+  // non-standard rule the player picked - to the placement screen's live
+  // region. The choice is reported to `App` here, as the game starts rather
+  // than as it ends, so a game abandoned part way through still counts as the
+  // one played most recently.
+  function handleChooseGame(chosenConfiguration: RuleConfiguration) {
+    onGameStarted(chosenConfiguration);
+    setConfiguration(chosenConfiguration);
+    setSession(newSession(chosenConfiguration.edition));
+    const ruleSentences = nonStandardRuleSentences(chosenConfiguration);
+    const ruleAnnouncement =
+      ruleSentences.length > 0 ? ` ${ruleSentences.join(" ")}` : "";
     setGameAnnouncement(
-      `You chose ${gameName(chosenEdition)}. Placing on ${boardSizeDescription(chosenEdition)}.`,
+      `You chose ${gameName(chosenConfiguration.edition)}. Placing on ${boardSizeDescription(chosenConfiguration.edition)}.${ruleAnnouncement}`,
     );
   }
 
-  if (edition === null) {
+  if (configuration === null) {
     return (
       <main className="app">
         <PieceSpriteDefs />
@@ -370,16 +384,17 @@ export function HotSeatGame({
     // Story 00000006, Step 10: "New game" is a full reset - back to the
     // Battle/Skirmish choice (story 00000023, Step 7), rather than silently
     // replaying the game just finished, since a fresh game is exactly the
-    // moment to reconsider which to play. `edition` and `session` both go
-    // back to `null` (which is what routes back to the choice screen above),
-    // and `playSession`/the placement selection/both announcements are
-    // cleared alongside them. The choice screen this returns to pre-selects
-    // the game just played instead of always resetting to Skirmish (owner
-    // feedback at the Step 7 manual gate, 2026-08-01) - `lastPlayed` was
-    // recorded by `handleChooseGame` when this game began, so nothing needs
-    // remembering here.
+    // moment to reconsider which to play. `configuration` and `session` both
+    // go back to `null` (which is what routes back to the choice screen
+    // above), and `playSession`/the placement selection/both announcements
+    // are cleared alongside them. The choice screen this returns to
+    // pre-selects the game and both rule choices just played instead of
+    // always resetting to the defaults (owner feedback at the Step 7 manual
+    // gate, 2026-08-01, extended to the flags by story 00000027's Step 8) -
+    // `lastPlayed` was recorded by `handleChooseGame` when this game began,
+    // so nothing needs remembering here.
     const handleNewGame = () => {
-      setEdition(null);
+      setConfiguration(null);
       setSession(null);
       setPlaySession(null);
       setSelection(null);
@@ -470,11 +485,11 @@ export function HotSeatGame({
 
   if (session === null) {
     // Unreachable in practice: `handleChooseGame` always sets `session` in
-    // the very same event as `edition`, and React batches both updates into
-    // one render, so the branch above always handles the "no edition chosen
-    // yet" case first. Kept only so TypeScript can narrow `session` to
-    // `PlacementSession` below, mirroring `EngineGame.tsx`'s identical guard
-    // for its own nullable `placement`.
+    // the very same event as `configuration`, and React batches both updates
+    // into one render, so the branch above always handles the "no
+    // configuration chosen yet" case first. Kept only so TypeScript can
+    // narrow `session` to `PlacementSession` below, mirroring
+    // `EngineGame.tsx`'s identical guard for its own nullable `placement`.
     return null;
   }
 
@@ -653,29 +668,29 @@ export function HotSeatGame({
   }
 
   function handleConfirm() {
-    // `session`/`edition` are narrowed non-null by the guards above for the
-    // rest of this component's render, but TypeScript does not carry that
+    // `session`/`configuration` are narrowed non-null by the guards above for
+    // the rest of this component's render, but TypeScript does not carry that
     // narrowing across this nested function's own boundary (the same reason
     // `EngineGame.tsx`'s `handleConfirm` re-checks `placement`/`humanSide`) -
     // unreachable in practice, since both are only ever `null` before a game
     // is chosen, at which point this handler is not yet wired to anything.
-    if (session === null || edition === null) {
+    if (session === null || configuration === null) {
       return;
     }
     const next = confirmActive(session);
     setSession(next);
     if (next.active === null) {
       // Both players have now confirmed: build the versioned initial
-      // game-state artifact (story 00000001), tagged with the chosen edition
-      // (story 00000023, Step 7) - resolved to a *standard* rule
-      // configuration (story 00000027, Step 3; both flags choosable starting
-      // Step 8) - so play, rendering, and the record all use the game just
-      // chosen, and start Phase 2 immediately - per the owner's decision,
-      // there is no separate "reveal" gate.
+      // game-state artifact (story 00000001), under the configuration the
+      // player chose on `GameChoice` (story 00000023, Step 7; widened from a
+      // standard-only configuration to the player's own flag choices by
+      // story 00000027's Step 8) - so play, rendering, and the record all use
+      // the game and rules just chosen, and start Phase 2 immediately - per
+      // the owner's decision, there is no separate "reveal" gate.
       const gameState = buildInitialGameState(
         next.white,
         next.black,
-        configureRules(edition),
+        configuration,
       );
       const freshPlaySession = startSession(gameState);
       setPlaySession(freshPlaySession);

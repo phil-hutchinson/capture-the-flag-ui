@@ -47,12 +47,12 @@ describe("RULE_CHOICES", () => {
     }
   });
 
-  it("marks the standard option's label as standard", () => {
-    for (const choice of RULE_CHOICES) {
-      const standard = choice.options.find((option) => option.isStandard);
-      expect(standard?.label).toMatch(/standard/i);
-    }
-  });
+  // Deliberately no test that the standard option's label says "standard":
+  // the owner's decision at Step 8's manual gate is that no value is marked
+  // as preferred while both flags are pre-release proposals. `isStandard`
+  // survives as structure (it orders the options and derives the deviation
+  // sentences), but it never reaches a player as a recommendation. See
+  // `ruleChoices.ts`.
 
   it("has a non-empty overall section heading", () => {
     expect(RULE_CHOICES_HEADING.length).toBeGreaterThan(0);

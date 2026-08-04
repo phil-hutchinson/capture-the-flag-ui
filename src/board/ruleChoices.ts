@@ -56,34 +56,46 @@ interface RuleChoiceCopyEntry<Id extends RuleFlagId> {
  */
 type RuleChoiceCopy = { readonly [Id in RuleFlagId]: RuleChoiceCopyEntry<Id> };
 
+/**
+ * The copy itself, settled with the owner at story 00000027's Step 8 manual
+ * gate. Two things about it are deliberate and should not be "tidied":
+ *
+ * - **No value is labelled the standard one.** Both flags are pre-release
+ *   proposals in the companion project's `proposed-variants.md`, and the
+ *   owner's decision is that neither value is presented as preferred. The
+ *   `isStandard` field below is structure - it orders the options and derives
+ *   the deviation sentences - and never surfaces to a player as a
+ *   recommendation.
+ * - **No "experimental" framing**, per story.md's Policy: these read as
+ *   ordinary game settings, with no banner, disclosure or hedging.
+ */
 const RULE_CHOICE_COPY: RuleChoiceCopy = {
   DIAGONAL_ATTACKABLE: {
-    heading: "What a diagonal attack can hit",
+    heading: "What can be attacked diagonally",
     options: {
       movable_only: {
-        label: "Numbered pieces only (standard)",
+        label: "Ranked pieces only",
         description:
-          "A piece can only strike a numbered enemy standing diagonally next to it. Towers and the flag have to be taken head-on.",
+          "Ranked (numbered) pieces can be attacked diagonally. Towers and the flag cannot.",
       },
       all: {
-        label: "Any piece, flag included",
+        label: "Any piece, flag/towers included",
         description:
           "A piece can strike any enemy standing diagonally next to it, towers and the flag included — so the flag can be captured from a diagonal.",
       },
     },
   },
   DIAGONAL_ATTACK_PATH: {
-    heading: "Whether a diagonal attack needs room",
+    heading: "Diagonal attack requires open square",
     options: {
       always: {
-        label: "No room needed (standard)",
-        description:
-          "A piece can always strike an enemy standing diagonally next to it.",
+        label: "No open square required",
+        description: "A piece can always attack an eligible enemy diagonally.",
       },
       open_path: {
-        label: "Room needed beside it",
+        label: "Open square required",
         description:
-          "A diagonal attack only works if at least one of the two squares beside it is empty and isn't a lake.",
+          "A diagonal attack can only be made if there is a common open square (no friendly or hostile piece, no lake) adjacent to both pieces.",
       },
     },
   },
