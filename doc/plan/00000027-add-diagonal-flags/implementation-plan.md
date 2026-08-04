@@ -700,7 +700,33 @@ that reads each new `doc/samples/` file from disk and replays it.
 
 ## Step 7 — Player-facing wording for the two choices
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/ruleChoices.ts` and `src/board/ruleChoices.test.ts`.
+The module holds `RULE_CHOICE_COPY` (an exhaustive, mapped-type-enforced
+per-flag/per-value copy table mirroring `gameNames.ts`'s precedent — a third
+flag id or value fails to compile until it has copy), the derived
+`RULE_CHOICES` array (both choices ready to render, standard option listed
+first per Decision 7), an exported `RULE_CHOICES_HEADING` constant ("Diagonal
+attacks", the plan's section heading — not explicitly required by the step
+text but kept in the same single home as the rest of the copy per Decision
+7's "single home for the two choices' plain-language copy"), and
+`nonStandardRuleSentences(configuration)`, which returns the deviating
+flags' own one-sentence descriptions (alphabetical flag order, empty for a
+standard configuration) for Steps 8-9 to consume. Used the plan's Decision 7
+draft copy verbatim (see report). `ruleChoices.test.ts` covers every item the
+step's verification lists, including a jargon guard that checks for the
+flag ids, the unambiguous snake_case value tokens (`movable_only`,
+`open_path`), "edition"/"Edition", the three edition ids, and the word "ply"
+(word-boundary, case-insensitive) — deliberately excluding the value tokens
+"all" and "always" from the substring check, since both are ordinary English
+words the approved copy legitimately uses and a bare-substring check on them
+would be nonsensical (documented inline in the test). No deviation from the
+plan otherwise: nothing outside this module and its test imports it yet, and
+no existing file was touched (confirmed via `git status`). `npm run
+typecheck`, `npm run lint`, `npm test` (703 tests, up from 690), `npm run
+format:check` (after `prettier --write` on both new files) and `npm run
+build` are all clean.
 
 Add `src/board/ruleChoices.ts` — the single home for the two choices' copy and
 the "what is non-standard here" summary, per Decision 7. It provides, for each
