@@ -624,7 +624,37 @@ npm test`.
 
 ## Step 6 — Reading a stamped record
 
-Status: pending
+Status: committed
+
+Notes: `readRecord.ts` now splits the tag value on whitespace, treats the
+first token as the edition id (unknown → `unknownRuleset` carrying just that
+token, matching the plan; an empty tag still falls through the same path
+since `tokens[0] ?? ""` is never a known edition id), and hands the remaining
+tokens to `configuration.ts`'s `parseRuleFlagTokens` together with the
+resolved edition, returning its canonical configuration on success or a new
+`ruleFlags` `ReadRecordError` case (wrapping `RuleFlagTokenError`) on
+failure — worded in `reviewText.ts`'s `describeRuleFlagTokenError`, one
+sentence per case naming the verbatim token in the established "…, so it
+can't be reviewed." voice. Added three hand-built sample records under
+`doc/samples/` (`2-1-skirmish-diagonal-attackable-all.txt`,
+`2-1-skirmish-diagonal-attack-path-open.txt`,
+`2-1-skirmish-diagonal-both-flags.txt`, all on the 8x8 Skirmish board, each a
+White Champion at D3 diagonally attacking Black at E4) and described them in
+`doc/samples/README.md`. Extended `readRecord.test.ts` with all of this
+step's listed coverage (round-trips per non-standard configuration built via
+the real writer, canonicalization, out-of-order/whitespace tokens, all four
+rejection cases, and a read-from-disk test per new sample file) and
+`reviewText.test.ts` with a `RuleFlagTokenError` fixture set plus a test that
+every rejection sentence contains its offending token. One deviation from
+the plan: because Step 6 lands before the new-game screen offers either flag
+(Steps 7–9), the three sample records could not be produced by actually
+playing a game through the app as `2-0-skirmish-tower-in-lane.txt` was —
+they were hand-built to match the real writer's exact format instead
+(header tags, position block, extended-notation move), which
+`doc/samples/README.md` now calls out explicitly; the automated test suite
+still proves each one parses and replays correctly. `npm run typecheck`,
+`npm run lint`, `npm test` (690 tests, up from 677), `npm run format:check`
+and `npm run build` are all clean.
 
 Teach `src/rules/readRecord.ts` to read a `Ruleset` tag that carries flag tokens,
 per Decisions 5 and 6:

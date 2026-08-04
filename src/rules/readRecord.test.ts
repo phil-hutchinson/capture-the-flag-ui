@@ -7,7 +7,10 @@ import { EDITIONS } from "./primary/v2/edition.ts";
 import { columnLetter } from "./primary/v2/boardLayout.ts";
 import {
   configureRules,
+  deviatingFlags,
+  renderRulesetTag,
   STANDARD_BATTLE_CONFIGURATION,
+  type RuleConfiguration,
 } from "./primary/v2/configuration.ts";
 import {
   renderPositionBlock,
@@ -15,6 +18,7 @@ import {
   type InitialGameState,
 } from "./primary/v2/gameState.ts";
 import { renderMoveToken } from "./primary/v2/notation.ts";
+import type { PieceTypeId } from "./primary/v2/pieces.ts";
 import { applyMove, renderGameRecord, startPlay } from "./primary/v2/play.ts";
 import { readRecord } from "./readRecord.ts";
 
@@ -742,6 +746,268 @@ describe("readRecord - the checked-in doc/samples/2-0-skirmish-tower-in-lane.txt
       side: "white",
       pieceType: "tower",
     });
+    expect(result.record.positions).toHaveLength(2);
+  });
+});
+
+// Story 00000027, Step 6: closes the loop opened at Step 3 - a `Ruleset` tag
+// can now name deviating flags, and this is where the reader learns to
+// understand them. Each case below drives the real writer
+// (`startPlay`/`applyMove`/`renderGameRecord`) under a non-standard
+// `RuleConfiguration` built via `configureRules`, exactly like Step 4/5's own
+// `applyMove` fixtures (`play.test.ts`) - D5 white champion attacking E6, its
+// diagonal neighbor - so the record this test reads back is one the app
+// would genuinely produce, not a hand-built approximation.
+describe("readRecord - reads a Ruleset tag naming deviating flags (story 00000027, Step 6)", () => {
+  function diagonalGameState(
+    defender: PieceTypeId,
+    configuration: RuleConfiguration,
+    blockedFlank: boolean,
+  ): InitialGameState {
+    const board: Record<
+      string,
+      { side: "white" | "black"; pieceType: PieceTypeId }
+    > = {
+      D5: { side: "white", pieceType: "champion" },
+      E6: { side: "black", pieceType: defender },
+      A1: { side: "white", pieceType: "flag" },
+    };
+    if (defender !== "flag") {
+      board.L12 = { side: "black", pieceType: "flag" };
+    }
+    if (blockedFlank) {
+      // E5 (one of D5->E6's two flanks) blocked; D6, the other flank, stays
+      // open - exactly enough for `open_path` to still permit the attack.
+      board.E5 = { side: "black", pieceType: "militia" };
+    }
+    return { ruleset: renderRulesetTag(configuration), configuration, board };
+  }
+
+  function playedRecordText(initial: InitialGameState): string {
+    const state = startPlay(initial);
+    const { state: finished } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "E", row: 6 },
+    );
+    return renderGameRecord(finished);
+  }
+
+  it("DIAGONAL_ATTACKABLE=all alone: a diagonal Flag capture round-trips and the deviation is reported", () => {
+    const configuration = configureRules(EDITIONS["2-0:BATTLE"], {
+      DIAGONAL_ATTACKABLE: "all",
+    });
+    const initial = diagonalGameState("flag", configuration, false);
+    const text = playedRecordText(initial);
+    expect(text).toContain('[Ruleset "2-0:BATTLE DIAGONAL_ATTACKABLE=all"]');
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+    ]);
+    expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
+    expect(result.record.tags.result).toBe("1-0");
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
+    expect(result.record.positions).toHaveLength(2);
+    expect(result.record.positions[1].E6).toEqual({
+      side: "white",
+      pieceType: "champion",
+    });
+  });
+
+  it("DIAGONAL_ATTACK_PATH=open_path alone: an attack legal only because one flank is open round-trips and the deviation is reported", () => {
+    const configuration = configureRules(EDITIONS["2-0:BATTLE"], {
+      DIAGONAL_ATTACK_PATH: "open_path",
+    });
+    const initial = diagonalGameState("militia", configuration, true);
+    const text = playedRecordText(initial);
+    expect(text).toContain(
+      '[Ruleset "2-0:BATTLE DIAGONAL_ATTACK_PATH=open_path"]',
+    );
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACK_PATH",
+    ]);
+    expect(result.configuration.flags.DIAGONAL_ATTACK_PATH).toBe("open_path");
+    expect(result.record.positions).toHaveLength(2);
+    expect(result.record.positions[1].E6).toEqual({
+      side: "white",
+      pieceType: "champion",
+    });
+  });
+
+  it("both flags deviating: a diagonal Flag capture that also needed an open flank round-trips and both deviations are reported, alphabetically", () => {
+    const configuration = configureRules(EDITIONS["2-0:BATTLE"], {
+      DIAGONAL_ATTACKABLE: "all",
+      DIAGONAL_ATTACK_PATH: "open_path",
+    });
+    const initial = diagonalGameState("flag", configuration, true);
+    const text = playedRecordText(initial);
+    expect(text).toContain(
+      '[Ruleset "2-0:BATTLE DIAGONAL_ATTACKABLE=all DIAGONAL_ATTACK_PATH=open_path"]',
+    );
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+      "DIAGONAL_ATTACK_PATH",
+    ]);
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
+  });
+
+  it("canonicalizes a stamp naming a flag at its resolved value: reads as the standard configuration, with no deviation", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE DIAGONAL_ATTACKABLE=movable_only"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration).toEqual(STANDARD_BATTLE_CONFIGURATION);
+    expect(deviatingFlags(result.configuration)).toEqual([]);
+  });
+
+  it("accepts flag tokens out of order and separated by extra whitespace", () => {
+    const skirmish = EDITIONS["2-1:SKIRMISH"];
+    const minimalState: InitialGameState = {
+      ruleset: skirmish.id,
+      configuration: configureRules(skirmish),
+      board: { A1: { side: "white", pieceType: "flag" } },
+    };
+    const skirmishBlock = renderPositionBlock(minimalState);
+    const text = [
+      '[Ruleset "2-1:SKIRMISH   DIAGONAL_ATTACK_PATH=open_path   DIAGONAL_ATTACKABLE=all"]',
+      skirmishBlock,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+      "DIAGONAL_ATTACK_PATH",
+    ]);
+  });
+
+  it.each([
+    ["a malformed token (no '=')", "DIAGONAL_ATTACKABLE", "malformedToken"],
+    ["an unknown flag id", "SOMETHING_ELSE=all", "unknownFlagId"],
+    [
+      "an unknown value for a known flag",
+      "DIAGONAL_ATTACKABLE=bogus",
+      "unknownFlagValue",
+    ],
+  ] as const)(
+    "rejects %s, naming the offending token",
+    (_description, badToken, expectedKind) => {
+      const text = [`[Ruleset "2-0:BATTLE ${badToken}"]`, POSITION_BLOCK].join(
+        "\n\n",
+      );
+
+      expect(readRecord(text)).toEqual({
+        kind: "error",
+        error: {
+          kind: "ruleFlags",
+          error: { kind: expectedKind, token: badToken },
+        },
+      });
+    },
+  );
+
+  it("rejects the same flag id named twice, naming the second (offending) token", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE DIAGONAL_ATTACKABLE=all DIAGONAL_ATTACKABLE=movable_only"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: {
+        kind: "ruleFlags",
+        error: {
+          kind: "repeatedFlagId",
+          token: "DIAGONAL_ATTACKABLE=movable_only",
+        },
+      },
+    });
+  });
+});
+
+// Story 00000027, Step 6: the three checked-in `doc/samples/` fixtures, one
+// per non-standard configuration, each read from disk exactly as a player's
+// exported record would be - see `doc/samples/README.md` for what each
+// demonstrates and how it was built.
+describe("readRecord - the checked-in doc/samples/ diagonal-flag fixtures (story 00000027, Step 6)", () => {
+  function readSample(fileName: string): string {
+    const samplePath = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      `../../doc/samples/${fileName}`,
+    );
+    return readFileSync(samplePath, "utf8");
+  }
+
+  it("2-1-skirmish-diagonal-attackable-all.txt: replays a diagonal Flag capture, reporting only DIAGONAL_ATTACKABLE as deviating", () => {
+    const result = readRecord(
+      readSample("2-1-skirmish-diagonal-attackable-all.txt"),
+    );
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+    ]);
+    expect(result.record.tags.result).toBe("1-0");
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
+    expect(result.record.positions).toHaveLength(2);
+  });
+
+  it("2-1-skirmish-diagonal-attack-path-open.txt: replays a diagonal attack that needed an open flank, reporting only DIAGONAL_ATTACK_PATH as deviating", () => {
+    const result = readRecord(
+      readSample("2-1-skirmish-diagonal-attack-path-open.txt"),
+    );
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACK_PATH",
+    ]);
+    expect(result.record.positions).toHaveLength(2);
+  });
+
+  it("2-1-skirmish-diagonal-both-flags.txt: replays a diagonal Flag capture that needed an open flank, reporting both flags as deviating", () => {
+    const result = readRecord(
+      readSample("2-1-skirmish-diagonal-both-flags.txt"),
+    );
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+      "DIAGONAL_ATTACK_PATH",
+    ]);
+    expect(result.record.tags.result).toBe("1-0");
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
     expect(result.record.positions).toHaveLength(2);
   });
 });
