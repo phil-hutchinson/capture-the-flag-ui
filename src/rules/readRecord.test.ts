@@ -3,8 +3,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { Edition } from "./primary/v2/edition.ts";
-import { BATTLE_EDITION, EDITIONS } from "./primary/v2/edition.ts";
+import { EDITIONS } from "./primary/v2/edition.ts";
 import { columnLetter } from "./primary/v2/boardLayout.ts";
+import {
+  configureRules,
+  STANDARD_BATTLE_CONFIGURATION,
+} from "./primary/v2/configuration.ts";
 import {
   renderPositionBlock,
   RULESET_TAG,
@@ -29,7 +33,7 @@ import { readRecord } from "./readRecord.ts";
 
 const GAME_STATE: InitialGameState = {
   ruleset: RULESET_TAG,
-  edition: BATTLE_EDITION,
+  configuration: STANDARD_BATTLE_CONFIGURATION,
   board: {
     A1: { side: "white", pieceType: "flag" },
   },
@@ -142,7 +146,7 @@ describe("readRecord - edition dispatch", () => {
 describe("readRecord - a small synthetic 2-0:BATTLE record round-trips", () => {
   const ROUND_TRIP_GAME_STATE: InitialGameState = {
     ruleset: RULESET_TAG,
-    edition: BATTLE_EDITION,
+    configuration: STANDARD_BATTLE_CONFIGURATION,
     board: {
       A1: { side: "white", pieceType: "masterOfArms" },
       B1: { side: "white", pieceType: "champion" },
@@ -249,7 +253,7 @@ describe("readRecord - a small synthetic 2-0:BATTLE record round-trips", () => {
     // ruleset's.
     const malformedState: InitialGameState = {
       ruleset: RULESET_TAG,
-      edition: BATTLE_EDITION,
+      configuration: STANDARD_BATTLE_CONFIGURATION,
       board: {
         A1: { side: "white", pieceType: "masterOfArms" },
         A2: { side: "white", pieceType: "champion" },
@@ -298,7 +302,7 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
     (id, edition, columnCount, rowCount) => {
       const initial: InitialGameState = {
         ruleset: edition.id,
-        edition,
+        configuration: configureRules(edition),
         board: {
           A1: { side: "white", pieceType: "flag" },
         },
@@ -311,9 +315,11 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
         return;
       }
 
-      expect(result.edition.id).toBe(id);
-      expect(result.edition.boardLayout.columnCount).toBe(columnCount);
-      expect(result.edition.boardLayout.rowCount).toBe(rowCount);
+      expect(result.configuration.edition.id).toBe(id);
+      expect(result.configuration.edition.boardLayout.columnCount).toBe(
+        columnCount,
+      );
+      expect(result.configuration.edition.boardLayout.rowCount).toBe(rowCount);
     },
   );
 
@@ -321,7 +327,7 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
     const skirmish = EDITIONS["2-1:SKIRMISH"];
     const initial: InitialGameState = {
       ruleset: skirmish.id,
-      edition: skirmish,
+      configuration: configureRules(skirmish),
       board: { A1: { side: "white", pieceType: "flag" } },
     };
 
@@ -331,9 +337,11 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
       return;
     }
 
-    expect(result.edition.boardLayout.lakeRows).toEqual([4, 5]);
+    expect(result.configuration.edition.boardLayout.lakeRows).toEqual([4, 5]);
     expect(
-      result.edition.boardLayout.lakeColumnIndices.map(columnLetter),
+      result.configuration.edition.boardLayout.lakeColumnIndices.map(
+        columnLetter,
+      ),
     ).toEqual(["B", "C", "F", "G"]);
   });
 
@@ -341,7 +349,7 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
     const battle = EDITIONS["2-0:BATTLE"];
     const initial: InitialGameState = {
       ruleset: battle.id,
-      edition: battle,
+      configuration: configureRules(battle),
       board: { A1: { side: "white", pieceType: "flag" } },
     };
 
@@ -351,9 +359,11 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
       return;
     }
 
-    expect(result.edition.boardLayout.lakeRows).toEqual([6, 7]);
+    expect(result.configuration.edition.boardLayout.lakeRows).toEqual([6, 7]);
     expect(
-      result.edition.boardLayout.lakeColumnIndices.map(columnLetter),
+      result.configuration.edition.boardLayout.lakeColumnIndices.map(
+        columnLetter,
+      ),
     ).toEqual(["B", "C", "F", "G", "J", "K"]);
   });
 });
@@ -391,7 +401,7 @@ describe("readRecord - renderGameRecord's opening-position output round-trips fo
   ])("round-trips a freshly started %s game", (id, edition, size) => {
     const initial: InitialGameState = {
       ruleset: edition.id,
-      edition,
+      configuration: configureRules(edition),
       board: {
         A1: { side: "white", pieceType: "flag" },
       },
@@ -433,7 +443,7 @@ describe("readRecord - accepts all three registered edition tags (story 00000025
   ])("accepts a record tagged %s", (id, edition) => {
     const initial: InitialGameState = {
       ruleset: edition.id,
-      edition,
+      configuration: configureRules(edition),
       board: { A1: { side: "white", pieceType: "flag" } },
     };
 
@@ -443,7 +453,7 @@ describe("readRecord - accepts all three registered edition tags (story 00000025
       return;
     }
     expect(result.record.tags.ruleset).toBe(id);
-    expect(result.edition.id).toBe(id);
+    expect(result.configuration.edition.id).toBe(id);
   });
 
   it("still rejects an unknown ruleset tag", () => {
@@ -462,7 +472,7 @@ describe("readRecord - a small synthetic 2-1:SKIRMISH record round-trips (8x8)",
   const skirmish = EDITIONS["2-1:SKIRMISH"];
   const SKIRMISH_GAME_STATE: InitialGameState = {
     ruleset: skirmish.id,
-    edition: skirmish,
+    configuration: configureRules(skirmish),
     board: {
       A1: { side: "white", pieceType: "masterOfArms" },
       B1: { side: "white", pieceType: "champion" },
@@ -553,7 +563,7 @@ describe("readRecord - a played game's moves round-trip through the real writer 
   } {
     const initial: InitialGameState = {
       ruleset: edition.id,
-      edition,
+      configuration: configureRules(edition),
       board: {
         A1: { side: "white", pieceType: "flag" },
         E3: { side: "black", pieceType: "flag" },
@@ -635,7 +645,7 @@ describe("readRecord - a finished game's record carries its own edition's Rulese
     (id, edition) => {
       const initial: InitialGameState = {
         ruleset: edition.id,
-        edition,
+        configuration: configureRules(edition),
         board: {
           A1: { side: "white", pieceType: "flag" },
           D2: { side: "white", pieceType: "champion" },
@@ -669,7 +679,7 @@ describe("readRecord - a finished game's record carries its own edition's Rulese
         result: "1-0",
         resultReason: "Flag Captured",
       });
-      expect(result.edition.id).toBe(id);
+      expect(result.configuration.edition.id).toBe(id);
       expect(result.record.positions[0]).toEqual(initial.board);
       expect(result.record.moves.map((move) => move.token)).toEqual(["D2-D3x"]);
     },

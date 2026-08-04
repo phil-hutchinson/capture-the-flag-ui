@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Square } from "../rules/primary/v2/board.ts";
-import { BATTLE_EDITION } from "../rules/primary/v2/edition.ts";
+import { STANDARD_BATTLE_CONFIGURATION } from "../rules/primary/v2/configuration.ts";
 import { RULESET_TAG } from "../rules/primary/v2/gameState.ts";
 import type {
   BoardState,
@@ -39,7 +39,7 @@ function initialGameState(
 ): InitialGameState {
   return {
     ruleset: RULESET_TAG,
-    edition: BATTLE_EDITION,
+    configuration: STANDARD_BATTLE_CONFIGURATION,
     board: board(pieces),
   };
 }
@@ -364,7 +364,7 @@ describe("describeActivation - game-ending ply", () => {
     const [originKey, side, pieceType] = piece;
     const before: PlayState = {
       ruleset: RULESET_TAG,
-      edition: BATTLE_EDITION,
+      configuration: STANDARD_BATTLE_CONFIGURATION,
       initialBoard: board([piece]),
       board: board([piece]),
       sideToMove: side,
@@ -539,7 +539,7 @@ describe("describeActivation - against-the-computer perspective (story 00000019,
       ];
       const before: PlayState = {
         ruleset: RULESET_TAG,
-        edition: BATTLE_EDITION,
+        configuration: STANDARD_BATTLE_CONFIGURATION,
         initialBoard: board([piece]),
         board: board([piece]),
         sideToMove: "white",

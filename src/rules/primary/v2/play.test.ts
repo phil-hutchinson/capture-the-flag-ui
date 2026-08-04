@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { BATTLE_EDITION, EDITIONS } from "./edition.ts";
+import {
+  configureRules,
+  STANDARD_BATTLE_CONFIGURATION,
+} from "./configuration.ts";
+import { EDITIONS } from "./edition.ts";
 import type { BoardState, InitialGameState, PlacedPiece } from "./gameState.ts";
 import { renderPositionBlock, RULESET_TAG } from "./gameState.ts";
 import { INACTIVITY_LIMIT } from "./outcome.ts";
@@ -34,7 +38,7 @@ function initialGameState(
 ): InitialGameState {
   return {
     ruleset: RULESET_TAG,
-    edition: BATTLE_EDITION,
+    configuration: STANDARD_BATTLE_CONFIGURATION,
     board: board(pieces),
   };
 }
@@ -693,7 +697,7 @@ describe("renderGameRecord", () => {
     expect(record).not.toContain(
       renderPositionBlock({
         ruleset: RULESET_TAG,
-        edition: BATTLE_EDITION,
+        configuration: STANDARD_BATTLE_CONFIGURATION,
         board: state.board,
       }),
     );
@@ -909,7 +913,11 @@ describe("applyMove - threads the edition's board layout (story 00000023, Step 7
   function skirmishInitialGameState(
     pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
   ): InitialGameState {
-    return { ruleset: RULESET_TAG, edition: skirmish, board: board(pieces) };
+    return {
+      ruleset: RULESET_TAG,
+      configuration: configureRules(skirmish),
+      board: board(pieces),
+    };
   }
 
   it("never offers a Skirmish lake square as a legal destination, even though Battle's layout would allow it", () => {

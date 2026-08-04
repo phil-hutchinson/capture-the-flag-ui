@@ -30,12 +30,13 @@
 //
 // This module builds on the board geometry (board.ts), the movement and
 // attack-target rules (movement.ts, stories 00000004/00000005), the combat
-// resolution rules (combat.ts, story 00000005), and the initial-game-state
-// artifact (gameState.ts, story 00000001); it has no further dependencies.
+// resolution rules (combat.ts, story 00000005), the rule-configuration model
+// (`configuration.ts`, story 00000027), and the initial-game-state artifact
+// (gameState.ts, story 00000001); it has no further dependencies.
 
 import { otherSide, squareKey, type Side, type Square } from "./board.ts";
 import { resolveCombat, type CombatOutcome } from "./combat.ts";
-import type { Edition } from "./edition.ts";
+import type { RuleConfiguration } from "./configuration.ts";
 import {
   renderPositionBlock,
   type BoardState,
@@ -65,21 +66,24 @@ const FIRST_SIDE: Side = "white";
  * see `applyMove` for how it evolves), and the current `GameOutcome`
  * (`result` - outcome.ts): whether the game is still ongoing, or how it
  * ended. Everything downstream (the session layer, the UI, the record) reads
- * `result` rather than recomputing detection for itself. `edition` (story
- * 00000023's Step 3) carries the resolved edition/board-layout over from
- * `initial.edition`, unchanged - it is **required** for the same reason
- * `InitialGameState.edition` is (see gameState.ts, and this story's peer
- * review, finding #2): an optional `edition` invited a call site to silently
- * inherit Battle. Every ply-generation call below
+ * `result` rather than recomputing detection for itself. `configuration`
+ * (story 00000023's Step 3; replaced by story 00000027's Step 3) carries the
+ * resolved configuration (edition plus every rule flag's resolved value)
+ * over from `initial.configuration`, unchanged - it is **required** for the
+ * same reason `InitialGameState.configuration` is (see gameState.ts, and
+ * story 00000023's peer review, finding #2): an optional value invited a
+ * call site to silently inherit Battle. Every ply-generation call below
  * (`legalAttacks`/`legalDestinations`/`resolveCombat`/`computeOutcome`) is
- * threaded with `edition.boardLayout` - story 00000023's Step 7, fixing a
- * defect observed live at Step 6's Gate B where these calls stayed on the
- * Battle default even once a non-Battle board was reachable through the
- * picker.
+ * threaded with `configuration` (or its `edition.boardLayout`) - story
+ * 00000023's Step 7, fixing a defect observed live at Step 6's Gate B where
+ * these calls stayed on the Battle default even once a non-Battle board was
+ * reachable through the picker; story 00000027's Step 3 widens the same
+ * threading to the full configuration so a diagonal-attack flag reaches
+ * `legalAttacks`/`hasAnyLegalPly` too.
  */
 export interface PlayState {
   readonly ruleset: string;
-  readonly edition: Edition;
+  readonly configuration: RuleConfiguration;
   readonly initialBoard: BoardState;
   readonly board: BoardState;
   readonly sideToMove: Side;
@@ -101,10 +105,9 @@ export interface PlayState {
  */
 export function startPlay(initial: InitialGameState): PlayState {
   const inactivityCounter = 0;
-  const layout = initial.edition.boardLayout;
   return {
     ruleset: initial.ruleset,
-    edition: initial.edition,
+    configuration: initial.configuration,
     initialBoard: initial.board,
     board: initial.board,
     sideToMove: FIRST_SIDE,
@@ -114,7 +117,7 @@ export function startPlay(initial: InitialGameState): PlayState {
       initial.board,
       FIRST_SIDE,
       inactivityCounter,
-      layout,
+      initial.configuration,
     ),
   };
 }
@@ -185,7 +188,7 @@ export function applyMove(
     throw new Error("Cannot apply move: the game has already ended.");
   }
 
-  const layout = state.edition.boardLayout;
+  const layout = state.configuration.edition.boardLayout;
 
   const fromKey = squareKey(from);
   const toKey = squareKey(to);
@@ -196,7 +199,7 @@ export function applyMove(
     );
   }
 
-  const isAttack = legalAttacks(state.board, from, layout).some(
+  const isAttack = legalAttacks(state.board, from, state.configuration).some(
     (square) => squareKey(square) === toKey,
   );
   const isMove =
@@ -260,7 +263,12 @@ export function applyMove(
       sideToMove: nextSideToMove,
       moves: [...state.moves, renderMoveToken(recordedMove)],
       inactivityCounter,
-      result: computeOutcome(board, nextSideToMove, inactivityCounter, layout),
+      result: computeOutcome(
+        board,
+        nextSideToMove,
+        inactivityCounter,
+        state.configuration,
+      ),
     },
     outcome,
   };
@@ -367,7 +375,7 @@ function renderResultReasonValue(reason: GameEndReason): string {
 export function renderGameRecord(state: PlayState): string {
   const positionBlock = renderPositionBlock({
     ruleset: state.ruleset,
-    edition: state.edition,
+    configuration: state.configuration,
     board: state.initialBoard,
   });
 

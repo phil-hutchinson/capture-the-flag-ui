@@ -12,16 +12,18 @@
 //
 // This module builds on the board geometry (Step 1; parametric over a
 // `BoardLayout` since story 00000023's Step 3), the piece catalog (Step 2),
-// the placement-state model (Step 3), and the edition registry
-// (`edition.ts`, story 00000023's Step 2); it has no further dependencies.
+// the placement-state model (Step 3), the edition registry (`edition.ts`,
+// story 00000023's Step 2), and (story 00000027) the rule-configuration model
+// (`configuration.ts`); it has no further dependencies.
 //
 // The position-block render/parse (`renderPositionBlock`/`parsePositionBlock`)
 // are sized to a `BoardLayout` rather than the fixed 12x12 grid:
-// `renderPositionBlock` reads it off `gameState.edition` (required - see
-// `InitialGameState`'s doc comment); `parsePositionBlock` takes it as a
-// parameter that defaults to Battle - that default is never reachable from a
-// live path (its one caller, `recordFile.ts`'s `parseRecordFile`, always
-// passes an explicit layout), kept only for hand-built fixtures.
+// `renderPositionBlock` reads it off `gameState.configuration.edition`
+// (required - see `InitialGameState`'s doc comment); `parsePositionBlock`
+// takes it as a parameter that defaults to Battle - that default is never
+// reachable from a live path (its one caller, `recordFile.ts`'s
+// `parseRecordFile`, always passes an explicit layout), kept only for
+// hand-built fixtures.
 
 import {
   BATTLE_LAYOUT,
@@ -34,24 +36,32 @@ import {
 } from "./board.ts";
 import type { BoardLayout } from "./boardLayout.ts";
 import { armySize } from "./armyComposition.ts";
-import { BATTLE_EDITION, type Edition } from "./edition.ts";
+import {
+  renderRulesetTag,
+  STANDARD_BATTLE_CONFIGURATION,
+  type RuleConfiguration,
+} from "./configuration.ts";
 import { PIECE_CATALOG, PIECE_TYPES, type PieceTypeId } from "./pieces.ts";
 import { isComplete, type PlacementState } from "./placement.ts";
 
 /**
- * The `Ruleset` record tag value for the Battle edition (`2-0:BATTLE`),
- * per `technical-notes.md`'s "editions and flags" model: the tag is the
- * full edition id, with no deviating flags (story 00000023's Step 8). This
- * remains exported (rather than removed) because many fixtures elsewhere in
- * this codebase build a Battle `InitialGameState`/`PlayState` (via
- * `BATTLE_EDITION`, `edition.ts`, now that both artifacts require an
- * `edition`) and use this constant as their matching `ruleset` tag.
- * `buildInitialGameState` below does **not** use this constant directly; it
- * tags every artifact with the *actual* resolved edition's id, so a Skirmish
- * game is correctly tagged `2-1:SKIRMISH`, not this Battle tag (a record
- * already tagged with the superseded `2-0:SKIRMISH` keeps its own tag).
+ * The `Ruleset` record tag value for the standard Battle configuration
+ * (`2-0:BATTLE`), per `technical-notes.md`'s "editions and flags" model: the
+ * tag is the full edition id, with no deviating flags (story 00000023's Step
+ * 8; unaffected by story 00000027's flags, since `STANDARD_BATTLE_CONFIGURATION`
+ * deviates on neither). This remains exported (rather than removed) because
+ * many fixtures elsewhere in this codebase build a Battle
+ * `InitialGameState`/`PlayState` (via `STANDARD_BATTLE_CONFIGURATION`,
+ * `configuration.ts`, now that both artifacts require a `configuration`) and
+ * use this constant as their matching `ruleset` tag. `buildInitialGameState`
+ * below does **not** use this constant directly; it tags every artifact with
+ * the *actual* resolved configuration's stamp, so a Skirmish game is
+ * correctly tagged `2-1:SKIRMISH`, not this Battle tag (a record already
+ * tagged with the superseded `2-0:SKIRMISH` keeps its own tag).
  */
-export const RULESET_TAG: string = BATTLE_EDITION.id;
+export const RULESET_TAG: string = renderRulesetTag(
+  STANDARD_BATTLE_CONFIGURATION,
+);
 
 /** One placed piece on the board: which side owns it and what type it is. */
 export interface PlacedPiece {
@@ -69,42 +79,49 @@ export type BoardState = Readonly<Record<string, PlacedPiece>>;
 /**
  * A completed, versioned initial game state: both armies' final placement,
  * tagged with the ruleset they were created under, and (story 00000023's
- * Step 3) the resolved `edition` the board was built for - the parametric
- * board geometry a later step's rendering/records read rather than assuming
- * Battle's 12x12. `edition` is **required** (story 00000023's peer review,
- * finding #2: an optional `edition` defaulted silently to Battle on nearly
- * every live API, which is exactly the defect class found live at this
- * story's Gate B/D). Fixtures elsewhere that need a fixed edition use the
- * exported `BATTLE_EDITION` constant (`edition.ts`) explicitly. This is a
- * plain, JSON-serializable structure (no `Map`s, no functions) so it
- * round-trips through `JSON.stringify`/`JSON.parse` unchanged, and is the
- * foundation Phase 2 and recorded-game replay will build on.
+ * Step 3; replaced by story 00000027's Step 3) the resolved `configuration`
+ * the board was built for - the edition (parametric board geometry a later
+ * step's rendering/records read rather than assuming Battle's 12x12) plus
+ * every rule flag's resolved value. `configuration` is **required**,
+ * matching `edition`'s pre-story-00000027 requiredness (story 00000023's
+ * peer review, finding #2: an optional value defaulted silently to Battle on
+ * nearly every live API, which is exactly the defect class found live at
+ * that story's Gate B/D). Fixtures elsewhere that need a fixed, standard
+ * configuration use the exported `STANDARD_BATTLE_CONFIGURATION`/
+ * `STANDARD_SKIRMISH_CONFIGURATION` constants (`configuration.ts`)
+ * explicitly. This is a plain, JSON-serializable structure (no `Map`s, no
+ * functions) so it round-trips through `JSON.stringify`/`JSON.parse`
+ * unchanged, and is the foundation Phase 2 and recorded-game replay will
+ * build on.
  */
 export interface InitialGameState {
   readonly ruleset: string;
-  readonly edition: Edition;
+  readonly configuration: RuleConfiguration;
   readonly board: BoardState;
 }
 
 /**
  * Combines both players' completed placement states into a single, versioned
- * `InitialGameState` artifact, tagged with `edition` (required - pass
- * `BATTLE_EDITION` explicitly for Battle) and a
- * `ruleset` string equal to `edition.id` - the full edition id, with no
- * deviating flags, exactly the `Ruleset` record tag `renderGameRecord`
- * (play.ts) writes (story 00000023's Step 8). Rejects (throws) if either
+ * `InitialGameState` artifact, tagged with `configuration` (required - pass
+ * `STANDARD_BATTLE_CONFIGURATION` explicitly for a standard Battle game) and
+ * a `ruleset` string rendered from it (`renderRulesetTag`, `configuration.ts`) -
+ * the edition id, plus one `FLAG=value` token per deviating flag, exactly the
+ * `Ruleset` record tag `renderGameRecord` (play.ts) writes (story 00000023's
+ * Step 8, extended by story 00000027's Step 2). Rejects (throws) if either
  * state belongs to the wrong side, was placed on a different board layout
- * or `TOWER_PLACEMENT` value than `edition`'s (story 00000025's Step 3 -
- * a placement built for one edition must never be sealed into another's game
- * state), or is not a complete army for its own roster (Battle 25 pieces,
- * Skirmish 16) - by this point in the flow (both players have confirmed) all
- * three are structural invariants, not recoverable user errors.
+ * or `TOWER_PLACEMENT` value than `configuration.edition`'s (story 00000025's
+ * Step 3 - a placement built for one edition must never be sealed into
+ * another's game state), or is not a complete army for its own roster
+ * (Battle 25 pieces, Skirmish 16) - by this point in the flow (both players
+ * have confirmed) all three are structural invariants, not recoverable user
+ * errors.
  */
 export function buildInitialGameState(
   white: PlacementState,
   black: PlacementState,
-  edition: Edition,
+  configuration: RuleConfiguration,
 ): InitialGameState {
+  const { edition } = configuration;
   if (white.side !== "white") {
     throw new Error(
       "buildInitialGameState: `white` must be White's placement state.",
@@ -146,7 +163,7 @@ export function buildInitialGameState(
     board[key] = { side: "black", pieceType };
   }
 
-  return { ruleset: edition.id, edition, board };
+  return { ruleset: renderRulesetTag(configuration), configuration, board };
 }
 
 /** The three-character position-block cell for `square` given `board` and `layout`. */
@@ -168,15 +185,15 @@ function positionBlockCell(
 
 /**
  * Renders the position-block text form of `gameState.board`: the full board
- * - sized to `gameState.edition`'s `BoardLayout` - in White's absolute frame
- * - highest row at top, row 1 at bottom, column A at left - as one line per
- * row of three-character cells separated by single spaces. Cell encoding:
- * White piece `[X]`, Black piece `*X*`, empty `---`, lake `XXX`, where `X` is
- * the piece's position-block symbol. See `technical-notes.md`'s "Record file
- * format" for the source of this format.
+ * - sized to `gameState.configuration.edition`'s `BoardLayout` - in White's
+ * absolute frame - highest row at top, row 1 at bottom, column A at left -
+ * as one line per row of three-character cells separated by single spaces.
+ * Cell encoding: White piece `[X]`, Black piece `*X*`, empty `---`, lake
+ * `XXX`, where `X` is the piece's position-block symbol. See
+ * `technical-notes.md`'s "Record file format" for the source of this format.
  */
 export function renderPositionBlock(gameState: InitialGameState): string {
-  const layout = gameState.edition.boardLayout;
+  const layout = gameState.configuration.edition.boardLayout;
   const rowsTopToBottom = [...rowsOf(layout)].reverse();
   const columns = columnsOf(layout);
   return rowsTopToBottom

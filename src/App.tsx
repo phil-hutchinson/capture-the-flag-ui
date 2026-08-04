@@ -3,6 +3,7 @@ import { StartScreen } from "./app/StartScreen.tsx";
 import { HotSeatGame } from "./board/HotSeatGame.tsx";
 import { ImportScreen } from "./review/ImportScreen.tsx";
 import { ReviewScreen } from "./review/ReviewScreen.tsx";
+import type { RuleConfiguration } from "./rules/primary/v2/configuration.ts";
 import type { Edition } from "./rules/primary/v2/edition.ts";
 import type { ReplayedRecord } from "./rules/primary/v2/replay.ts";
 
@@ -23,9 +24,10 @@ import type { ReplayedRecord } from "./rules/primary/v2/replay.ts";
 // in progress (placing, or playing), since leaving then loses it. Step 9
 // also wires `ImportScreen`'s file picker to this state: a successful import
 // moves `screen` to `review`, carrying the fully replayed game and the
-// `Edition` its `Ruleset` tag resolved to (story 00000023's Gate D defect
-// fix - `ReviewScreen` needs it to render the record's own board, not
-// Battle's by default); `ReviewScreen` renders it.
+// `RuleConfiguration` its `Ruleset` tag resolved to (story 00000023's Gate D
+// defect fix, widened from a bare `Edition` by story 00000027's Step 3) -
+// `ReviewScreen` needs it to render the record's own board, not Battle's by
+// default; `ReviewScreen` renders it.
 //
 // There is no `"engine"` screen (story 00000023, Step 9): "Play against the
 // computer" is shown on the start screen but disabled and never activatable,
@@ -40,7 +42,7 @@ type Screen =
   | {
       readonly kind: "review";
       readonly record: ReplayedRecord;
-      readonly edition: Edition;
+      readonly configuration: RuleConfiguration;
     };
 
 export function App() {
@@ -80,9 +82,10 @@ export function App() {
     return (
       <ImportScreen
         onBack={() => setScreen({ kind: "start" })}
-        onImported={(record: ReplayedRecord, edition: Edition) =>
-          setScreen({ kind: "review", record, edition })
-        }
+        onImported={(
+          record: ReplayedRecord,
+          configuration: RuleConfiguration,
+        ) => setScreen({ kind: "review", record, configuration })}
       />
     );
   }
@@ -91,7 +94,7 @@ export function App() {
   return (
     <ReviewScreen
       record={screen.record}
-      edition={screen.edition}
+      configuration={screen.configuration}
       onBack={() => setScreen({ kind: "start" })}
     />
   );

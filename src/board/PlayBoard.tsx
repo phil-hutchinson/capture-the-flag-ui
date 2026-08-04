@@ -96,7 +96,7 @@ export interface PlayBoardProps {
 
 /**
  * The full board (Battle's 12x12, or another edition's - story 00000023,
- * Step 6 - sized to `session.play.edition`), oriented to
+ * Step 6 - sized to `session.play.configuration.edition`), oriented to
  * `viewSide(session, flipBetweenTurns)` (Step 4; the flag added in story
  * 00000012, Step 2), drawn via `FullBoard` (story 00000014, Step 7). The
  * only highlighted squares are for an
@@ -117,11 +117,11 @@ export function PlayBoard({
   animatedMove,
 }: PlayBoardProps) {
   const side = fixedSide ?? viewSide(session, flipBetweenTurns);
-  // The session's own resolved edition carries the board it was actually
-  // played on (story 00000023, Step 3); `edition` is required on `PlayState`
-  // (this story's peer review, finding #2), so there is no default to fall
-  // back to.
-  const layout = session.play.edition.boardLayout;
+  // The session's own resolved configuration carries the board it was
+  // actually played on (story 00000023, Step 3; story 00000027, Step 3);
+  // `configuration` is required on `PlayState` (story 00000023's peer
+  // review, finding #2), so there is no default to fall back to.
+  const layout = session.play.configuration.edition.boardLayout;
 
   return (
     <FullBoard

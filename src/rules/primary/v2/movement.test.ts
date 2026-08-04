@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Square } from "./board.ts";
 import { BOARD_LAYOUTS } from "./boardLayout.ts";
+import {
+  STANDARD_BATTLE_CONFIGURATION,
+  STANDARD_SKIRMISH_CONFIGURATION,
+} from "./configuration.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
 import { hasAnyLegalPly, legalAttacks, legalDestinations } from "./movement.ts";
 import type { PieceTypeId } from "./pieces.ts";
@@ -172,12 +176,16 @@ describe("legalDestinations (ruleset major 2, empty-square moves only)", () => {
 describe("hasAnyLegalPly", () => {
   it("is true when at least one of the side's pieces has a legal destination", () => {
     const state = board([["D5", "white", "champion"]]);
-    expect(hasAnyLegalPly(state, "white")).toBe(true);
+    expect(hasAnyLegalPly(state, "white", STANDARD_BATTLE_CONFIGURATION)).toBe(
+      true,
+    );
   });
 
   it("is false for a side with no pieces on the board", () => {
     const state = board([["D5", "black", "champion"]]);
-    expect(hasAnyLegalPly(state, "white")).toBe(false);
+    expect(hasAnyLegalPly(state, "white", STANDARD_BATTLE_CONFIGURATION)).toBe(
+      false,
+    );
   });
 
   it("is true for a piece with only an attack available (no legal destination)", () => {
@@ -189,7 +197,9 @@ describe("hasAnyLegalPly", () => {
       ["B1", "black", "militia"], // adjacent enemy - a legal, sacrificial attack
     ]);
     expect(legalDestinations(state, { column: "A", row: 1 })).toEqual([]);
-    expect(hasAnyLegalPly(state, "white")).toBe(true);
+    expect(hasAnyLegalPly(state, "white", STANDARD_BATTLE_CONFIGURATION)).toBe(
+      true,
+    );
   });
 
   it("is false for a side that is truly boxed in - no legal move and no legal attack anywhere", () => {
@@ -203,7 +213,9 @@ describe("hasAnyLegalPly", () => {
       ["A2", "white", "tower"],
       ["B1", "white", "tower"],
     ]);
-    expect(hasAnyLegalPly(state, "white")).toBe(false);
+    expect(hasAnyLegalPly(state, "white", STANDARD_BATTLE_CONFIGURATION)).toBe(
+      false,
+    );
   });
 });
 
@@ -216,7 +228,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["C5", "black", "militia"], // adjacent enemy - offered
       // E5 left empty - excluded
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["C5", "D6"].sort());
   });
 
@@ -225,7 +241,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["D5", "white", "champion"],
       ["D6", "black", "flag"],
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["D6"]);
   });
 
@@ -234,7 +254,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["D5", "white", "champion"],
       ["D6", "white", "flag"],
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks).toEqual([]);
   });
 
@@ -243,7 +267,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["D5", "white", "champion"],
       ["D7", "black", "militia"], // D6 clear between them, no other enemy nearby
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["D7"]);
   });
 
@@ -253,7 +281,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["D6", "black", "militia"], // blocker at distance 1 - itself an ordinary attack target
       ["D7", "black", "militia"], // would-be two-square target at distance 2
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["D6"]);
   });
 
@@ -263,7 +295,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["B5", "white", "champion"],
       ["B8", "black", "militia"],
     ]);
-    const attacks = legalAttacks(state, { column: "B", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "B", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks.some((s) => s.column === "B" && s.row === 8)).toBe(false);
   });
 
@@ -273,7 +309,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["C5", "black", "militia"], // adjacent enemy - encumbers the champion
       ["D7", "black", "militia"], // otherwise a clear two-square line
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     // Only the adjacent enemy is offered; the far one is unreachable while
     // encumbered.
     expect(sortedKeys(attacks)).toEqual(["C5"]);
@@ -284,7 +324,13 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["A1", "white", "tower"],
       ["A2", "black", "militia"],
     ]);
-    expect(legalAttacks(state, { column: "A", row: 1 })).toEqual([]);
+    expect(
+      legalAttacks(
+        state,
+        { column: "A", row: 1 },
+        STANDARD_BATTLE_CONFIGURATION,
+      ),
+    ).toEqual([]);
   });
 
   it("gives Flag no attack targets", () => {
@@ -292,12 +338,24 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["A1", "white", "flag"],
       ["A2", "black", "militia"],
     ]);
-    expect(legalAttacks(state, { column: "A", row: 1 })).toEqual([]);
+    expect(
+      legalAttacks(
+        state,
+        { column: "A", row: 1 },
+        STANDARD_BATTLE_CONFIGURATION,
+      ),
+    ).toEqual([]);
   });
 
   it("gives no attack targets for an empty origin square", () => {
     const state = board([]);
-    expect(legalAttacks(state, { column: "D", row: 5 })).toEqual([]);
+    expect(
+      legalAttacks(
+        state,
+        { column: "D", row: 5 },
+        STANDARD_BATTLE_CONFIGURATION,
+      ),
+    ).toEqual([]);
   });
 
   it("offers a movable enemy one square diagonally as an attack (major 2, §4.3)", () => {
@@ -306,7 +364,11 @@ describe("legalAttacks (ruleset major 2, enemy-occupied attack targets)", () => 
       ["D8", "white", "militia"], // diagonally adjacent, movable - offered
       ["F10", "white", "militia"], // diagonally adjacent, movable - offered
     ]);
-    const attacks = legalAttacks(state, { column: "E", row: 9 });
+    const attacks = legalAttacks(
+      state,
+      { column: "E", row: 9 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["D8", "F10"].sort());
   });
 });
@@ -322,7 +384,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["C10", "black", "militia"],
       ["E10", "black", "militia"],
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 9 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 9 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["C8", "C10", "E8", "E10"].sort());
   });
 
@@ -331,7 +397,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["D5", "white", "champion"],
       ["E6", "black", "tower"],
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks).toEqual([]);
   });
 
@@ -340,7 +410,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["D5", "white", "champion"],
       ["E6", "black", "flag"],
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks).toEqual([]);
   });
 
@@ -357,7 +431,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["D9", "white", "champion"],
       ["F11", "black", "militia"], // two squares diagonally - not offered
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 9 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 9 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks.some((s) => s.column === "F" && s.row === 11)).toBe(false);
   });
 
@@ -371,7 +449,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["A5", "white", "champion"],
       ["B6", "black", "militia"],
     ]);
-    const attacks = legalAttacks(state, { column: "A", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(attacks.some((s) => s.column === "B" && s.row === 6)).toBe(false);
   });
 
@@ -384,7 +466,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["A6", "white", "champion"],
       ["B5", "black", "militia"],
     ]);
-    const attacks = legalAttacks(state, { column: "A", row: 6 });
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 6 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["B5"]);
   });
 
@@ -399,7 +485,11 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
       ["D6", "black", "militia"], // orthogonal
       ["E6", "black", "militia"], // diagonal
     ]);
-    const attacks = legalAttacks(state, { column: "D", row: 5 });
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      STANDARD_BATTLE_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["D6", "E6"].sort());
   });
 });
@@ -443,7 +533,11 @@ describe("legalDestinations/legalAttacks on the Skirmish layout (8x8)", () => {
       ["H8", "white", "champion"],
       ["H7", "black", "militia"],
     ]);
-    const attacks = legalAttacks(state, { column: "H", row: 8 }, SKIRMISH);
+    const attacks = legalAttacks(
+      state,
+      { column: "H", row: 8 },
+      STANDARD_SKIRMISH_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["H7"]);
   });
 
@@ -452,7 +546,11 @@ describe("legalDestinations/legalAttacks on the Skirmish layout (8x8)", () => {
       ["H8", "white", "champion"],
       ["H6", "black", "militia"], // H7 clear between them
     ]);
-    const attacks = legalAttacks(state, { column: "H", row: 8 }, SKIRMISH);
+    const attacks = legalAttacks(
+      state,
+      { column: "H", row: 8 },
+      STANDARD_SKIRMISH_CONFIGURATION,
+    );
     expect(sortedKeys(attacks)).toEqual(["H6"]);
   });
 
@@ -477,7 +575,11 @@ describe("legalDestinations/legalAttacks on the Skirmish layout (8x8)", () => {
 
   it("hasAnyLegalPly considers only the Skirmish board's own squares", () => {
     const state = board([["D3", "white", "champion"]]);
-    expect(hasAnyLegalPly(state, "white", SKIRMISH)).toBe(true);
-    expect(hasAnyLegalPly(state, "black", SKIRMISH)).toBe(false);
+    expect(
+      hasAnyLegalPly(state, "white", STANDARD_SKIRMISH_CONFIGURATION),
+    ).toBe(true);
+    expect(
+      hasAnyLegalPly(state, "black", STANDARD_SKIRMISH_CONFIGURATION),
+    ).toBe(false);
   });
 });

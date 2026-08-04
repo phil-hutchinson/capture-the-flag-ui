@@ -36,17 +36,17 @@
 // second live region.
 //
 // Story 00000023, Gate D defect fix: this screen renders `FullBoard` with
-// the `edition` prop's `boardLayout` (`readRecord.ts` resolves it from the
-// record's own `Ruleset` tag) rather than letting `FullBoard`'s Battle
-// default silently apply - a Skirmish record was previously drawn on a 12x12
-// board with Battle's lakes, not Skirmish's.
+// the `configuration` prop's `edition.boardLayout` (`readRecord.ts` resolves
+// it from the record's own `Ruleset` tag) rather than letting `FullBoard`'s
+// Battle default silently apply - a Skirmish record was previously drawn on
+// a 12x12 board with Battle's lakes, not Skirmish's.
 
 import { useEffect, useRef, useState } from "react";
 import "../App.css";
 import "./ReviewScreen.css";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
 import { FullBoard } from "../board/FullBoard.tsx";
-import type { Edition } from "../rules/primary/v2/edition.ts";
+import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import type { ReplayedRecord } from "../rules/primary/v2/replay.ts";
 import {
   createReviewSession,
@@ -71,18 +71,23 @@ export interface ReviewScreenProps {
   /** The fully replayed recorded game (`readRecord.ts`'s success result). */
   readonly record: ReplayedRecord;
   /**
-   * The `Edition` the record's `Ruleset` tag resolved to (story 00000023's
-   * Gate D defect fix) - drives the board this screen renders (dimensions and
-   * lake layout), so a Skirmish record is drawn on Skirmish's 8x8 board
-   * rather than silently defaulting to Battle's 12x12.
+   * The `RuleConfiguration` the record's `Ruleset` tag resolved to (story
+   * 00000023's Gate D defect fix, widened from a bare `Edition` by story
+   * 00000027's Step 3) - `configuration.edition` drives the board this screen
+   * renders (dimensions and lake layout), so a Skirmish record is drawn on
+   * Skirmish's 8x8 board rather than silently defaulting to Battle's 12x12.
    */
-  readonly edition: Edition;
+  readonly configuration: RuleConfiguration;
   /** Returns to the start screen. Never prompts - reviewing loses nothing. */
   readonly onBack: () => void;
 }
 
 /** The review screen: the recorded game, replayed on the shared board. */
-export function ReviewScreen({ record, edition, onBack }: ReviewScreenProps) {
+export function ReviewScreen({
+  record,
+  configuration,
+  onBack,
+}: ReviewScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [session, setSession] = useState<ReviewSession>(() =>
     createReviewSession(record),
@@ -135,7 +140,7 @@ export function ReviewScreen({ record, edition, onBack }: ReviewScreenProps) {
           <FullBoard
             board={currentBoard(session)}
             side="white"
-            layout={edition.boardLayout}
+            layout={configuration.edition.boardLayout}
             lastMove={
               move === null
                 ? undefined

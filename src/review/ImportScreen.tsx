@@ -29,7 +29,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import "../App.css";
 import "./ImportScreen.css";
 import { readRecord } from "../rules/readRecord.ts";
-import type { Edition } from "../rules/primary/v2/edition.ts";
+import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import type { ReplayedRecord } from "../rules/primary/v2/replay.ts";
 import { describeRejection } from "./reviewText.ts";
 
@@ -55,11 +55,15 @@ export interface ImportScreenProps {
   readonly onBack: () => void;
   /**
    * Navigates to the review screen with a successfully replayed game and the
-   * `Edition` its `Ruleset` tag resolved to (story 00000023's Gate D defect
-   * fix) - so the review screen renders the record's own board, not
-   * Battle's by default.
+   * `RuleConfiguration` its `Ruleset` tag resolved to (story 00000023's Gate
+   * D defect fix; widened from a bare `Edition` by story 00000027's Step 3) -
+   * so the review screen renders the record's own board, not Battle's by
+   * default.
    */
-  readonly onImported: (record: ReplayedRecord, edition: Edition) => void;
+  readonly onImported: (
+    record: ReplayedRecord,
+    configuration: RuleConfiguration,
+  ) => void;
 }
 
 export function ImportScreen({ onBack, onImported }: ImportScreenProps) {
@@ -87,7 +91,7 @@ export function ImportScreen({ onBack, onImported }: ImportScreenProps) {
       }
 
       setError(null);
-      onImported(result.record, result.edition);
+      onImported(result.record, result.configuration);
     } catch {
       setError(UNREADABLE_FILE_MESSAGE);
     }

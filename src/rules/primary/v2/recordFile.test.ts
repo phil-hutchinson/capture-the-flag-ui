@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { BATTLE_LAYOUT } from "./board.ts";
-import { BATTLE_EDITION, EDITIONS } from "./edition.ts";
+import {
+  configureRules,
+  STANDARD_BATTLE_CONFIGURATION,
+} from "./configuration.ts";
+import { EDITIONS } from "./edition.ts";
 import {
   renderPositionBlock,
   RULESET_TAG,
@@ -18,7 +22,7 @@ import {
  * sparse board keeps these fixtures easy to read. */
 const GAME_STATE: InitialGameState = {
   ruleset: RULESET_TAG,
-  edition: BATTLE_EDITION,
+  configuration: STANDARD_BATTLE_CONFIGURATION,
   board: {
     A1: { side: "white", pieceType: "flag" },
     L1: { side: "white", pieceType: "masterOfArms" },
@@ -378,7 +382,7 @@ describe("parseRecordFile - the Skirmish edition's 8x8 board layout", () => {
   const skirmish = EDITIONS["2-1:SKIRMISH"];
   const SKIRMISH_GAME_STATE: InitialGameState = {
     ruleset: skirmish.id,
-    edition: skirmish,
+    configuration: configureRules(skirmish),
     board: {
       A1: { side: "white", pieceType: "flag" },
       H3: { side: "white", pieceType: "masterOfArms" },

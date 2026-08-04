@@ -36,11 +36,14 @@
 // catalog (pieces.ts), and `BoardState` (gameState.ts); it has no further
 // dependencies.
 //
-// Every function here takes an optional `layout` parameter (a `BoardLayout`,
-// boardLayout.ts), defaulting to `BATTLE_LAYOUT` so existing callers - the
-// live app (still Battle-only) and the frozen encoding/engine modules - are
-// unaffected; passing an explicit layout (e.g. Skirmish's) sizes the
-// step/off-board bounds and the unencumbered scan to that board instead.
+// `legalDestinations` takes an optional `layout` parameter (a `BoardLayout`,
+// boardLayout.ts), defaulting to `BATTLE_LAYOUT` - neither flag touches
+// plain movement, so it keeps its pre-story-00000027 shape. `legalAttacks`
+// and `hasAnyLegalPly`, below, instead take a **required** `RuleConfiguration`
+// (story 00000027's implementation plan, Decision 3): its resolved flags are
+// what the diagonal loop reads (Steps 4-5), and its `edition.boardLayout` is
+// what sizes the board - no default, so every call site names its
+// configuration explicitly rather than silently inheriting Battle's.
 
 import {
   allSquares,
@@ -52,6 +55,7 @@ import {
   type Square,
 } from "./board.ts";
 import { columnLetter, type BoardLayout } from "./boardLayout.ts";
+import type { RuleConfiguration } from "./configuration.ts";
 import type { BoardState } from "./gameState.ts";
 import type { PieceTypeId } from "./pieces.ts";
 
@@ -211,14 +215,17 @@ export function legalDestinations(
  * an empty square - the diagonal is an attacking direction and nothing else,
  * and is never subject to the unencumbered bonus. A lake at the diagonal's
  * *corner* does not block the attack (the "skirt"); only the attacked square
- * itself must not be a lake. `layout` sizes the board's bounds and lake
- * pattern; defaults to Battle.
+ * itself must not be a lake. `configuration` (story 00000027 - required, no
+ * default) sizes the board via `configuration.edition.boardLayout`; its
+ * resolved flags do not change the diagonal loop's logic in this step (Steps
+ * 4-5 read them).
  */
 export function legalAttacks(
   board: BoardState,
   origin: Square,
-  layout: BoardLayout = BATTLE_LAYOUT,
+  configuration: RuleConfiguration,
 ): Square[] {
+  const layout = configuration.edition.boardLayout;
   const occupant = board[squareKey(origin)];
   if (occupant === undefined || isImmobile(occupant.pieceType)) {
     return [];
@@ -277,14 +284,17 @@ export function legalAttacks(
  * own pieces. This is the primitive the game-end detection (`outcome.ts`)
  * needs for §5's "no legal move": a side that can only attack is *not*
  * stuck (any adjacent enemy piece is always a legal, if sacrificial, attack),
- * so both destination sets must be considered. `layout` sizes the board;
- * defaults to Battle.
+ * so both destination sets must be considered. `configuration` (story
+ * 00000027 - required, no default) sizes the board via
+ * `configuration.edition.boardLayout` and is threaded into `legalAttacks`, so
+ * a diagonal-attack flag reaches this "no legal move" primitive too.
  */
 export function hasAnyLegalPly(
   board: BoardState,
   side: Side,
-  layout: BoardLayout = BATTLE_LAYOUT,
+  configuration: RuleConfiguration,
 ): boolean {
+  const layout = configuration.edition.boardLayout;
   for (const square of allSquares(layout)) {
     const placed = board[squareKey(square)];
     if (placed === undefined || placed.side !== side) {
@@ -292,7 +302,7 @@ export function hasAnyLegalPly(
     }
     if (
       legalDestinations(board, square, layout).length > 0 ||
-      legalAttacks(board, square, layout).length > 0
+      legalAttacks(board, square, configuration).length > 0
     ) {
       return true;
     }

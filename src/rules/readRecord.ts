@@ -27,10 +27,10 @@
 // is rejected exactly as if it had failed to parse.
 
 import {
-  EDITIONS,
-  type Edition,
-  type EditionId,
-} from "./primary/v2/edition.ts";
+  configureRules,
+  type RuleConfiguration,
+} from "./primary/v2/configuration.ts";
+import { EDITIONS, type EditionId } from "./primary/v2/edition.ts";
 import {
   parseRecordFile,
   type RecordFileError,
@@ -63,17 +63,20 @@ export type ReadRecordError =
 
 /**
  * The result of reading a record file: a fully replayed recorded game
- * together with the resolved `Edition` its `Ruleset` tag named (story
- * 00000023's Gate D defect fix - the board a record is *rendered* on must be
- * the record's own edition, never assumed Battle, so this is carried
- * alongside `record` rather than discarded once dispatch is done), or a
- * structured rejection. Never throws.
+ * together with the resolved `RuleConfiguration` its `Ruleset` tag named
+ * (story 00000023's Gate D defect fix - the board a record is *rendered* on
+ * must be the record's own edition, never assumed Battle, so this is carried
+ * alongside `record` rather than discarded once dispatch is done; story
+ * 00000027's Step 3 widens this from a bare `Edition` to the full
+ * configuration, though no tag can carry a flag token until Step 6, so this
+ * is always the edition's *standard* configuration for now), or a structured
+ * rejection. Never throws.
  */
 export type ReadRecordResult =
   | {
       readonly kind: "parsed";
       readonly record: ReplayedRecord;
-      readonly edition: Edition;
+      readonly configuration: RuleConfiguration;
     }
   | { readonly kind: "error"; readonly error: ReadRecordError };
 
@@ -104,7 +107,10 @@ function unescapeTagValue(raw: string): string {
  * position block whose size does not match that edition's `BoardLayout`),
  * that edition's own `replay` rejection if the file parses but cannot be
  * replayed to the end, or otherwise the fully replayed game paired with the
- * resolved `Edition` it was read as - there is no partial result.
+ * resolved `RuleConfiguration` it was read as - there is no partial result.
+ * (Story 00000027's Step 3: no tag can carry a flag token yet, so this is
+ * always the edition's standard configuration; Step 6 teaches this function
+ * to read one.)
  */
 export function readRecord(text: string): ReadRecordResult {
   const match = RULESET_TAG_LINE.exec(text);
@@ -136,6 +142,6 @@ export function readRecord(text: string): ReadRecordResult {
   return {
     kind: "parsed",
     record: replayResult.record,
-    edition: EDITIONS[ruleset],
+    configuration: configureRules(EDITIONS[ruleset]),
   };
 }

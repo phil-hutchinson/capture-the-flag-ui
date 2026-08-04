@@ -49,6 +49,7 @@ import { computeCountdownWarnings } from "./playWarnings.ts";
 import { PlayWarnings } from "./PlayWarnings.tsx";
 import { Tray } from "./Tray.tsx";
 import { squareKey, type Square } from "../rules/primary/v2/board.ts";
+import { configureRules } from "../rules/primary/v2/configuration.ts";
 import type { Edition } from "../rules/primary/v2/edition.ts";
 import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
 import {
@@ -666,10 +667,16 @@ export function HotSeatGame({
     if (next.active === null) {
       // Both players have now confirmed: build the versioned initial
       // game-state artifact (story 00000001), tagged with the chosen edition
-      // (story 00000023, Step 7) so play, rendering, and the record all use
-      // the game just chosen, and start Phase 2 immediately - per the
-      // owner's decision, there is no separate "reveal" gate.
-      const gameState = buildInitialGameState(next.white, next.black, edition);
+      // (story 00000023, Step 7) - resolved to a *standard* rule
+      // configuration (story 00000027, Step 3; both flags choosable starting
+      // Step 8) - so play, rendering, and the record all use the game just
+      // chosen, and start Phase 2 immediately - per the owner's decision,
+      // there is no separate "reveal" gate.
+      const gameState = buildInitialGameState(
+        next.white,
+        next.black,
+        configureRules(edition),
+      );
       const freshPlaySession = startSession(gameState);
       setPlaySession(freshPlaySession);
       // Story 00000006, Step 9: placement is unrestricted, so a game-ending

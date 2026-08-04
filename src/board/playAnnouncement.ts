@@ -366,13 +366,14 @@ export function describeActivation(
     // the board's bounds and lake pattern to whichever edition was actually
     // played (story 00000023, Step 7 - the same defect class the play/
     // playSession threading fixes: an unthreaded call here would count
-    // moves against Battle's board even on Skirmish). `edition` is required
-    // on `PlayState` (this story's peer review, finding #2), so there is no
-    // default to fall back to.
-    const layout = after.play.edition.boardLayout;
+    // moves against Battle's board even on Skirmish). `configuration` is
+    // required on `PlayState` (story 00000023's peer review, finding #2, and
+    // story 00000027's Step 3), so there is no default to fall back to.
+    const { configuration } = after.play;
+    const layout = configuration.edition.boardLayout;
     const count =
       legalDestinations(after.play.board, after.selection, layout).length +
-      legalAttacks(after.play.board, after.selection, layout).length;
+      legalAttacks(after.play.board, after.selection, configuration).length;
     const moveWord = count === 1 ? "move" : "moves";
     return `${description} selected, ${count} ${moveWord} available.`;
   }

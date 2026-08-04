@@ -393,7 +393,44 @@ the offending token text. `npm run typecheck && npm run lint && npm test`.
 
 ## Step 3 — Thread the configuration through the rules, the app and the record (no behaviour change)
 
-Status: pending
+Status: committed
+
+Notes: Mechanical refactor completed as planned. `legalAttacks`/`hasAnyLegalPly`
+(movement.ts) and `computeOutcome` (outcome.ts) now take a required
+`RuleConfiguration` in place of their `BoardLayout` parameter, with no default
+— `decoder.ts:145` (now ~line 146 after its added import) gained the one
+permitted explicit `STANDARD_BATTLE_CONFIGURATION` argument, unchanged in
+behaviour. `InitialGameState.edition`/`PlayState.edition` became
+`configuration: RuleConfiguration` (gameState.ts/play.ts), with
+`buildInitialGameState` now rendering `ruleset` via `renderRulesetTag` and
+`RULESET_TAG` derived from `renderRulesetTag(STANDARD_BATTLE_CONFIGURATION)`.
+`playSession.ts`'s `sessionLayout` helper was renamed `sessionConfiguration`
+(returning the `RuleConfiguration`, per the plan) and every
+`legalAttacks`/`isOwnMovablePiece` call now threads the configuration while
+`legalDestinations`/`allSquares` keep taking the derived layout;
+`playAnnouncement.ts` follows the same pattern. `readRecord.ts` returns
+`configuration` (a standard configuration, since no tag can carry tokens
+until Step 6) instead of `edition`, threaded through
+`ImportScreen.tsx` → `App.tsx` → `ReviewScreen.tsx`. `HotSeatGame.tsx` builds
+`configureRules(edition)` at the point it calls `buildInitialGameState`;
+`EngineGame.tsx` swaps `BATTLE_EDITION` for `STANDARD_BATTLE_CONFIGURATION`
+(the plan's permitted mechanical constant swap). All 24 files the plan
+anticipated were touched, plus the corresponding test fixtures (`edition:`
+struct fields and bare `legalAttacks`/`hasAnyLegalPly`/`computeOutcome` calls
+across `movement.test.ts`, `outcome.test.ts`, `gameState.test.ts`,
+`play.test.ts`, `recordFile.test.ts`, `readRecord.test.ts`,
+`playAnnouncement.test.ts`, `playSession.test.ts`, `playWarnings.test.ts`,
+`playWarnings.game.test.ts`) were updated to pass the corresponding standard
+configuration constant or `configureRules(edition)`. No expected record
+text, tag string or position block was edited anywhere — all 653 tests pass
+unchanged in count from Step 2, and `src/engine/**` was not touched at all
+(confirmed via `git diff --stat`); `decoder.ts`'s only edits are the one
+import line and the one call-site line, which is a minor, unavoidable
+deviation from the plan's literal "one line" — the plan's own goal ("the
+call must behave exactly as it does today") is met, and the import is
+mechanically required for that one line to compile. `npm run typecheck`,
+`npm run lint`, `npm test` (653 tests, all passing), `npm run format:check`,
+and `npm run build` are all clean.
 
 The one large, mechanical, compiler-driven refactor of this story: replace the
 bare `Edition` with a `RuleConfiguration` everywhere a game is set up, played,
