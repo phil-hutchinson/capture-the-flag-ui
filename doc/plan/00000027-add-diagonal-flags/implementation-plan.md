@@ -285,7 +285,21 @@ board }`, `buildInitialGameState(white, black, edition)`,
 
 ## Step 1 — The flag catalog and the rule configuration model
 
-Status: pending
+Status: committed
+
+Notes: Added `src/rules/primary/v2/ruleFlags.ts` (the `RULE_FLAG_CATALOG`
+table, `RuleFlagId`/`RuleFlagValue`/`ResolvedRuleFlags` types all derived from
+it, and `RULE_FLAG_IDS` in alphabetical order) and
+`src/rules/primary/v2/configuration.ts` (`RuleConfiguration`, the
+`resolvedEditionValue` resolution rule with its extension-point comment for
+Decision 2, the sole constructor `configureRules`, the derived
+`deviatingFlags`/`isStandardConfiguration` queries, and the exported
+`STANDARD_BATTLE_CONFIGURATION`/`STANDARD_SKIRMISH_CONFIGURATION`
+constants), plus `configuration.test.ts` covering the catalog and every
+scenario the step's verification lists (including a JSON round-trip case).
+No deviation from the plan: neither module is consumed elsewhere yet, and no
+existing file was touched. `npm run typecheck`, `npm run lint`, `npm test`
+(638 tests, all passing) and `npm run format:check` are all clean.
 
 Add `src/rules/primary/v2/ruleFlags.ts` and
 `src/rules/primary/v2/configuration.ts`, per Decisions 1 and 2. Nothing consumes
