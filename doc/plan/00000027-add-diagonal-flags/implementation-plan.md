@@ -233,7 +233,7 @@ board }`, `buildInitialGameState(white, black, edition)`,
    for players and say "diagonal", so a player who follows the link to the
    rulebook meets the same word. This makes README.md's two existing
    "corner-to-corner" mentions (lines 29 and 69) inconsistent with the app, so
-   Step 10 changes them to "diagonal" as well — that widening is intended, not
+   Step 11 changes them to "diagonal" as well — that widening is intended, not
    scope creep. Proposed copy (the owner may adjust it at the Step 8 manual
    gate). **The owner revised this copy at that gate; the wording below is
    what shipped**, and `src/board/ruleChoices.ts` is its single home:

@@ -127,18 +127,38 @@ describe("nonStandardRuleSentences", () => {
 // `ruleChoices.ts`'s header comment).
 describe("unrecognizedRuleSentence", () => {
   it("quotes the exact token back, verbatim", () => {
-    const sentence = unrecognizedRuleSentence("DIAGONAL_SOMETHING=on");
+    const sentence = unrecognizedRuleSentence("DIAGONAL_SOMETHING=on", false);
     expect(sentence).toContain("DIAGONAL_SOMETHING=on");
   });
 
   it("says nothing about the game being able to resume, and uses no 'experimental' framing", () => {
-    const sentence = unrecognizedRuleSentence("DIAGONAL_ATTACKABLE=sideways");
+    const sentence = unrecognizedRuleSentence(
+      "DIAGONAL_ATTACKABLE=sideways",
+      false,
+    );
     expect(sentence.toLowerCase()).not.toContain("resume");
     expect(sentence.toLowerCase()).not.toContain("experimental");
   });
 
   it("never says 'ply'", () => {
-    expect(unrecognizedRuleSentence("FOO=bar")).not.toMatch(/\bply\b/i);
+    expect(unrecognizedRuleSentence("FOO=bar", false)).not.toMatch(/\bply\b/i);
+  });
+
+  // Peer review #5, owner decision: "also" is conditional on whether this
+  // sentence follows a recognised-deviation sentence, and nothing else about
+  // the sentence changes either way.
+  it("drops 'also' when the sentence stands alone", () => {
+    const sentence = unrecognizedRuleSentence("FOO=bar", false);
+    expect(sentence).toBe(
+      `This game used a rule setting this app doesn't recognize ("FOO=bar"). The game can still be reviewed.`,
+    );
+  });
+
+  it("keeps 'also' when the sentence follows a recognised-deviation sentence", () => {
+    const sentence = unrecognizedRuleSentence("FOO=bar", true);
+    expect(sentence).toBe(
+      `This game also used a rule setting this app doesn't recognize ("FOO=bar"). The game can still be reviewed.`,
+    );
   });
 });
 

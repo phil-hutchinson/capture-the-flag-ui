@@ -29,6 +29,13 @@ describe("the flag catalog (ruleFlags.ts)", () => {
     ]);
   });
 
+  // Peer review #4: pins the alphabetical-ordering invariant structurally,
+  // so a third flag id declared out of catalog order can't silently break
+  // the `Ruleset` tag's required alphabetical ordering.
+  it("is alphabetically sorted", () => {
+    expect(RULE_FLAG_IDS).toEqual([...RULE_FLAG_IDS].sort());
+  });
+
   it("DIAGONAL_ATTACKABLE permits exactly movable_only and all, defaulting to movable_only", () => {
     expect(RULE_FLAG_CATALOG.DIAGONAL_ATTACKABLE.values).toEqual([
       "movable_only",
@@ -286,6 +293,18 @@ describe("parseRuleFlagTokens", () => {
     expect(isStandardConfiguration(result.configuration)).toBe(true);
   });
 
+  // Peer review #7: `overrides` is typed as a value union across *all*
+  // flags and reaches `configureRules` through an `as RuleFlagOverrides`
+  // cast, so cross-flag pairing is only enforced by `isPermittedValue` at
+  // runtime - a value that is valid for the *other* flag must still be
+  // rejected as unrecognized for the flag id it was actually given against.
+  it("carries a value belonging to the other flag as unrecognized", () => {
+    const token = "DIAGONAL_ATTACKABLE=open_path";
+    const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
+    expect(result.unrecognizedTokens).toEqual([token]);
+    expect(isStandardConfiguration(result.configuration)).toBe(true);
+  });
+
   it("is case-sensitive: a near-miss casing is carried as unrecognized, not accepted", () => {
     const token = "diagonal_attackable=all";
     const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
@@ -293,7 +312,7 @@ describe("parseRuleFlagTokens", () => {
     expect(isStandardConfiguration(result.configuration)).toBe(true);
   });
 
-  it("resolves the same flag id given twice from its first token, carrying the second as unrecognized", () => {
+  it("resolves the same flag id given twice with conflicting values from its first token, carrying the second as unrecognized", () => {
     const secondToken = "DIAGONAL_ATTACKABLE=movable_only";
     const result = parseRuleFlagTokens(BATTLE_EDITION, [
       "DIAGONAL_ATTACKABLE=all",
@@ -301,6 +320,21 @@ describe("parseRuleFlagTokens", () => {
     ]);
     expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
     expect(result.unrecognizedTokens).toEqual([secondToken]);
+  });
+
+  // Peer review #1, owner decision: an exact duplicate (same flag id, same
+  // value) is absorbed silently - it changes nothing and is not reported,
+  // unlike a repeat naming a *different* value (above).
+  it("absorbs an exact duplicate token silently: no deviation lost, and nothing reported as unrecognized", () => {
+    const result = parseRuleFlagTokens(BATTLE_EDITION, [
+      "DIAGONAL_ATTACKABLE=all",
+      "DIAGONAL_ATTACKABLE=all",
+    ]);
+    expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "DIAGONAL_ATTACKABLE",
+    ]);
+    expect(result.unrecognizedTokens).toEqual([]);
   });
 
   it("mixes a recognized and an unrecognized token: the recognized one resolves, the other is carried as unrecognized", () => {

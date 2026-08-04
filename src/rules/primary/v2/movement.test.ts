@@ -611,7 +611,11 @@ describe("legalAttacks: diagonal attacks under DIAGONAL_ATTACK_PATH=open_path (s
       { column: "D", row: 5 },
       OPEN_PATH_CONFIGURATION,
     );
-    expect(attacks.some((s) => s.column === "E" && s.row === 6)).toBe(false);
+    // Full-set assertion (peer review #8): both flanking squares are
+    // friendly, so the champion has no orthogonal attack either - the empty
+    // set positively confirms the diagonal refusal didn't also swallow
+    // orthogonal attacks it shouldn't have (there are none here to lose).
+    expect(sortedKeys(attacks)).toEqual([]);
   });
 
   it("refuses the attack when both flanks hold an enemy piece", () => {
@@ -626,7 +630,10 @@ describe("legalAttacks: diagonal attacks under DIAGONAL_ATTACK_PATH=open_path (s
       { column: "D", row: 5 },
       OPEN_PATH_CONFIGURATION,
     );
-    expect(attacks.some((s) => s.column === "E" && s.row === 6)).toBe(false);
+    // Full-set assertion (peer review #8): the diagonal (E6) is refused, but
+    // both flanking enemies (D6, E5) are themselves orthogonally adjacent
+    // and must still be offered as ordinary orthogonal attacks.
+    expect(sortedKeys(attacks)).toEqual(["D6", "E5"]);
   });
 
   it("refuses the attack when one flank holds a friendly piece and the other an enemy piece", () => {
@@ -641,7 +648,10 @@ describe("legalAttacks: diagonal attacks under DIAGONAL_ATTACK_PATH=open_path (s
       { column: "D", row: 5 },
       OPEN_PATH_CONFIGURATION,
     );
-    expect(attacks.some((s) => s.column === "E" && s.row === 6)).toBe(false);
+    // Full-set assertion (peer review #8): the diagonal (E6) is refused; the
+    // friendly flank (E5) is never an attack, but the enemy flank (D6) is
+    // still offered as an ordinary orthogonal attack.
+    expect(sortedKeys(attacks)).toEqual(["D6"]);
   });
 
   it("refuses the attack when one flank is a lake and the other holds a piece", () => {
@@ -657,7 +667,10 @@ describe("legalAttacks: diagonal attacks under DIAGONAL_ATTACK_PATH=open_path (s
       { column: "A", row: 6 },
       OPEN_PATH_CONFIGURATION,
     );
-    expect(attacks.some((s) => s.column === "B" && s.row === 5)).toBe(false);
+    // Full-set assertion (peer review #8): the diagonal (B5) is refused; the
+    // A5 flank is friendly (no attack) and the B6 flank is a lake (never an
+    // attack target), so no orthogonal attack survives either.
+    expect(sortedKeys(attacks)).toEqual([]);
   });
 
   it("keeps the skirt legal - one flank a lake, the other empty", () => {

@@ -40,9 +40,9 @@ export function GameRecord({ play }: GameRecordProps) {
     <details className="game-record">
       <summary>Developer: inspect game record</summary>
       <p className="game-record__hint">
-        Ruleset <code>{play.ruleset}</code>. Updated after every move; also
-        logged to the browser console.
-        {rulesSummary.length > 0 && ` ${rulesSummary.join(" ")}`}
+        Ruleset <code>{play.ruleset}</code>.
+        {rulesSummary.length > 0 && ` ${rulesSummary.join(" ")}`} Updated after
+        every move; also logged to the browser console.
       </p>
       <pre className="game-record__text">{record}</pre>
     </details>

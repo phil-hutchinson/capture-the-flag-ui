@@ -153,9 +153,12 @@ export function ReviewScreen({
   // the cursor moves, unlike `recordedResult` above. Recognized deviations
   // first, then one sentence per unrecognized token this app cannot
   // describe (Step 10) - a record can carry both at once.
+  const recognizedRuleSentences = nonStandardRuleSentences(configuration);
   const rulesSummary = [
-    ...nonStandardRuleSentences(configuration),
-    ...unrecognizedRuleTokens.map(unrecognizedRuleSentence),
+    ...recognizedRuleSentences,
+    ...unrecognizedRuleTokens.map((token) =>
+      unrecognizedRuleSentence(token, recognizedRuleSentences.length > 0),
+    ),
   ];
 
   return (

@@ -194,7 +194,20 @@ export function nonStandardRuleSentences(
  * Step 11's manual gate. No "experimental" framing, and no suggestion that
  * such a game could be resumed - reviewing is guaranteed, playing on from a
  * record is not, and nothing in this app does that today.
+ *
+ * `precededByRecognizedDeviation` (peer review #5, owner decision) governs
+ * only the leading "also": it is dropped when this sentence stands alone (no
+ * recognised-deviation sentence from `nonStandardRuleSentences` precedes it
+ * - the common case for a record from another app) and kept when it follows
+ * one. The rest of the sentence is unchanged either way. The owner
+ * explicitly declined both a lead-in on the review screen and collapsing
+ * multiple unrecognised tokens into one sentence - callers still render one
+ * sentence per token.
  */
-export function unrecognizedRuleSentence(token: string): string {
-  return `This game also used a rule setting this app doesn't recognize ("${token}"). The game can still be reviewed.`;
+export function unrecognizedRuleSentence(
+  token: string,
+  precededByRecognizedDeviation: boolean,
+): string {
+  const also = precededByRecognizedDeviation ? " also" : "";
+  return `This game${also} used a rule setting this app doesn't recognize ("${token}"). The game can still be reviewed.`;
 }

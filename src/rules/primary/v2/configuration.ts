@@ -180,19 +180,28 @@ export interface ParsedRuleFlagTokens {
  * configuration with no unrecognized tokens.
  *
  * A token resolves when, and only when, it is exactly one `NAME=value` pair
- * naming a flag id this app knows, a value that flag id permits, and a flag
- * id not already resolved by an earlier token in this same call - matching
- * is exact and case-sensitive throughout (the writer only ever emits the
- * canonical spelling, `RULE_FLAG_CATALOG`'s). Everything else - a malformed
- * token, an unknown flag id, an unknown value for a known flag id, or a
- * second token naming a flag id an earlier token already resolved - is
- * carried in `unrecognizedTokens` instead, verbatim, and does not affect the
- * configuration at all (the flag it would have named, if any, keeps
- * whatever an earlier token or the edition's own resolution already gave
- * it). A record naming the same flag twice therefore keeps the *first*
- * token's value and reports the second as unrecognized - a design call, not
- * a spec requirement, since nothing says which of two conflicting tokens for
- * one flag should win; open to challenge at peer review.
+ * naming a flag id this app knows, a value that flag id permits, and either a
+ * flag id not already resolved by an earlier token in this same call, or a
+ * repeat of the *same* flag id and value an earlier token already resolved -
+ * matching is exact and case-sensitive throughout (the writer only ever
+ * emits the canonical spelling, `RULE_FLAG_CATALOG`'s). Everything else - a
+ * malformed token, an unknown flag id, an unknown value for a known flag id,
+ * or a second token naming a flag id an earlier token already resolved to a
+ * *different* value - is carried in `unrecognizedTokens` instead, verbatim,
+ * and does not affect the configuration at all (the flag it would have
+ * named, if any, keeps whatever an earlier token or the edition's own
+ * resolution already gave it).
+ *
+ * **Repeated flag id (peer review #1, owner decision).** An exact duplicate
+ * - the same flag id and the same value as an earlier token in this call -
+ * is absorbed silently: it changes nothing and is not reported, exactly the
+ * canonicalization this function already performs for a flag redundantly
+ * named at its resolved value (see below). A repeat naming a *different*
+ * value for a flag id an earlier token already resolved keeps today's
+ * behaviour exactly: the first token wins and the second, conflicting token
+ * is carried as unrecognized - a design call, not a spec requirement, since
+ * nothing says which of two conflicting tokens for one flag should win; open
+ * to challenge at peer review.
  *
  * A token naming a flag at the value it would resolve to anyway is resolved
  * and absorbed exactly like any other override - `configureRules` resolves
@@ -225,7 +234,19 @@ export function parseRuleFlagTokens(
     }
 
     if (Object.hasOwn(overrides, flagId)) {
-      unrecognizedTokens.push(token);
+      // Repeated flag id (peer review #1, owner decision: absorb exact
+      // duplicates only). A repeat naming the *same* value as the
+      // already-resolved one is the same canonicalization this function
+      // already performs for a flag at its resolved value - it changes
+      // nothing and is silently absorbed, not reported. A repeat naming a
+      // *different* value keeps today's behaviour exactly: the first token
+      // already won, and this second, conflicting token is carried as
+      // unrecognized (still a design call, not a spec requirement, since
+      // nothing says which of two conflicting tokens for one flag should
+      // win; open to challenge at peer review).
+      if (overrides[flagId] !== value) {
+        unrecognizedTokens.push(token);
+      }
       continue;
     }
 

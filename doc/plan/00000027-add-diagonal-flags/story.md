@@ -167,9 +167,17 @@ The exact wording is a plan-time decision.
 8. **Records: reading.** The reviewer parses a `Ruleset` tag into an edition id
    and flag tokens, canonicalizes it, and replays the record under the
    resulting configuration — so a game played with a flag on replays under that
-   flag. A tag naming an unknown flag id, an unknown value for a known flag, or
-   a malformed token is **rejected with a message that says which token was not
-   understood**, never silently ignored.
+   flag. ~~A tag naming an unknown flag id, an unknown value for a known flag,
+   or a malformed token is **rejected with a message that says which token was
+   not understood**, never silently ignored.~~ **Amended 2026-08-04:** a tag
+   naming an unknown flag id, an unknown value for a known flag, a malformed
+   token or a repeated flag is instead carried as an unrecognised token and
+   named to the reviewer, and never rejects the record; the edition id is the
+   only part of the tag that can reject one. Rejection was originally
+   required and was reversed at Step 9's manual gate on the owner's finding,
+   because the companion repository's `technical-notes.md` guarantees
+   view-only replay for every record forever with no rules knowledge
+   required — see the implementation plan's Step 10.
 9. **The reviewer shows what was played.** A record's non-standard flags are
    visible while reviewing it, in plain language. Without this, a diagonal
    capture of a Flag looks like a bug.
@@ -263,8 +271,16 @@ The exact wording is a plan-time decision.
 - **Gate E — Records round-trip.** A finished game on non-standard flags dumps
   a record whose `Ruleset` tag names them, and re-importing that dump into the
   reviewer replays it end to end under those flags, with the non-standard rules
-  visible while reviewing. A record naming an unknown flag is refused with a
-  message naming the token.
+  visible while reviewing. ~~A record naming an unknown flag is refused with a
+  message naming the token.~~ **Amended 2026-08-04:** a tag naming an unknown
+  flag id, an unknown value for a known flag, a malformed token or a repeated
+  flag is instead carried as an unrecognised token and named to the reviewer,
+  and never rejects the record; the edition id is the only part of the tag
+  that can reject one. Rejection was originally required and was reversed at
+  Step 9's manual gate on the owner's finding, because the companion
+  repository's `technical-notes.md` guarantees view-only replay for every
+  record forever with no rules knowledge required — see the implementation
+  plan's Step 10.
 - **Gate F — The new-game screen.** The flag choices are understandable without
   knowing the flag identifiers; returning to the screen after a game
   pre-selects both the game and the flags just played; reloading the page

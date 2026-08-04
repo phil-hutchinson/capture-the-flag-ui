@@ -68,14 +68,17 @@ export type DiagonalAttackableValue = RuleFlagValue<"DIAGONAL_ATTACKABLE">;
 export type DiagonalAttackPathValue = RuleFlagValue<"DIAGONAL_ATTACK_PATH">;
 
 /**
- * Every flag id, in the order the catalog above defines them - which is
- * already alphabetical (`DIAGONAL_ATTACKABLE` < `DIAGONAL_ATTACK_PATH`,
- * comparing byte for byte: `A` < `_`), matching the `Ruleset` tag's required
- * ordering (companion repository's `technical-notes.md`, "Record file
- * format"). Consumers that need flags in that order - the deviation query
- * and Step 2's stamp renderer - iterate this array rather than re-deriving
- * or re-asserting the order.
+ * Every flag id, alphabetically sorted - matching the `Ruleset` tag's
+ * required ordering (companion repository's `technical-notes.md`, "Record
+ * file format"). Sorted explicitly rather than merely relying on the
+ * catalog's declaration order being alphabetical (peer review #4): today
+ * `Object.keys(RULE_FLAG_CATALOG)` already yields `DIAGONAL_ATTACKABLE` then
+ * `DIAGONAL_ATTACK_PATH`, so sorting is a no-op, but a third flag declared
+ * out of order would otherwise silently break the tag's required ordering.
+ * Consumers that need flags in that order - the deviation query and Step 2's
+ * stamp renderer - iterate this array rather than re-deriving or
+ * re-asserting the order.
  */
-export const RULE_FLAG_IDS: readonly RuleFlagId[] = Object.keys(
-  RULE_FLAG_CATALOG,
-) as RuleFlagId[];
+export const RULE_FLAG_IDS: readonly RuleFlagId[] = (
+  Object.keys(RULE_FLAG_CATALOG) as RuleFlagId[]
+).sort();

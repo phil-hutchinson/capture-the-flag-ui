@@ -120,6 +120,19 @@ function gameOrderRank(id: EditionId): number {
  * session, otherwise the option `ruleChoices.ts` marks as standard - which is
  * exactly what an absent override resolves to (`configureRules`), so this
  * mirrors the rules engine's own resolution without needing to import it.
+ *
+ * Peer review #6 (owner decision: document only, no behaviour change). This
+ * fallback is the catalog default (`ruleChoices.ts`'s `isStandard`), not
+ * `configuration.ts`'s own `resolvedEditionValue` (the edition's stated
+ * value, falling back to the catalog default only when the edition doesn't
+ * state one). The two are indistinguishable today because no registered
+ * edition states a flag value - `resolvedEditionValue`'s doc comment names
+ * that as the documented extension point for the day one does, at which
+ * point this fallback would diverge from what the engine actually resolves
+ * for the *selected* edition (this function has no edition in scope at all,
+ * only the flag choice). Fixing this would mean threading `selectedEdition`
+ * in and calling `resolvedEditionValue`-equivalent logic here instead of
+ * reading `isStandard` off the catalog; out of scope for this pass.
  */
 function selectedRuleValue(
   choice: RuleChoiceDescriptor,
@@ -160,6 +173,21 @@ export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
   // component needs, at the "Play <Game>" button below, mirrors
   // `ruleChoices.ts`'s own `buildRuleChoice`/`nonStandardRuleSentences` casts
   // for the same reason.
+  //
+  // Peer review #6 (owner decision: document only, no behaviour change).
+  // Seeding from *every* flag in `lastPlayed.flags` converts a value that
+  // was merely *resolved* for the previously-played edition into an
+  // explicit *override* for whatever edition is chosen next. That's the
+  // same coupling `selectedRuleValue` above has: harmless today (no
+  // registered edition states a flag value, so "resolved" and "catalog
+  // default" always agree), but on the day one does, switching games on
+  // this screen would silently carry the previous edition's resolved value
+  // across as an override, rather than picking up the newly-selected
+  // edition's own stated value. See `configuration.ts`'s
+  // `resolvedEditionValue` for the extension point this would need to read
+  // instead. Fixing this would mean seeding only the flags that actually
+  // deviated (`deviatingFlags(lastPlayed)`) rather than every flag; out of
+  // scope for this pass.
   const [flagOverrides, setFlagOverrides] = useState<
     Partial<Record<RuleFlagId, string>>
   >(() => (lastPlayed ? { ...lastPlayed.flags } : {}));
