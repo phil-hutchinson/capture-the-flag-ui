@@ -553,7 +553,39 @@ test`.
 
 ## Step 5 — `DIAGONAL_ATTACK_PATH` in the rules, and the two flags composed
 
-Status: pending
+Status: committed
+
+Notes: In `legalAttacks`' diagonal loop (`movement.ts`), restructured the
+existing target-legality check into an early `continue` and added, only when
+`configuration.flags.DIAGONAL_ATTACK_PATH === "open_path"`, a check that at
+least one of the two flanks - derived geometrically via the existing `step`
+helper as `step(origin, dc, 0, 1, layout)` and `step(origin, 0, dr, 1,
+layout)` - passes the existing private `isEmpty` predicate; under `always`
+the check is skipped entirely, and the target-square lake check above it is
+untouched. Updated the module header and `legalAttacks`' doc comment to
+describe both `DIAGONAL_ATTACK_PATH` values and note the two flags compose
+independently. Added four `movement.test.ts` describe blocks: `open_path`
+(both-friendly, both-enemy, one-of-each and lake-plus-piece flank blockers
+all refuse the attack; the skirt - one flank a lake, the other empty - stays
+legal; clearing either flank of a two-blocker position restores legality;
+an already-open pair is unaffected), an explicit `always` block pinning the
+same blocked-flank and lake-plus-piece positions as still legal, and a
+composition block asserting all four flag combinations on one fixed
+Tower-target position (`movable_only`+`always` and `open_path` alone both
+refuse it regardless of flanks since the Tower fails `DIAGONAL_ATTACKABLE`;
+`all` alone offers it regardless of flanks; both together offer it only once
+a flank clears). Added an `outcome.test.ts` case: a White champion boxed
+into corner A1 by its own two Towers (at A2/B1) with a Black militia
+diagonally at B2 - whose flanks are exactly A2 and B1 - is `ongoing` under
+the standard configuration (the diagonal attack is champion's only, but
+legal, ply) and a `noLegalMove` win for Black under `open_path` (both flanks
+are the boxing Towers), confirming the flag reaches `hasAnyLegalPly` and
+`computeOutcome` per the plan's explicit note not to design further around
+this corner case. No deviation from the plan. `npm run typecheck`, `npm run
+lint`, `npm test` (677 tests, up from 662), `npm run format:check` (after
+running `prettier --write` on the two touched test files to satisfy the
+project's formatting convention, matching prior steps' practice) and `npm
+run build` are all clean.
 
 In the same diagonal loop, when the configuration's resolved
 `DIAGONAL_ATTACK_PATH` is `open_path`, additionally require that at least one of

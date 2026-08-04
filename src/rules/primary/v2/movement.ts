@@ -33,8 +33,12 @@
 // diagonal target - a Tower or the Flag can never be attacked diagonally.
 // Under the proposed `DIAGONAL_ATTACKABLE=all` value, a Tower or the Flag is
 // a legal diagonal target too, resolved by the same combat rules as any
-// other target. There is no two-square diagonal and it is never subject to
-// the unencumbered bonus.
+// other target. Under the standard `DIAGONAL_ATTACK_PATH=always` value, a
+// diagonal attack needs nothing further; under the proposed
+// `DIAGONAL_ATTACK_PATH=open_path` value, it additionally requires at least
+// one of the two flanking squares to be unoccupied and not a lake. The two
+// flags compose independently. There is no two-square diagonal and it is
+// never subject to the unencumbered bonus.
 //
 // Builds only on the board geometry (board.ts, boardLayout.ts), the piece
 // catalog (pieces.ts), and `BoardState` (gameState.ts); it has no further
@@ -226,11 +230,20 @@ export function legalDestinations(
  * direction and nothing else, and is never subject to the unencumbered
  * bonus. A lake at the diagonal's *corner* does not block the attack (the
  * "skirt"); only the attacked square itself must not be a lake.
- * `configuration` (story 00000027 - required, no default) sizes the board
- * via `configuration.edition.boardLayout` and its resolved
- * `DIAGONAL_ATTACKABLE` flag governs the diagonal loop above; its
- * `DIAGONAL_ATTACK_PATH` flag does not yet change this loop's logic (Step 5
- * reads it).
+ *
+ * Under the standard `DIAGONAL_ATTACK_PATH=always` value, a diagonal attack
+ * needs nothing further. Under the proposed `DIAGONAL_ATTACK_PATH=open_path`
+ * value (story 00000027's implementation plan), it additionally requires
+ * that at least one of the two squares *flanking* the diagonal - for an
+ * attack from `(c, r)` to `(c±1, r±1)`, the squares `(c±1, r)` and
+ * `(c, r±1)` - be unoccupied by a piece of either side and not a lake
+ * (derived from the attack's direction, never enumerated per board). The
+ * skirt stays legal under `open_path`, since it only ever blocks *one* flank
+ * and the target-square lake check above is untouched. `DIAGONAL_ATTACKABLE`
+ * and `DIAGONAL_ATTACK_PATH` compose independently - neither reads the
+ * other. `configuration` (story 00000027 - required, no default) sizes the
+ * board via `configuration.edition.boardLayout` and its two resolved flags
+ * govern the diagonal loop above.
  */
 export function legalAttacks(
   board: BoardState,
@@ -273,6 +286,7 @@ export function legalAttacks(
   }
 
   const diagonalAttackable = configuration.flags.DIAGONAL_ATTACKABLE;
+  const diagonalAttackPath = configuration.flags.DIAGONAL_ATTACK_PATH;
   for (const { dc, dr } of DIAGONAL_DIRECTIONS) {
     const target = step(origin, dc, dr, 1, layout);
     if (target === null || isLake(target, layout)) {
@@ -280,12 +294,27 @@ export function legalAttacks(
     }
     const targetOccupant = board[squareKey(target)];
     if (
-      targetOccupant !== undefined &&
-      targetOccupant.side !== side &&
-      (diagonalAttackable === "all" || !isImmobile(targetOccupant.pieceType))
+      targetOccupant === undefined ||
+      targetOccupant.side === side ||
+      !(diagonalAttackable === "all" || !isImmobile(targetOccupant.pieceType))
     ) {
-      attacks.push(target);
+      continue;
     }
+    if (diagonalAttackPath === "open_path") {
+      // The two flanks - (c+dc, r) and (c, r+dr) - are each always on-board
+      // whenever both origin and target are (each reuses one of origin's
+      // coordinates and one of target's), so `step` here can never return
+      // `null`; the null checks below are defensive only, never exercised.
+      const flankOne = step(origin, dc, 0, 1, layout);
+      const flankTwo = step(origin, 0, dr, 1, layout);
+      const pathOpen =
+        (flankOne !== null && isEmpty(board, flankOne, layout)) ||
+        (flankTwo !== null && isEmpty(board, flankTwo, layout));
+      if (!pathOpen) {
+        continue;
+      }
+    }
+    attacks.push(target);
   }
 
   return attacks;

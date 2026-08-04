@@ -5,6 +5,7 @@ import {
   configureRules,
   STANDARD_BATTLE_CONFIGURATION,
   STANDARD_SKIRMISH_CONFIGURATION,
+  type RuleConfiguration,
 } from "./configuration.ts";
 import { BATTLE_EDITION } from "./edition.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
@@ -585,9 +586,254 @@ describe("legalAttacks: diagonal attacks under DIAGONAL_ATTACKABLE=all (story 00
   });
 });
 
+// Story 00000027, Step 5: `DIAGONAL_ATTACK_PATH=open_path` additionally
+// requires that at least one of the two flanking squares - `(c+dc, r)` and
+// `(c, r+dr)` for an attack in direction `dc`/`dr` - be unoccupied by a piece
+// of either side and not a lake. Everything else about a diagonal attack
+// (on-board, target not a lake, enemy-owned, one square only, no
+// unencumbered bonus) is untouched.
+describe("legalAttacks: diagonal attacks under DIAGONAL_ATTACK_PATH=open_path (story 00000027)", () => {
+  const OPEN_PATH_CONFIGURATION = configureRules(BATTLE_EDITION, {
+    DIAGONAL_ATTACK_PATH: "open_path",
+  });
+
+  // Attack D5 -> E6; its two flanks are E5 (dc=1, dr=0 from D5) and D6
+  // (dc=0, dr=1 from D5).
+  it("refuses the attack when both flanks hold a friendly piece", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "white", "militia"],
+      ["D6", "white", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    expect(attacks.some((s) => s.column === "E" && s.row === 6)).toBe(false);
+  });
+
+  it("refuses the attack when both flanks hold an enemy piece", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "black", "militia"],
+      ["D6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    expect(attacks.some((s) => s.column === "E" && s.row === 6)).toBe(false);
+  });
+
+  it("refuses the attack when one flank holds a friendly piece and the other an enemy piece", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "white", "militia"],
+      ["D6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    expect(attacks.some((s) => s.column === "E" && s.row === 6)).toBe(false);
+  });
+
+  it("refuses the attack when one flank is a lake and the other holds a piece", () => {
+    // A6 -> B5 (the skirt's attack, see below); its flanks are B6 (a lake)
+    // and A5. Occupying A5 leaves no open flank.
+    const state = board([
+      ["A6", "white", "champion"],
+      ["B5", "black", "militia"],
+      ["A5", "white", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 6 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    expect(attacks.some((s) => s.column === "B" && s.row === 5)).toBe(false);
+  });
+
+  it("keeps the skirt legal - one flank a lake, the other empty", () => {
+    const state = board([
+      ["A6", "white", "champion"],
+      ["B5", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 6 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    expect(sortedKeys(attacks)).toEqual(["B5"]);
+  });
+
+  it("becomes legal again the moment either flank is cleared", () => {
+    const withBothFlanksBlocked = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "black", "militia"],
+      ["D6", "black", "militia"],
+    ]);
+    expect(
+      legalAttacks(
+        withBothFlanksBlocked,
+        { column: "D", row: 5 },
+        OPEN_PATH_CONFIGURATION,
+      ).some((s) => s.column === "E" && s.row === 6),
+    ).toBe(false);
+
+    const withNearFlankCleared = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["D6", "black", "militia"],
+    ]);
+    expect(
+      legalAttacks(
+        withNearFlankCleared,
+        { column: "D", row: 5 },
+        OPEN_PATH_CONFIGURATION,
+      ).some((s) => s.column === "E" && s.row === 6),
+    ).toBe(true);
+
+    const withFarFlankCleared = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "black", "militia"],
+    ]);
+    expect(
+      legalAttacks(
+        withFarFlankCleared,
+        { column: "D", row: 5 },
+        OPEN_PATH_CONFIGURATION,
+      ).some((s) => s.column === "E" && s.row === 6),
+    ).toBe(true);
+  });
+
+  it("is unaffected when both flanks are already empty", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      OPEN_PATH_CONFIGURATION,
+    );
+    expect(sortedKeys(attacks)).toEqual(["E6"]);
+  });
+});
+
+// Story 00000027, Step 5: the same positions as above, but under an
+// explicit `DIAGONAL_ATTACK_PATH=always` (rather than relying on the
+// standard configuration's default) - every one of them offers the attack
+// regardless of the flanks.
+describe("legalAttacks: diagonal attacks under an explicit DIAGONAL_ATTACK_PATH=always (story 00000027)", () => {
+  const ALWAYS_CONFIGURATION = configureRules(BATTLE_EDITION, {
+    DIAGONAL_ATTACK_PATH: "always",
+  });
+
+  it("offers the attack even when both flanks are blocked", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+      ["E5", "black", "militia"],
+      ["D6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALWAYS_CONFIGURATION,
+    );
+    expect(attacks.some((s) => s.column === "E" && s.row === 6)).toBe(true);
+  });
+
+  it("offers the attack when one flank is a lake and the other holds a piece", () => {
+    const state = board([
+      ["A6", "white", "champion"],
+      ["B5", "black", "militia"],
+      ["A5", "white", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 6 },
+      ALWAYS_CONFIGURATION,
+    );
+    expect(attacks.some((s) => s.column === "B" && s.row === 5)).toBe(true);
+  });
+});
+
+// Story 00000027, Step 5: the two flags compose independently - `all`
+// widens the diagonal target set, `open_path` narrows the legal paths, and
+// neither reads the other. Fixed position: D5 white champion; E6 black
+// Tower (immobile - only a legal diagonal target under `all`); its flanks
+// E5/D6 either both blocked (only a legal path under `always`) or with one
+// cleared (a legal path under `open_path` too).
+describe("legalAttacks: DIAGONAL_ATTACKABLE and DIAGONAL_ATTACK_PATH compose (story 00000027)", () => {
+  const bothFlanksBlocked = board([
+    ["D5", "white", "champion"],
+    ["E6", "black", "tower"],
+    ["E5", "black", "militia"],
+    ["D6", "black", "militia"],
+  ]);
+  const oneFlankCleared = board([
+    ["D5", "white", "champion"],
+    ["E6", "black", "tower"],
+    ["D6", "black", "militia"],
+  ]);
+
+  function offersTowerAttack(
+    state: BoardState,
+    configuration: RuleConfiguration,
+  ): boolean {
+    return legalAttacks(state, { column: "D", row: 5 }, configuration).some(
+      (s) => s.column === "E" && s.row === 6,
+    );
+  }
+
+  it("standard (movable_only, always): never offered - the Tower is not a legal diagonal target", () => {
+    expect(
+      offersTowerAttack(bothFlanksBlocked, STANDARD_BATTLE_CONFIGURATION),
+    ).toBe(false);
+    expect(
+      offersTowerAttack(oneFlankCleared, STANDARD_BATTLE_CONFIGURATION),
+    ).toBe(false);
+  });
+
+  it("DIAGONAL_ATTACKABLE=all alone: offered regardless of the flanks", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      DIAGONAL_ATTACKABLE: "all",
+    });
+    expect(offersTowerAttack(bothFlanksBlocked, configuration)).toBe(true);
+    expect(offersTowerAttack(oneFlankCleared, configuration)).toBe(true);
+  });
+
+  it("DIAGONAL_ATTACK_PATH=open_path alone: still never offered - the Tower is still not a legal diagonal target", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      DIAGONAL_ATTACK_PATH: "open_path",
+    });
+    expect(offersTowerAttack(bothFlanksBlocked, configuration)).toBe(false);
+    expect(offersTowerAttack(oneFlankCleared, configuration)).toBe(false);
+  });
+
+  it("both together: offered only once a flank is open", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      DIAGONAL_ATTACKABLE: "all",
+      DIAGONAL_ATTACK_PATH: "open_path",
+    });
+    expect(offersTowerAttack(bothFlanksBlocked, configuration)).toBe(false);
+    expect(offersTowerAttack(oneFlankCleared, configuration)).toBe(true);
+  });
+});
+
 // Every existing diagonal test above uses STANDARD_BATTLE_CONFIGURATION and
-// keeps passing unchanged - confirming `movable_only` (the default) leaves
-// today's behaviour exactly as it was.
+// keeps passing unchanged - confirming `movable_only` and `always` (both
+// defaults) leave today's behaviour exactly as it was.
 
 // Story 00000023, Step 3: the same functions above, exercised on the
 // Skirmish layout (`standard_64`, 8x8) instead of the Battle default, to

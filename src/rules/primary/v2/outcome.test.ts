@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  configureRules,
   STANDARD_BATTLE_CONFIGURATION,
   STANDARD_SKIRMISH_CONFIGURATION,
 } from "./configuration.ts";
+import { BATTLE_EDITION } from "./edition.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
 import { computeOutcome, INACTIVITY_LIMIT } from "./outcome.ts";
 import type { PieceTypeId } from "./pieces.ts";
@@ -165,6 +167,56 @@ describe("computeOutcome - §5.2 no legal move", () => {
       STANDARD_BATTLE_CONFIGURATION,
     );
     expect(outcome).toEqual({ kind: "ongoing" });
+  });
+});
+
+// Story 00000027, Step 5: `DIAGONAL_ATTACK_PATH=open_path` narrows the
+// diagonal loop `hasAnyLegalPly` is built on, so it can - barely - reach
+// §5.2 "no legal move" too. Per the implementation plan, this scenario needs
+// the side's last movable piece boxed in orthogonally by edges, lakes and
+// its own immobile pieces, with a diagonal attack as its only ply; it is a
+// corner case, not designed around further.
+describe("computeOutcome - §5.2 reached via DIAGONAL_ATTACK_PATH=open_path (story 00000027)", () => {
+  // White's champion is boxed into corner A1 by its own two Towers at A2 and
+  // B1 (no orthogonal moves, and neither Tower is an enemy to attack). Its
+  // only possible ply is the diagonal attack on the Black militia at B2 -
+  // whose flanks are exactly A2 and B1, both occupied by White's own Towers.
+  function boxedInWithOneDiagonalAttack(): BoardState {
+    return board([
+      ["A1", "white", "champion"],
+      ["A2", "white", "tower"],
+      ["B1", "white", "tower"],
+      ["B2", "black", "militia"],
+      ["D1", "white", "flag"],
+      ["L12", "black", "flag"],
+    ]);
+  }
+
+  it("is ongoing under the standard configuration - the diagonal attack is a legal ply regardless of its flanks", () => {
+    const outcome = computeOutcome(
+      boxedInWithOneDiagonalAttack(),
+      "white",
+      0,
+      STANDARD_BATTLE_CONFIGURATION,
+    );
+    expect(outcome).toEqual({ kind: "ongoing" });
+  });
+
+  it("is a noLegalMove loss under DIAGONAL_ATTACK_PATH=open_path - both of the attack's flanks are blocked", () => {
+    const openPathConfiguration = configureRules(BATTLE_EDITION, {
+      DIAGONAL_ATTACK_PATH: "open_path",
+    });
+    const outcome = computeOutcome(
+      boxedInWithOneDiagonalAttack(),
+      "white",
+      0,
+      openPathConfiguration,
+    );
+    expect(outcome).toEqual({
+      kind: "win",
+      winner: "black",
+      reason: "noLegalMove",
+    });
   });
 });
 
