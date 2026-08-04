@@ -27,10 +27,14 @@
 // special cases in 2.0.
 //
 // A mobile piece may additionally *attack* (never move onto) an enemy
-// exactly one square diagonally (§4.3, "Diagonal attacks", major 2), but only
-// a movable/numbered enemy piece - a Tower or the Flag can never be attacked
-// diagonally. There is no two-square diagonal and it is never subject to the
-// unencumbered bonus.
+// exactly one square diagonally (§4.3, "Diagonal attacks", major 2). Under
+// the standard `DIAGONAL_ATTACKABLE=movable_only` value (story 00000027's
+// implementation plan), only a movable/numbered enemy piece is a legal
+// diagonal target - a Tower or the Flag can never be attacked diagonally.
+// Under the proposed `DIAGONAL_ATTACKABLE=all` value, a Tower or the Flag is
+// a legal diagonal target too, resolved by the same combat rules as any
+// other target. There is no two-square diagonal and it is never subject to
+// the unencumbered bonus.
 //
 // Builds only on the board geometry (board.ts, boardLayout.ts), the piece
 // catalog (pieces.ts), and `BoardState` (gameState.ts); it has no further
@@ -208,17 +212,25 @@ export function legalDestinations(
  * target. Never off-board, never through or onto a lake.
  *
  * A mobile piece may additionally attack an enemy exactly one square
- * **diagonally** (§4.3, "Diagonal attacks") - but only a **movable
- * (numbered)** enemy piece: a Tower or the Flag can never be attacked
- * diagonally, so the Flag can only ever be captured from an orthogonally
- * adjacent square. There is no two-square diagonal and no diagonal move onto
- * an empty square - the diagonal is an attacking direction and nothing else,
- * and is never subject to the unencumbered bonus. A lake at the diagonal's
- * *corner* does not block the attack (the "skirt"); only the attacked square
- * itself must not be a lake. `configuration` (story 00000027 - required, no
- * default) sizes the board via `configuration.edition.boardLayout`; its
- * resolved flags do not change the diagonal loop's logic in this step (Steps
- * 4-5 read them).
+ * **diagonally** (§4.3, "Diagonal attacks"). Under the standard
+ * `DIAGONAL_ATTACKABLE=movable_only` value, only a **movable (numbered)**
+ * enemy piece is a legal diagonal target: a Tower or the Flag can never be
+ * attacked diagonally, so the Flag can only ever be captured from an
+ * orthogonally adjacent square. Under the proposed `DIAGONAL_ATTACKABLE=all`
+ * value (story 00000027's implementation plan), a Tower or the Flag is a
+ * legal diagonal target too - combat resolution is unchanged (`combat.ts`
+ * already handles a Tower or Flag defender with no notion of attack
+ * direction), so a diagonal Tower attack is still a partial sacrifice and a
+ * diagonal Flag capture still ends the game. There is no two-square diagonal
+ * and no diagonal move onto an empty square - the diagonal is an attacking
+ * direction and nothing else, and is never subject to the unencumbered
+ * bonus. A lake at the diagonal's *corner* does not block the attack (the
+ * "skirt"); only the attacked square itself must not be a lake.
+ * `configuration` (story 00000027 - required, no default) sizes the board
+ * via `configuration.edition.boardLayout` and its resolved
+ * `DIAGONAL_ATTACKABLE` flag governs the diagonal loop above; its
+ * `DIAGONAL_ATTACK_PATH` flag does not yet change this loop's logic (Step 5
+ * reads it).
  */
 export function legalAttacks(
   board: BoardState,
@@ -260,6 +272,7 @@ export function legalAttacks(
     }
   }
 
+  const diagonalAttackable = configuration.flags.DIAGONAL_ATTACKABLE;
   for (const { dc, dr } of DIAGONAL_DIRECTIONS) {
     const target = step(origin, dc, dr, 1, layout);
     if (target === null || isLake(target, layout)) {
@@ -269,7 +282,7 @@ export function legalAttacks(
     if (
       targetOccupant !== undefined &&
       targetOccupant.side !== side &&
-      !isImmobile(targetOccupant.pieceType)
+      (diagonalAttackable === "all" || !isImmobile(targetOccupant.pieceType))
     ) {
       attacks.push(target);
     }

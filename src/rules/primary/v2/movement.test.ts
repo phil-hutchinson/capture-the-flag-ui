@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Square } from "./board.ts";
 import { BOARD_LAYOUTS } from "./boardLayout.ts";
 import {
+  configureRules,
   STANDARD_BATTLE_CONFIGURATION,
   STANDARD_SKIRMISH_CONFIGURATION,
 } from "./configuration.ts";
+import { BATTLE_EDITION } from "./edition.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
 import { hasAnyLegalPly, legalAttacks, legalDestinations } from "./movement.ts";
 import type { PieceTypeId } from "./pieces.ts";
@@ -493,6 +495,99 @@ describe("legalAttacks: diagonal attacks (ruleset major 2, §4.3)", () => {
     expect(sortedKeys(attacks)).toEqual(["D6", "E6"].sort());
   });
 });
+
+// Story 00000027, Step 4: `DIAGONAL_ATTACKABLE=all` widens the diagonal
+// loop's target set to include an enemy Tower or Flag; everything else about
+// a diagonal attack (on-board, not a lake, enemy-owned, one square only, no
+// unencumbered bonus) is untouched.
+describe("legalAttacks: diagonal attacks under DIAGONAL_ATTACKABLE=all (story 00000027)", () => {
+  const ALL_CONFIGURATION = configureRules(BATTLE_EDITION, {
+    DIAGONAL_ATTACKABLE: "all",
+  });
+
+  it("offers an enemy Tower diagonally adjacent as an attack", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "tower"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(sortedKeys(attacks)).toEqual(["E6"]);
+  });
+
+  it("offers the enemy Flag diagonally adjacent as an attack", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "flag"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(sortedKeys(attacks)).toEqual(["E6"]);
+  });
+
+  it("never offers a friendly Tower or Flag diagonally adjacent as an attack", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "white", "tower"],
+      ["C6", "white", "flag"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(attacks).toEqual([]);
+  });
+
+  it("still never offers a diagonal move onto an empty square", () => {
+    const state = board([["D5", "white", "champion"]]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(attacks).toEqual([]);
+  });
+
+  it("still withholds a diagonal attack onto a lake square", () => {
+    // Same fixture as the standard-value lake test above: B6 is a lake
+    // square, so even under `all` the target-square lake check must still
+    // block it.
+    const state = board([
+      ["A5", "white", "champion"],
+      ["B6", "black", "tower"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "A", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(attacks.some((s) => s.column === "B" && s.row === 6)).toBe(false);
+  });
+
+  it("still offers a movable enemy diagonally, unaffected by the widened target set", () => {
+    const state = board([
+      ["D5", "white", "champion"],
+      ["E6", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "D", row: 5 },
+      ALL_CONFIGURATION,
+    );
+    expect(sortedKeys(attacks)).toEqual(["E6"]);
+  });
+});
+
+// Every existing diagonal test above uses STANDARD_BATTLE_CONFIGURATION and
+// keeps passing unchanged - confirming `movable_only` (the default) leaves
+// today's behaviour exactly as it was.
 
 // Story 00000023, Step 3: the same functions above, exercised on the
 // Skirmish layout (`standard_64`, 8x8) instead of the Battle default, to

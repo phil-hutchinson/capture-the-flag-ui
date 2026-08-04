@@ -498,7 +498,30 @@ existing record from `doc/samples/` and confirm it still reviews.
 
 ## Step 4 — `DIAGONAL_ATTACKABLE` in the rules
 
-Status: pending
+Status: committed
+
+Notes: In `legalAttacks`' diagonal loop (`movement.ts`), the target-legality
+condition became `diagonalAttackable === "all" || !isImmobile(targetOccupant.pieceType)`,
+reading `configuration.flags.DIAGONAL_ATTACKABLE`; everything else in the
+loop (on-board, target-square-not-a-lake, occupied, enemy-owned) is
+untouched, and `combat.ts`/`outcome.ts` were not touched, confirming the
+Grounding facts' claim. Updated the module header and `legalAttacks`' doc
+comment to describe both values instead of stating flatly that a Tower or
+Flag can never be attacked diagonally. Added a new `movement.test.ts` describe
+block (`DIAGONAL_ATTACKABLE=all`, built via `configureRules(BATTLE_EDITION, {
+DIAGONAL_ATTACKABLE: "all" })`) covering: an enemy Tower and enemy Flag are
+now offered diagonally; a friendly Tower/Flag is still never offered; an
+empty diagonal square is still never offered; the target-square lake check
+still blocks a diagonal attack; and a movable enemy is still offered
+(unaffected by the widened set) — every existing diagonal test (all on
+`STANDARD_BATTLE_CONFIGURATION`, i.e. `movable_only`) passes unedited. Added
+a `play.test.ts` describe block exercising `applyMove` under the same `all`
+configuration: a diagonal attack on an enemy Tower resolves as a mutual loss
+(both squares empty afterwards), a diagonal attack on the enemy Flag ends the
+game as a `flagCapture` win for the attacker, and the same two attacks throw
+under the standard configuration (not a legal target). No deviation from the
+plan. `npm run typecheck`, `npm run lint`, `npm test` (662 tests, up from
+653, all passing), `npm run format:check` and `npm run build` are all clean.
 
 In `legalAttacks`' diagonal loop only, drop the "target is not immobile"
 condition when the configuration's resolved `DIAGONAL_ATTACKABLE` is `all`, and

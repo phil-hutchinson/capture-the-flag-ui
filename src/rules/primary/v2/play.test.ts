@@ -3,7 +3,7 @@ import {
   configureRules,
   STANDARD_BATTLE_CONFIGURATION,
 } from "./configuration.ts";
-import { EDITIONS } from "./edition.ts";
+import { BATTLE_EDITION, EDITIONS } from "./edition.ts";
 import type { BoardState, InitialGameState, PlacedPiece } from "./gameState.ts";
 import { renderPositionBlock, RULESET_TAG } from "./gameState.ts";
 import { INACTIVITY_LIMIT } from "./outcome.ts";
@@ -35,10 +35,11 @@ function board(
 
 function initialGameState(
   pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
+  configuration = STANDARD_BATTLE_CONFIGURATION,
 ): InitialGameState {
   return {
     ruleset: RULESET_TAG,
-    configuration: STANDARD_BATTLE_CONFIGURATION,
+    configuration,
     board: board(pieces),
   };
 }
@@ -608,6 +609,85 @@ describe("applyMove - result (§5 detection after every ply)", () => {
 
     expect(() =>
       applyMove(finished, { column: "D", row: 6 }, { column: "D", row: 7 }),
+    ).toThrow();
+  });
+});
+
+describe("applyMove - diagonal attacks under DIAGONAL_ATTACKABLE (story 00000027, Step 4)", () => {
+  const ALL_CONFIGURATION = configureRules(BATTLE_EDITION, {
+    DIAGONAL_ATTACKABLE: "all",
+  });
+
+  it("under `all`, accepts a diagonal attack on an enemy Tower and resolves it as a mutual loss (partial sacrifice)", () => {
+    const initial = initialGameState(
+      [
+        ["D5", "white", "champion"],
+        ["E6", "black", "tower"],
+        ["A1", "white", "flag"],
+        ["L12", "black", "flag"],
+      ],
+      ALL_CONFIGURATION,
+    );
+    const state = startPlay(initial);
+    const { state: next, outcome } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "E", row: 6 },
+    );
+
+    expect(next.board["D5"]).toBeUndefined();
+    expect(next.board["E6"]).toBeUndefined();
+    expect(outcome).toMatchObject({
+      kind: "attack",
+      result: "mutualLoss",
+      capture: true,
+    });
+  });
+
+  it("under `all`, accepts a diagonal attack on the enemy Flag and ends the game as a flagCapture win for the attacker", () => {
+    const initial = initialGameState(
+      [
+        ["D5", "white", "champion"],
+        ["E6", "black", "flag"],
+        ["A1", "white", "flag"],
+      ],
+      ALL_CONFIGURATION,
+    );
+    const state = startPlay(initial);
+    const { state: next, outcome } = applyMove(
+      state,
+      { column: "D", row: 5 },
+      { column: "E", row: 6 },
+    );
+
+    expect(outcome).toMatchObject({ kind: "attack", result: "attackerWins" });
+    expect(next.result).toEqual({
+      kind: "win",
+      winner: "white",
+      reason: "flagCapture",
+    });
+  });
+
+  it("under the standard configuration, the same diagonal attack on a Tower or Flag throws (not a legal target)", () => {
+    const towerInitial = initialGameState([
+      ["D5", "white", "champion"],
+      ["E6", "black", "tower"],
+      ["A1", "white", "flag"],
+      ["L12", "black", "flag"],
+    ]);
+    const towerState = startPlay(towerInitial);
+    expect(() =>
+      applyMove(towerState, { column: "D", row: 5 }, { column: "E", row: 6 }),
+    ).toThrow();
+
+    const flagInitial = initialGameState([
+      ["D5", "white", "champion"],
+      ["E6", "black", "flag"],
+      ["A1", "white", "flag"],
+    ]);
+    const flagState = startPlay(flagInitial);
+    expect(() =>
+      applyMove(flagState, { column: "D", row: 5 }, { column: "E", row: 6 }),
     ).toThrow();
   });
 });
