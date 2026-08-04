@@ -336,7 +336,31 @@ facts table. `npm run typecheck && npm run lint && npm test`.
 
 ## Step 2 — Rendering and parsing the `Ruleset` stamp
 
-Status: pending
+Status: committed
+
+Notes: Added `renderRulesetTag` and `parseRuleFlagTokens` (plus the
+`RuleFlagTokenError`/`ParseRuleFlagTokensResult` types and two small private
+predicates, `isPermittedValue`/`isKnownFlagId`) to
+`src/rules/primary/v2/configuration.ts`, matching `recordFile.ts`'s
+`{kind: "parsed"|"error"}` result-object style. `renderRulesetTag` joins the
+edition id with `deviatingFlags`' tokens; `parseRuleFlagTokens` takes an
+already-resolved `Edition` and the tag's remaining tokens (the edition id
+itself is left for `readRecord.ts`, Step 6), checking each token in
+malformed → unknown-flag-id → unknown-value → repeated-flag-id order (all
+four cases are mutually exclusive for the test fixtures exercised; this
+step's tests don't probe the one theoretical overlap - a repeated flag id
+whose second occurrence also has an invalid value - so this ordering is an
+implementation choice, not a spec requirement, and is safe to revisit).
+Extended `configuration.test.ts` with `renderRulesetTag` and
+`parseRuleFlagTokens` describe blocks covering every case the step's
+verification lists, including the byte-identical bare-edition-id checks, the
+alphabetical two-token render, the four-combination round-trip on both
+active editions, canonicalization, and all four rejection cases (plus a
+case-sensitivity check). No deviation from the plan: still unwired (nothing
+outside `configuration.ts`/its test imports these two functions yet), and no
+existing file besides `configuration.ts`/`configuration.test.ts` was
+touched. `npm run typecheck`, `npm run lint`, `npm test` (653 tests, all
+passing, up from 638) and `npm run format:check` are all clean.
 
 Extend `src/rules/primary/v2/configuration.ts` with the two pure halves of the
 stamp, per the Grounding facts' stamping rules and Decisions 5 and 6. Still

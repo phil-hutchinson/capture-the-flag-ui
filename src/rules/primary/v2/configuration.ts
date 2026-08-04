@@ -12,9 +12,13 @@
 // which resolves every flag before storing it - so a non-canonical
 // configuration (one that could redundantly restate a flag at its resolved
 // value) is unrepresentable. Deviations are *derived*, never stored: see
-// `deviatingFlags`. This step introduces the model only; rendering and
-// parsing the `Ruleset` tag is Step 2, and nothing yet threads a
-// `RuleConfiguration` into the rule engine, game state or the app (Step 3).
+// `deviatingFlags`. `renderRulesetTag`/`parseRuleFlagTokens` (Step 2) are the
+// two pure halves of the `Ruleset` tag's stamp - rendering a configuration to
+// its tag string, and parsing the tag's flag tokens (the edition id is the
+// caller's to consume; see `readRecord.ts`) back into a canonical
+// configuration. Neither is wired into anything yet - nothing threads a
+// `RuleConfiguration` into the rule engine, game state or the app until
+// Step 3, and nothing calls the parser from a record reader until Step 6.
 
 import { BATTLE_EDITION, SKIRMISH_EDITION, type Edition } from "./edition.ts";
 import {
@@ -22,7 +26,22 @@ import {
   RULE_FLAG_IDS,
   type ResolvedRuleFlags,
   type RuleFlagId,
+  type RuleFlagValue,
 } from "./ruleFlags.ts";
+
+/** True if `value` is one of `flagId`'s permitted values, per `RULE_FLAG_CATALOG`. */
+function isPermittedValue<Id extends RuleFlagId>(
+  flagId: Id,
+  value: string,
+): value is RuleFlagValue<Id> {
+  const permitted: readonly string[] = RULE_FLAG_CATALOG[flagId].values;
+  return permitted.includes(value);
+}
+
+/** True if `id` names one of `RULE_FLAG_IDS` (i.e. a flag this app knows). */
+function isKnownFlagId(id: string): id is RuleFlagId {
+  return (RULE_FLAG_IDS as readonly string[]).includes(id);
+}
 
 /**
  * What a game is set up, played, recorded and replayed under: a registered
@@ -109,6 +128,97 @@ export function isStandardConfiguration(
   configuration: RuleConfiguration,
 ): boolean {
   return deviatingFlags(configuration).length === 0;
+}
+
+/**
+ * Renders `configuration` as the `Ruleset` tag's value: the edition id,
+ * followed by one `FLAG=value` token per deviating flag (in
+ * `deviatingFlags`' - i.e. `RULE_FLAG_IDS`' - alphabetical order), space
+ * separated. A standard configuration - the only case every registered
+ * edition produces today - renders as exactly the bare edition id, with no
+ * trailing space and no tokens, byte-identical to what this app has always
+ * written (story.md, "the tag is byte-identical to what the app writes
+ * today"). `parseRuleFlagTokens` below is this function's inverse.
+ */
+export function renderRulesetTag(configuration: RuleConfiguration): string {
+  const tokens = deviatingFlags(configuration).map(
+    (flagId) => `${flagId}=${configuration.flags[flagId]}`,
+  );
+  return [configuration.edition.id, ...tokens].join(" ");
+}
+
+/**
+ * Everything that can go wrong parsing a `Ruleset` tag's flag tokens (the
+ * edition id itself is the caller's to consume and validate - see
+ * `readRecord.ts`, Step 6): a token that is not exactly one `NAME=value`
+ * pair, a token naming a flag id this app does not know, a token naming an
+ * unknown value for a flag id it does know, or the same flag id named twice.
+ * Each case carries the verbatim offending token text, so a rejection can
+ * name exactly what was not understood. Matching is exact and
+ * case-sensitive throughout - the writer only ever emits the canonical
+ * spelling (`RULE_FLAG_CATALOG`'s), and a near-miss is more useful reported
+ * than silently accepted or silently corrected.
+ */
+export type RuleFlagTokenError =
+  | { readonly kind: "malformedToken"; readonly token: string }
+  | { readonly kind: "unknownFlagId"; readonly token: string }
+  | { readonly kind: "unknownFlagValue"; readonly token: string }
+  | { readonly kind: "repeatedFlagId"; readonly token: string };
+
+/** The result of `parseRuleFlagTokens`: a canonical configuration, or a structured rejection. Never throws. */
+export type ParseRuleFlagTokensResult =
+  | { readonly kind: "parsed"; readonly configuration: RuleConfiguration }
+  | { readonly kind: "error"; readonly error: RuleFlagTokenError };
+
+/**
+ * Parses the tokens that follow a `Ruleset` tag's edition id - already split
+ * on whitespace by the caller - against `edition`, producing a canonical
+ * `RuleConfiguration` or the first structured rejection encountered (tokens
+ * are checked in order; see `RuleFlagTokenError`). `tokens` may be empty,
+ * which parses as `edition`'s standard configuration.
+ *
+ * A token naming a flag at the value it would resolve to anyway is accepted
+ * and absorbed exactly like any other override - `configureRules` resolves
+ * every flag the same way regardless of whether its value came from an
+ * override or a default, so the returned configuration reports no deviation
+ * for it (story.md's canonicalization property: such a stamp means the same
+ * as one that omits the token). This function is `renderRulesetTag`'s
+ * inverse for every tag that function can produce, and additionally accepts
+ * every canonicalizable tag `renderRulesetTag` never would.
+ */
+export function parseRuleFlagTokens(
+  edition: Edition,
+  tokens: readonly string[],
+): ParseRuleFlagTokensResult {
+  const overrides: Partial<Record<RuleFlagId, ResolvedRuleFlags[RuleFlagId]>> =
+    {};
+
+  for (const token of tokens) {
+    const parts = token.split("=");
+    if (parts.length !== 2 || parts[0] === "" || parts[1] === "") {
+      return { kind: "error", error: { kind: "malformedToken", token } };
+    }
+
+    const [flagId, value] = parts;
+    if (!isKnownFlagId(flagId)) {
+      return { kind: "error", error: { kind: "unknownFlagId", token } };
+    }
+
+    if (!isPermittedValue(flagId, value)) {
+      return { kind: "error", error: { kind: "unknownFlagValue", token } };
+    }
+
+    if (Object.hasOwn(overrides, flagId)) {
+      return { kind: "error", error: { kind: "repeatedFlagId", token } };
+    }
+
+    overrides[flagId] = value;
+  }
+
+  return {
+    kind: "parsed",
+    configuration: configureRules(edition, overrides as RuleFlagOverrides),
+  };
 }
 
 /**

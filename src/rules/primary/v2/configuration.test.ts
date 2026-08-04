@@ -3,6 +3,8 @@ import {
   configureRules,
   deviatingFlags,
   isStandardConfiguration,
+  parseRuleFlagTokens,
+  renderRulesetTag,
   STANDARD_BATTLE_CONFIGURATION,
   STANDARD_SKIRMISH_CONFIGURATION,
 } from "./configuration.ts";
@@ -12,7 +14,12 @@ import {
   SKIRMISH_EDITION,
   SUPERSEDED_SKIRMISH_EDITION,
 } from "./edition.ts";
-import { RULE_FLAG_CATALOG, RULE_FLAG_IDS } from "./ruleFlags.ts";
+import {
+  RULE_FLAG_CATALOG,
+  RULE_FLAG_IDS,
+  type DiagonalAttackableValue,
+  type DiagonalAttackPathValue,
+} from "./ruleFlags.ts";
 
 describe("the flag catalog (ruleFlags.ts)", () => {
   it("covers exactly the two known flag ids", () => {
@@ -135,5 +142,171 @@ describe("a RuleConfiguration is a plain, JSON-round-trippable object", () => {
 
     const roundTripped = JSON.parse(JSON.stringify(configuration)) as unknown;
     expect(roundTripped).toEqual(configuration);
+  });
+});
+
+describe("renderRulesetTag", () => {
+  it.each([
+    ["2-0:BATTLE", BATTLE_EDITION],
+    ["2-1:SKIRMISH", SKIRMISH_EDITION],
+    ["2-0:SKIRMISH", SUPERSEDED_SKIRMISH_EDITION],
+  ] as const)(
+    "renders a standard %s configuration byte-identically to its bare edition id",
+    (id, edition) => {
+      expect(renderRulesetTag(configureRules(edition))).toBe(id);
+    },
+  );
+
+  it("renders a single DIAGONAL_ATTACKABLE deviation as one token", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      DIAGONAL_ATTACKABLE: "all",
+    });
+    expect(renderRulesetTag(configuration)).toBe(
+      "2-0:BATTLE DIAGONAL_ATTACKABLE=all",
+    );
+  });
+
+  it("renders a single DIAGONAL_ATTACK_PATH deviation as one token", () => {
+    const configuration = configureRules(SKIRMISH_EDITION, {
+      DIAGONAL_ATTACK_PATH: "open_path",
+    });
+    expect(renderRulesetTag(configuration)).toBe(
+      "2-1:SKIRMISH DIAGONAL_ATTACK_PATH=open_path",
+    );
+  });
+
+  it("renders both deviations alphabetically by flag id (DIAGONAL_ATTACKABLE first)", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      DIAGONAL_ATTACK_PATH: "open_path",
+      DIAGONAL_ATTACKABLE: "all",
+    });
+    expect(renderRulesetTag(configuration)).toBe(
+      "2-0:BATTLE DIAGONAL_ATTACKABLE=all DIAGONAL_ATTACK_PATH=open_path",
+    );
+  });
+});
+
+describe("parseRuleFlagTokens", () => {
+  const attackableValues: readonly DiagonalAttackableValue[] = [
+    "movable_only",
+    "all",
+  ];
+  const pathValues: readonly DiagonalAttackPathValue[] = [
+    "always",
+    "open_path",
+  ];
+  const combinations = attackableValues.flatMap((attackable) =>
+    pathValues.map(
+      (path) =>
+        [attackable, path] as [
+          DiagonalAttackableValue,
+          DiagonalAttackPathValue,
+        ],
+    ),
+  );
+
+  it("parsing no tokens gives the standard configuration", () => {
+    const battleResult = parseRuleFlagTokens(BATTLE_EDITION, []);
+    expect(battleResult).toEqual({
+      kind: "parsed",
+      configuration: STANDARD_BATTLE_CONFIGURATION,
+    });
+
+    const skirmishResult = parseRuleFlagTokens(SKIRMISH_EDITION, []);
+    expect(skirmishResult).toEqual({
+      kind: "parsed",
+      configuration: STANDARD_SKIRMISH_CONFIGURATION,
+    });
+  });
+
+  it.each([
+    ["2-0:BATTLE", BATTLE_EDITION],
+    ["2-1:SKIRMISH", SKIRMISH_EDITION],
+  ] as const)(
+    "round-trips all four value combinations through render and parse on %s",
+    (_id, edition) => {
+      for (const [attackable, path] of combinations) {
+        const configuration = configureRules(edition, {
+          DIAGONAL_ATTACKABLE: attackable,
+          DIAGONAL_ATTACK_PATH: path,
+        });
+
+        const rendered = renderRulesetTag(configuration);
+        const [, ...tokens] = rendered.split(" ");
+        const parsed = parseRuleFlagTokens(edition, tokens);
+
+        expect(parsed).toEqual({ kind: "parsed", configuration });
+        if (parsed.kind === "parsed") {
+          expect(renderRulesetTag(parsed.configuration)).toBe(rendered);
+        }
+      }
+    },
+  );
+
+  it("canonicalizes a token naming a flag at its resolved value: no deviation, and re-renders without it", () => {
+    const result = parseRuleFlagTokens(BATTLE_EDITION, [
+      "DIAGONAL_ATTACKABLE=movable_only",
+    ]);
+
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") return;
+    expect(isStandardConfiguration(result.configuration)).toBe(true);
+    expect(deviatingFlags(result.configuration)).toEqual([]);
+    expect(renderRulesetTag(result.configuration)).toBe("2-0:BATTLE");
+  });
+
+  it("rejects a malformed token (not exactly one NAME=value pair), naming it", () => {
+    const cases = [
+      "DIAGONAL_ATTACKABLE",
+      "DIAGONAL_ATTACKABLE=",
+      "=all",
+      "A=B=C",
+    ];
+    for (const token of cases) {
+      const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
+      expect(result).toEqual({
+        kind: "error",
+        error: { kind: "malformedToken", token },
+      });
+    }
+  });
+
+  it("rejects an unknown flag id, naming the offending token", () => {
+    const token = "DIAGONAL_TELEPORT=all";
+    const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
+    expect(result).toEqual({
+      kind: "error",
+      error: { kind: "unknownFlagId", token },
+    });
+  });
+
+  it("rejects an unknown value for a known flag, naming the offending token", () => {
+    const token = "DIAGONAL_ATTACKABLE=everything";
+    const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
+    expect(result).toEqual({
+      kind: "error",
+      error: { kind: "unknownFlagValue", token },
+    });
+  });
+
+  it("is case-sensitive: a near-miss casing is rejected, not accepted", () => {
+    const token = "diagonal_attackable=all";
+    const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
+    expect(result).toEqual({
+      kind: "error",
+      error: { kind: "unknownFlagId", token },
+    });
+  });
+
+  it("rejects the same flag id given twice, naming the second (offending) token", () => {
+    const secondToken = "DIAGONAL_ATTACKABLE=movable_only";
+    const result = parseRuleFlagTokens(BATTLE_EDITION, [
+      "DIAGONAL_ATTACKABLE=all",
+      secondToken,
+    ]);
+    expect(result).toEqual({
+      kind: "error",
+      error: { kind: "repeatedFlagId", token: secondToken },
+    });
   });
 });
