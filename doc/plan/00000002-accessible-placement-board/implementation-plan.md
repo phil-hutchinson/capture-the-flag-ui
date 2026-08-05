@@ -1112,7 +1112,15 @@ Record the result (and any polish applied) in this step's `Notes:`.
 
 ## Step 10 — Gate B: screen-reader perception, both editions
 
-Status: pending
+Status: committed
+
+Notes: The owner ran Gate B with a screen reader and reported it passing, with
+no wording changes required — so `placementAnnouncement.ts`'s sentences and
+labels stand as Steps 1, 5 and 6 wrote them, and no component wording was
+touched at this gate. This covers the folded-in screen-reader checks for Steps
+6 and 8 (the tray announcing every roster type's name, remaining count and
+selected state including a used-up type; "Play against the computer"
+announcing itself and its explanatory note now that it is reachable at all).
 
 This is a **hard stop for owner confirmation**, plus wording polish needed to
 pass it (announcement phrasing, label ordering, verbosity). Changes here should
