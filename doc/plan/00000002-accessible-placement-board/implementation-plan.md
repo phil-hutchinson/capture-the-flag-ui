@@ -581,8 +581,13 @@ container itself):
   never itself a tab stop). The plan's text names only the "click events"
   family by name but frames the underlying justification (decision 5: no
   behavioural change to a component Phase 2 depends on) in a way that covers
-  this second rule equally - restructuring to give the container its own
-  `tabIndex` would add a spurious extra tab stop, a real behavioural change.
+  this second rule equally - correction (peer review finding #5): giving the
+  container its own `tabIndex={-1}` would **not** add a tab stop (`grid` is
+  not in this rule's `tabbable` role list, so it would satisfy the rule
+  without one), but it would still be a real behavioural change - it would
+  make the `role="grid"` container itself click-focusable, which it is not
+  today, on a component Phase 2 depends on, which decision 5 forbids. The
+  suppression is correct; only the reason recorded here was wrong.
   Treated it as "anything else the plugin flags" per the dispatch
   instructions: genuinely in this story's surface (the file Step 2/3 already
   touch), not a Phase-2-only concern, so fixed it the same way as the

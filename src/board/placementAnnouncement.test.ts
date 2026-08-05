@@ -181,6 +181,18 @@ describe("placement event sentences", () => {
     );
   });
 
+  it("announces a piece placed that exhausts its type (finding #4)", () => {
+    expect(
+      describePiecePlaced("tower", "white", A3, SEVERAL_PLACED, true),
+    ).toBe("Red Tower placed on A3. 12 of 25 placed. No Tower pieces left.");
+  });
+
+  it("omits the exhausted clause by default", () => {
+    expect(describePiecePlaced("tower", "white", A3, SEVERAL_PLACED)).toBe(
+      "Red Tower placed on A3. 12 of 25 placed.",
+    );
+  });
+
   it("announces a placed piece picked up, with no progress clause", () => {
     expect(describePiecePickedUp("masterOfArms", "white", A3)).toBe(
       "Red Master-of-Arms picked up from A3.",
@@ -253,6 +265,7 @@ describe("placement event sentences", () => {
       describeTraySelected("champion", "white"),
       describeTrayDeselected("champion", "black"),
       describePiecePlaced("champion", "white", A3, ONE_PLACED),
+      describePiecePlaced("champion", "white", A3, ONE_PLACED, true),
       describePiecePickedUp("champion", "white", A3),
       describePieceDeselected("champion", "white"),
       describePieceMoved("champion", "white", A3),

@@ -17,6 +17,13 @@
 // (Decisions item 2's table) needs exactly that sentence for
 // `HotSeatGame.tsx`'s `handleSquareClick`.
 //
+// Peer review finding #4: `describePiecePlaced` gained an optional
+// `exhausted` flag. Placing the last piece of a type silently cleared the
+// tray selection, which a screen-reader user could not perceive - the next
+// Enter on an empty square with nothing selected is a silent no-op. Rather
+// than announce that separately, the "placed" sentence itself now names the
+// type running out, since it is the direct, in-the-moment cause.
+//
 // Modelled on `playAnnouncement.ts` (Phase 2's own live-region wording) and
 // `towerPlacementMessages.ts` (this story's nearest placement-side
 // precedent): no React import, no DOM, pure string-building over the rule
@@ -172,14 +179,23 @@ export function describeTrayDeselected(
 /**
  * The live-region sentence for placing a piece from the tray onto `square`,
  * carrying the resulting progress (this changes how many pieces are placed).
+ * `exhausted` (peer review finding #4) marks that this placement used up the
+ * last of `pieceType` - the resulting auto-deselect (`HotSeatGame.tsx`'s
+ * `handleSquareClick`) is a state change the player caused but cannot see, so
+ * a trailing clause names it rather than leaving the next Enter a silent
+ * no-op.
  */
 export function describePiecePlaced(
   pieceType: PieceTypeId,
   side: Side,
   square: Square,
   progress: PlacementProgress,
+  exhausted = false,
 ): string {
-  return `${pieceDescription(pieceType, side)} placed on ${squareKey(square)}. ${progressPhrase(progress)}.`;
+  const base = `${pieceDescription(pieceType, side)} placed on ${squareKey(square)}. ${progressPhrase(progress)}.`;
+  return exhausted
+    ? `${base} No ${PIECE_CATALOG[pieceType].displayName} pieces left.`
+    : base;
 }
 
 /**
@@ -284,6 +300,12 @@ export function describeAutoFillCompleted(progress: PlacementProgress): string {
  * deliberately **replaces** the board's announcement rather than appending
  * to it, so nothing about the outgoing player's layout is left in the
  * region for the next player to hear.
+ *
+ * Also reused by `handleChooseGame` (peer review finding #2) to announce the
+ * *opening* player's turn and starting progress, folded into the game-choice
+ * sentence rather than the board's own region - the wording ("{Color}'s turn
+ * to place their army. N of M placed.") fits both a hand-off from another
+ * player and the very first turn equally well.
  */
 export function describeHandOff(
   incomingSide: Side,

@@ -139,6 +139,31 @@ import "./HotSeatGame.css";
 // "Auto-fill" in `PlacementStatus.tsx`) with `aria-disabled` plus a no-op
 // activation, the same technique Step 6 used for the tray.
 //
+// This story's peer review (`doc/plan/00000002-accessible-placement-board/
+// peer-review.md`) fixed four more gaps, on top of Step 5/7's story-00000023
+// fixes above:
+//
+//  - **Finding #1** — "Cancel" (`PlacementControls`) now calls the named
+//    `handleCancelSelection`, below, which announces the deselect exactly as
+//    re-activating the selected square already does, instead of a silent
+//    inline `() => setSelection(null)`.
+//  - **Finding #2** — `handleChooseGame` folds the opening player's turn and
+//    starting progress ("0 of M placed") into its own game-choice sentence,
+//    rather than also setting `boardAnnouncement` - Decisions item 4's "one
+//    region speaks per event" rule holds, and the very first player's turn is
+//    no longer announced nowhere.
+//  - **Finding #4** — placing the last piece of a type (`handleSquareClick`'s
+//    tray-place branch) now appends a "No {Piece} pieces left." clause to the
+//    placed sentence (`placementAnnouncement.ts`'s `describePiecePlaced`),
+//    naming the auto-deselect the player just caused but cannot see.
+//  - **Finding #6** — the five `setSession` call sites that had been reduced
+//    to snapshot writes (`updateActivePlacement(current, () =>
+//    nextPlacement)`) are functional again
+//    (`updateActivePlacement(current, (state) => op(state, ...))`), so the
+//    committed state is always derived from what React actually holds, not
+//    from a render-time snapshot; `nextPlacement` (where still needed) now
+//    exists only to build the announcement's progress phrase.
+//
 // Story 00000023, Step 7: `configuration` is `null` until the player chooses
 // Battle or Skirmish (and, since story 00000027's Step 8, both diagonal-attack
 // rule choices alongside it) on `GameChoice` - while it is `null` this
@@ -438,12 +463,28 @@ export function HotSeatGame({
   function handleChooseGame(chosenConfiguration: RuleConfiguration) {
     onGameStarted(chosenConfiguration);
     setConfiguration(chosenConfiguration);
-    setSession(newSession(chosenConfiguration.edition));
+    const freshSession = newSession(chosenConfiguration.edition);
+    setSession(freshSession);
     const ruleSentences = nonStandardRuleSentences(chosenConfiguration);
     const ruleAnnouncement =
       ruleSentences.length > 0 ? ` ${ruleSentences.join(" ")}` : "";
+    // Peer review finding #2: whose turn it is and the starting progress
+    // ("0 of M placed") used to be announced nowhere for the *opening*
+    // player - `describeHandOff` covers every later Confirm, but placement's
+    // very first turn was only discoverable by browsing. Folding it into this
+    // same sentence, rather than also setting `boardAnnouncement`, keeps
+    // Decision 4's "exactly one region speaks per event" rule intact - the
+    // game-choice region is already the one place a fresh game is announced.
+    // `freshSession.active` is always non-null immediately after
+    // `newSession` (nobody has confirmed yet, so nobody has been dropped);
+    // the check exists only so TypeScript can narrow it.
+    const openingSide = freshSession.active;
+    const turnAnnouncement =
+      openingSide !== null
+        ? ` ${describeHandOff(openingSide, progress(freshSession[openingSide]))}`
+        : "";
     setGameAnnouncement(
-      `You chose ${gameName(chosenConfiguration.edition)}. Placing on ${boardSizeDescription(chosenConfiguration.edition)}.${ruleAnnouncement}`,
+      `You chose ${gameName(chosenConfiguration.edition)}. Placing on ${boardSizeDescription(chosenConfiguration.edition)}.${ruleAnnouncement}${turnAnnouncement}`,
     );
   }
 
@@ -670,10 +711,11 @@ export function HotSeatGame({
           return;
         }
         const swappedSquare = selection.square;
-        const nextPlacement = swap(placement, swappedSquare, square);
         setSession((current) =>
           current
-            ? updateActivePlacement(current, () => nextPlacement)
+            ? updateActivePlacement(current, (state) =>
+                swap(state, swappedSquare, square),
+              )
             : current,
         );
         setSelection(null);
@@ -711,15 +753,34 @@ export function HotSeatGame({
         refuseTowerPlacement(square);
         return;
       }
+      // Peer review finding #4: whether this placement uses up the last of
+      // `type`, decided from the render-snapshot `placement` - the same
+      // threshold the auto-deselect below already used.
+      const exhausted = placement.remaining[type] <= 1;
+      // Peer review finding #6: `nextPlacement` is computed from the render
+      // snapshot *only* to build the announcement's progress phrase; the
+      // committed state below is recomputed against `updateActivePlacement`'s
+      // own `state` parameter, so it is always derived from the state React
+      // actually holds, not from this snapshot.
       const nextPlacement = place(placement, square, type);
       setSession((current) =>
-        current ? updateActivePlacement(current, () => nextPlacement) : current,
+        current
+          ? updateActivePlacement(current, (state) =>
+              place(state, square, type),
+            )
+          : current,
       );
       // Keep the type selected for rapid repeat-placement until it runs out.
-      setSelection(placement.remaining[type] <= 1 ? null : selection);
+      setSelection(exhausted ? null : selection);
       clearTowerFeedback();
       setBoardAnnouncement(
-        describePiecePlaced(type, activeSide, square, progress(nextPlacement)),
+        describePiecePlaced(
+          type,
+          activeSide,
+          square,
+          progress(nextPlacement),
+          exhausted,
+        ),
       );
       return;
     }
@@ -733,9 +794,13 @@ export function HotSeatGame({
         refuseTowerPlacement(square);
         return;
       }
-      const nextPlacement = move(placement, selection.square, square);
+      const fromSquare = selection.square;
       setSession((current) =>
-        current ? updateActivePlacement(current, () => nextPlacement) : current,
+        current
+          ? updateActivePlacement(current, (state) =>
+              move(state, fromSquare, square),
+            )
+          : current,
       );
       setSelection(null);
       clearTowerFeedback();
@@ -747,16 +812,43 @@ export function HotSeatGame({
     }
   }
 
+  // Peer review finding #1: "Cancel" (`PlacementControls`) used to call an
+  // inline `() => setSelection(null)` that announced nothing, even though it
+  // performs exactly the deselect that re-activating the selected square
+  // already announces (`handleSquareClick`'s same-square branch, above) -
+  // leaving a screen-reader user with no feedback, and, since the board's
+  // live region only speaks when its text actually changes, silently
+  // swallowing the *next* pick-up's announcement too whenever it names the
+  // same square and piece. Named so it can mirror that branch exactly.
+  function handleCancelSelection() {
+    if (selection?.kind !== "boardSquare") {
+      return;
+    }
+    const pieceType = pieceAt(placement, selection.square);
+    setSelection(null);
+    clearTowerFeedback();
+    if (pieceType !== undefined) {
+      setBoardAnnouncement(describePieceDeselected(pieceType, activeSide));
+    }
+  }
+
   function handleReturnToTray() {
     if (selection?.kind !== "boardSquare") {
       return;
     }
     const pieceType = pieceAt(placement, selection.square);
-    const nextPlacement = returnToTray(placement, selection.square);
-    setSession((current) =>
-      current ? updateActivePlacement(current, () => nextPlacement) : current,
-    );
     const returnedSquare = selection.square;
+    // Peer review finding #6: `nextPlacement` is computed from the render
+    // snapshot only to build the announcement's progress phrase - see the
+    // matching comment in `handleSquareClick`'s tray-place branch above.
+    const nextPlacement = returnToTray(placement, returnedSquare);
+    setSession((current) =>
+      current
+        ? updateActivePlacement(current, (state) =>
+            returnToTray(state, returnedSquare),
+          )
+        : current,
+    );
     setSelection(null);
     clearTowerFeedback();
     if (pieceType !== undefined) {
@@ -772,9 +864,14 @@ export function HotSeatGame({
   }
 
   function handleClearBoard() {
+    // Peer review finding #6: `nextPlacement` is computed from the render
+    // snapshot only to build the announcement's progress phrase - see the
+    // matching comment in `handleSquareClick`'s tray-place branch above.
     const nextPlacement = clear(placement);
     setSession((current) =>
-      current ? updateActivePlacement(current, () => nextPlacement) : current,
+      current
+        ? updateActivePlacement(current, (state) => clear(state))
+        : current,
     );
     setSelection(null);
     clearTowerFeedback();
@@ -966,7 +1063,7 @@ export function HotSeatGame({
             side={activeSide}
             selectedPieceType={selectedPieceType}
             onReturnToTray={handleReturnToTray}
-            onCancelSelection={() => setSelection(null)}
+            onCancelSelection={handleCancelSelection}
             onClearBoard={handleClearBoard}
             canClear={placedCount(placement) > 0}
           />

@@ -24,6 +24,20 @@
 // for `actionable` cells, exactly matching today's click-only behaviour for
 // mouse and touch users.
 //
+// Peer review finding #3: the grid carries `key={activeSide}` (below), so it
+// fully remounts - and re-seeds `initialFocus` via `AccessibleGrid`'s lazy
+// `useState` initializer - whenever the active player changes. Without it,
+// `Board` is never unmounted between the two players' placements, so the
+// second player's first Tab would land wherever the first player last left
+// the roving-tabindex target (possibly a lake or buffer cell), rather than on
+// their own first home square.
+//
+// Peer review finding #8: `data-active-side` (the wrapper `<div>` below)
+// moved here from the grid element itself as a side effect of this story's
+// port onto `AccessibleGrid` (`AccessibleGrid` owns its own `role="grid"`
+// element and takes no arbitrary `data-*` passthrough) - nothing selects on
+// it today, but a later reader should read the relocation as intentional.
+//
 // Story 00000025, Step 5: `closedToTowerSquares` draws a quiet modifier class
 // on whichever of those squares the caller names - `HotSeatGame.tsx` passes
 // `squaresClosedToTowers(placement)` only while a Tower is in hand (Decisions
@@ -188,6 +202,7 @@ export function Board({
       style={stageStyle}
     >
       <AccessibleGrid
+        key={activeSide}
         label={`${sideColorName(activeSide)}'s placement board`}
         rows={cellRows}
         className="board"

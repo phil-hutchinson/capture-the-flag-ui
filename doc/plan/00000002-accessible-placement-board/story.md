@@ -91,6 +91,29 @@ does not touch the rules; no ruleset version change is involved.
   internal "white"/"black") and the word "move" (never "ply"), per repository
   conventions.
 
+**Amendment, 2026-08-05 (peer review finding #10):** the tray bullet above —
+"the tray already uses native `<button>`s and stays as it is" — predates the
+plan's decision 7. What was actually built: the tray keeps its native
+`<button>`s (the sentence's literal claim still holds), but Step 6 gave each
+one an explicit accessible name and replaced the native `disabled` attribute
+on a used-up entry with `aria-disabled` plus a no-op guard, so every roster
+type — including one with none left — stays reachable and announces its name
+and remaining count, per in-scope item 2. Left as a note rather than a
+rewrite of the original sentence, so the story still records its own starting
+assumption.
+
+**Amendment, 2026-08-05 (peer review finding #9):** the app-wide
+keyboard/pointer-modality tracker added to `App.tsx` (and `App.css`'s
+`.app__title:focus-visible` rule, which keys off it) became part of this
+story's surface at the Step 9 (Gate A) polish pass — needed so the placement
+heading's programmatic on-mount/on-hand-off focus never shows a ring to a
+mouse-only player. It affects every screen that renders the shared heading
+(start, placement, an ongoing/finished game, review), not only placement; see
+the implementation plan's Step 9 `Notes:` for the two-pass history. The key
+predicate was deliberately left inline rather than extracted into its own
+tested module (owner decision) — a five-way `key === ...` comparison was
+judged not worth a test.
+
 ## Out of scope
 
 - Drag-and-drop placement (deferred separately by story 00000001).
@@ -106,6 +129,18 @@ does not touch the rules; no ruleset version change is involved.
 - Automated DOM / component test coverage for the accessible grid — see
   "Verification" below.
 - Any change to the ruleset, the game engine, or the placement operations.
+
+**Amendment, 2026-08-05 (peer review finding #11):** two deliberate touches to
+Phase 2 landed anyway, both recorded in the implementation plan and neither
+scope creep — Phase 2 play itself (movement, combat, the reveal) remains
+untouched:
+
+- Step 5 pushes `describePlacementComplete` into the Phase-2
+  `playAnnouncement` live region — the "both armies are placed, {Color} to
+  move" sentence announced at the moment placement ends and Phase 2 begins.
+- Step 9's `App.css` heading focus-ring change (see the amendment above) also
+  reaches the Phase-2 and review screens, since `.app__title` is a shared
+  element rendered on all of them.
 
 ## Verification
 

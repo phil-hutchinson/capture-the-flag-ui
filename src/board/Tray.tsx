@@ -9,10 +9,12 @@
 // type with at least one remaining piece selects it (App.tsx then places the
 // selected type on the next empty home square the player clicks on the
 // board); clicking the already-selected type deselects it. A type with zero
-// *remaining* pieces (but a nonzero roster count) is still shown - so its
-// full-army count is always visible - but unavailable, since there is
-// nothing left of it to place; a type with a zero roster count (never
-// fielded by this army) is not shown at all.
+// *remaining* pieces (but a nonzero roster count) is still shown - with its
+// remaining count, which reads 0, so the player can still see the type
+// exists and hear that none are left (peer review finding #14: the count
+// shown is `remaining`, never the full-army count) - but unavailable, since
+// there is nothing left of it to place; a type with a zero roster count
+// (never fielded by this army) is not shown at all.
 //
 // Each button's accessible name comes from `placementAnnouncement.ts`'s
 // `trayEntryLabel`, so it reads as a piece type *and* a remaining count

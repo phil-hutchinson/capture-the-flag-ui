@@ -21,6 +21,12 @@
 // act on, exactly like `Tray.tsx`'s used-up entries (Step 6). Only the
 // descriptive text above them still switches between the
 // "something selected" and "nothing selected" wording.
+//
+// Peer review finding #7: "Clear board" no longer carries the
+// `placement-controls__clear` class - its only rule (`align-self:
+// flex-start`) was already removed in Step 7 once the button moved into the
+// row-flex `.placement-controls__actions` wrapper, leaving the class name a
+// dead hook nothing selects on.
 
 import { PieceIcon } from "../art/PieceIcon.tsx";
 import type { Side } from "../rules/primary/v2/board.ts";
@@ -105,7 +111,6 @@ export function PlacementControls({
         </button>
         <button
           type="button"
-          className="placement-controls__clear"
           aria-disabled={!canClear}
           onClick={() => {
             if (!canClear) {
