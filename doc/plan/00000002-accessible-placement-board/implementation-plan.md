@@ -1026,6 +1026,43 @@ unchanged - no logic added), `npm run format:check`, and `npm run build` are
 all clean; the dev server was not started for this fix per instruction, the
 owner will re-check visually.
 
+**Second Gate A polish pass.** The first pass above was insufficient: the
+owner reported the browser's blue ring was gone but replaced by our own amber
+one on every page load, when they expected to see no ring at all until using
+the keyboard. Root cause: the heading is focused _programmatically on mount_,
+before the player has given the browser any input to judge modality from -
+with nothing to go on, browsers resolve `:focus-visible` in favour of
+showing a ring, so gating on `:focus-visible` alone (the first pass's
+approach) could not distinguish "focused via a mouse click that triggered a
+hand-off" from "focused via mount with no prior input at all"; both look
+identical to the browser's own heuristic. `:focus-visible` alone cannot
+express "no ring until the player has actually used the keyboard."
+
+Fixed by tracking input modality explicitly rather than relying on the
+browser's guess. Added a `useEffect` in `App.tsx` (the app shell, which never
+unmounts, so this runs once for the whole app rather than being duplicated
+per screen) that sets `data-input-modality="keyboard"` on
+`document.documentElement` the first time the player presses `Tab` or an
+arrow key, and removes it again on the next `pointerdown` - so a player who
+switches back to the mouse stops seeing rings. Listeners are added and
+removed in the effect's cleanup. `App.css`'s `.app__title:focus-visible` rule
+was rescoped to `:root[data-input-modality="keyboard"]
+.app__title:focus-visible`, so the ring now draws only once both the browser
+_and_ our own explicit flag agree keyboard use has occurred - satisfying "no
+focus indicator until the player has used the keyboard" exactly, including
+on the very first page load and every subsequent programmatic focus that
+follows a mouse action. `tabIndex={-1}` and every `focus()` call are
+unchanged (Step 7's mechanism is untouched); only the heading's ring
+visibility changed again. The blast radius is deliberately kept to the
+programmatically-focused heading only: no other focus-ring rule in the
+codebase (buttons, `AccessibleGrid.css`'s board ring) was touched, so a
+keyboard user still sees focus immediately on every genuinely interactive
+control the moment they start keyboarding. Updated the header comments of
+both `App.tsx` and `App.css` to name this second pass. No other files
+touched. `npm run typecheck`, `npm run lint`, `npm test` (745 tests,
+unchanged), `npm run format:check`, and `npm run build` are all clean; the
+dev server was not started per instruction, the owner will re-check visually.
+
 This is a **hard stop for owner confirmation**, plus whatever polish is needed
 to pass it (focus styling, tab order, activation gaps). It also carries the
 folded-in checks for Steps 6, 7 and 8, which verified automatically. No new

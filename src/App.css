@@ -1,8 +1,11 @@
 /* Top-level app shell layout. `.app__title`'s focus styling (story 00000002,
-   Step 9 Gate A polish) suppresses the browser's default focus ring on the
-   programmatically-focused `tabIndex={-1}` heading and shows a ring only on
-   `:focus-visible`, so mouse-driven confirms/hand-offs stay ring-free while
-   keyboard users still see where focus landed. */
+   Step 9 Gate A polish, second pass) suppresses every focus ring on the
+   programmatically-focused `tabIndex={-1}` heading - including the browser's
+   own `:focus-visible` ring - until `App.tsx`'s keyboard-modality effect has
+   recorded genuine keyboard use, so a mouse-only player never sees a ring
+   here at all, while a keyboard player still does the moment they focus
+   lands there. See the rule below for why `:focus-visible` alone cannot
+   express that on its own. */
 .app {
   display: flex;
   flex-direction: column;
@@ -20,17 +23,25 @@
   /* The heading is `tabIndex={-1}` and focused programmatically (see
      StartScreen.tsx/HotSeatGame.tsx/EngineGame.tsx/ReviewScreen.tsx) so a
      screen-reader user is never stranded on `<body>`. Browsers still draw a
-     default focus ring for that programmatic focus even after a mouse click,
-     which looks wrong for a pointer-driven confirm/hand-off. Suppress the UA
-     default here and draw our own ring only on `:focus-visible` below, the
-     same split `AccessibleGrid.css` uses: `:focus-visible` tracks the
-     browser's own "was the last input keyboard-ish" judgement, so the ring
-     still appears when focus lands here after a keyboard action (story
-     00000002, Step 9 Gate A polish). */
+     default focus ring for that programmatic focus, and, with the heading
+     focused on *mount* before the player has pressed anything, even
+     `:focus-visible` alone resolves in favour of showing one - the first
+     Gate A polish pass tried gating on `:focus-visible` here and found the
+     browser's blue ring simply replaced by our own amber one on every page
+     load. Suppress the ring unconditionally here; the rule below re-enables
+     it only once genuine keyboard use has been recorded. */
   outline: none;
 }
 
-.app__title:focus-visible {
+:root[data-input-modality="keyboard"] .app__title:focus-visible {
+  /* Draws only once `App.tsx`'s keyboard-modality effect has set
+     `data-input-modality="keyboard"` on `<html>` - i.e. only after the
+     player has actually pressed Tab or an arrow key at least once (story
+     00000002, Step 9 Gate A polish, second pass). Combined with
+     `:focus-visible`, a mouse-only player never sees this ring at all,
+     including on the initial programmatic focus at mount; a keyboard player
+     sees it the moment focus lands here, matching `AccessibleGrid.css`'s
+     board ring. */
   outline: 3px solid var(--focus-ring, #ffb703);
   outline-offset: 2px;
 }
