@@ -944,7 +944,30 @@ verified by the owner at **Gate A (Step 9)**, whose checklist names each one.
 
 ## Step 8 — "Play against the computer" stays reachable on the start screen
 
-Status: pending
+Status: committed
+
+Notes: In `src/app/StartScreen.tsx`, replaced the native `disabled` attribute
+on "Play against the computer" with `aria-disabled={true}` plus a no-op
+`onClick`, following the identical pattern established in Step 6 (`Tray.tsx`)
+and Step 7 (`PlacementControls.tsx`): the button, its `aria-describedby`
+pointer to `start-screen__computer-note`, and the note itself are unchanged,
+so the note stays associated with (and now reachable alongside) the button.
+`App.tsx` was not touched - it already had no `onClick` wired to this button
+and still routes nowhere from it. In `StartScreen.css`, added a
+`.start-screen__choice[aria-disabled="true"]` selector alongside the existing
+`:disabled` rule so the dimmed visual treatment is byte-for-byte unchanged.
+Updated both files' header comments to name this story and step, and to
+cross-reference decision 7's full scope (tray, self-disabling placement
+controls, start screen) as `Tray.tsx`'s header already does, so a later
+reader sees this as one deliberate, bounded pattern rather than three
+unrelated changes. No deviations from the plan. `npm run typecheck`,
+`npm run lint` (jsx-a11y clean), `npm test` (745 tests, unchanged from the
+Step 7 baseline - this step adds no new pure logic), `npm run format:check`,
+and `npm run build` are all clean. Per this step's own verification note, the
+runtime behaviour (Tab reaches the button, Narrator announces it as
+unavailable together with its note, activation does nothing) is the owner's
+to judge at Gate A (Step 9) and Gate B (Step 10); not exercised manually
+here.
 
 Fix **story 00000023 peer-review finding #13** (re-locate it; it was at
 `src/app/StartScreen.tsx#L55-L74` on 2026-08-05). The button uses the native

@@ -5,11 +5,21 @@
 // `screen.kind === "start"`; the two active buttons only ask the shell to
 // switch screens, so this component carries no state of its own.
 //
-// "Play against the computer" is shown but disabled (story 00000023, Step 9):
-// the trained engine has to be respecified for the major-2 rules before it
-// can come back, so the choice is visible - a player is not left wondering
-// whether the option exists - but cannot be activated, with a short note
-// saying so. `App.tsx` no longer routes anywhere from this button.
+// "Play against the computer" is shown but unavailable (story 00000023, Step
+// 9): the trained engine has to be respecified for the major-2 rules before
+// it can come back, so the choice is visible - a player is not left
+// wondering whether the option exists - but cannot be activated, with a
+// short note saying so. `App.tsx` no longer routes anywhere from this
+// button.
+//
+// That button is marked `aria-disabled` with a no-op `onClick`, not the
+// native `disabled` attribute (story 00000002, Step 8; decision 7): a
+// natively `disabled` button is removed from the tab order entirely, so a
+// keyboard or screen-reader user would never reach it or its
+// `aria-describedby` note explaining why it is unavailable. This treatment
+// is deliberately scoped to this story's surface (see `Tray.tsx`'s header
+// comment for the full list) - Phase 2 and the review screens keep native
+// `disabled`, which is scope, not oversight.
 //
 // Focus moves to the heading on mount (a `tabIndex={-1}` heading focused via
 // `useEffect`, the same pattern `GameResult.tsx` uses for its "New game"
@@ -55,8 +65,12 @@ export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
         <button
           type="button"
           className="start-screen__choice"
-          disabled
+          aria-disabled={true}
           aria-describedby="start-screen__computer-note"
+          onClick={() => {
+            // Unavailable - see the module header comment. Intentionally a
+            // no-op rather than the native `disabled` attribute.
+          }}
         >
           <span className="start-screen__choice-title">
             Play against the computer
