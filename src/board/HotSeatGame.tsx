@@ -124,6 +124,21 @@ import "./HotSeatGame.css";
 // DOM node across every branch change and the region is already registered
 // with assistive technology before `handleChooseGame` ever gives it text.
 //
+// Story 00000002, Step 7 fixes story 00000023's peer-review finding #10:
+// choosing a game used to unmount `GameChoice` - including its focused
+// "Play <Game>" button - without moving focus anywhere, dropping a keyboard
+// user onto `<body>` right at the start of placement. A new effect (below,
+// next to the existing "focus the heading on mount" effect) now refocuses
+// the persistent `<h1>` heading whenever `configuration` goes from `null` to
+// set. The same step also moves focus to that heading at every Confirm
+// hand-off (`handleConfirm`, further down) - Confirm stays natively
+// `disabled` (decision 7), so its focus problem is solved by moving focus
+// deliberately rather than by keeping the button reachable - and replaces
+// the native `disabled` attribute on the self-disabling placement controls
+// ("Return to tray", "Cancel", "Clear board" in `PlacementControls.tsx`;
+// "Auto-fill" in `PlacementStatus.tsx`) with `aria-disabled` plus a no-op
+// activation, the same technique Step 6 used for the tray.
+//
 // Story 00000023, Step 7: `configuration` is `null` until the player chooses
 // Battle or Skirmish (and, since story 00000027's Step 8, both diagonal-attack
 // rule choices alongside it) on `GameChoice` - while it is `null` this
@@ -356,6 +371,25 @@ export function HotSeatGame({
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
+
+  // Story 00000002, Step 7 (story 00000023 finding #10, re-located):
+  // choosing a game unmounts `GameChoice` - including the focused
+  // "Play <Game>" button - without moving focus anywhere, which used to drop
+  // a keyboard user onto `<body>` right at the start of placement. The `<h1>`
+  // above sits at the same position in every one of this component's
+  // branches (game choice, placement, Phase 2), so React keeps one DOM node
+  // mounted across the whole game's lifetime - this effect only needs to
+  // refocus it, not remount it. Depending on `configuration` (rather than
+  // running unconditionally, or with an empty array like the effect above)
+  // means it fires exactly when a game is freshly chosen (`null` ->
+  // non-`null`) and never again on an unrelated render - in particular, never
+  // while a piece is being selected or placed, which would otherwise steal
+  // focus mid-placement.
+  useEffect(() => {
+    if (configuration !== null) {
+      headingRef.current?.focus();
+    }
+  }, [configuration]);
 
   // Story 00000014, Step 15 (extended by Step 7 of story 00000023): true once
   // a game has been chosen and throughout placement (`playSession` is
@@ -837,6 +871,17 @@ export function HotSeatGame({
     // whether this Confirm handed off to the other player or ended placement
     // outright.
     clearTowerFeedback();
+    // Story 00000002, Step 7: "Confirm" stays natively `disabled` (decision
+    // 7), so unlike the other self-disabling placement controls its focus
+    // problem is not solved by keeping it reachable - it is solved by moving
+    // focus deliberately, here, to the heading. That heading sits at the same
+    // position in every branch this component renders (game choice,
+    // placement, Phase 2 - see the effect above), so this one call lands
+    // correctly whether this Confirm only hands off to the other player
+    // (`next.active !== null`, above) or ends placement and starts Phase 2
+    // (`next.active === null`): either way the focused DOM node survives the
+    // branch change, rather than being stranded on `<body>`.
+    headingRef.current?.focus();
   }
 
   const selectedSquare =

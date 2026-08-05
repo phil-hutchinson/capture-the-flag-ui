@@ -37,6 +37,18 @@
 // an earlier version of this component did) risks the first announcement
 // being missed - story 00000025's Step 5 keeps this element exactly as it
 // is, for the same reason.
+//
+// Story 00000002, Step 7: "Auto-fill" disables itself the instant it
+// succeeds (the army becomes complete), which would otherwise drop a
+// keyboard user's focus onto `<body>` the moment they activate it. It now
+// uses `aria-disabled="true"` plus a no-op activation instead of the native
+// `disabled` attribute (decision 7), matching `Tray.tsx`'s used-up entries
+// (Step 6). "Confirm" stays natively `disabled`: a keyboard user must never
+// be able to activate an illegal confirm, and unlike Auto-fill it is a
+// hand-off - a screen change in all but name - so its focus problem is
+// solved differently, by `HotSeatGame.tsx` deliberately moving focus to the
+// placement heading on every Confirm rather than by keeping the button
+// itself reachable.
 
 import type { Side } from "../rules/primary/v2/board.ts";
 import type { PlacementProgress } from "../rules/primary/v2/placement.ts";
@@ -91,8 +103,13 @@ export function PlacementStatus({
       </span>
       <button
         type="button"
-        onClick={onAutoFill}
-        disabled={progress.placed >= progress.total}
+        aria-disabled={progress.placed >= progress.total}
+        onClick={() => {
+          if (progress.placed >= progress.total) {
+            return;
+          }
+          onAutoFill();
+        }}
       >
         Auto-fill
       </button>

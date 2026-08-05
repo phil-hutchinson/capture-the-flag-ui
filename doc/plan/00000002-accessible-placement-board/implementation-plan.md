@@ -834,7 +834,60 @@ owner at **Gate A (Step 9)** and **Gate B (Step 10)**, whose checklists name it.
 
 ## Step 7 — Focus is never dropped
 
-Status: pending
+Status: committed
+
+Notes: `PlacementControls.tsx` now keeps "Return to tray", "Cancel" and
+"Clear board" mounted at all times: all three moved out of the conditional
+selection block into an always-rendered `.placement-controls__actions` row,
+each with `aria-disabled` plus a no-op `onClick` guard when there is nothing
+to act on (`hasSelection` for the first two, `canClear` for the third) -
+following `Tray.tsx`'s established pattern exactly. Only the descriptive text
+above the buttons still switches between the "piece selected" and "nothing
+selected" wording, reworded to be input-neutral ("choose an empty square…",
+"Select a placed piece to move it…", replacing every "click"). Added
+`.placement-controls__actions` to `PlacementControls.css` and an
+`[aria-disabled="true"]` selector alongside the existing `:disabled` one;
+removed the now-inapplicable `.placement-controls__clear { align-self:
+flex-start }` rule since that button moved out of the column-flex
+`.placement-controls` into the new row wrapper. `PlacementStatus.tsx`'s
+"Auto-fill" got the identical `aria-disabled` + no-op treatment (guard:
+`progress.placed >= progress.total`), with the matching `[aria-disabled="true"]`
+selector added to `PlacementStatus.css`; "Confirm" was left natively
+`disabled`, exactly as the plan requires. `HotSeatGame.tsx` gained a second
+focus-management effect, `useEffect(() => { if (configuration !== null)
+headingRef.current?.focus(); }, [configuration])`, placed right after the
+existing empty-dependency-array "focus on mount" effect - it fires only on
+the `null` -> non-`null` transition (i.e. exactly when `handleChooseGame`
+runs), fixing story 00000023's finding #10, and does not re-fire on
+unrelated renders (selection changes, placement actions) since `configuration`
+is untouched by those. `handleConfirm` now also calls
+`headingRef.current?.focus()` unconditionally at its end (after the existing
+`clearTowerFeedback()` call), covering both branches the plan's Gate A
+checklist names: a mid-game hand-off (focus lands on the heading, now the
+"new" active player's landing point) and the final hand-off into Phase 2
+(the same heading persists into that branch too, so this is "somewhere in
+Phase 2, not `<body>`" without needing a second, Phase-2-specific target).
+This relies on the heading `<h1>` sitting at the same position in every one
+of this component's four render branches, so React keeps one DOM node
+mounted for the component's whole lifetime - already true before this step
+(the original mount-only effect depended on it) and unchanged here. Updated
+the header comments of all four touched files
+(`PlacementControls.tsx`/`.css`, `PlacementStatus.tsx`/`.css`,
+`HotSeatGame.tsx`) naming this story and step.
+
+No deviations from the plan's literal text. `EngineGame.tsx` needed no
+changes - `PlacementControls`'s and `PlacementStatus`'s prop signatures are
+unchanged, so it still compiles as-is (confirmed by `npm run typecheck` and
+`npm run build`, both clean).
+
+`npm run typecheck`, `npm run lint`, `npm test` (745 tests, unchanged from
+the Step 6 baseline - this step adds no new pure logic to test),
+`npm run format:check` (one file needed a `prettier --write` pass after the
+edit, then clean), and `npm run build` are all clean. Per this step's own
+verification note, the runtime behaviour (focus never lands on `<body>`
+after any of the six actions, the reworded copy reads naturally) is the
+owner's to judge at **Gate A (Step 9)**, whose checklist names it; not
+exercised manually here.
 
 Placement has several controls that **remove or disable themselves as a direct
 result of being activated**, which drops a keyboard user onto `<body>`. Fix each
