@@ -1,3 +1,8 @@
+/* Top-level app shell layout. `.app__title`'s focus styling (story 00000002,
+   Step 9 Gate A polish) suppresses the browser's default focus ring on the
+   programmatically-focused `tabIndex={-1}` heading and shows a ring only on
+   `:focus-visible`, so mouse-driven confirms/hand-offs stay ring-free while
+   keyboard users still see where focus landed. */
 .app {
   display: flex;
   flex-direction: column;
@@ -9,6 +14,25 @@
 .app__title {
   font-size: 1.75rem;
   margin: 0;
+}
+
+.app__title:focus {
+  /* The heading is `tabIndex={-1}` and focused programmatically (see
+     StartScreen.tsx/HotSeatGame.tsx/EngineGame.tsx/ReviewScreen.tsx) so a
+     screen-reader user is never stranded on `<body>`. Browsers still draw a
+     default focus ring for that programmatic focus even after a mouse click,
+     which looks wrong for a pointer-driven confirm/hand-off. Suppress the UA
+     default here and draw our own ring only on `:focus-visible` below, the
+     same split `AccessibleGrid.css` uses: `:focus-visible` tracks the
+     browser's own "was the last input keyboard-ish" judgement, so the ring
+     still appears when focus lands here after a keyboard action (story
+     00000002, Step 9 Gate A polish). */
+  outline: none;
+}
+
+.app__title:focus-visible {
+  outline: 3px solid var(--focus-ring, #ffb703);
+  outline-offset: 2px;
 }
 
 .app__layout {

@@ -997,7 +997,34 @@ with its note, and activating it does nothing — is verified by the owner at
 
 ## Step 9 — Gate A: keyboard-only placement, both editions
 
-Status: pending
+Status: committed
+
+Notes: The owner ran Gate A (both editions, per the checklist below) and it
+passed, with one piece of polish required: the "Capture the Flag" heading
+(`.app__title`, `tabIndex={-1}`, focused programmatically on mount and on
+hand-off by `StartScreen.tsx`/`HotSeatGame.tsx`/`EngineGame.tsx`/
+`ReviewScreen.tsx`) showed the browser's default blue focus ring even when
+that programmatic focus followed a mouse click, which looked wrong for
+pointer-driven play. Fixed in `src/App.css` (the sole stylesheet for
+`.app__title`, imported by every screen that renders the heading, so this
+covers all four screens without touching their `.tsx` files): suppressed the
+UA default outline on plain `:focus` and added a `:focus-visible` outline
+(`3px solid var(--focus-ring, #ffb703)`, `outline-offset: 2px`), matching
+`AccessibleGrid.css`'s existing `:focus`/`:focus-visible` split and its
+`--focus-ring` custom property (`src/index.css`) rather than inventing a new
+ring color. `:focus-visible` tracks the browser's last-input-modality
+judgement, so the same programmatic `.focus()` call still shows the ring when
+it follows a keyboard action (e.g. Tab-and-Enter through "Play a game", or
+Confirm activated via Enter/Space) but shows nothing when it follows a mouse
+click - exactly the owner's requirement. No change to `tabIndex={-1}` or any
+`focus()` call; only the ring's visibility changed. Added a header comment to
+`App.css` (it had none before) naming this story and step. No other file
+needed a change - `AccessibleGrid.css`'s own ring, the board's, and every
+button's default focus treatment were unaffected and out of scope for this
+finding. `npm run typecheck`, `npm run lint`, `npm test` (745 tests,
+unchanged - no logic added), `npm run format:check`, and `npm run build` are
+all clean; the dev server was not started for this fix per instruction, the
+owner will re-check visually.
 
 This is a **hard stop for owner confirmation**, plus whatever polish is needed
 to pass it (focus styling, tab order, activation gaps). It also carries the
