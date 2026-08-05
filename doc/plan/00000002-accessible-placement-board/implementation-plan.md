@@ -556,7 +556,48 @@ hard-reload, and for **both** Skirmish and Battle:
 
 ## Step 4 — Adopt `eslint-plugin-jsx-a11y`
 
-Status: pending
+Status: committed
+
+Notes: Added `eslint-plugin-jsx-a11y@6.10.2` as a devDependency (`npm install`
+updated `package.json`/`package-lock.json` as expected) and wired its
+`flatConfigs.recommended` into `eslint.config.js` in a new block scoped to
+`files: ["**/*.tsx"]` (kept separate from the `**/*.{ts,tsx}` block's
+`extends`, so `.ts` files never get JSX-only rules - confirmed with
+`npx eslint --print-config` on both a `.tsx` and a `.ts` file: 34 `jsx-a11y/*`
+rules on the former, 0 on the latter). `npm run lint` then reported exactly
+two violations, both in `src/board/grid/AccessibleGrid.tsx` and both expected
+consequences of its correct WAI-ARIA composite-widget pattern (roving
+tabindex: the `role="grid"` container owns key handling, individual
+`role="gridcell"` children own `onClick`, and no DOM focus lives on the
+container itself):
+
+- `jsx-a11y/click-events-have-key-events` on the cell's `onClick` - this is
+  the violation the plan explicitly anticipated and pre-authorized a
+  suppression for.
+- `jsx-a11y/interactive-supports-focus` on the `role="grid"` container's
+  `onKeyDown` (it flags the container as an "interactive role" needing its
+  own `tabIndex`, which does not apply here - the ARIA authoring practices
+  are explicit that a roving-tabindex composite widget's _container_ is
+  never itself a tab stop). The plan's text names only the "click events"
+  family by name but frames the underlying justification (decision 5: no
+  behavioural change to a component Phase 2 depends on) in a way that covers
+  this second rule equally - restructuring to give the container its own
+  `tabIndex` would add a spurious extra tab stop, a real behavioural change.
+  Treated it as "anything else the plugin flags" per the dispatch
+  instructions: genuinely in this story's surface (the file Step 2/3 already
+  touch), not a Phase-2-only concern, so fixed it the same way as the
+  pre-authorized case - flagging it here as a deviation from the plan's
+  literal text (which named one violation, not two) for the owner's
+  awareness, rather than leaving `npm run lint` failing or restructuring the
+  shared grid. Both got a narrowly scoped `eslint-disable-next-line` (one
+  rule, one line, in `AccessibleGrid.tsx`'s markup) with an explanatory
+  comment; no rule was disabled globally or downgraded to a warning. Also
+  extended `AccessibleGrid.tsx`'s header comment to name both suppressions.
+  No other file needed a change - `Board.tsx`'s old `<div onClick>` markup
+  was already gone as of Step 3, exactly as the plan predicted. `npm run
+typecheck`, `npm run lint`, `npm test` (744 tests, unchanged from Step 3's
+  baseline - this step adds no logic), `npm run format:check`, and `npm run
+build` are all clean.
 
 Add `eslint-plugin-jsx-a11y` as a devDependency and wire its flat-config
 recommended ruleset into `eslint.config.js` for `**/*.tsx`, alongside the

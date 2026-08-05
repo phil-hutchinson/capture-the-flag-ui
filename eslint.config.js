@@ -1,5 +1,6 @@
 import js from "@eslint/js";
 import prettier from "eslint-config-prettier";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import { globalIgnores } from "eslint/config";
@@ -44,6 +45,14 @@ export default tseslint.config([
         },
       ],
     },
+  },
+  {
+    // Accessibility linting for JSX markup only (see story
+    // doc/plan/00000002-accessible-placement-board). Kept as its own block,
+    // scoped to `**/*.tsx`, rather than folded into the `**/*.{ts,tsx}`
+    // block's `extends` above, so it never applies to plain `.ts` files.
+    files: ["**/*.tsx"],
+    extends: [jsxA11y.flatConfigs.recommended],
   },
   {
     files: ["**/*.test.ts", "**/*.test.tsx"],
