@@ -1,4 +1,5 @@
-// Piece tray / inventory panel (story 00000001, Step 8).
+// Piece tray / inventory panel (story 00000001, Step 8; accessible names and
+// keyboard reachability for a used-up type - story 00000002, Step 6).
 //
 // Shows one row per piece type in the active army's roster (rules §2.2:
 // Battle's 8 types; Skirmish's roster omits Foot Soldier and Militia
@@ -9,9 +10,23 @@
 // selected type on the next empty home square the player clicks on the
 // board); clicking the already-selected type deselects it. A type with zero
 // *remaining* pieces (but a nonzero roster count) is still shown - so its
-// full-army count is always visible - but disabled, since there is nothing
-// left of it to place; a type with a zero roster count (never fielded by
-// this army) is not shown at all.
+// full-army count is always visible - but unavailable, since there is
+// nothing left of it to place; a type with a zero roster count (never
+// fielded by this army) is not shown at all.
+//
+// Each button's accessible name comes from `placementAnnouncement.ts`'s
+// `trayEntryLabel`, so it reads as a piece type *and* a remaining count
+// ("Flag, 1 piece left") rather than a name followed by a bare number.
+//
+// A used-up entry is marked `aria-disabled="true"` with a no-op `onClick`,
+// **not** the native `disabled` attribute (story 00000002, decision 7): the
+// story requires every roster type to be reachable and to announce its name
+// and remaining count, including a type with none left, and a natively
+// `disabled` button is removed from the tab order entirely. This treatment
+// is deliberately scoped to this story's surface (the tray, the
+// self-disabling placement controls, and the start screen's "Play against
+// the computer") - Phase 2 and the review screens keep native `disabled`,
+// which is scope, not oversight.
 
 import { PieceIcon } from "../art/PieceIcon.tsx";
 import type { Side } from "../rules/primary/v2/board.ts";
@@ -21,6 +36,7 @@ import {
   type Inventory,
   type PieceTypeId,
 } from "../rules/primary/v2/pieces.ts";
+import { trayEntryLabel } from "./placementAnnouncement.ts";
 import "./Tray.css";
 
 export interface TrayProps {
@@ -65,9 +81,15 @@ export function Tray({
               key={entry.id}
               type="button"
               className={classNames.join(" ")}
-              disabled={isEmpty}
+              aria-disabled={isEmpty}
               aria-pressed={isSelected}
-              onClick={() => onSelect(entry.id)}
+              aria-label={trayEntryLabel(entry.id, count)}
+              onClick={() => {
+                if (isEmpty) {
+                  return;
+                }
+                onSelect(entry.id);
+              }}
             >
               <PieceIcon
                 type={entry.id}

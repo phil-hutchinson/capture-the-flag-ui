@@ -771,7 +771,35 @@ rule exercises the refusal path) and then **Battle**:
 
 ## Step 6 — Make the tray perceivable and fully reachable
 
-Status: pending
+Status: committed
+
+Notes: In `src/board/Tray.tsx`, gave each entry's `<button>` an explicit
+`aria-label={trayEntryLabel(entry.id, count)}` (Step 1's wording), replaced
+`disabled={isEmpty}` with `aria-disabled={isEmpty}`, and changed `onClick` to
+an inline no-op guard (`if (isEmpty) return;` before calling `onSelect`) so
+activating a used-up entry changes nothing — mirroring the existing
+`aria-disabled` + no-op precedent already in the codebase at
+`src/review/ReviewControls.tsx`/`ReviewControls.css`, which this step's
+module comment now also cross-references implicitly by following the same
+shape. `aria-pressed` and the `aria-hidden` icon (via `PieceIcon`) were left
+untouched. In `Tray.css`, added `.tray__item[aria-disabled="true"]` alongside
+the existing `.tray__item:disabled` selector (kept for defensiveness/possible
+future native use, per the plan's "alongside" wording), both applying the
+same dimmed/`cursor: default` treatment, so the visual result is identical to
+before. Updated both files' header comments to name this story/step and to
+record decision 7's scope (tray + self-disabling placement controls + start
+screen; Phase 2 and review screens deliberately excluded), so a later
+reviewer reads the remaining native `disabled` usages elsewhere as scope, not
+oversight. No other file required changes: `Tray`'s prop signature is
+unchanged, so `EngineGame.tsx` (parked) still compiles without modification.
+No deviations from the plan. `npm run typecheck`, `npm run lint`
+(`jsx-a11y` active, clean), `npm test` (745 tests, same count as the Step 5
+baseline — this step adds no new pure logic, `trayEntryLabel` was already
+tested in Step 1), `npm run format:check`, and `npm run build` are all
+clean. Per this step's own verification note, the runtime behaviour (every
+roster type reachable including a used-up one, correct announcements, a
+used-up type genuinely inert) is for the owner to judge at Gate A (Step 9)
+and Gate B (Step 10); not exercised manually here.
 
 In `src/board/Tray.tsx`:
 
