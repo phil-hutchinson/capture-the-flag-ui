@@ -31,6 +31,20 @@ import {
   describeResult,
 } from "./playAnnouncement.ts";
 import {
+  describeAutoFillCompleted,
+  describeBoardCleared,
+  describeHandOff,
+  describePieceDeselected,
+  describePieceMoved,
+  describePiecePickedUp,
+  describePiecePlaced,
+  describePiecesSwapped,
+  describePlacementComplete,
+  describeReturnedToTray,
+  describeTrayDeselected,
+  describeTraySelected,
+} from "./placementAnnouncement.ts";
+import {
   describeTowerLaneRefusal,
   towerLiveRegionMessage,
   type TowerAutoFillExhausted,
@@ -84,6 +98,31 @@ import "./HotSeatGame.css";
 // Enter/Space, not only a click - the call below is updated mechanically;
 // `handleSquareClick` (the click-grammar handler itself, further down) keeps
 // its name, since the grammar it implements is unchanged.
+//
+// Story 00000002, Step 5: `boardAnnouncement` drives `Board`'s live region
+// (its `announcement` prop, added in Step 3 but unused until now) with
+// `placementAnnouncement.ts`'s sentences - every placement handler below sets
+// it on success, and leaves it untouched on a Tower-rule refusal, since
+// `PlacementStatus`'s own live region already speaks for that (Decisions
+// item 4: two live regions, two jobs, nothing announced twice).
+// `handleConfirm` *replaces* it with the hand-off sentence naming the
+// incoming player (Decisions item 6), so nothing about the outgoing player's
+// layout survives into the next player's turn; on the second Confirm, which
+// starts Phase 2 instead, the "both armies are placed" sentence goes into
+// `playAnnouncement` (below) rather than here - the one deliberate Phase-2
+// touch this story makes. `handleNewGame` resets it alongside every other
+// piece of state a fresh game clears.
+//
+// Story 00000002, Step 5 also fixes story 00000023's peer-review finding #3:
+// the game-choice announcement (`gameAnnouncementRegion`, below) used to
+// exist only in the placement branch of this component's render, which
+// mounted it for the first time in the same update that gave it its first
+// text - a screen reader can miss content inserted together with the live
+// region that carries it. It is now the same element, rendered at the same
+// position, in all three of this component's branches (game choice,
+// placement, and - for symmetry - Phase 2), so React keeps one persistent
+// DOM node across every branch change and the region is already registered
+// with assistive technology before `handleChooseGame` ever gives it text.
 //
 // Story 00000023, Step 7: `configuration` is `null` until the player chooses
 // Battle or Skirmish (and, since story 00000027's Step 8, both diagonal-attack
@@ -203,15 +242,21 @@ export function HotSeatGame({
     null,
   );
   const [session, setSession] = useState<PlacementSession | null>(null);
-  // Text pushed into the placement screen's own polite live region the
-  // moment a game is chosen (`handleChooseGame`, below) - names the game and
-  // its board size to assistive tech, mirroring `playAnnouncement`'s "always
-  // mounted, sometimes empty" live-region pattern (`PlacementStatus`'s tower
-  // warning) applied to a brand-new region that mounts, for the first time,
-  // already carrying this text - the same "pre-filled on first mount" shape
-  // `handleConfirm`'s immediate-ending announcement below already uses for
-  // the Phase-2 live region.
+  // Text pushed into `gameAnnouncementRegion`'s (below) polite live region
+  // the moment a game is chosen (`handleChooseGame`, below) - names the game
+  // and its board size to assistive tech. Story 00000002, Step 5 (peer review
+  // finding #3 from story 00000023): the region itself is now rendered,
+  // empty, from this component's very first render (in all three of its
+  // branches - `gameAnnouncementRegion`, below), so this is never the text
+  // that gives the region its first-ever mount; it only ever *updates* an
+  // already-registered live region, which is what makes it reliably
+  // announced.
   const [gameAnnouncement, setGameAnnouncement] = useState("");
+  // Story 00000002, Step 5: text pushed into the placement board's own polite
+  // live region (`Board`'s `announcement` prop, forwarded to
+  // `AccessibleGrid`) - see the module comment above for the division of
+  // labour with `PlacementStatus`'s Tower-message region.
+  const [boardAnnouncement, setBoardAnnouncement] = useState("");
   const [selection, setSelection] = useState<Selection>(null);
   // Story 00000025, Step 5: the drop-time refusal sentence
   // (`describeTowerLaneRefusal`) for the active player's own most recent
@@ -330,6 +375,24 @@ export function HotSeatGame({
     onBack();
   }
 
+  // Story 00000002, Step 5 (peer review finding #3 from story 00000023): the
+  // Battle/Skirmish choice announcement, rendered at the same position in the
+  // returned tree of all three of this component's branches below (game
+  // choice, placement, Phase 2) so React keeps this one `role="status"`
+  // element mounted across every branch change - it exists, empty, before
+  // `handleChooseGame` ever gives it text, rather than mounting for the first
+  // time already carrying that text (visually hidden by `HotSeatGame.css`,
+  // like `AccessibleGrid`'s own live region).
+  const gameAnnouncementRegion = (
+    <p
+      className="hot-seat-game__game-announcement"
+      role="status"
+      aria-live="polite"
+    >
+      {gameAnnouncement}
+    </p>
+  );
+
   // Starts a fresh two-player session for the chosen configuration
   // (`GameChoice` pre-selects the last-played game and both flags, or the
   // recommended first game on the standard values) and announces the choice
@@ -369,6 +432,7 @@ export function HotSeatGame({
           onConfirm={onBack}
           onCancel={() => setConfirmingLeave(false)}
         />
+        {gameAnnouncementRegion}
         <GameChoice onChoose={handleChooseGame} lastPlayed={lastPlayed} />
       </main>
     );
@@ -407,6 +471,7 @@ export function HotSeatGame({
       setSelection(null);
       setPlayAnnouncement("");
       setGameAnnouncement("");
+      setBoardAnnouncement("");
       clearTowerFeedback();
     };
 
@@ -456,6 +521,7 @@ export function HotSeatGame({
           onConfirm={onBack}
           onCancel={() => setConfirmingLeave(false)}
         />
+        {gameAnnouncementRegion}
         {result.kind === "ongoing" ? (
           <>
             <PlayStatus
@@ -514,10 +580,13 @@ export function HotSeatGame({
 
   function handleSelectType(type: PieceTypeId) {
     clearTowerFeedback();
-    setSelection((current) =>
-      current?.kind === "trayType" && current.type === type
-        ? null
-        : { kind: "trayType", type },
+    const deselecting =
+      selection?.kind === "trayType" && selection.type === type;
+    setSelection(deselecting ? null : { kind: "trayType", type });
+    setBoardAnnouncement(
+      deselecting
+        ? describeTrayDeselected(type, activeSide)
+        : describeTraySelected(type, activeSide),
     );
   }
 
@@ -536,8 +605,14 @@ export function HotSeatGame({
     if (occupied) {
       if (selection?.kind === "boardSquare") {
         if (squareKey(selection.square) === squareKey(square)) {
+          const pieceType = pieceAt(placement, square);
           setSelection(null);
           clearTowerFeedback();
+          if (pieceType !== undefined) {
+            setBoardAnnouncement(
+              describePieceDeselected(pieceType, activeSide),
+            );
+          }
           return;
         }
         // A swap can send a Tower either way: the piece on `selection.square`
@@ -560,19 +635,39 @@ export function HotSeatGame({
           refuseTowerPlacement(selection.square);
           return;
         }
+        const swappedSquare = selection.square;
+        const nextPlacement = swap(placement, swappedSquare, square);
         setSession((current) =>
           current
-            ? updateActivePlacement(current, (state) =>
-                swap(state, selection.square, square),
-              )
+            ? updateActivePlacement(current, () => nextPlacement)
             : current,
         );
         setSelection(null);
         clearTowerFeedback();
+        if (
+          movingIntoClicked !== undefined &&
+          movingIntoSelected !== undefined
+        ) {
+          setBoardAnnouncement(
+            describePiecesSwapped(
+              movingIntoClicked,
+              swappedSquare,
+              movingIntoSelected,
+              square,
+              activeSide,
+            ),
+          );
+        }
         return;
       }
+      const pickedUpType = pieceAt(placement, square);
       setSelection({ kind: "boardSquare", square });
       clearTowerFeedback();
+      if (pickedUpType !== undefined) {
+        setBoardAnnouncement(
+          describePiecePickedUp(pickedUpType, activeSide, square),
+        );
+      }
       return;
     }
 
@@ -582,16 +677,16 @@ export function HotSeatGame({
         refuseTowerPlacement(square);
         return;
       }
+      const nextPlacement = place(placement, square, type);
       setSession((current) =>
-        current
-          ? updateActivePlacement(current, (state) =>
-              place(state, square, type),
-            )
-          : current,
+        current ? updateActivePlacement(current, () => nextPlacement) : current,
       );
       // Keep the type selected for rapid repeat-placement until it runs out.
       setSelection(placement.remaining[type] <= 1 ? null : selection);
       clearTowerFeedback();
+      setBoardAnnouncement(
+        describePiecePlaced(type, activeSide, square, progress(nextPlacement)),
+      );
       return;
     }
 
@@ -604,15 +699,17 @@ export function HotSeatGame({
         refuseTowerPlacement(square);
         return;
       }
+      const nextPlacement = move(placement, selection.square, square);
       setSession((current) =>
-        current
-          ? updateActivePlacement(current, (state) =>
-              move(state, selection.square, square),
-            )
-          : current,
+        current ? updateActivePlacement(current, () => nextPlacement) : current,
       );
       setSelection(null);
       clearTowerFeedback();
+      if (movingType !== undefined) {
+        setBoardAnnouncement(
+          describePieceMoved(movingType, activeSide, square),
+        );
+      }
     }
   }
 
@@ -620,25 +717,34 @@ export function HotSeatGame({
     if (selection?.kind !== "boardSquare") {
       return;
     }
+    const pieceType = pieceAt(placement, selection.square);
+    const nextPlacement = returnToTray(placement, selection.square);
     setSession((current) =>
-      current
-        ? updateActivePlacement(current, (state) =>
-            returnToTray(state, selection.square),
-          )
-        : current,
+      current ? updateActivePlacement(current, () => nextPlacement) : current,
     );
+    const returnedSquare = selection.square;
     setSelection(null);
     clearTowerFeedback();
+    if (pieceType !== undefined) {
+      setBoardAnnouncement(
+        describeReturnedToTray(
+          pieceType,
+          activeSide,
+          returnedSquare,
+          progress(nextPlacement),
+        ),
+      );
+    }
   }
 
   function handleClearBoard() {
+    const nextPlacement = clear(placement);
     setSession((current) =>
-      current
-        ? updateActivePlacement(current, (state) => clear(state))
-        : current,
+      current ? updateActivePlacement(current, () => nextPlacement) : current,
     );
     setSelection(null);
     clearTowerFeedback();
+    setBoardAnnouncement(describeBoardCleared(progress(nextPlacement)));
   }
 
   // Story 00000025, Step 8 (peer review finding #7): `autoFill` is computed
@@ -672,6 +778,7 @@ export function HotSeatGame({
     );
     setSelection(null);
     clearTowerFeedback();
+    setBoardAnnouncement(describeAutoFillCompleted(progress(result.state)));
   }
 
   function handleConfirm() {
@@ -705,10 +812,24 @@ export function HotSeatGame({
       // condition (e.g. the side to move having no legal move) can in theory
       // already hold at the reveal, before either player has made a single
       // move - no activation occurs to drive `describeActivation`, so
-      // announce the result directly here.
-      if (freshPlaySession.play.result.kind !== "ongoing") {
-        setPlayAnnouncement(describeResult(freshPlaySession.play.result));
-      }
+      // announce the result directly here. Story 00000002, Step 5: when the
+      // game is *not* already decided, announce "both armies are placed"
+      // instead, naming the side to move - the one deliberate Phase-2 touch
+      // this story makes. Either way this goes into `playAnnouncement`, not
+      // `boardAnnouncement` - the placement board is gone once `playSession`
+      // is set.
+      setPlayAnnouncement(
+        freshPlaySession.play.result.kind !== "ongoing"
+          ? describeResult(freshPlaySession.play.result)
+          : describePlacementComplete(freshPlaySession.play.sideToMove),
+      );
+    } else {
+      // Story 00000002, Step 5 (Decisions item 6): replace, never append -
+      // the board announcement must not still be talking about the outgoing
+      // player's own layout once it becomes the next player's turn.
+      setBoardAnnouncement(
+        describeHandOff(next.active, progress(next[next.active])),
+      );
     }
     setSelection(null);
     // Tower feedback is per active player and must never linger into the next
@@ -776,18 +897,7 @@ export function HotSeatGame({
         onConfirm={onBack}
         onCancel={() => setConfirmingLeave(false)}
       />
-      {/* Announces the chosen game and its board size (story 00000023, Step
-          7) - visually hidden, `role="status"`/`aria-live="polite"` like
-          `AccessibleGrid`'s own live region, so a screen-reader user hears
-          which game and board they just chose even though this text is
-          otherwise redundant with `GameChoice`'s visible confirmation. */}
-      <p
-        className="hot-seat-game__game-announcement"
-        role="status"
-        aria-live="polite"
-      >
-        {gameAnnouncement}
-      </p>
+      {gameAnnouncementRegion}
       <PlacementStatus
         side={activeSide}
         progress={progress(placement)}
@@ -805,6 +915,7 @@ export function HotSeatGame({
             onSquareActivate={handleSquareClick}
             selectedSquare={selectedSquare}
             closedToTowerSquares={closedSquares}
+            announcement={boardAnnouncement}
           />
           <PlacementControls
             side={activeSide}

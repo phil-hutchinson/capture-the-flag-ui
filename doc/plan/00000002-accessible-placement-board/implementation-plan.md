@@ -634,7 +634,76 @@ Then `npm run typecheck`, `npm test`, `npm run format:check`, `npm run build`.
 
 ## Step 5 — Announce placement actions, progress, and the hand-off
 
-Status: pending
+Status: committed
+
+Notes: Added a `boardAnnouncement` state string in `HotSeatGame.tsx`, wired
+into `Board`'s `announcement` prop, and set it from `placementAnnouncement.ts`
+sentences in `handleSelectType` (selected/deselected), every branch of
+`handleSquareClick` (deselected, swapped, picked up, placed, moved),
+`handleReturnToTray`, `handleClearBoard`, `handleAutoFill` (success only), and
+`handleConfirm`'s mid-game hand-off (`describeHandOff`, replacing the previous
+text per decision 6). Every branch that calls `refuseTowerPlacement` or
+`reportAutoFillExhausted` returns before touching `boardAnnouncement`, leaving
+it unchanged so only `PlacementStatus`'s region speaks for a refusal (decision
+4). On the second Confirm, pushed `describePlacementComplete` (or, when the
+game is already decided at the reveal, kept the existing `describeResult`
+branch's priority unweakened) into the existing Phase-2 `playAnnouncement`
+state - the one deliberate Phase-2 touch, exactly as scoped. Reset
+`boardAnnouncement` to `""` in `handleNewGame`. Several handlers
+(`handleSquareClick`'s swap/place/move branches, `handleReturnToTray`,
+`handleClearBoard`) were refactored from "compute inside the `setSession`
+functional updater" to "compute the next `PlacementState` once, up front, then
+both build the announcement from it and hand it to `setSession`" - needed
+because the announcement (e.g. "12 of 25 placed") requires the resulting
+state's `progress` synchronously, which the fire-and-forget updater form
+doesn't expose; behaviourally identical, since the updater's own `state`
+parameter was always this same render's `placement` in this synchronous,
+non-concurrent-mode codebase (`handleAutoFill` already used this precomputed
+pattern for the same reason, per its own comment).
+
+Deviations from the plan's literal text, both flagged for the owner:
+
+1. **Added `describePieceDeselected`** to `placementAnnouncement.ts` (with
+   tests), for `handleSquareClick`'s "click the same selected board square
+   again" branch. Step 1's event list paired select/deselect only for a tray
+   type, not for a picked-up board piece, but Step 5's plan explicitly lists
+   "deselected" as one of `handleSquareClick`'s required branches - so the
+   sentence didn't yet exist and was added per this task's own instruction
+   ("if a sentence you need genuinely does not exist there, add it to that
+   module with tests"). Its wording is identical in shape to the pre-existing
+   `describeTrayDeselected` ("{Color} {Piece} deselected.") - kept as a
+   separate function anyway so each call site names the event it actually
+   means, rather than reusing a function documented for a different one.
+2. **`PlacementControls`'s "Cancel" button remains unannounced.** It calls an
+   inline `() => setSelection(null)` in `HotSeatGame.tsx`, performing exactly
+   the same state change as re-activating the selected board square (which
+   now announces "deselected"). The plan's Step 5 handler list names
+   `handleSelectType`, every `handleSquareClick` branch,
+   `handleReturnToTray`, `handleClearBoard`, `handleAutoFill`, and
+   `handleConfirm` - not this inline callback - so it was left as-is rather
+   than wired up, per "implement exactly what's written." Flagging this as a
+   possible inconsistency for Gate B (Step 10): a player who cancels via the
+   square gets an announcement, a player who cancels via the "Cancel" button
+   does not, even though the two are the same action.
+
+Also fixed story 00000023 peer-review finding #3: `gameAnnouncementRegion` (a
+new local JSX constant, computed once per render from the `gameAnnouncement`
+state) now renders identically - same element, same position relative to
+`LeaveGameDialog` - in all three of the component's return branches (game
+choice, placement, and, for symmetry, Phase 2), replacing the inline `<p>`
+that previously existed only in the placement branch. React now keeps one
+persistent DOM node for this live region across every branch change, so it is
+already registered with assistive technology before `handleChooseGame` ever
+gives it text.
+
+`EngineGame.tsx` was not touched (it gets Step 1's square labels for free
+through `Board`/`AccessibleGrid`, unrelated to this step); it still compiles
+and typechecks.
+
+`npm run typecheck`, `npm run lint`, `npm test` (745 tests = 744 baseline + 1
+new `describePieceDeselected` test), `npm run format:check`, and `npm run
+build` are all clean. The manual gate (Narrator, Skirmish then Battle,
+covering the checklist above) is the orchestrator's to run.
 
 Drive the board's live region from `HotSeatGame.tsx`, using Step 1's sentences
 and **decision 4**'s division of labour:

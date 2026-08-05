@@ -1,14 +1,21 @@
 // Player-facing wording for accessible placement (story 00000002 "Accessible
-// placement board", Step 1).
+// placement board", Step 1; consumed by `HotSeatGame.tsx` starting Step 5).
 //
 // The single home for every string this story adds: a placement square's
 // accessible name (consumed by `Board.tsx`, Step 3), a tray entry's
 // accessible name (consumed by `Tray.tsx`, Step 6), and a sentence for every
 // placement event pushed into the board's live region (consumed by
-// `HotSeatGame.tsx`, Step 5). Nothing in the app calls into this module yet -
-// it exists on its own first so it is entirely unit-testable in this
+// `HotSeatGame.tsx`, Step 5). It was unit-tested on its own first, before
+// anything called into it, so it is entirely unit-testable in this
 // repository's `node`-only Vitest environment, per story.md's "Verification"
 // (no jsdom, no component-testing library).
+//
+// Step 5 adds one function Step 1 did not anticipate: `describePieceDeselected`,
+// for clicking an already-selected board square again (cancelling the pickup
+// without moving it) - Step 1's event list paired "selected"/"deselected" only
+// for a tray type, not for a picked-up board piece, but Step 5's key grammar
+// (Decisions item 2's table) needs exactly that sentence for
+// `HotSeatGame.tsx`'s `handleSquareClick`.
 //
 // Modelled on `playAnnouncement.ts` (Phase 2's own live-region wording) and
 // `towerPlacementMessages.ts` (this story's nearest placement-side
@@ -186,6 +193,22 @@ export function describePiecePickedUp(
   square: Square,
 ): string {
   return `${pieceDescription(pieceType, side)} picked up from ${squareKey(square)}.`;
+}
+
+/**
+ * The live-region sentence for deselecting an already-picked-up placed piece
+ * (activating the same board square a second time, cancelling the pickup
+ * without moving it) - symmetric with `describePiecePickedUp` above. Shares
+ * `describeTrayDeselected`'s wording (a bare "{Color} {Piece} deselected.")
+ * since "deselected" reads the same whether the piece came from the tray or
+ * was picked up from the board; kept as its own function so each call site in
+ * `HotSeatGame.tsx` names the event it actually means.
+ */
+export function describePieceDeselected(
+  pieceType: PieceTypeId,
+  side: Side,
+): string {
+  return `${pieceDescription(pieceType, side)} deselected.`;
 }
 
 /**

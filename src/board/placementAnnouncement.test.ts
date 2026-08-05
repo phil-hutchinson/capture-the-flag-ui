@@ -5,6 +5,7 @@ import {
   describeAutoFillCompleted,
   describeBoardCleared,
   describeHandOff,
+  describePieceDeselected,
   describePiecePickedUp,
   describePiecePlaced,
   describePieceMoved,
@@ -186,6 +187,12 @@ describe("placement event sentences", () => {
     );
   });
 
+  it("announces a picked-up board piece deselected (story 00000002, Step 5)", () => {
+    expect(describePieceDeselected("masterOfArms", "white")).toBe(
+      "Red Master-of-Arms deselected.",
+    );
+  });
+
   it("announces a piece moved, with no progress clause", () => {
     expect(describePieceMoved("masterOfArms", "black", D3)).toBe(
       "Blue Master-of-Arms moved to D3.",
@@ -247,6 +254,7 @@ describe("placement event sentences", () => {
       describeTrayDeselected("champion", "black"),
       describePiecePlaced("champion", "white", A3, ONE_PLACED),
       describePiecePickedUp("champion", "white", A3),
+      describePieceDeselected("champion", "white"),
       describePieceMoved("champion", "white", A3),
       describePiecesSwapped("champion", A3, "knight", D3, "white"),
       describeReturnedToTray("champion", "white", A3, SEVERAL_PLACED),
