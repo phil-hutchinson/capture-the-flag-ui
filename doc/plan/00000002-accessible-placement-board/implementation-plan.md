@@ -364,7 +364,28 @@ tests, all passing), `npm run typecheck`, `npm run lint`, `npm run format:check`
 
 ## Step 2 — Let a grid consumer choose where keyboard focus starts
 
-Status: pending
+Status: committed
+
+Notes: Added a pure exported helper `resolveInitialFocus` to `gridNavigation.ts`
+(`{ preferred?, rowCount, columnCount, isFocusable }` → `GridPosition | undefined`)
+that returns `preferred` when it is in bounds and focusable, otherwise falls
+back to `firstFocusablePosition`'s row-major scan — the same result as today
+when `preferred` is omitted entirely. `AccessibleGrid.tsx` gained an optional
+`initialFocus?: GridPosition` prop, consumed only inside the `useState` lazy
+initializer for `focused` (via `resolveInitialFocus`); the later effect that
+re-validates `focused` when the descriptors change shape still calls
+`firstFocusablePosition` directly and unchanged, so `initialFocus` seeds only
+the first render and never drags focus back afterward, and mounting still
+never steals real DOM focus (that effect is untouched). Updated both files'
+header comments to name this story/step. Extended `gridNavigation.test.ts`
+with 5 new tests for `resolveInitialFocus` covering: a supplied focusable
+position is chosen; an out-of-bounds supplied position falls back; a
+non-focusable supplied position falls back; no supplied position falls back;
+and the fallback is `undefined` when nothing is focusable. Every pre-existing
+test in that file is unmodified (verified via `git diff`, which shows only
+additions). No deviations from the plan. `npm run typecheck`, `npm run lint`,
+`npm test` (744 tests = 739 baseline + 5 new, all passing), `npm run
+format:check`, and `npm run build` are all clean.
 
 Add an optional `initialFocus` prop to `src/board/grid/AccessibleGrid.tsx`: the
 `GridPosition` the grid should use as its **initial** roving-tabindex target

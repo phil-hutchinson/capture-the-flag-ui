@@ -1,8 +1,9 @@
-// Generic, piece-agnostic accessible grid (story 00000004, Step 5).
+// Generic, piece-agnostic accessible grid (story 00000004, Step 5; extended
+// by story 00000002, Step 2, with the optional `initialFocus` prop).
 //
 // Implements the WAI-ARIA grid composite-widget pattern generically enough
-// for both Phase 2 movement (this story, via a future PlayBoard) and, later,
-// story 00000002's Phase 1 placement to adopt without a rewrite: a
+// for both Phase 2 movement (story 00000004's `PlayBoard`) and story
+// 00000002's Phase 1 placement board to adopt without a rewrite: a
 // `role="grid"` container of `role="row"` rows of `role="gridcell"` cells,
 // roving tabindex (exactly one cell tabbable at a time, the rest `-1`),
 // arrow-key navigation driven by the pure `nextFocusPosition`
@@ -35,6 +36,7 @@ import {
 import {
   firstFocusablePosition,
   nextFocusPosition,
+  resolveInitialFocus,
   type ArrowKey,
   type GridPosition,
 } from "./gridNavigation.ts";
@@ -66,6 +68,18 @@ export interface AccessibleGridProps {
    */
   readonly announcement?: string;
   readonly className?: string;
+  /**
+   * The grid's preferred **initial** roving-tabindex target, in place of
+   * `firstFocusablePosition`'s row-major scan (story 00000002's placement
+   * board wants the first home-band square, not the non-interactive band
+   * above it). Ignored - falling back to `firstFocusablePosition` - if the
+   * position is out of bounds or not focusable. Seeds the initial target
+   * only: it never moves focus back on later renders, and mounting never
+   * steals real DOM focus (see the "only move real focus when focus is
+   * already inside this grid" effect below). Omit to keep today's default
+   * behaviour exactly.
+   */
+  readonly initialFocus?: GridPosition;
 }
 
 const ARROW_KEYS: ReadonlySet<string> = new Set([
@@ -94,6 +108,7 @@ export function AccessibleGrid({
   onActivate,
   announcement,
   className,
+  initialFocus,
 }: AccessibleGridProps) {
   const rowCount = rows.length;
   const columnCount = rowCount > 0 ? rows[0].length : 0;
@@ -104,8 +119,16 @@ export function AccessibleGrid({
     [rows],
   );
 
+  // `initialFocus` seeds the initial target only - it is read once, on
+  // mount, via this lazy `useState` initializer, and deliberately excluded
+  // from every effect below so it never drags focus back on later renders.
   const [focused, setFocused] = useState<GridPosition | undefined>(() =>
-    firstFocusablePosition(rowCount, columnCount, isFocusable),
+    resolveInitialFocus({
+      preferred: initialFocus,
+      rowCount,
+      columnCount,
+      isFocusable,
+    }),
   );
 
   const containerRef = useRef<HTMLDivElement | null>(null);

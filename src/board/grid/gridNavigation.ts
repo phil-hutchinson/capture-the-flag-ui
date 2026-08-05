@@ -1,9 +1,11 @@
 // Pure navigation math for the reusable accessible grid (story 00000004,
-// Step 5). This module knows nothing about pieces, sides, movement, board
-// orientation, or React - it is generic 2-D grid geometry so it can be unit
-// tested in the project's `node` Vitest environment (no jsdom) and reused by
-// any consumer of the WAI-ARIA grid pattern (this story's Phase 2 board, and
-// story 00000002's Phase 1 placement board later).
+// Step 5; extended by story 00000002, Step 2, with `resolveInitialFocus` so a
+// consumer can seed the grid's initial roving-tabindex target). This module
+// knows nothing about pieces, sides, movement, board orientation, or React -
+// it is generic 2-D grid geometry so it can be unit tested in the project's
+// `node` Vitest environment (no jsdom) and reused by any consumer of the
+// WAI-ARIA grid pattern (story 00000004's Phase 2 board, and story
+// 00000002's Phase 1 placement board).
 //
 // Positions are `{ row, column }` zero-based indices into a rectangular grid
 // of `rowCount` rows by `columnCount` columns - screen order, not any
@@ -97,4 +99,45 @@ export function firstFocusablePosition(
     }
   }
   return undefined;
+}
+
+export interface ResolveInitialFocusArgs {
+  /**
+   * The consumer's preferred initial roving-tabindex target (story
+   * 00000002's placement board wants the first home-band square rather than
+   * `firstFocusablePosition`'s row-major scan, since the non-interactive
+   * lake/buffer bands sit above it). Omit to keep today's default.
+   */
+  readonly preferred?: GridPosition;
+  readonly rowCount: number;
+  readonly columnCount: number;
+  readonly isFocusable: (position: GridPosition) => boolean;
+}
+
+/**
+ * Chooses the grid's **initial** roving-tabindex target: `preferred` if it is
+ * in bounds and focusable, otherwise `firstFocusablePosition`'s row-major
+ * scan - the same fallback used today when no preference is supplied at all,
+ * so a consumer that never passes `preferred` sees no change in behaviour.
+ * This is initial-only guidance; it says nothing about what happens on later
+ * renders (that remains `firstFocusablePosition`, used directly by the
+ * caller when the previously focused cell stops being focusable).
+ */
+export function resolveInitialFocus({
+  preferred,
+  rowCount,
+  columnCount,
+  isFocusable,
+}: ResolveInitialFocusArgs): GridPosition | undefined {
+  if (
+    preferred !== undefined &&
+    preferred.row >= 0 &&
+    preferred.row < rowCount &&
+    preferred.column >= 0 &&
+    preferred.column < columnCount &&
+    isFocusable(preferred)
+  ) {
+    return preferred;
+  }
+  return firstFocusablePosition(rowCount, columnCount, isFocusable);
 }

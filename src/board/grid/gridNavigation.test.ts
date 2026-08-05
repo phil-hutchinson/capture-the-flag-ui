@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   firstFocusablePosition,
   nextFocusPosition,
+  resolveInitialFocus,
   type ArrowKey,
 } from "./gridNavigation.ts";
 
@@ -216,5 +217,67 @@ describe("firstFocusablePosition", () => {
 
   it("returns undefined when nothing is focusable", () => {
     expect(firstFocusablePosition(3, 3, () => false)).toBeUndefined();
+  });
+});
+
+describe("resolveInitialFocus", () => {
+  it("chooses a supplied focusable position", () => {
+    expect(
+      resolveInitialFocus({
+        preferred: { row: 2, column: 3 },
+        rowCount: 4,
+        columnCount: 4,
+        isFocusable: allFocusable,
+      }),
+    ).toEqual({ row: 2, column: 3 });
+  });
+
+  it("falls back to the row-major first focusable cell when the supplied position is out of bounds", () => {
+    expect(
+      resolveInitialFocus({
+        preferred: { row: 4, column: 0 },
+        rowCount: 4,
+        columnCount: 4,
+        isFocusable: allFocusable,
+      }),
+    ).toEqual({ row: 0, column: 0 });
+  });
+
+  it("falls back to the row-major first focusable cell when the supplied position is not focusable", () => {
+    const isFocusable = (position: { readonly row: number }) =>
+      position.row !== 1;
+    expect(
+      resolveInitialFocus({
+        preferred: { row: 1, column: 2 },
+        rowCount: 4,
+        columnCount: 4,
+        isFocusable,
+      }),
+    ).toEqual({ row: 0, column: 0 });
+  });
+
+  it("falls back to the row-major first focusable cell when no position is supplied", () => {
+    const isFocusable = (position: {
+      readonly row: number;
+      readonly column: number;
+    }) => position.row === 1 && position.column === 2;
+    expect(
+      resolveInitialFocus({
+        rowCount: 4,
+        columnCount: 4,
+        isFocusable,
+      }),
+    ).toEqual({ row: 1, column: 2 });
+  });
+
+  it("returns undefined when nothing is focusable, supplied position or not", () => {
+    expect(
+      resolveInitialFocus({
+        preferred: { row: 0, column: 0 },
+        rowCount: 3,
+        columnCount: 3,
+        isFocusable: () => false,
+      }),
+    ).toBeUndefined();
   });
 });
