@@ -284,7 +284,29 @@ story's, and story 00000004 already gated Phase 2's accessibility.
 
 ## Step 1 — Pure wording module for placement accessibility text
 
-Status: pending
+Status: committed
+
+Notes: Added `src/board/placementAnnouncement.ts` and its colocated
+`placementAnnouncement.test.ts` (27 tests), providing `placementSquareLabel`
+(an object-parameter function, given the many booleans a home/buffer/lake-row
+square's label depends on), `trayEntryLabel`, and one function per placement
+event (`describeTraySelected`/`describeTrayDeselected`/`describePiecePlaced`/
+`describePiecePickedUp`/`describePieceMoved`/`describePiecesSwapped`/
+`describeReturnedToTray`/`describeBoardCleared`/`describeAutoFillCompleted`/
+`describeHandOff`/`describePlacementComplete`). Every piece/side-naming event
+sentence includes the active side's color via `sideColorName` even though
+placement only ever shows one side's own pieces, for consistency with how
+`playAnnouncement.ts`/`FullBoard.tsx` always name a piece's color and so the
+sentence still makes sense to a listener who tabbed straight to the board
+without hearing the turn heading first — not explicitly required by the plan's
+wording rules but consistent with its "sideColorName for sides" convention;
+recorded here since it is a design choice beyond the plan's literal text, not
+a deviation from anything the plan mandated. `describeReturnedToTray` names the
+square the piece is returned _from_ (not specified by the plan's event list,
+but needed for the sentence to be meaningful, mirroring `describePiecePlaced`
+naming the destination). `npm run typecheck`, `npm run lint`, `npm test`
+(739 tests = 712 baseline + 27 new, all passing), and `npm run format:check`
+all clean.
 
 Add a new pure module `src/board/placementAnnouncement.ts` (no React import,
 no DOM) plus a colocated `placementAnnouncement.test.ts`, following
