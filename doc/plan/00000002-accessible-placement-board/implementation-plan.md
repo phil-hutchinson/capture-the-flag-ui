@@ -1202,7 +1202,58 @@ Record the result in this step's `Notes:`.
 
 ## Step 12 — README accuracy check and final sweep
 
-Status: pending
+Status: committed
+
+Notes: **README.md left unchanged, deliberately.** Read it end to end against
+this story's changes: nothing in "What you can do" claims or implies a
+particular input method (no "click to place" wording exists there to become
+stale), so the placement bullet reads exactly as accurately as before. Checked
+precedent before deciding: story 00000004, which gave Phase 2 movement its
+first keyboard-operable/screen-reader-perceivable board on the same
+`AccessibleGrid`, touched README only for the new gameplay itself (movement
+becoming possible) and did not add an accessibility-specific sentence (`git
+show e9250a0 -- README.md`); this story treats keyboard/screen-reader support
+the same way — a baseline quality of an existing, already-described feature,
+not a new capability a non-technical player chooses or needs advance notice
+of, so inventing a sentence about it would be new-for-its-own-sake rather than
+correcting an inaccuracy. `/update-readme`'s own review (reading the branch
+diff) concurred: no functional surface, screen, or player option changed.
+
+Updated `CONTRIBUTING.md` instead, since the story's lasting artifacts for a
+contributor are the new lint plugin and the "verify accessibility by hand,
+unit-test the pure wording" convention (`story.md`'s own "Verification"
+section, restated for the general case): added a sentence under "Toolchain"
+naming `eslint-plugin-jsx-a11y` and what it catches, and a new "Testing
+accessibility" subsection explaining the `node`-only Vitest environment's
+consequence (no jsdom/component-testing library, so DOM/interaction behaviour
+is verified by hand against a keyboard and Windows Narrator) and the
+pull-out-the-pure-logic convention this story followed
+(`placementAnnouncement.ts`, `gridNavigation.ts`'s `resolveInitialFocus`).
+Re-read the whole file afterward for tone and accuracy; no other section
+needed a change.
+
+Swept every file this story touched
+(`placementAnnouncement.ts`/`.test.ts`, `gridNavigation.ts`,
+`AccessibleGrid.tsx`, `Board.tsx`/`.css`, `Tray.tsx`/`.css`,
+`PlacementControls.tsx`/`.css`, `PlacementStatus.tsx`/`.css`,
+`HotSeatGame.tsx`, `StartScreen.tsx`/`.css`, `App.tsx`/`.css`,
+`EngineGame.tsx`, `eslint.config.js`) with targeted greps for "click"/"ply"
+outside comments, "white"/"black", edition ids (`standard_144`/`standard_64`/
+`SKIRMISH`), and grid/ARIA jargon (`gridcell`, `band`, `role="grid"`, "aria")
+in string literals: every hit is in a code comment or a CSS class name, none
+in a player-facing string. Confirmed every touched file's header comment
+already names this story and the right step (all were kept current
+step-by-step rather than needing a catch-up here); in particular
+`AccessibleGrid.tsx`'s header no longer uses "future"/"later" language for
+story 00000002 — it already reads as a completed second consumer, having been
+updated that way back in Step 2 (confirmed via `git log -p` on the file, which
+shows the "future PlayBoard"/"later, story 00000002" wording was removed
+before this step ever ran) — so this step's own instruction to fix it further
+found nothing left to do.
+
+No deviations from the plan's literal text. `npm run typecheck`,
+`npm run lint`, `npm test` (745 tests, unchanged — this step adds no logic),
+`npm run format:check`, and `npm run build` are all clean.
 
 Confirm `README.md` is still accurate given this story's changes, and update it
 if warranted. The story adds no new screen, dependency-facing setup step or
