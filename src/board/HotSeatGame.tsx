@@ -78,6 +78,13 @@ import "./HotSeatGame.css";
 // below is local to this component, so mounting always starts a fresh choice
 // and unmounting discards whatever game was in progress.
 //
+// Story 00000002, Step 3: `Board`'s activation prop was renamed from
+// `onSquareClick` to `onSquareActivate` when the placement board was ported
+// onto the shared accessible grid, since activating a square is now also
+// Enter/Space, not only a click - the call below is updated mechanically;
+// `handleSquareClick` (the click-grammar handler itself, further down) keeps
+// its name, since the grammar it implements is unchanged.
+//
 // Story 00000023, Step 7: `configuration` is `null` until the player chooses
 // Battle or Skirmish (and, since story 00000027's Step 8, both diagonal-attack
 // rule choices alongside it) on `GameChoice` - while it is `null` this
@@ -795,7 +802,7 @@ export function HotSeatGame({
             activeSide={activeSide}
             placement={placement}
             layout={placement.boardLayout}
-            onSquareClick={handleSquareClick}
+            onSquareActivate={handleSquareClick}
             selectedSquare={selectedSquare}
             closedToTowerSquares={closedSquares}
           />

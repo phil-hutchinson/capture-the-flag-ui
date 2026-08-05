@@ -431,7 +431,53 @@ untouched. Then `npm test`, `npm run typecheck`, `npm run lint`,
 
 ## Step 3 — Render the placement board through the accessible grid
 
-Status: pending
+Status: committed
+
+Notes: Rewrote `Board.tsx` to build a rectangular `GridCellDescriptor[][]`
+from `visibleRows`/`visibleColumns` and render it through `AccessibleGrid`,
+following `FullBoard.tsx`'s pattern exactly: every visible cell is
+`focusable: true`; `actionable` is `band === "home" && onSquareActivate !==
+undefined`; each cell's `content` is the existing `BoardSquareCell` markup
+(now taking `band`/`lake` directly instead of re-deriving them from
+`square`/`layout`, since click handling moved off it entirely); each cell's
+`label` comes from Step 1's `placementSquareLabel`; the grid's own
+`aria-label` is `` `${sideColorName(activeSide)}'s placement board` ``
+(Decision 1's "name whose board it is"). `initialFocus` is `{ row:
+rows.findIndex(({ band }) => band === "home"), column: 0 }`, computed from
+the same `visibleRows` array on every render (never a hardcoded index), with
+`undefined` as a defensive fallback if no row is ever home-banded (never hit
+in practice, matching `AccessibleGrid`'s own no-preference default). The
+grid's `onActivate` maps `{row, column}` back to a domain `Square` through
+the same `rows`/`columns` arrays. Renamed `onSquareClick` to
+`onSquareActivate` (doc comment updated) and updated both call sites
+(`HotSeatGame.tsx`, `EngineGame.tsx`) mechanically - `handleSquareClick`
+itself keeps its name, since the click-grammar it implements is unchanged.
+Added the optional `announcement` prop, forwarded straight to
+`AccessibleGrid`; no caller sets it yet (Step 5). CSS: added a
+`.board-stage` wrapper (mirroring `FullBoard.css`'s `.full-board__stage`,
+`display: inline-block`) carrying the inline `--columns`/`--rows` custom
+properties that used to live directly on `.board`, since `AccessibleGrid`
+takes a `className` but no `style`; `.board` (passed as the grid's
+`className`) keeps its existing `grid-template-*` rules unchanged, now fed
+by inheritance. `pointer-events: none` stays on `.board-square--buffer`/
+`--lake-row` (comment updated to explain it now only reaches the cell's
+inner content, not `AccessibleGrid`'s own `role="gridcell"` wrapper, which
+already gets no click handler for a non-actionable cell). No changes were
+needed to `AccessibleGrid.css`'s focus ring (its overlay `::after` approach,
+already built for exactly this "consumer content has its own background"
+case, draws above the grey bands, the selected ink ring, and the
+closed-to-Towers hatch without modification). Updated the header comments of
+all four touched files (`Board.tsx`, `Board.css`, `HotSeatGame.tsx`,
+`EngineGame.tsx`) naming this story and step; `EngineGame.tsx`'s note also
+records that it is parked and only mechanically updated. No deviations from
+the plan. `npm run typecheck`, `npm run lint`, `npm test` (744 tests, same
+count as the Step 2 baseline - this step adds no new pure logic to test),
+`npm run format:check`, and `npm run build` are all clean. Manual
+verification (mouse behaviour, Tab landing on the first home square, arrow-key
+clamping/skip-to-buffer-and-lake, Enter/Space activation, Phase 2 unaffected)
+is the orchestrator's to run per this step's own gate, per the standing
+instruction that manual checks are arranged by the orchestrator, not this
+agent.
 
 Rewrite `src/board/Board.tsx` so it renders through
 `src/board/grid/AccessibleGrid.tsx` instead of its own bare `<div>` grid,
