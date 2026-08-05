@@ -1158,7 +1158,19 @@ Record the result (and any wording changes) in this step's `Notes:`.
 
 ## Step 11 — Gate C: no regression for mouse and touch, both editions
 
-Status: pending
+Status: committed
+
+Notes: The owner ran Gate C with the mouse for both games and reported it
+passing — story 00000001's placement gates still hold, and no regression fix
+was needed. Two intended differences were called out in advance and judged as
+such rather than as regressions: `PlacementControls`'s "Return to tray" and
+"Cancel" are now always visible (greyed when nothing is selected) instead of
+appearing and vanishing with the selection, per Step 7's focus-retention work;
+and focus moves to the page heading at each hand-off, which is how Step 7
+solves Confirm's focus problem while keeping it natively `disabled`. The same
+pass confirmed the second Gate A polish: no focus indicator appears on the
+heading during mouse-only play, and rings appear normally once the player
+starts using the keyboard.
 
 This is a **hard stop for owner confirmation**. The story requires that mouse and
 touch placement continue to work exactly as before — story 00000001's placement
