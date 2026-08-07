@@ -15,6 +15,8 @@ import {
   SUPERSEDED_SKIRMISH_EDITION,
 } from "./edition.ts";
 import {
+  GAME_DEFINING_FLAG_IDS,
+  RULE_CHOICE_FLAG_IDS,
   RULE_FLAG_CATALOG,
   RULE_FLAG_IDS,
   type DiagonalAttackableValue,
@@ -22,18 +24,38 @@ import {
 } from "./ruleFlags.ts";
 
 describe("the flag catalog (ruleFlags.ts)", () => {
-  it("covers exactly the two known flag ids", () => {
+  it("covers exactly the four known flag ids, alphabetically", () => {
     expect(RULE_FLAG_IDS).toEqual([
+      "ARMY_COMPOSITION",
+      "BOARD_LAYOUT",
       "DIAGONAL_ATTACKABLE",
       "DIAGONAL_ATTACK_PATH",
     ]);
   });
 
   // Peer review #4: pins the alphabetical-ordering invariant structurally,
-  // so a third flag id declared out of catalog order can't silently break
-  // the `Ruleset` tag's required alphabetical ordering.
+  // so a flag id declared out of catalog order can't silently break the
+  // `Ruleset` tag's required alphabetical ordering.
   it("is alphabetically sorted", () => {
     expect(RULE_FLAG_IDS).toEqual([...RULE_FLAG_IDS].sort());
+  });
+
+  it("ARMY_COMPOSITION permits exactly standard_battle, standard_skirmish and standard_clash, defaulting to standard_battle", () => {
+    expect(RULE_FLAG_CATALOG.ARMY_COMPOSITION.values).toEqual([
+      "standard_battle",
+      "standard_skirmish",
+      "standard_clash",
+    ]);
+    expect(RULE_FLAG_CATALOG.ARMY_COMPOSITION.default).toBe("standard_battle");
+  });
+
+  it("BOARD_LAYOUT permits exactly standard_144, standard_64 and asymmetric_100, defaulting to standard_144", () => {
+    expect(RULE_FLAG_CATALOG.BOARD_LAYOUT.values).toEqual([
+      "standard_144",
+      "standard_64",
+      "asymmetric_100",
+    ]);
+    expect(RULE_FLAG_CATALOG.BOARD_LAYOUT.default).toBe("standard_144");
   });
 
   it("DIAGONAL_ATTACKABLE permits exactly movable_only and all, defaulting to movable_only", () => {
@@ -50,6 +72,31 @@ describe("the flag catalog (ruleFlags.ts)", () => {
       "open_path",
     ]);
     expect(RULE_FLAG_CATALOG.DIAGONAL_ATTACK_PATH.default).toBe("always");
+  });
+});
+
+describe("game-defining vs. rule-choice flag classification", () => {
+  it("partitions RULE_FLAG_IDS into exactly the game-defining and rule-choice lists", () => {
+    const merged = [...GAME_DEFINING_FLAG_IDS, ...RULE_CHOICE_FLAG_IDS].sort();
+    expect(merged).toEqual([...RULE_FLAG_IDS].sort());
+    // No overlap, and every id is classified.
+    expect(GAME_DEFINING_FLAG_IDS.length + RULE_CHOICE_FLAG_IDS.length).toBe(
+      RULE_FLAG_IDS.length,
+    );
+  });
+
+  it("classifies ARMY_COMPOSITION and BOARD_LAYOUT as game-defining", () => {
+    expect(GAME_DEFINING_FLAG_IDS).toEqual([
+      "ARMY_COMPOSITION",
+      "BOARD_LAYOUT",
+    ]);
+  });
+
+  it("classifies the two diagonal flags as rule choices", () => {
+    expect(RULE_CHOICE_FLAG_IDS).toEqual([
+      "DIAGONAL_ATTACKABLE",
+      "DIAGONAL_ATTACK_PATH",
+    ]);
   });
 });
 
@@ -74,6 +121,33 @@ describe("configureRules (standard configurations)", () => {
     const configuration = configureRules(BATTLE_EDITION);
     expect(configuration.edition).toBe(BATTLE_EDITION);
   });
+
+  // Story 00000030, implementation plan Decision 3: `resolvedEditionValue`
+  // resolves `BOARD_LAYOUT`/`ARMY_COMPOSITION` from the edition's own ids,
+  // for every registered edition - not only the two active ones - so a
+  // standard configuration on any of them still reports no deviation and
+  // still renders byte-identically to its bare edition id.
+  it.each([
+    ["2-0:BATTLE", BATTLE_EDITION, "standard_144", "standard_battle"],
+    ["2-1:SKIRMISH", SKIRMISH_EDITION, "standard_64", "standard_skirmish"],
+    [
+      "2-0:SKIRMISH",
+      SUPERSEDED_SKIRMISH_EDITION,
+      "standard_64",
+      "standard_skirmish",
+    ],
+  ] as const)(
+    "%s resolves BOARD_LAYOUT and ARMY_COMPOSITION to its own ids and reports no deviation",
+    (id, edition, boardLayoutId, armyCompositionId) => {
+      const configuration = configureRules(edition);
+
+      expect(configuration.flags.BOARD_LAYOUT).toBe(boardLayoutId);
+      expect(configuration.flags.ARMY_COMPOSITION).toBe(armyCompositionId);
+      expect(deviatingFlags(configuration)).toEqual([]);
+      expect(isStandardConfiguration(configuration)).toBe(true);
+      expect(renderRulesetTag(configuration)).toBe(id);
+    },
+  );
 });
 
 describe("configureRules (deviations)", () => {
@@ -124,6 +198,57 @@ describe("configureRules (deviations)", () => {
     const withNoOverrides = configureRules(BATTLE_EDITION);
 
     expect(withNoOverrides).toEqual(withEmptyOverrides);
+  });
+});
+
+// Story 00000030: a Clash configuration is `BATTLE_EDITION` with both
+// game-defining flags overridden to the Clash values - this app's first use
+// of a deviating game-defining flag, and the shape every Clash game records
+// under (this story's Policy: "Clash records as a deviation from Battle").
+describe("configureRules (game-defining deviations, i.e. Clash)", () => {
+  it("overriding both game-defining flags to the Clash values reports exactly those two deviations", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      ARMY_COMPOSITION: "standard_clash",
+      BOARD_LAYOUT: "asymmetric_100",
+    });
+
+    expect(configuration.flags.ARMY_COMPOSITION).toBe("standard_clash");
+    expect(configuration.flags.BOARD_LAYOUT).toBe("asymmetric_100");
+    expect(deviatingFlags(configuration)).toEqual([
+      "ARMY_COMPOSITION",
+      "BOARD_LAYOUT",
+    ]);
+    expect(isStandardConfiguration(configuration)).toBe(false);
+    expect(renderRulesetTag(configuration)).toBe(
+      "2-0:BATTLE ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100",
+    );
+  });
+
+  it("adding a diagonal deviation on top of Clash appends its token after both game-defining tokens", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      ARMY_COMPOSITION: "standard_clash",
+      BOARD_LAYOUT: "asymmetric_100",
+      DIAGONAL_ATTACKABLE: "all",
+    });
+
+    expect(deviatingFlags(configuration)).toEqual([
+      "ARMY_COMPOSITION",
+      "BOARD_LAYOUT",
+      "DIAGONAL_ATTACKABLE",
+    ]);
+    expect(renderRulesetTag(configuration)).toBe(
+      "2-0:BATTLE ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100 DIAGONAL_ATTACKABLE=all",
+    );
+  });
+
+  it("overriding Skirmish's BOARD_LAYOUT to its own resolved value produces no deviation (canonicalization)", () => {
+    const configuration = configureRules(SKIRMISH_EDITION, {
+      BOARD_LAYOUT: "standard_64",
+    });
+
+    expect(deviatingFlags(configuration)).toEqual([]);
+    expect(isStandardConfiguration(configuration)).toBe(true);
+    expect(renderRulesetTag(configuration)).toBe("2-1:SKIRMISH");
   });
 });
 
@@ -346,5 +471,35 @@ describe("parseRuleFlagTokens", () => {
       "DIAGONAL_ATTACKABLE",
     ]);
     expect(result.unrecognizedTokens).toEqual(["DIAGONAL_SOMETHING=on"]);
+  });
+
+  // Story 00000030: the Clash tag's two game-defining tokens round-trip
+  // through render and parse exactly like the diagonal tokens above.
+  it("round-trips the Clash tag's two game-defining tokens", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      ARMY_COMPOSITION: "standard_clash",
+      BOARD_LAYOUT: "asymmetric_100",
+    });
+
+    const rendered = renderRulesetTag(configuration);
+    const [, ...tokens] = rendered.split(" ");
+    const parsed = parseRuleFlagTokens(BATTLE_EDITION, tokens);
+
+    expect(parsed).toEqual({ configuration, unrecognizedTokens: [] });
+    expect(renderRulesetTag(parsed.configuration)).toBe(rendered);
+  });
+
+  it("carries an unknown value for BOARD_LAYOUT as unrecognized, not a rejection", () => {
+    const token = "BOARD_LAYOUT=huge_400";
+    const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
+    expect(result.unrecognizedTokens).toEqual([token]);
+    expect(isStandardConfiguration(result.configuration)).toBe(true);
+  });
+
+  it("carries an unknown value for ARMY_COMPOSITION as unrecognized, not a rejection", () => {
+    const token = "ARMY_COMPOSITION=huge_army";
+    const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
+    expect(result.unrecognizedTokens).toEqual([token]);
+    expect(isStandardConfiguration(result.configuration)).toBe(true);
   });
 });

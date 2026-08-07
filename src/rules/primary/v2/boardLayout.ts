@@ -16,13 +16,19 @@
 // position block to it; and `readRecord.ts`/`HotSeatGame.tsx` thread it
 // through from the record and the picker respectively.
 
+import type { RuleFlagValue } from "./ruleFlags.ts";
+
 /**
  * Identifies a board geometry: the two published layouts
  * (`standard_144`, `standard_64`), plus `asymmetric_100` - a proposed,
  * unpublished layout from the companion project's
  * `doc/ruleset/proposed-variants.md` sandbox (see `ASYMMETRIC_100` below).
+ * Derived from `ruleFlags.ts`'s `BOARD_LAYOUT` catalog entry (story
+ * 00000030's implementation plan, Decision 4) rather than declared
+ * separately, so a value renamed or added in the catalog produces a compile
+ * error in `BOARD_LAYOUTS` below rather than silent drift.
  */
-export type BoardLayoutId = "standard_144" | "standard_64" | "asymmetric_100";
+export type BoardLayoutId = RuleFlagValue<"BOARD_LAYOUT">;
 
 /** Which region a row belongs to, from White's edge to Black's. */
 export type RowRegion = "white-home" | "black-home" | "buffer" | "lake";

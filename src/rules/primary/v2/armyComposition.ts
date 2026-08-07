@@ -20,16 +20,19 @@ import {
   type Inventory,
   type PieceTypeId,
 } from "./pieces.ts";
+import type { RuleFlagValue } from "./ruleFlags.ts";
 
 /**
  * Identifies an army composition: the two published rosters
  * (`standard_battle`, `standard_skirmish`), plus `standard_clash` - a
  * proposed, unpublished roster from the companion project's
  * `doc/ruleset/proposed-variants.md` sandbox (see `STANDARD_CLASH_ROSTER`
- * below).
+ * below). Derived from `ruleFlags.ts`'s `ARMY_COMPOSITION` catalog entry
+ * (story 00000030's implementation plan, Decision 4) rather than declared
+ * separately, so a value renamed or added in the catalog produces a compile
+ * error in `ARMY_COMPOSITIONS` below rather than silent drift.
  */
-export type ArmyCompositionId =
-  "standard_battle" | "standard_skirmish" | "standard_clash";
+export type ArmyCompositionId = RuleFlagValue<"ARMY_COMPOSITION">;
 
 /** Per-type piece counts making up one side's full army under a composition. */
 export type ArmyRoster = Readonly<Record<PieceTypeId, number>>;

@@ -68,9 +68,9 @@ export interface RuleConfiguration {
 
 /**
  * Chosen values for zero or more flags, to be resolved against an edition by
- * `configureRules`. A flag absent here resolves to the edition's own value
- * (Decision 2: none of today's editions state one) or, failing that, the
- * flag's own default.
+ * `configureRules`. A flag absent here resolves to the edition's own value if
+ * it states one (`BOARD_LAYOUT` and `ARMY_COMPOSITION` always do; see
+ * `resolvedEditionValue`) or, failing that, the flag's own default.
  */
 export type RuleFlagOverrides = {
   readonly [Id in RuleFlagId]?: ResolvedRuleFlags[Id];
@@ -80,17 +80,29 @@ export type RuleFlagOverrides = {
  * Resolves `flagId`'s value for `edition`, absent any override chosen by a
  * caller of `configureRules`: the edition's own stated value if it has one,
  * otherwise the flag's own default (story.md's "Decisions resolved at plan
- * time", Decision 2). No registered `Edition` states a value for either
- * flag today, so this always yields the flag's default at present - but
- * this function is the single extension point for the day an edition does
- * state one (e.g. by reading a flag-value field this function would gain on
- * `Edition`, checked before falling back to the catalog default below).
+ * time", Decision 2).
+ *
+ * `BOARD_LAYOUT` and `ARMY_COMPOSITION` are the two flags every edition
+ * *does* state a value for today - they are exactly `edition.boardLayoutId`
+ * and `edition.armyCompositionId` (story 00000030's implementation plan,
+ * Decision 3). Every other flag has no per-edition value, so it keeps
+ * falling back to the catalog default. This is what keeps Battle's and
+ * Skirmish's records byte-identical to before this story: each edition
+ * resolves its own board and army, so neither ever deviates from itself and
+ * neither ever emits a token - while a configuration naming a *different*
+ * board or army than its edition's own (e.g. Clash, built on `BATTLE_EDITION`
+ * with both flags overridden) now genuinely deviates on both.
  */
 function resolvedEditionValue<Id extends RuleFlagId>(
   edition: Edition,
   flagId: Id,
 ): ResolvedRuleFlags[Id] {
-  void edition;
+  if (flagId === "BOARD_LAYOUT") {
+    return edition.boardLayoutId as ResolvedRuleFlags[Id];
+  }
+  if (flagId === "ARMY_COMPOSITION") {
+    return edition.armyCompositionId as ResolvedRuleFlags[Id];
+  }
   return RULE_FLAG_CATALOG[flagId].default as ResolvedRuleFlags[Id];
 }
 

@@ -504,7 +504,33 @@ five repository checks.
 
 ## Step 3 — `BOARD_LAYOUT` and `ARMY_COMPOSITION` become known flags
 
-Status: pending
+Status: committed
+
+Notes: Implemented exactly as planned, per Decisions 3, 4 and 5. `ruleFlags.ts`
+gained `ARMY_COMPOSITION` and `BOARD_LAYOUT` catalog entries with the published
+defaults, plus a `RULE_FLAG_KIND` classification table (`as const satisfies`
+over every `RuleFlagId`) from which `GameDefiningFlagId`/`RuleChoiceFlagId`
+types and `GAME_DEFINING_FLAG_IDS`/`RULE_CHOICE_FLAG_IDS` arrays are derived -
+so a future unclassified flag fails to compile. `boardLayout.ts`'s
+`BoardLayoutId` and `armyComposition.ts`'s `ArmyCompositionId` are now
+`RuleFlagValue<"BOARD_LAYOUT">`/`RuleFlagValue<"ARMY_COMPOSITION">` imported
+from `ruleFlags.ts` (no cycle: `ruleFlags.ts` imports nothing).
+`resolvedEditionValue` now returns `edition.boardLayoutId`/
+`edition.armyCompositionId` for those two flags and falls back to the catalog
+default for everything else, as before. `ruleChoices.ts`'s `RULE_CHOICE_COPY`/
+`RuleChoiceCopy`/`RULE_CHOICES`/`buildRuleChoice` are retyped over
+`RuleChoiceFlagId`/`RULE_CHOICE_FLAG_IDS` only, and `nonStandardRuleSentences`
+now filters `deviatingFlags` down to rule-choice ids before describing them, so
+a Clash-shaped configuration (both game-defining flags deviating) produces no
+sentences. `Edition` itself is untouched in this step (its `boardLayout`/`army`
+fields stay, per the plan - Step 4's job). Extended
+`configuration.test.ts`/`ruleChoices.test.ts` with the cases the step's
+verification lists, including the exact three-token Clash tag render/parse
+round trip, the game-defining-vs-rule-choice partition test, and Skirmish's
+`BOARD_LAYOUT=standard_64` canonicalization case. No deviation from the plan.
+All five repository checks (typecheck, lint, test, format:check, build) are
+clean; no existing fixture or `doc/samples/` file was touched (`git status
+--porcelain doc/samples` is clean).
 
 This is the step that makes `resolvedEditionValue` do real work for the first
 time. Per Decisions 3, 4 and 5:

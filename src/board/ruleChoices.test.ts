@@ -5,7 +5,7 @@ import {
   STANDARD_SKIRMISH_CONFIGURATION,
 } from "../rules/primary/v2/configuration.ts";
 import { SUPERSEDED_SKIRMISH_EDITION } from "../rules/primary/v2/edition.ts";
-import { RULE_FLAG_IDS } from "../rules/primary/v2/ruleFlags.ts";
+import { RULE_CHOICE_FLAG_IDS } from "../rules/primary/v2/ruleFlags.ts";
 import {
   nonStandardRuleSentences,
   RULE_CHOICES,
@@ -14,8 +14,17 @@ import {
 } from "./ruleChoices.ts";
 
 describe("RULE_CHOICES", () => {
-  it("has exactly one choice per known flag, in RULE_FLAG_IDS order", () => {
-    expect(RULE_CHOICES.map((choice) => choice.flagId)).toEqual(RULE_FLAG_IDS);
+  // Story 00000030: `BOARD_LAYOUT` and `ARMY_COMPOSITION` joined the flag
+  // catalog as game-defining flags, not rule choices - `RULE_CHOICES` must
+  // still hold exactly the two diagonal choices, not four.
+  it("has exactly one choice per rule-choice flag, in RULE_CHOICE_FLAG_IDS order", () => {
+    expect(RULE_CHOICES.map((choice) => choice.flagId)).toEqual(
+      RULE_CHOICE_FLAG_IDS,
+    );
+    expect(RULE_CHOICE_FLAG_IDS).toEqual([
+      "DIAGONAL_ATTACKABLE",
+      "DIAGONAL_ATTACK_PATH",
+    ]);
   });
 
   it("gives every choice a non-empty heading", () => {
@@ -69,6 +78,37 @@ describe("nonStandardRuleSentences", () => {
     expect(
       nonStandardRuleSentences(configureRules(SUPERSEDED_SKIRMISH_EDITION)),
     ).toEqual([]);
+  });
+
+  // Story 00000030, implementation plan Decision 5: a deviation on a
+  // game-defining flag (Clash's board and army) must never be described here
+  // - that would read as "Battle with two unusual settings", which story.md
+  // forbids. A Clash configuration whose *only* deviations are game-defining
+  // reports no sentences at all.
+  it("is empty for a Clash configuration whose only deviations are game-defining", () => {
+    const clashConfiguration = configureRules(
+      STANDARD_BATTLE_CONFIGURATION.edition,
+      { ARMY_COMPOSITION: "standard_clash", BOARD_LAYOUT: "asymmetric_100" },
+    );
+    expect(nonStandardRuleSentences(clashConfiguration)).toEqual([]);
+  });
+
+  it("still names a diagonal deviation on a Clash configuration, ignoring the game-defining deviations", () => {
+    const clashConfiguration = configureRules(
+      STANDARD_BATTLE_CONFIGURATION.edition,
+      {
+        ARMY_COMPOSITION: "standard_clash",
+        BOARD_LAYOUT: "asymmetric_100",
+        DIAGONAL_ATTACKABLE: "all",
+      },
+    );
+    const sentences = nonStandardRuleSentences(clashConfiguration);
+    expect(sentences).toHaveLength(1);
+    expect(sentences[0]).toBe(
+      RULE_CHOICES.find(
+        (choice) => choice.flagId === "DIAGONAL_ATTACKABLE",
+      )?.options.find((option) => option.value === "all")?.description,
+    );
   });
 
   it("names exactly one sentence when only DIAGONAL_ATTACKABLE deviates", () => {
