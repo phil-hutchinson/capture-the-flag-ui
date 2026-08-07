@@ -457,7 +457,26 @@ layouts' assertions still pass unchanged. Run the five repository checks.
 
 ## Step 2 — The Clash army roster (`standard_clash`)
 
-Status: pending
+Status: committed
+
+Notes: Added `standard_clash` to `ArmyCompositionId`, `ARMY_COMPOSITIONS` and
+a documented `STANDARD_CLASH_ROSTER` constant (3 each of ranks 1-5, 4 Towers,
+1 Flag, 0 Militia) in `armyComposition.ts`, following
+`STANDARD_SKIRMISH_ROSTER`'s documentation style and noting it is a proposed,
+unpublished value. `armySize` and `freshInventory` needed no change. Extended
+`armyComposition.test.ts` with a `standard_clash` describe block (id, total,
+per-type quantities, Militia at zero, all eight piece types represented, and
+fits the Step 1 `asymmetric_100` layout's 30-square home zone via
+`armyFitsBoard`) and added Clash cases to the `freshInventory` describe block
+(a full 20-piece copy, and that it is not the same object as the roster).
+Battle's and Skirmish's existing assertions are unchanged. All five repository
+checks (typecheck, lint, test, format:check, build) are clean. Minor
+deviation: `ArmyRoster`/`Inventory` are `Readonly` types, so a literal
+"mutate the fresh copy and confirm the roster is untouched" assertion does not
+compile (TS2540); the existing suite's own `freshInventory` tests already work
+around this the same way, asserting object identity/equality instead
+(`not.toBe(roster)` / `toEqual(roster)`), which is what the new Clash case
+does too.
 
 Add `standard_clash` to `src/rules/primary/v2/armyComposition.ts` as a third
 roster, per the Grounding facts' table: 3 each of `masterOfArms`, `champion`,

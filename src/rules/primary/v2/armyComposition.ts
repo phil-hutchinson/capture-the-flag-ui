@@ -21,8 +21,15 @@ import {
   type PieceTypeId,
 } from "./pieces.ts";
 
-/** Identifies one of the two published army compositions. */
-export type ArmyCompositionId = "standard_battle" | "standard_skirmish";
+/**
+ * Identifies an army composition: the two published rosters
+ * (`standard_battle`, `standard_skirmish`), plus `standard_clash` - a
+ * proposed, unpublished roster from the companion project's
+ * `doc/ruleset/proposed-variants.md` sandbox (see `STANDARD_CLASH_ROSTER`
+ * below).
+ */
+export type ArmyCompositionId =
+  "standard_battle" | "standard_skirmish" | "standard_clash";
 
 /** Per-type piece counts making up one side's full army under a composition. */
 export type ArmyRoster = Readonly<Record<PieceTypeId, number>>;
@@ -78,6 +85,24 @@ const STANDARD_SKIRMISH_ROSTER: ArmyRoster = {
   flag: 1,
 };
 
+/**
+ * Clash (`standard_clash`): a proposed, unpublished 20-piece roster from the
+ * companion project's `doc/ruleset/proposed-variants.md` sandbox (its story
+ * 00000041) - three each of ranks 1-5 (Master-of-Arms, Champion, Knight,
+ * Halberdier, Foot Soldier), four Towers, one Flag. No Militia (rank 6) - the
+ * one rank Battle has and this does not.
+ */
+const STANDARD_CLASH_ROSTER: ArmyRoster = {
+  masterOfArms: 3,
+  champion: 3,
+  knight: 3,
+  halberdier: 3,
+  footSoldier: 3,
+  militia: 0,
+  tower: 4,
+  flag: 1,
+};
+
 /** Every `ARMY_COMPOSITION` value, keyed by its id. */
 export const ARMY_COMPOSITIONS: Readonly<
   Record<ArmyCompositionId, ArmyCompositionEntry>
@@ -86,6 +111,10 @@ export const ARMY_COMPOSITIONS: Readonly<
   standard_skirmish: {
     id: "standard_skirmish",
     roster: STANDARD_SKIRMISH_ROSTER,
+  },
+  standard_clash: {
+    id: "standard_clash",
+    roster: STANDARD_CLASH_ROSTER,
   },
 };
 
