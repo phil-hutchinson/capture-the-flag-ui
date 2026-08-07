@@ -1,14 +1,32 @@
 // Placement controls: return-to-tray and clear-all-board (story 00000001,
-// Step 9).
+// Step 9; always-mounted buttons and input-neutral wording - story
+// 00000002, Step 7).
 //
-// Move and swap are reachable purely by clicking squares on the board (see
-// App.tsx's click grammar), but return-to-tray has no natural expression as
-// a second square click - clicking an empty square already means "move
-// here," and clicking another placed piece already means "swap." Returning
-// a piece to the tray is instead an explicit action, surfaced here while a
-// placed piece is selected. Clearing the whole board back to the tray is
-// likewise an explicit, always-available action with no square-click
-// equivalent.
+// Move and swap are reachable purely by activating squares on the board (see
+// HotSeatGame.tsx's selection grammar), but return-to-tray has no natural
+// expression as a second square activation - choosing an empty square
+// already means "move here," and choosing another placed piece already
+// means "swap." Returning a piece to the tray is instead an explicit
+// action, surfaced here while a placed piece is selected. Clearing the
+// whole board back to the tray is likewise an explicit, always-available
+// action with no square-activation equivalent.
+//
+// "Return to tray" and "Cancel" used to be rendered only while a piece was
+// selected, which unmounted the focused button the moment either was
+// activated - dropping a keyboard user onto `<body>` (story 00000002's
+// decision 7, and its finding-#10-adjacent "focus is never dropped"
+// requirement, Step 7). Both buttons - and "Clear board", which disables
+// itself the moment it succeeds - now stay mounted at all times, marked
+// `aria-disabled="true"` with a no-op activation when there is nothing to
+// act on, exactly like `Tray.tsx`'s used-up entries (Step 6). Only the
+// descriptive text above them still switches between the
+// "something selected" and "nothing selected" wording.
+//
+// Peer review finding #7: "Clear board" no longer carries the
+// `placement-controls__clear` class - its only rule (`align-self:
+// flex-start`) was already removed in Step 7 once the button moved into the
+// row-flex `.placement-controls__actions` wrapper, leaving the class name a
+// dead hook nothing selects on.
 
 import { PieceIcon } from "../art/PieceIcon.tsx";
 import type { Side } from "../rules/primary/v2/board.ts";
@@ -31,9 +49,11 @@ export interface PlacementControlsProps {
 }
 
 /**
- * A small action panel below the board: while a placed piece is selected, it
- * shows which piece and offers "Return to tray" / "Cancel"; a "Clear board"
- * button (disabled once the board is empty) is always shown.
+ * A small action panel below the board: descriptive text switches between
+ * naming the selected piece and a general hint, but "Return to tray",
+ * "Cancel" and "Clear board" all stay mounted at all times, `aria-disabled`
+ * (rather than removed from the tab order) whenever there is nothing for
+ * them to act on.
  */
 export function PlacementControls({
   side,
@@ -43,9 +63,10 @@ export function PlacementControls({
   onClearBoard,
   canClear,
 }: PlacementControlsProps) {
+  const hasSelection = selectedPieceType !== undefined;
   return (
     <div className="placement-controls">
-      {selectedPieceType ? (
+      {selectedPieceType !== undefined ? (
         <div className="placement-controls__selection">
           <PieceIcon
             type={selectedPieceType}
@@ -53,31 +74,54 @@ export function PlacementControls({
             className="placement-controls__icon"
           />
           <span className="placement-controls__label">
-            {PIECE_CATALOG[selectedPieceType].displayName} selected - click an
-            empty square to move it there, or click another placed piece to swap
-            them.
+            {PIECE_CATALOG[selectedPieceType].displayName} selected - choose an
+            empty square to move it there, or another placed piece to swap them.
           </span>
-          <button type="button" onClick={onReturnToTray}>
-            Return to tray
-          </button>
-          <button type="button" onClick={onCancelSelection}>
-            Cancel
-          </button>
         </div>
       ) : (
         <p className="placement-controls__hint">
-          Click a placed piece to move it, swap it with another, or return it to
-          the tray.
+          Select a placed piece to move it, swap it with another, or return it
+          to the tray.
         </p>
       )}
-      <button
-        type="button"
-        className="placement-controls__clear"
-        onClick={onClearBoard}
-        disabled={!canClear}
-      >
-        Clear board
-      </button>
+      <div className="placement-controls__actions">
+        <button
+          type="button"
+          aria-disabled={!hasSelection}
+          onClick={() => {
+            if (!hasSelection) {
+              return;
+            }
+            onReturnToTray();
+          }}
+        >
+          Return to tray
+        </button>
+        <button
+          type="button"
+          aria-disabled={!hasSelection}
+          onClick={() => {
+            if (!hasSelection) {
+              return;
+            }
+            onCancelSelection();
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          aria-disabled={!canClear}
+          onClick={() => {
+            if (!canClear) {
+              return;
+            }
+            onClearBoard();
+          }}
+        >
+          Clear board
+        </button>
+      </div>
     </div>
   );
 }

@@ -52,6 +52,9 @@ unavailable while the computer player catches up with the latest rules.
   on the start screen, but it can't be chosen: the rules have moved on and the
   computer player needs to catch up before it can play the two games properly.
   It will return, and a properly trained opponent is still on the way.
+- **Play without a mouse** — the whole game, from placing your army through to
+  the final move, works entirely from the keyboard, and reads well with a
+  screen reader too.
 
 > **Status:** you can play a full game from start to finish — pick Skirmish or
 > Battle, place both armies, battle on the revealed board, and reach a real

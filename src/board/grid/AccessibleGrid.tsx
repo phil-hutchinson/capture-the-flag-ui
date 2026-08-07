@@ -1,8 +1,13 @@
-// Generic, piece-agnostic accessible grid (story 00000004, Step 5).
+// Generic, piece-agnostic accessible grid (story 00000004, Step 5; extended
+// by story 00000002, Step 2, with the optional `initialFocus` prop, and by
+// story 00000002, Step 4, with two commented `eslint-plugin-jsx-a11y`
+// suppressions - see the inline comments by `role="grid"` and
+// `role="gridcell"` below for why the roving-tabindex composite-widget
+// pattern trips those rules and why that is correct, not a defect).
 //
 // Implements the WAI-ARIA grid composite-widget pattern generically enough
-// for both Phase 2 movement (this story, via a future PlayBoard) and, later,
-// story 00000002's Phase 1 placement to adopt without a rewrite: a
+// for both Phase 2 movement (story 00000004's `PlayBoard`) and story
+// 00000002's Phase 1 placement board to adopt without a rewrite: a
 // `role="grid"` container of `role="row"` rows of `role="gridcell"` cells,
 // roving tabindex (exactly one cell tabbable at a time, the rest `-1`),
 // arrow-key navigation driven by the pure `nextFocusPosition`
@@ -35,6 +40,7 @@ import {
 import {
   firstFocusablePosition,
   nextFocusPosition,
+  resolveInitialFocus,
   type ArrowKey,
   type GridPosition,
 } from "./gridNavigation.ts";
@@ -66,6 +72,18 @@ export interface AccessibleGridProps {
    */
   readonly announcement?: string;
   readonly className?: string;
+  /**
+   * The grid's preferred **initial** roving-tabindex target, in place of
+   * `firstFocusablePosition`'s row-major scan (story 00000002's placement
+   * board wants the first home-band square, not the non-interactive band
+   * above it). Ignored - falling back to `firstFocusablePosition` - if the
+   * position is out of bounds or not focusable. Seeds the initial target
+   * only: it never moves focus back on later renders, and mounting never
+   * steals real DOM focus (see the "only move real focus when focus is
+   * already inside this grid" effect below). Omit to keep today's default
+   * behaviour exactly.
+   */
+  readonly initialFocus?: GridPosition;
 }
 
 const ARROW_KEYS: ReadonlySet<string> = new Set([
@@ -94,6 +112,7 @@ export function AccessibleGrid({
   onActivate,
   announcement,
   className,
+  initialFocus,
 }: AccessibleGridProps) {
   const rowCount = rows.length;
   const columnCount = rowCount > 0 ? rows[0].length : 0;
@@ -104,8 +123,16 @@ export function AccessibleGrid({
     [rows],
   );
 
+  // `initialFocus` seeds the initial target only - it is read once, on
+  // mount, via this lazy `useState` initializer, and deliberately excluded
+  // from every effect below so it never drags focus back on later renders.
   const [focused, setFocused] = useState<GridPosition | undefined>(() =>
-    firstFocusablePosition(rowCount, columnCount, isFocusable),
+    resolveInitialFocus({
+      preferred: initialFocus,
+      rowCount,
+      columnCount,
+      isFocusable,
+    }),
   );
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -182,6 +209,14 @@ export function AccessibleGrid({
     // `display: contents` (see AccessibleGrid.css) so it adds no box and
     // layout is unchanged - the grid still lays out exactly as before.
     <div className="accessible-grid__wrapper">
+      {/* eslint-disable-next-line jsx-a11y/interactive-supports-focus --
+          `role="grid"` is a composite widget: per the WAI-ARIA authoring
+          practices, the container itself is never a tab stop - only its
+          cells are, via roving tabindex (see the `tabIndex` on each
+          `role="gridcell"` below). The rule assumes a single focusable
+          interactive element and does not recognize the roving-tabindex
+          pattern that Enter/Space/arrow-key handling here implements
+          correctly (story 00000004, extended by story 00000002 Step 4). */}
       <div
         ref={containerRef}
         className={classNames.join(" ")}
@@ -205,6 +240,14 @@ export function AccessibleGrid({
                 cellClassNames.push("accessible-grid__cell--focused");
               }
               return (
+                // This cell's key handling lives on the ancestor
+                // `role="grid"` container above (`onKeyDown={handleKeyDown}`),
+                // as the WAI-ARIA grid composite-widget pattern requires -
+                // Enter/Space activation is dispatched from there, not from a
+                // handler on this cell. `onClick` here only adds mouse/touch
+                // activation; keyboard activation already works without it
+                // (story 00000004, extended by story 00000002 Step 4).
+                // eslint-disable-next-line jsx-a11y/click-events-have-key-events
                 <div
                   key={columnIndex}
                   ref={(element) => {

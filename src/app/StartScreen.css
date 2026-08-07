@@ -1,4 +1,8 @@
-/* The start screen: app name, tagline and the two entry choices (Step 8). */
+/* The start screen: app name, tagline and the three entry choices (Step 8).
+   `.start-screen__choice[aria-disabled="true"]` mirrors the pre-existing
+   `:disabled` rule so "Play against the computer" keeps the same dimmed
+   visual treatment now that it uses `aria-disabled` instead of the native
+   attribute (story 00000002, Step 8). */
 
 .start-screen__tagline {
   max-width: 32rem;
@@ -37,7 +41,8 @@
   font-size: 0.9rem;
 }
 
-.start-screen__choice:disabled {
+.start-screen__choice:disabled,
+.start-screen__choice[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.55;
 }

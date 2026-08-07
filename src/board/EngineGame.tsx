@@ -71,6 +71,12 @@ import "./EngineGame.css";
 // `"play"` - so mounting always starts fresh (no side chosen yet) and
 // unmounting discards whatever was in progress.
 //
+// This screen is parked (story 00000002's "Grounding facts": `App.tsx` does
+// not route here and the start-screen button that would reach it is
+// disabled) - kept compiling only. Story 00000002, Step 3 updates the call
+// below mechanically for `Board`'s `onSquareClick` -> `onSquareActivate`
+// rename, with no other behaviour change.
+//
 // Unlike `HotSeatGame`'s two-player `PlacementSession` (`placementSession.ts`,
 // which hands off between two human players sharing one device), only the
 // human ever places an army here - the computer's is generated silently by
@@ -776,7 +782,7 @@ export function EngineGame({ onBack }: EngineGameProps) {
             activeSide={humanSide}
             placement={placement}
             layout={placement.boardLayout}
-            onSquareClick={handleSquareClick}
+            onSquareActivate={handleSquareClick}
             selectedSquare={selectedSquare}
           />
           <PlacementControls

@@ -1,14 +1,25 @@
 /* Board grid geometry (story 00000001, Step 7; made parametric over the
-   board layout by story 00000023, Step 6).
+   board layout by story 00000023, Step 6; rendered through the shared
+   accessible grid by story 00000002, Step 3).
 
    The board is drawn from the active player's own perspective: the layout's
    own home rows at the bottom, a greyed non-interactive buffer row above
    them (Battle only - Skirmish's layout has none), and the full nearest lake
    row above that (a visual reminder that the lakes continue off-screen).
    Square size is driven by --square so the grid scales as one; --columns/
-   --rows (set inline by Board.tsx, sized to the active layout and the number
-   of visible rows) drive the grid's own dimensions - 12 columns / 6 rows for
-   Battle, 8 columns / 4 rows for Skirmish's no-buffer view. */
+   --rows (set inline by Board.tsx on `.board-stage`, sized to the active
+   layout and the number of visible rows, and inherited down through
+   `AccessibleGrid`'s own `display: contents` wrapper - `AccessibleGrid`
+   accepts a `className` but no `style`) drive the grid's own dimensions - 12
+   columns / 6 rows for Battle, 8 columns / 4 rows for Skirmish's no-buffer
+   view. */
+
+.board-stage {
+  /* Hugs the grid's own rendered size, mirroring `FullBoard.css`'s
+     `.full-board__stage`, so it never adds extra whitespace around the
+     board within `.app__board-column`'s `width: min-content` column. */
+  display: inline-block;
+}
 
 .board {
   --square: clamp(28px, 6vmin, 64px);
@@ -58,7 +69,13 @@
 
 .board-square--buffer,
 .board-square--lake-row {
-  /* Greyed, non-interactive: a visual reminder only, nothing to click. */
+  /* Greyed, non-interactive: a visual reminder only, nothing to click.
+     `pointer-events: none` only reaches this element's own content (story
+     00000002, Step 3 moved the click/activation handler up onto
+     `AccessibleGrid`'s own `role="gridcell"` wrapper around this content, not
+     this element itself) - it does not prevent that wrapper from taking
+     keyboard focus or showing the focus ring, and the wrapper gets no click
+     handler at all for a non-actionable cell regardless. */
   background: #b7b0a0;
   filter: grayscale(70%);
   pointer-events: none;

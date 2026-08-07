@@ -33,6 +33,20 @@ npm run build         # type check + production build into dist/
 Type check, lint, formatting check, and tests should all pass clean before a
 change is submitted.
 
+Linting includes [`eslint-plugin-jsx-a11y`](https://github.com/jsx-eslint/eslint-plugin-jsx-a11y)'s
+recommended rules on every `.tsx` file, catching common accessibility mistakes
+(missing labels, misused ARIA attributes, and the like) in static markup.
+
+### Testing accessibility
+
+The Vitest environment is `node`-only — there is no jsdom and no
+component-testing library, so ARIA roles, keyboard interaction, and
+live-region content cannot be asserted automatically. The convention is to
+pull anything that can be pure logic (accessible-name and live-region wording,
+navigation/focus math) out into plain, unit-tested modules, and to verify the
+remaining DOM/interaction behaviour by hand — against a keyboard and against
+Windows Narrator — before a change ships.
+
 ## Dependencies
 
 - **Node/TypeScript**, current LTS Node and modern language standards.

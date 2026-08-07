@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StartScreen } from "./app/StartScreen.tsx";
 import { HotSeatGame } from "./board/HotSeatGame.tsx";
 import { ImportScreen } from "./review/ImportScreen.tsx";
@@ -34,6 +34,12 @@ import type { ReplayedRecord } from "./rules/primary/v2/replay.ts";
 // before it can come back (`src/engine/` and `src/encoding/eng-nn-1/` are
 // left in the tree, non-functional, for that follow-up). `EngineGame.tsx`
 // itself is likewise left in the tree, but nothing here mounts it.
+//
+// The app-wide keyboard-modality effect below (story 00000002, Step 9 Gate A
+// polish, second pass) is the single place that tracks whether the player is
+// currently navigating by keyboard, for `App.css`'s `.app__title` focus-ring
+// rule to key off; see that effect's own comment for why it lives here rather
+// than per-screen.
 type Screen =
   | { readonly kind: "start" }
   | { readonly kind: "play" }
@@ -59,6 +65,51 @@ export function App() {
   // describes.
   const [lastPlayedConfiguration, setLastPlayedConfiguration] =
     useState<RuleConfiguration | null>(null);
+
+  // Track keyboard-vs-pointer modality on `<html>` (story 00000002, Step 9
+  // Gate A polish, second pass). The placement heading (`.app__title`) is
+  // focused *programmatically* on mount and on every hand-off, before the
+  // player has necessarily touched the keyboard at all; with no prior input
+  // for the browser to judge from, `:focus-visible` alone resolves in favour
+  // of showing a ring, so a mouse-only player would see one on page load
+  // exactly where the browser's own default ring used to appear (the thing
+  // the first Gate A polish pass was trying to remove). Setting an explicit
+  // `data-input-modality="keyboard"` attribute the first time the player
+  // presses Tab or an arrow key - and clearing it again on the next
+  // `pointerdown`, so switching back to the mouse stops the ring - lets
+  // `App.css` gate the heading's `:focus-visible` ring on genuine prior
+  // keyboard use rather than the browser's own guess. This runs once for the
+  // whole app, in the shell that never unmounts, rather than being
+  // duplicated per screen.
+  useEffect(() => {
+    const isNavigationKey = (key: string): boolean =>
+      key === "Tab" ||
+      key === "ArrowUp" ||
+      key === "ArrowDown" ||
+      key === "ArrowLeft" ||
+      key === "ArrowRight";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isNavigationKey(event.key)) {
+        document.documentElement.setAttribute(
+          "data-input-modality",
+          "keyboard",
+        );
+      }
+    };
+
+    const handlePointerDown = () => {
+      document.documentElement.removeAttribute("data-input-modality");
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, []);
 
   if (screen.kind === "start") {
     return (
