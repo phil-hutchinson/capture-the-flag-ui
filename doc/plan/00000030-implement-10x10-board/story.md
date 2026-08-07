@@ -71,19 +71,19 @@ army themselves become deviations from Battle.
 
 ### `BOARD_LAYOUT=asymmetric_100`
 
-| | |
-|---|---|
-| Grid | 10 × 10 |
-| Rows | 3 home / 1 buffer / 2 lake / 1 buffer / 3 home |
-| Home zone | 3 rows × 10 columns = 30 squares |
+|           |                                                |
+| --------- | ---------------------------------------------- |
+| Grid      | 10 × 10                                        |
+| Rows      | 3 home / 1 buffer / 2 lake / 1 buffer / 3 home |
+| Home zone | 3 rows × 10 columns = 30 squares               |
 
 Rows 1–3 are White's home zone, row 4 a buffer, rows 5–6 the lake rows, row 7
 a buffer, rows 8–10 Black's home zone. The lake pattern is **identical in both
 lake rows**, read across all ten columns (`O` = open, `L` = lake):
 
-| Column | A | B | C | D | E | F | G | H | I | J |
-|---|---|---|---|---|---|---|---|---|---|---|
-| | L | O | O | L | O | O | L | L | L | O |
+| Column | A   | B   | C   | D   | E   | F   | G   | H   | I   | J   |
+| ------ | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+|        | L   | O   | O   | L   | O   | O   | L   | L   | L   | O   |
 
 Three lake blocks of **non-uniform width** — 1 column (A), 1 column (D), and 3
 columns (G–I) — and three lanes: a 2-column lane (B–C), a 2-column lane (E–F),
@@ -95,16 +95,16 @@ ratio both published layouts use, just distributed unevenly.
 
 ### `ARMY_COMPOSITION=standard_clash`
 
-| Rank | Piece | Qty |
-|---|---|---|
-| 1 | Master-of-Arms | 3 |
-| 2 | Champion | 3 |
-| 3 | Knight | 3 |
-| 4 | Halberdier | 3 |
-| 5 | Foot Soldier | 3 |
-| — | Tower | 4 |
-| — | Flag | 1 |
-| | **Total** | **20** |
+| Rank | Piece          | Qty    |
+| ---- | -------------- | ------ |
+| 1    | Master-of-Arms | 3      |
+| 2    | Champion       | 3      |
+| 3    | Knight         | 3      |
+| 4    | Halberdier     | 3      |
+| 5    | Foot Soldier   | 3      |
+| —    | Tower          | 4      |
+| —    | Flag           | 1      |
+|      | **Total**      | **20** |
 
 The top five ranks; Militia (rank 6) does not appear — the one rank Battle has
 and this does not. Twenty pieces in a 30-square home zone is a 66.7% fill,
@@ -119,7 +119,7 @@ close to Skirmish's 67% (16 in 24) and denser than Battle's 52% (25 in 48).
   alignment — as this layout's 1- and 3-wide blocks do — is exactly the kind
   of change that could make it reachable. The proposal works it through and
   shows it does not: because both lake rows share the identical column
-  pattern, any two adjacent lake columns are lake in *both* rows, which makes
+  pattern, any two adjacent lake columns are lake in _both_ rows, which makes
   the diagonal's own source or destination a lake and rules the attack out
   before the squeeze question arises. This story inherits that conclusion and
   does not disturb the reserved decision.
@@ -256,7 +256,7 @@ Clash reads about a 10 × 10 board and a 20-piece army.
    those also deviate. Battle and Skirmish games render exactly as they do
    today.
 8. **Records: reading.** A record naming these flags replays on the board and
-   army they name — including the board *geometry*, which the notation frame
+   army they name — including the board _geometry_, which the notation frame
    and the position block both depend on. Story 00000027's rule stands: an
    unrecognized flag token is carried verbatim and named to the reviewer, and
    never rejects a record; only the edition id may reject one. A record whose
@@ -273,7 +273,7 @@ Clash reads about a 10 × 10 board and a 20-piece army.
 ## Design decisions & constraints
 
 - **The messy stamp is a deliberate, owner-accepted trade.** `2-0:BATTLE
-  ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100` says "the
+ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100` says "the
   Battle rules text, with a different board and a different army", which is
   exactly what the companion repository's configuration model means by it.
   Battle is the right base rather than Skirmish for two reasons: its values
@@ -283,7 +283,7 @@ Clash reads about a 10 × 10 board and a 20-piece army.
 - **`combinationFits` is now load-bearing, not decorative.** With three board
   values and three army values there are nine combinations, most of them
   nonsense and one of them (`standard_battle` on `asymmetric_100`: 25 pieces
-  in 30 squares) accidentally *valid* by the fit test alone. Only the three
+  in 30 squares) accidentally _valid_ by the fit test alone. Only the three
   designed pairings are offered; the fit test is the floor, not the rule.
 - **The picker offers games, not editions.** `GAME_DETAIL` and
   `gameOrderRank` are keyed by `EditionId` today and cannot stay that way,
@@ -297,7 +297,7 @@ Clash reads about a 10 × 10 board and a 20-piece army.
   and any announcement that describes where a square sits must be checked
   against a board that is not mirror-symmetric left-to-right and has a lake at
   one edge. Story 00000023 made the geometry parametric; this story is the
-  first thing that tests whether the *presentation* is.
+  first thing that tests whether the _presentation_ is.
 - **A 1-wide lane and a 3-wide lake block are both new.** Nothing in the rules
   treats them specially, and nothing in the code should either — but they are
   the first instances of each, so anything that happens to work because every
@@ -357,7 +357,7 @@ Clash reads about a 10 × 10 board and a 20-piece army.
   other lane and lake.
 - **Gate F — Records round-trip.** A finished Clash game dumps a record whose
   `Ruleset` tag reads `2-0:BATTLE ARMY_COMPOSITION=standard_clash
-  BOARD_LAYOUT=asymmetric_100`, and re-importing that dump into the reviewer
+BOARD_LAYOUT=asymmetric_100`, and re-importing that dump into the reviewer
   replays it end to end on the 10 × 10 board, identified as Clash.
 - **Gate G — The new-game screen.** Three games are offered in the order
   Skirmish, Clash, Battle, each described in plain language with no

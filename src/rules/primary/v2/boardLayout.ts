@@ -16,8 +16,13 @@
 // position block to it; and `readRecord.ts`/`HotSeatGame.tsx` thread it
 // through from the record and the picker respectively.
 
-/** Identifies one of the two published board geometries. */
-export type BoardLayoutId = "standard_144" | "standard_64";
+/**
+ * Identifies a board geometry: the two published layouts
+ * (`standard_144`, `standard_64`), plus `asymmetric_100` - a proposed,
+ * unpublished layout from the companion project's
+ * `doc/ruleset/proposed-variants.md` sandbox (see `ASYMMETRIC_100` below).
+ */
+export type BoardLayoutId = "standard_144" | "standard_64" | "asymmetric_100";
 
 /** Which region a row belongs to, from White's edge to Black's. */
 export type RowRegion = "white-home" | "black-home" | "buffer" | "lake";
@@ -114,8 +119,30 @@ const STANDARD_64: BoardLayout = {
   lakeColumnIndices: [1, 2, 5, 6], // B, C, F, G
 };
 
+/**
+ * Clash (`asymmetric_100`): a proposed, unpublished 10x10 board from the
+ * companion project's `doc/ruleset/proposed-variants.md` sandbox (its story
+ * 00000041) - not in `rules.md` Appendix A. Rows 1-3 White home, row 4
+ * buffer, rows 5-6 lake, row 7 buffer, rows 8-10 Black home. Unlike the two
+ * published layouts, the lake pattern is not mirror-symmetric: three lake
+ * blocks of widths 1 (A), 1 (D) and 3 (G-I), leaving a 2-wide lane at B-C, a
+ * 2-wide lane at E-F, and a 1-wide lane at the right edge (J). Column A - the
+ * left edge - has no lane at all, the first layout in the app with a lake
+ * hard against a board edge.
+ */
+const ASYMMETRIC_100: BoardLayout = {
+  id: "asymmetric_100",
+  columnCount: 10,
+  rowCount: 10,
+  homeRowsPerSide: 3,
+  hasBuffer: true,
+  lakeRows: [5, 6],
+  lakeColumnIndices: [0, 3, 6, 7, 8], // A, D, G, H, I
+};
+
 /** Every `BOARD_LAYOUT` value, keyed by its id. */
 export const BOARD_LAYOUTS: Readonly<Record<BoardLayoutId, BoardLayout>> = {
   standard_144: STANDARD_144,
   standard_64: STANDARD_64,
+  asymmetric_100: ASYMMETRIC_100,
 };

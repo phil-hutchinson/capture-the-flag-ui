@@ -36,11 +36,11 @@ sources if a step needs to re-check a detail:
 
 ### The published state (unchanged by this story)
 
-| Flag               | Published values                          | Default          |
-| ------------------ | ----------------------------------------- | ---------------- |
-| `BOARD_LAYOUT`     | `standard_144`, `standard_64`             | `standard_144`   |
-| `ARMY_COMPOSITION` | `standard_battle`, `standard_skirmish`    | `standard_battle`|
-| `TOWER_PLACEMENT`  | `spacing_only`, `spacing_and_lanes`       | `spacing_only`   |
+| Flag               | Published values                       | Default           |
+| ------------------ | -------------------------------------- | ----------------- |
+| `BOARD_LAYOUT`     | `standard_144`, `standard_64`          | `standard_144`    |
+| `ARMY_COMPOSITION` | `standard_battle`, `standard_skirmish` | `standard_battle` |
+| `TOWER_PLACEMENT`  | `spacing_only`, `spacing_and_lanes`    | `spacing_only`    |
 
 Editions (Appendix B): `2-0:BATTLE` and `2-1:SKIRMISH` active, `2-0:SKIRMISH`
 superseded. **This story publishes no edition and supersedes none.**
@@ -61,16 +61,16 @@ superseded. **This story publishes no edition and supersedes none.**
 
 ### `ARMY_COMPOSITION=standard_clash` (the Clash army)
 
-| Rank | Piece          | `PieceTypeId`  | Qty |
-| ---- | -------------- | -------------- | --- |
-| 1    | Master-of-Arms | `masterOfArms` | 3   |
-| 2    | Champion       | `champion`     | 3   |
-| 3    | Knight         | `knight`       | 3   |
-| 4    | Halberdier     | `halberdier`   | 3   |
-| 5    | Foot Soldier   | `footSoldier`  | 3   |
-| 6    | Militia        | `militia`      | **0** |
-| —    | Tower          | `tower`        | 4   |
-| —    | Flag           | `flag`         | 1   |
+| Rank | Piece          | `PieceTypeId`  | Qty    |
+| ---- | -------------- | -------------- | ------ |
+| 1    | Master-of-Arms | `masterOfArms` | 3      |
+| 2    | Champion       | `champion`     | 3      |
+| 3    | Knight         | `knight`       | 3      |
+| 4    | Halberdier     | `halberdier`   | 3      |
+| 5    | Foot Soldier   | `footSoldier`  | 3      |
+| 6    | Militia        | `militia`      | **0**  |
+| —    | Tower          | `tower`        | 4      |
+| —    | Flag           | `flag`         | 1      |
 |      | **Total**      |                | **20** |
 
 20 pieces in a 30-square home zone. A type at zero is already an established
@@ -105,7 +105,7 @@ guarantee, that **no `FLAG=value` token ever rejects a record** — the edition 
 is the only part of the `Ruleset` tag that can. **That guarantee stands whole
 here** (Decision 9): this story introduces no new `ReadRecordError` case, no new
 `RecordFileError` case, and no new rejection of any kind. A `BOARD_LAYOUT` value
-this app has never heard of is handled by *deriving* the board from the record's
+this app has never heard of is handled by _deriving_ the board from the record's
 own position block (Step 8), not by refusing the record.
 
 ### Where the relevant code is today
@@ -169,7 +169,7 @@ own position block (Step 8), not by refusing the record.
   `--rows` custom properties, so a 10 × 10 board needs no CSS change.
   **`FullBoard` (the review and Phase-2 board) reads only `isLake` plus
   `rowsOf`/`columnsOf`; `visibleRows` — the one function that reads
-  `homeRowsPerSide` and `hasBuffer` — is used by the *placement* board only.**
+  `homeRowsPerSide` and `hasBuffer` — is used by the _placement_ board only.**
 - `src/review/ReviewScreen.tsx` — renders the record on
   `configuration.edition.boardLayout` and shows `nonStandardRuleSentences` plus
   one `unrecognizedRuleSentence` per unresolved token.
@@ -241,7 +241,7 @@ Every step below assumes them.
 2. **`TOWER_PLACEMENT` stays an `Edition` field and does not join the flag
    catalog.** Only `BOARD_LAYOUT` and `ARMY_COMPOSITION` become flags (story.md,
    in-scope item 3). Tower placement is read as `configuration.edition.
-   towerPlacement`, which is correct for every configuration this app can build:
+towerPlacement`, which is correct for every configuration this app can build:
    Clash bases on Battle, whose value (`spacing_only`) is exactly what Clash
    wants, and story.md establishes that Clash's buffer rows make the lane rule
    close nothing anyway. This asymmetry must be documented where the field is
@@ -258,7 +258,7 @@ Every step below assumes them.
    real deviations from `2-0:BATTLE`.
 
 4. **`ruleFlags.ts` stays the single spelling of the flag ids and their value
-   strings**, and the id *types* are derived from it rather than declared twice:
+   strings**, and the id _types_ are derived from it rather than declared twice:
    `BoardLayoutId` becomes `RuleFlagValue<"BOARD_LAYOUT">` and
    `ArmyCompositionId` becomes `RuleFlagValue<"ARMY_COMPOSITION">`, so
    `boardLayout.ts` and `armyComposition.ts` import their id types from the
@@ -313,14 +313,14 @@ Every step below assumes them.
    `defaultGameId` takes the last-played `RuleConfiguration` and returns a
    `GameId`, still falling back to Skirmish when nothing has been played this
    session. Session stickiness is unchanged in behaviour: in-memory only, never
-   persisted, and it now remembers the *game* (so finishing a Clash game and
+   persisted, and it now remembers the _game_ (so finishing a Clash game and
    pressing "New game" pre-selects Clash).
 
 8. **Board precedence when reading a record.** Two cases, and only two:
 
    - **The tag's `BOARD_LAYOUT` resolves to a board this app knows** (including
      the common case of no token at all, which resolves to the edition's own
-     value): **the tag wins.** The position block is parsed and *validated*
+     value): **the tag wins.** The position block is parsed and _validated_
      against that geometry, exactly as `readRecord` already does today — a
      wrong row count, a wrong row width, a lake mark on a non-lake square or a
      lake square not marked are all caught by the existing
@@ -334,19 +334,19 @@ Every step below assumes them.
      and Step 8).
 
 9. **No flag token ever rejects a record — including `BOARD_LAYOUT`.**
-   *(Owner ruling, 2026-08-07, reversing this plan's original draft, which had
+   _(Owner ruling, 2026-08-07, reversing this plan's original draft, which had
    made an unresolvable `BOARD_LAYOUT` value the one rejectable token on the
    grounds that "geometry blocks review, rosters don't". That distinction was
-   considered and **rejected**.)*
+   considered and **rejected**.)_
 
    The reasoning that decided it: **the position block is fully self-describing.**
    Its line count gives the row count, its cells-per-line give the column count,
    and its `XXX` cells mark every lake square — the companion project's 2-0
-   changelog states this explicitly, and adds that the one property *not*
+   changelog states this explicitly, and adds that the one property _not_
    recoverable from a block, the home-zone row depth, is something a review-only
    viewer does not need. `parsePositionBlock` already reads all three of those
-   things; it simply *validates* them against a supplied `BoardLayout` today
-   rather than *deriving* one. So the app does not need to recognize a
+   things; it simply _validates_ them against a supplied `BoardLayout` today
+   rather than _deriving_ one. So the app does not need to recognize a
    `BOARD_LAYOUT` value in order to draw the board — which is precisely the case
    story 00000027's Step 10 guarantee was written to cover.
 
@@ -367,9 +367,9 @@ Every step below assumes them.
     manual gate**, exactly as story 00000027's copy was settled at its gates.
 
 11. **A Clash record is identified to a reviewer by naming the game, not by
-    listing deviations.** *(Confirmed by the owner, 2026-08-07: stands as
-    written, and remains revisitable at Step 10's manual gate.)*
-    `ruleChoices.ts`'s "what was non-standard" surface is the *wrong* home for it
+    listing deviations.** _(Confirmed by the owner, 2026-08-07: stands as
+    written, and remains revisitable at Step 10's manual gate.)_
+    `ruleChoices.ts`'s "what was non-standard" surface is the _wrong_ home for it
     (Decision 5: it deliberately ignores game-defining flags, and "Battle with
     two unusual settings" is precisely what story.md forbids). Instead the review
     screen gains one short line naming the game and its board — shown for
@@ -409,7 +409,22 @@ Every step below assumes them.
 
 ## Step 1 — The Clash board geometry (`asymmetric_100`)
 
-Status: pending
+Status: committed
+
+Notes: Added `asymmetric_100` to `BoardLayoutId`, `BOARD_LAYOUTS` and a
+documented `ASYMMETRIC_100` constant (10x10, 3 home rows/side, buffer,
+`lakeRows: [5, 6]`, `lakeColumnIndices: [0, 3, 6, 7, 8]`) in `boardLayout.ts`,
+with no changes to the existing parametric functions (`rowRegion`,
+`lakeCells`, `homeZoneSize`, `columnLetter`) and no other consumer touched.
+Extended `boardLayout.test.ts` with a matching `describe` block covering all
+the assertions the step calls for. Deviation: the step's verification text
+says `lakeCells` "returns exactly 20 cells" for this layout; the correct count
+is 10 (5 lake columns × 2 lake rows), consistent with story.md's own stated
+"10 lake and 10 open squares within the 2 × 10 lake zone" — the plan's "20"
+appears to be an arithmetic slip. Implemented and tested the correct value
+(10) rather than the plan's stated number; **confirmed by the orchestrator,
+and the step's verification text above corrected to 10.** All five repository checks (typecheck, lint, test, format:check,
+build) are clean.
 
 Add `asymmetric_100` to `src/rules/primary/v2/boardLayout.ts` as a third
 `BoardLayout`, per the Grounding facts' table: 10 columns, 10 rows, 3 home rows
@@ -432,7 +447,7 @@ no existing behaviour, so it is a safe first commit.
 Verification (**automated**): extend `boardLayout.test.ts` — the layout reports
 10 × 10 with 3 home rows and a buffer; `rowRegion` classifies rows 1–3 as
 `white-home`, 4 as `buffer`, 5–6 as `lake`, 7 as `buffer` and 8–10 as
-`black-home`; `lakeCells` returns exactly 20 cells, being columns A/D/G/H/I on
+`black-home`; `lakeCells` returns exactly 10 cells, being columns A/D/G/H/I on
 each of rows 5 and 6, and **no** lake on any other row; `homeZoneSize` is 30;
 column J is the tenth letter and is **open** on both lake rows while column A is
 **lake** on both; the lane columns are exactly B, C, E, F, J; and both existing
@@ -574,7 +589,7 @@ records exactly as before.
 - **`gameState.ts`**: `buildInitialGameState` validates both placements against
   `configuration`'s resolved layout id and roster (and still against
   `configuration.edition.towerPlacement`). Its error messages should name the
-  board and the size the *configuration* expects, not the edition's.
+  board and the size the _configuration_ expects, not the edition's.
 - Tests and fixtures throughout follow mechanically. **Do not change any
   expected record text, tag string or position block** — if one needs changing,
   the refactor is wrong. `edition.test.ts`'s assertions about the removed fields
@@ -621,8 +636,7 @@ Add `src/rules/primary/v2/games.ts`, per Decision 6. It holds:
 - a function building a game's standard `RuleConfiguration` from its entry, plus
   optional rule-choice overrides so the picker can layer the diagonal choices on
   top;
-- the list of playable games, filtered by `combinationFits` as a floor (Decision
-  6) — the three designed pairings all pass it;
+- the list of playable games, filtered by `combinationFits` as a floor (Decision 6) — the three designed pairings all pass it;
 - `identifyGame(configuration): GameId | null`, matching on the resolved
   `(BOARD_LAYOUT, ARMY_COMPOSITION)` pair only.
 
@@ -648,7 +662,7 @@ Verification (**automated**): a new `games.test.ts` —
   the expected edition id;
 - Battle's and Skirmish's configurations render bare edition tags; Clash's
   renders exactly `2-0:BATTLE ARMY_COMPOSITION=standard_clash
-  BOARD_LAYOUT=asymmetric_100`;
+BOARD_LAYOUT=asymmetric_100`;
 - `identifyGame` returns the right `GameId` for all three, returns `"skirmish"`
   for a configuration built on the superseded `2-0:SKIRMISH` edition, is
   unaffected by a deviating diagonal flag, and returns nothing for a
@@ -736,7 +750,7 @@ reader.
   exact output (the picker cannot yet start a Clash game until Step 9).
 - Add the **canonicalization** cases that pin story.md's byte-identical
   requirement from the reader's side: `2-0:BATTLE BOARD_LAYOUT=standard_144
-  ARMY_COMPOSITION=standard_battle` reads as the plain standard Battle
+ARMY_COMPOSITION=standard_battle` reads as the plain standard Battle
   configuration reporting no deviations, and the bare `2-0:BATTLE`,
   `2-1:SKIRMISH` and `2-0:SKIRMISH` tags read exactly as they do today.
 - Add a case combining Clash with a deviating diagonal flag, proving token order
@@ -802,14 +816,14 @@ says so, and adds that a review-only viewer does not need the home depth), and
 **no code path a review exercises reads either field**. Verified against the
 code, not assumed:
 
-| Review-path code | What it reads from the layout |
-| --- | --- |
-| `readRecord.ts` → `parseRecordFile` | passes the layout straight through |
-| `parsePositionBlock` (`gameState.ts`) | `rowCount`, `columnCount`, `isLake` |
-| `notation.ts` move parsing | nothing — it is layout-free |
-| `replay.ts` | nothing — it takes no layout at all |
-| `ReviewScreen.tsx` → `FullBoard.tsx` | `fullBoardRows`/`visibleColumns` (`rowCount`, `columnCount`) and `isLake` |
-| `reviewText.ts` / `MoveList.tsx` | nothing |
+| Review-path code                      | What it reads from the layout                                             |
+| ------------------------------------- | ------------------------------------------------------------------------- |
+| `readRecord.ts` → `parseRecordFile`   | passes the layout straight through                                        |
+| `parsePositionBlock` (`gameState.ts`) | `rowCount`, `columnCount`, `isLake`                                       |
+| `notation.ts` move parsing            | nothing — it is layout-free                                               |
+| `replay.ts`                           | nothing — it takes no layout at all                                       |
+| `ReviewScreen.tsx` → `FullBoard.tsx`  | `fullBoardRows`/`visibleColumns` (`rowCount`, `columnCount`) and `isLake` |
+| `reviewText.ts` / `MoveList.tsx`      | nothing                                                                   |
 
 The only readers of `homeRowsPerSide`/`hasBuffer` anywhere in `src/` are
 `boardView.visibleRows` (the **placement** board only), `boardLayout.rowRegion`,
@@ -855,11 +869,11 @@ that same token, so a reviewer is not told twice. Per Decision 11, the
 game-name line is **omitted** for any record carrying an unresolved token, so
 such a record is never mislabelled "Battle".
 
-*(Note on placement: the coordinator's brief named `reviewText.ts` as this
+_(Note on placement: the coordinator's brief named `reviewText.ts` as this
 sentence's home. `reviewText.ts` words structured **rejections**, and this story
 adds none; the review screen's copy about unresolved tag tokens already lives in
 `ruleChoices.ts`. Putting it there keeps one voice and one home. Flagged for the
-owner rather than decided silently.)*
+owner rather than decided silently.)_
 
 Depends on: Step 7 (the reading path must already work for a valid Clash
 record).
@@ -975,7 +989,7 @@ Per Decision 11:
 - **`src/review/ReviewScreen.tsx`**: add one short line to the existing
   `.review-status` block naming the record's game and its board — draft copy
   (**revisable at this step's manual gate**): `This is a Clash game, on a 10x10
-  board.` Shown for every record whose `Ruleset` tag was **fully understood**
+board.` Shown for every record whose `Ruleset` tag was **fully understood**
   (no unresolved tokens) **and** whose configuration matches a catalog game;
   omitted otherwise. It sits above the existing rules and result lines. The
   existing diagonal-flag sentences, the unrecognized-token sentences and Step
