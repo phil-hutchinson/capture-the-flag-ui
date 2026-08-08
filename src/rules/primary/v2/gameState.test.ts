@@ -7,6 +7,7 @@ import {
   STANDARD_SKIRMISH_CONFIGURATION,
 } from "./configuration.ts";
 import { SKIRMISH_EDITION } from "./edition.ts";
+import { buildGameConfiguration } from "./games.ts";
 import { pieceCatalogEntries } from "./pieces.ts";
 import { autoFill, emptyPlacement, type PlacementState } from "./placement.ts";
 
@@ -572,5 +573,78 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
     expect(() =>
       buildInitialGameState(white, black, STANDARD_SKIRMISH_CONFIGURATION),
     ).toThrow();
+  });
+});
+
+// Story 00000030, Step 7: closes the record loop for Clash through the real
+// writer - the Clash configuration (`asymmetric_100` / `standard_clash`,
+// built via `games.ts` exactly as the picker will build one) must stamp the
+// exact three-token `Ruleset` tag the Grounding facts specify, and its
+// position block must be sized and marked for the new 10x10 geometry.
+describe("Clash (asymmetric_100 / standard_clash) - story 00000030, Step 7", () => {
+  const CLASH_CONFIGURATION = buildGameConfiguration("clash");
+
+  function completeClashArmy(
+    side: "white" | "black",
+    seed: number,
+  ): PlacementState {
+    return autoFillOrThrow(
+      emptyPlacement(
+        side,
+        CLASH_CONFIGURATION.boardLayout,
+        CLASH_CONFIGURATION.army,
+        CLASH_CONFIGURATION.edition.towerPlacement,
+      ),
+      seededRandom(seed),
+    );
+  }
+
+  it("buildInitialGameState stamps the exact three-token Clash Ruleset tag", () => {
+    const white = completeClashArmy("white", 30);
+    const black = completeClashArmy("black", 31);
+    const gameState = buildInitialGameState(white, black, CLASH_CONFIGURATION);
+
+    expect(gameState.ruleset).toBe(
+      "2-0:BATTLE ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100",
+    );
+  });
+
+  it("renderPositionBlock is 10 rows of 10 cells, with XXX at columns A/D/G/H/I on rows 5 and 6 only", () => {
+    const white = completeClashArmy("white", 32);
+    const black = completeClashArmy("black", 33);
+    const gameState = buildInitialGameState(white, black, CLASH_CONFIGURATION);
+
+    const lines = renderPositionBlock(gameState).split("\n");
+    expect(lines).toHaveLength(10);
+    for (const line of lines) {
+      const cells = line.split(" ");
+      expect(cells).toHaveLength(10);
+      for (const cell of cells) {
+        expect(cell).toHaveLength(3);
+      }
+    }
+
+    // Rows 6 and 5 are the 5th and 6th lines from the top (row 10 is the
+    // first line, row 1 the last): row 6 -> index 4, row 5 -> index 5.
+    const lakeColumnIndexes = [0, 3, 6, 7, 8]; // A, D, G, H, I
+    const openColumnIndexes = [1, 2, 4, 5, 9]; // B, C, E, F, J
+    const row6 = lines[4].split(" ");
+    const row5 = lines[5].split(" ");
+    for (const index of lakeColumnIndexes) {
+      expect(row6[index]).toBe("XXX");
+      expect(row5[index]).toBe("XXX");
+    }
+    for (const index of openColumnIndexes) {
+      expect(row6[index]).not.toBe("XXX");
+      expect(row5[index]).not.toBe("XXX");
+    }
+
+    // No other row carries a lake cell.
+    for (const [lineIndex, line] of lines.entries()) {
+      if (lineIndex === 4 || lineIndex === 5) {
+        continue;
+      }
+      expect(line.split(" ")).not.toContain("XXX");
+    }
   });
 });

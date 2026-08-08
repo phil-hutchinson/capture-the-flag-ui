@@ -10,8 +10,10 @@ import {
   deviatingFlags,
   renderRulesetTag,
   STANDARD_BATTLE_CONFIGURATION,
+  STANDARD_SKIRMISH_CONFIGURATION,
   type RuleConfiguration,
 } from "./primary/v2/configuration.ts";
+import { buildGameConfiguration } from "./primary/v2/games.ts";
 import {
   renderPositionBlock,
   RULESET_TAG,
@@ -1037,5 +1039,215 @@ describe("readRecord - the checked-in doc/samples/ diagonal-flag fixtures (story
     expect(result.record.tags.result).toBe("1-0");
     expect(result.record.tags.resultReason).toBe("Flag Captured");
     expect(result.record.positions).toHaveLength(2);
+  });
+});
+
+// Story 00000030, Step 7: closes the record loop for Clash - a Clash game's
+// Ruleset tag stamps the Battle edition id plus its two deviating
+// game-defining flags (`ARMY_COMPOSITION`/`BOARD_LAYOUT`), and this reader
+// must resolve that tag back to the Clash board and army, not Battle's own.
+// The played record below is driven through the real writer
+// (`startPlay`/`applyMove`/`renderGameRecord`) on a real Clash configuration
+// (`games.ts`'s `buildGameConfiguration("clash")`), exactly like the
+// checked-in `doc/samples/2-0-battle-clash-flag-capture.txt` fixture below.
+describe("readRecord - reads a Clash record (story 00000030, Step 7)", () => {
+  const CLASH_CONFIGURATION = buildGameConfiguration("clash");
+
+  function clashPlayedRecordText(): string {
+    const initial: InitialGameState = {
+      ruleset: renderRulesetTag(CLASH_CONFIGURATION),
+      configuration: CLASH_CONFIGURATION,
+      board: {
+        A1: { side: "white", pieceType: "flag" },
+        E5: { side: "white", pieceType: "champion" },
+        E6: { side: "black", pieceType: "flag" },
+      },
+    };
+    const state = startPlay(initial);
+    const { state: finished } = applyMove(
+      state,
+      { column: "E", row: 5 },
+      { column: "E", row: 6 },
+    );
+    return renderGameRecord(finished);
+  }
+
+  it("resolves a configuration whose board is asymmetric_100 and army is standard_clash, with no unrecognized tokens, and replays the whole move list", () => {
+    const text = clashPlayedRecordText();
+    expect(text).toContain(
+      '[Ruleset "2-0:BATTLE ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100"]',
+    );
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+
+    expect(result.configuration.boardLayout.id).toBe("asymmetric_100");
+    expect(result.configuration.flags.ARMY_COMPOSITION).toBe("standard_clash");
+    expect(result.configuration.army).toEqual(CLASH_CONFIGURATION.army);
+    expect(result.unrecognizedRuleTokens).toEqual([]);
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "ARMY_COMPOSITION",
+      "BOARD_LAYOUT",
+    ]);
+
+    expect(result.record.tags.result).toBe("1-0");
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
+    expect(result.record.positions).toHaveLength(2);
+    expect(result.record.moves).toHaveLength(1);
+    expect(result.record.positions[1]).toEqual({
+      A1: { side: "white", pieceType: "flag" },
+      E6: { side: "white", pieceType: "champion" },
+    });
+  });
+
+  it("composes with a deviating diagonal flag, appended after both game-defining tokens", () => {
+    const configuration = configureRules(EDITIONS["2-0:BATTLE"], {
+      ARMY_COMPOSITION: "standard_clash",
+      BOARD_LAYOUT: "asymmetric_100",
+      DIAGONAL_ATTACKABLE: "all",
+    });
+    const tag = renderRulesetTag(configuration);
+    expect(tag).toBe(
+      "2-0:BATTLE ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100 DIAGONAL_ATTACKABLE=all",
+    );
+
+    const initial: InitialGameState = {
+      ruleset: tag,
+      configuration,
+      board: { A1: { side: "white", pieceType: "flag" } },
+    };
+    const text = [`[Ruleset "${tag}"]`, renderPositionBlock(initial)].join(
+      "\n\n",
+    );
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "ARMY_COMPOSITION",
+      "BOARD_LAYOUT",
+      "DIAGONAL_ATTACKABLE",
+    ]);
+    expect(result.configuration.boardLayout.id).toBe("asymmetric_100");
+    expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
+    expect(result.unrecognizedRuleTokens).toEqual([]);
+  });
+});
+
+// Story 00000030, Step 7: the canonicalization cases pinning story.md's
+// byte-identical requirement from the *reader's* side - `renderRulesetTag`'s
+// own canonicalization is already covered (configuration.test.ts), and
+// story 00000027's Step 6 already pins that a flag named at its resolved
+// value reads with no deviation; these add the two new flags to that same
+// guarantee, plus a direct pin that all three registered edition tags still
+// read bare, with no token, exactly as before this story.
+describe("readRecord - canonicalization: Battle/Skirmish tags stay byte-identical (story 00000030, Step 7)", () => {
+  it("a tag naming both new flags at Battle's own resolved values reads as the standard Battle configuration, with no deviation", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=standard_144 ARMY_COMPOSITION=standard_battle"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration).toEqual(STANDARD_BATTLE_CONFIGURATION);
+    expect(deviatingFlags(result.configuration)).toEqual([]);
+  });
+
+  it("the bare 2-0:BATTLE tag reads exactly as it does today - no tokens, no deviation", () => {
+    const result = readRecord(
+      ['[Ruleset "2-0:BATTLE"]', POSITION_BLOCK].join("\n\n"),
+    );
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration).toEqual(STANDARD_BATTLE_CONFIGURATION);
+    expect(deviatingFlags(result.configuration)).toEqual([]);
+  });
+
+  it("the bare 2-1:SKIRMISH tag reads exactly as it does today - no tokens, no deviation", () => {
+    const skirmishState: InitialGameState = {
+      ruleset: "2-1:SKIRMISH",
+      configuration: STANDARD_SKIRMISH_CONFIGURATION,
+      board: { A1: { side: "white", pieceType: "flag" } },
+    };
+    const text = [
+      '[Ruleset "2-1:SKIRMISH"]',
+      renderPositionBlock(skirmishState),
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration).toEqual(STANDARD_SKIRMISH_CONFIGURATION);
+    expect(deviatingFlags(result.configuration)).toEqual([]);
+  });
+
+  it("the bare superseded 2-0:SKIRMISH tag reads exactly as it does today - no tokens, no deviation", () => {
+    const superseded = EDITIONS["2-0:SKIRMISH"];
+    const text = [
+      '[Ruleset "2-0:SKIRMISH"]',
+      renderPositionBlock({
+        ruleset: "2-0:SKIRMISH",
+        configuration: configureRules(superseded),
+        board: { A1: { side: "white", pieceType: "flag" } },
+      }),
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration).toEqual(configureRules(superseded));
+    expect(deviatingFlags(result.configuration)).toEqual([]);
+  });
+});
+
+// Story 00000030, Step 7: the checked-in `doc/samples/` Clash fixture, read
+// from disk exactly as a player's exported record would be. Its Ruleset tag
+// names the Battle edition id (there is no published Clash edition; see
+// `doc/samples/README.md`) plus its two deviating game-defining flags - this
+// pins that the reader resolves the *Clash* board and army from that tag,
+// not Battle's own, and replays the capture to the end.
+describe("readRecord - the checked-in doc/samples/2-0-battle-clash-flag-capture.txt fixture (story 00000030, Step 7)", () => {
+  const SAMPLE_PATH = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../doc/samples/2-0-battle-clash-flag-capture.txt",
+  );
+  const sampleText = readFileSync(SAMPLE_PATH, "utf8");
+
+  it("parses and replays the Clash flag-capture game to the end", () => {
+    const result = readRecord(sampleText);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+
+    expect(result.record.tags.ruleset).toBe(
+      "2-0:BATTLE ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100",
+    );
+    expect(result.configuration.boardLayout.id).toBe("asymmetric_100");
+    expect(result.configuration.flags.ARMY_COMPOSITION).toBe("standard_clash");
+    expect(result.unrecognizedRuleTokens).toEqual([]);
+    expect(result.record.tags.result).toBe("1-0");
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
+    expect(result.record.positions).toHaveLength(2);
+    expect(result.record.moves).toHaveLength(1);
+    expect(result.record.positions[1]).toEqual({
+      A1: { side: "white", pieceType: "flag" },
+      E6: { side: "white", pieceType: "champion" },
+    });
   });
 });
