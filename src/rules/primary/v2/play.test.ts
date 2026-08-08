@@ -6,6 +6,7 @@ import {
 import { BATTLE_EDITION, EDITIONS } from "./edition.ts";
 import type { BoardState, InitialGameState, PlacedPiece } from "./gameState.ts";
 import { renderPositionBlock, RULESET_TAG } from "./gameState.ts";
+import { buildGameConfiguration } from "./games.ts";
 import { INACTIVITY_LIMIT } from "./outcome.ts";
 import type { PieceTypeId } from "./pieces.ts";
 import {
@@ -1028,6 +1029,77 @@ describe("applyMove - threads the edition's board layout (story 00000023, Step 7
     expect(next.board["B6"]).toEqual({
       side: "white",
       pieceType: "champion",
+    });
+  });
+});
+
+// Story 00000030, Step 6: `applyMove`/`computeOutcome` on a real Clash
+// configuration (`asymmetric_100` / `standard_clash`), built through
+// `games.ts` exactly as the picker will build one (Step 9) rather than
+// hand-assembled. Proves a Clash game accepts a legal ply on the new
+// geometry, rejects an illegal one, and ends correctly on a Flag capture -
+// no production change was expected (or found necessary) to make this work.
+describe("applyMove and computeOutcome on the Clash configuration (story 00000030)", () => {
+  const CLASH_CONFIGURATION = buildGameConfiguration("clash");
+
+  function clashInitialGameState(
+    pieces: readonly [string, PlacedPiece["side"], PieceTypeId][],
+  ): InitialGameState {
+    return {
+      ruleset: RULESET_TAG,
+      configuration: CLASH_CONFIGURATION,
+      board: board(pieces),
+    };
+  }
+
+  it("rejects a move onto a lake square (D5 - a lake on Clash, unlike anywhere in Battle's own pattern)", () => {
+    const initial = clashInitialGameState([
+      ["D4", "white", "champion"],
+      ["A1", "white", "flag"],
+      ["J10", "black", "flag"],
+    ]);
+    const state = startPlay(initial);
+    expect(() =>
+      applyMove(state, { column: "D", row: 4 }, { column: "D", row: 5 }),
+    ).toThrow(/not a legal destination/);
+  });
+
+  it("accepts a legal two-square move through the 1-wide J lane", () => {
+    const initial = clashInitialGameState([
+      ["J4", "white", "champion"],
+      ["A1", "white", "flag"],
+      ["J10", "black", "flag"],
+    ]);
+    const state = startPlay(initial);
+    const { state: next } = applyMove(
+      state,
+      { column: "J", row: 4 },
+      { column: "J", row: 6 },
+    );
+    expect(next.board["J4"]).toBeUndefined();
+    expect(next.board["J6"]).toEqual({
+      side: "white",
+      pieceType: "champion",
+    });
+  });
+
+  it("plays a Flag capture to a finish, with the right winner and reason", () => {
+    const initial = clashInitialGameState([
+      ["E5", "white", "champion"],
+      ["E6", "black", "flag"], // orthogonally adjacent, across the E-F lane
+      ["A1", "white", "flag"],
+    ]);
+    const state = startPlay(initial);
+    const { state: finished, outcome } = applyMove(
+      state,
+      { column: "E", row: 5 },
+      { column: "E", row: 6 },
+    );
+    expect(outcome).toMatchObject({ kind: "attack", result: "attackerWins" });
+    expect(finished.result).toEqual({
+      kind: "win",
+      winner: "white",
+      reason: "flagCapture",
     });
   });
 });

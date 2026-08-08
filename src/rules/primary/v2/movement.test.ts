@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Square } from "./board.ts";
-import { BOARD_LAYOUTS } from "./boardLayout.ts";
+import { isLake, type Square } from "./board.ts";
+import { BOARD_LAYOUTS, columnLetter } from "./boardLayout.ts";
 import {
   configureRules,
   STANDARD_BATTLE_CONFIGURATION,
@@ -9,6 +9,7 @@ import {
 } from "./configuration.ts";
 import { BATTLE_EDITION } from "./edition.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
+import { buildGameConfiguration } from "./games.ts";
 import { hasAnyLegalPly, legalAttacks, legalDestinations } from "./movement.ts";
 import type { PieceTypeId } from "./pieces.ts";
 
@@ -935,5 +936,171 @@ describe("legalDestinations/legalAttacks on the Skirmish layout (8x8)", () => {
     expect(
       hasAnyLegalPly(state, "black", STANDARD_SKIRMISH_CONFIGURATION),
     ).toBe(false);
+  });
+});
+
+// Story 00000030, Step 6: the same functions above, exercised on the Clash
+// layout (`asymmetric_100`, 10x10) - the first board in the app with lake
+// blocks of non-uniform width (1/1/3) and a lane at only one edge. Proves
+// the parametric engine already handles it: no special-casing for the
+// asymmetry, the 1-wide J lane, or the 3-wide G-I lake block is needed
+// anywhere in `movement.ts`.
+describe("legalDestinations/legalAttacks on the Clash layout (10x10, asymmetric_100)", () => {
+  const CLASH_CONFIGURATION = buildGameConfiguration("clash");
+  const CLASH = CLASH_CONFIGURATION.boardLayout;
+
+  it("excludes every lake square (columns A, D, G, H, I on rows 5-6) as a destination, and blocks the two-square option through it", () => {
+    for (const column of ["A", "D", "G", "H", "I"]) {
+      const state = board([[`${column}4`, "white", "champion"]]);
+      const destinations = legalDestinations(state, { column, row: 4 }, CLASH);
+      expect(destinations.some((s) => s.row === 5)).toBe(false);
+      expect(destinations.some((s) => s.row === 6)).toBe(false);
+    }
+  });
+
+  it("the 1-wide J lane behaves like any other lane - a piece may move through it, one square or two, on the way from row 4 to row 7", () => {
+    const fromBuffer = board([["J4", "white", "champion"]]);
+    const fromBufferDestinations = legalDestinations(
+      fromBuffer,
+      { column: "J", row: 4 },
+      CLASH,
+    );
+    expect(
+      fromBufferDestinations.some((s) => s.column === "J" && s.row === 5),
+    ).toBe(true); // one-square move into the lane
+    expect(
+      fromBufferDestinations.some((s) => s.column === "J" && s.row === 6),
+    ).toBe(true); // two-square move, unencumbered, all the way through it
+
+    // Second ply, from the far end of the lane, on into the far buffer row.
+    const fromLane = board([["J6", "white", "champion"]]);
+    const onward = legalDestinations(fromLane, { column: "J", row: 6 }, CLASH);
+    expect(onward.some((s) => s.column === "J" && s.row === 7)).toBe(true);
+  });
+
+  it("the 3-wide G-I lake block stops a two-square move that would cross it, exactly as a 1-wide block would", () => {
+    // F (index 5) is open - the E-F lane; G, H, I are all lake on row 5.
+    const state = board([["F5", "white", "champion"]]);
+    const destinations = legalDestinations(
+      state,
+      { column: "F", row: 5 },
+      CLASH,
+    );
+    expect(destinations.some((s) => s.column === "G")).toBe(false);
+    expect(destinations.some((s) => s.column === "H")).toBe(false);
+  });
+
+  it("does not block anything a lane would not - the E-F lane's own two-square move is unaffected by the neighboring D and G-I lake blocks", () => {
+    const state = board([["F4", "white", "champion"]]);
+    const destinations = legalDestinations(
+      state,
+      { column: "F", row: 4 },
+      CLASH,
+    );
+    expect(destinations.some((s) => s.column === "F" && s.row === 5)).toBe(
+      true,
+    );
+    expect(destinations.some((s) => s.column === "F" && s.row === 6)).toBe(
+      true,
+    );
+  });
+
+  it("refuses an off-board move at the left edge (column A - a lake at rows 5-6, with no lane at all)", () => {
+    const state = board([["A2", "white", "champion"]]);
+    const destinations = legalDestinations(
+      state,
+      { column: "A", row: 2 },
+      CLASH,
+    );
+    // Never off-board - no destination left of column A, and every
+    // destination column is one of the board's own ten.
+    expect(destinations.every((s) => "ABCDEFGHIJ".includes(s.column))).toBe(
+      true,
+    );
+  });
+
+  it("refuses an off-board move at the right edge (column J, the 1-wide lane)", () => {
+    const state = board([["J2", "white", "champion"]]);
+    const destinations = legalDestinations(
+      state,
+      { column: "J", row: 2 },
+      CLASH,
+    );
+    expect(destinations.every((s) => "ABCDEFGHIJ".includes(s.column))).toBe(
+      true,
+    );
+  });
+
+  it("offers diagonal attacks the same way as on the other boards", () => {
+    const state = board([
+      ["E4", "white", "champion"],
+      ["F5", "black", "militia"],
+    ]);
+    const attacks = legalAttacks(
+      state,
+      { column: "E", row: 4 },
+      CLASH_CONFIGURATION,
+    );
+    expect(sortedKeys(attacks)).toEqual(["F5"]);
+  });
+
+  it("withholds a diagonal attack whose target square is itself a lake - both the D block and the G-I block trigger this before any flank question arises", () => {
+    const nearD = board([
+      ["C4", "white", "champion"],
+      ["D5", "black", "militia"], // D is a lake column - never a legal target
+    ]);
+    expect(
+      legalAttacks(nearD, { column: "C", row: 4 }, CLASH_CONFIGURATION).some(
+        (s) => s.column === "D" && s.row === 5,
+      ),
+    ).toBe(false);
+
+    const nearG = board([
+      ["F4", "white", "champion"],
+      ["G5", "black", "militia"], // G is the first column of the 3-wide lake block
+    ]);
+    expect(
+      legalAttacks(nearG, { column: "F", row: 4 }, CLASH_CONFIGURATION).some(
+        (s) => s.column === "G" && s.row === 5,
+      ),
+    ).toBe(false);
+  });
+
+  // Story.md's inherited conclusion: the "diagonal squeeze" (both of a
+  // diagonal attack's flanking squares being lakes while its own source and
+  // destination stay open) stays unreachable on this board, because both
+  // lake rows carry the identical column pattern - so any two
+  // horizontally-adjacent lake columns are lake on *both* rows, and a
+  // diagonal move between them always lands its own source or destination on
+  // a lake first. Pinned directly on the geometry (the only place on this
+  // board it can arise, per the story's own working: the 3-wide G-I block),
+  // rather than through legalAttacks - a piece can never legitimately
+  // originate on a lake square, so there is no real board position to build
+  // the scenario from.
+  it("the diagonal squeeze stays unreachable: horizontally-adjacent lake columns are lake on both lake rows", () => {
+    const lakeColumns = new Set(CLASH.lakeColumnIndices);
+    const adjacentPairs = CLASH.lakeColumnIndices.filter((index) =>
+      lakeColumns.has(index + 1),
+    );
+    // Only the 3-wide G-I block has any horizontally-adjacent lake columns
+    // (G-H at index 6-7, H-I at index 7-8); the two 1-wide blocks (A, D)
+    // have none.
+    expect([...adjacentPairs].sort((a, b) => a - b)).toEqual([6, 7]);
+    for (const columnIndex of adjacentPairs) {
+      for (const row of CLASH.lakeRows) {
+        expect(isLake({ column: columnLetter(columnIndex), row }, CLASH)).toBe(
+          true,
+        );
+        expect(
+          isLake({ column: columnLetter(columnIndex + 1), row }, CLASH),
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("hasAnyLegalPly considers only the Clash board's own squares", () => {
+    const state = board([["E4", "white", "champion"]]);
+    expect(hasAnyLegalPly(state, "white", CLASH_CONFIGURATION)).toBe(true);
+    expect(hasAnyLegalPly(state, "black", CLASH_CONFIGURATION)).toBe(false);
   });
 });

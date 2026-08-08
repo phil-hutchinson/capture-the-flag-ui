@@ -795,7 +795,36 @@ Run the five repository checks.
 
 ## Step 6 — Clash plays by the rules, on the new geometry
 
-Status: pending
+Status: committed
+
+Notes: No production code needed to change - confirmed by test, as the step
+anticipated. Added Clash-configuration coverage, built via `games.ts`'s
+`buildGameConfiguration("clash")`, to the four existing suites: `placement.test.ts`
+(20-piece army over 30 home squares, `isComplete` only at 20, lake/buffer/
+opponent-zone placement rejections, `spacing_only` Tower placement with the
+lane rule closing nothing - including Towers directly in front of the B-C,
+E-F and J lanes in row 3, unlike Skirmish - and `autoFill` completing a full
+4-Tower/20-piece army across many seeds); `movement.test.ts` (every lake
+square across the three blocks excluded as a destination and as a two-square
+intermediate/far square; the 1-wide J lane behaving like any other lane over
+two plies; the 3-wide G-I block stopping a two-square move exactly like a
+1-wide block would while the neighboring E-F lane's own two-square move stays
+unaffected; both board edges refusing off-board moves; diagonal attacks
+working normally and being refused before any flank question when the target
+itself is a lake (near both the D block and the G-I block); and a direct
+geometric pin of the "diagonal squeeze is unreachable" conclusion - the only
+horizontally-adjacent lake-column pairs are G-H and H-I, and both are lake on
+both lake rows, which is exactly the condition story.md's reasoning relies
+on); `outcome.test.ts` (ongoing/flag-capture/no-legal-move/inactivity
+detection, and that the Flag scan does not look past row 10 into a row that
+would be on-board for Battle); and `play.test.ts` (`applyMove` rejecting a
+lake destination, accepting a legal two-square move through the J lane, and a
+full Flag-capture game ending with the right winner and reason). All four
+suites' pre-existing Battle and Skirmish cases pass unedited. No deviation
+from the plan: no production file outside the four `*.test.ts` files above
+was touched, and no existing fixture, sample, tag string or position block
+was edited. All five repository checks (typecheck, lint, test - 829 passed,
+up from 803 - format:check, build) are clean.
 
 No production code is expected to change in this step: Steps 1–5 should already
 make a Clash configuration fully playable through the existing parametric rule

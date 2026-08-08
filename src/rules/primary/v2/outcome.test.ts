@@ -6,6 +6,7 @@ import {
 } from "./configuration.ts";
 import { BATTLE_EDITION } from "./edition.ts";
 import type { BoardState, PlacedPiece } from "./gameState.ts";
+import { buildGameConfiguration } from "./games.ts";
 import { computeOutcome, INACTIVITY_LIMIT } from "./outcome.ts";
 import type { PieceTypeId } from "./pieces.ts";
 
@@ -356,6 +357,78 @@ describe("computeOutcome on the Skirmish layout (8x8)", () => {
     expect(
       computeOutcome(state, "white", 0, STANDARD_SKIRMISH_CONFIGURATION),
     ).toEqual({
+      kind: "win",
+      winner: "black",
+      reason: "flagCapture",
+    });
+  });
+});
+
+// Story 00000030, Step 6: the same detection above, exercised on the Clash
+// configuration (`asymmetric_100`, 10x10) - proves the Flag scan and
+// `hasAnyLegalPly` (via `movement.ts`'s own Clash coverage) are genuinely
+// parametric rather than hardcoding Battle's 12x12 grid or Skirmish's 8x8
+// one.
+describe("computeOutcome on the Clash configuration (10x10, asymmetric_100)", () => {
+  const CLASH_CONFIGURATION = buildGameConfiguration("clash");
+
+  it("is ongoing for an ordinary mid-game position", () => {
+    const state = board([
+      ["A1", "white", "flag"],
+      ["J10", "black", "flag"],
+      ["E4", "white", "champion"],
+      ["E8", "black", "militia"],
+    ]);
+    expect(computeOutcome(state, "white", 0, CLASH_CONFIGURATION)).toEqual({
+      kind: "ongoing",
+    });
+  });
+
+  it("is a win for the active side when the opponent's Flag is gone", () => {
+    const state = board([["A1", "white", "flag"]]); // no Black Flag
+    expect(computeOutcome(state, "white", 0, CLASH_CONFIGURATION)).toEqual({
+      kind: "win",
+      winner: "white",
+      reason: "flagCapture",
+    });
+  });
+
+  it("is a loss for the active side when it has no legal ply at all, boxed in by its own Towers", () => {
+    const state = board([
+      ["A1", "white", "champion"],
+      ["A2", "white", "tower"],
+      ["B1", "white", "tower"],
+      ["D1", "white", "flag"],
+      ["J10", "black", "flag"],
+    ]);
+    expect(computeOutcome(state, "white", 0, CLASH_CONFIGURATION)).toEqual({
+      kind: "win",
+      winner: "black",
+      reason: "noLegalMove",
+    });
+  });
+
+  it("is a draw once the shared counter has reached the limit", () => {
+    const state = board([
+      ["A1", "white", "flag"],
+      ["J10", "black", "flag"],
+      ["E4", "white", "champion"],
+      ["E8", "black", "militia"],
+    ]);
+    expect(
+      computeOutcome(state, "white", INACTIVITY_LIMIT, CLASH_CONFIGURATION),
+    ).toEqual({
+      kind: "draw",
+      reason: "inactivity",
+    });
+  });
+
+  it("does not look past the Clash edge for a Flag - row 11 would be on-board for Battle but is off-board here", () => {
+    const state = board([
+      ["A11", "white", "flag"], // off-board on Clash's 10-row board
+      ["J10", "black", "flag"],
+    ]);
+    expect(computeOutcome(state, "white", 0, CLASH_CONFIGURATION)).toEqual({
       kind: "win",
       winner: "black",
       reason: "flagCapture",
