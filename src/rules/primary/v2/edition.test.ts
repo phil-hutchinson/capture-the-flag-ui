@@ -4,7 +4,6 @@ import {
   combinationFits,
   editionById,
   EDITIONS,
-  playableEditions,
   SKIRMISH_EDITION,
   SUPERSEDED_SKIRMISH_EDITION,
 } from "./edition.ts";
@@ -75,14 +74,10 @@ describe("combinationFits (does an army fit a board's home zone)", () => {
   });
 });
 
-describe("playableEditions", () => {
-  it("offers exactly the two active editions for play, never the superseded one", () => {
-    const ids = playableEditions()
-      .map((edition) => edition.id)
-      .sort();
-    expect(ids).toEqual(["2-0:BATTLE", "2-1:SKIRMISH"]);
-  });
-});
+// `playableEditions()` was removed in story 00000030 (implementation plan
+// Decision 6/Step 5): with Clash sharing Battle's edition id, "which
+// editions are playable" is no longer the right question. `games.ts`'s
+// `playableGames()` is the replacement - see `games.test.ts`.
 
 // Story 00000030's implementation plan, Decision 1 and Step 4 verification:
 // `Edition` no longer carries a resolved board or roster at all - only the

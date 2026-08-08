@@ -49,11 +49,8 @@ import {
   type RuleConfiguration,
   type RuleFlagOverrides,
 } from "../rules/primary/v2/configuration.ts";
-import {
-  editionById,
-  playableEditions,
-  type EditionId,
-} from "../rules/primary/v2/edition.ts";
+import { editionById, type EditionId } from "../rules/primary/v2/edition.ts";
+import { GAMES, type GameId } from "../rules/primary/v2/games.ts";
 import type { RuleFlagId } from "../rules/primary/v2/ruleFlags.ts";
 import { defaultGameId, gameName } from "./gameNames.ts";
 import {
@@ -76,16 +73,30 @@ export interface GameChoiceProps {
 }
 
 /**
+ * Story 00000030's implementation plan, Step 5: `playableEditions()` was
+ * removed from `edition.ts` (two games - Battle and Clash - now share an
+ * edition id, which made "the playable editions" an actively misleading
+ * question to ask). This screen still offers only Battle and Skirmish, in
+ * the same order and the same words, exactly as before this story - Clash's
+ * catalog entry (`games.ts`) is reachable from code but deliberately not
+ * listed here yet. Naming games by `GameId`, offering all three, and
+ * updating their descriptions and ordering by size is Step 9's job; this is
+ * a minimal, mechanical stand-in that keeps this screen compiling and
+ * behaving identically without `playableEditions()`.
+ */
+const PICKABLE_GAME_IDS: readonly GameId[] = ["skirmish", "battle"];
+
+/**
  * One selectable game's plain-language description, keyed by its edition id.
  * Covers all three registered ids (rather than only the two currently
  * playable) so the record stays type-complete as a fourth edition would fail
- * to compile here; only the ids `playableEditions()` returns are ever
- * actually rendered, so the superseded `2-0:SKIRMISH` entry below is never
- * shown to a player. Story 00000025, Step 7: `2-1:SKIRMISH`'s description
- * gains a clause about the tower/lane restriction, so a player meets the
- * rule before it ever refuses them at placement; `2-0:SKIRMISH`'s text is
- * deliberately left without that clause (it never had the rule) even though
- * it is unreachable in the picker.
+ * to compile here; only the ids `PICKABLE_GAME_IDS` names are ever actually
+ * rendered, so the superseded `2-0:SKIRMISH` entry below is never shown to a
+ * player. Story 00000025, Step 7: `2-1:SKIRMISH`'s description gains a
+ * clause about the tower/lane restriction, so a player meets the rule before
+ * it ever refuses them at placement; `2-0:SKIRMISH`'s text is deliberately
+ * left without that clause (it never had the rule) even though it is
+ * unreachable in the picker.
  */
 const GAME_DETAIL: Readonly<Record<EditionId, string>> = {
   "2-1:SKIRMISH":
@@ -99,9 +110,9 @@ const GAME_DETAIL: Readonly<Record<EditionId, string>> = {
  * Skirmish listed first (and selected below by default) per story.md: "the
  * recommended game for a new player" - the gentler introduction with a
  * smaller board and a smaller army. The list itself always comes from
- * `playableEditions()`, never a hardcoded id list, so the superseded
- * `2-0:SKIRMISH` can never be offered here; this only decides *display
- * order* among whatever `playableEditions()` returns.
+ * `PICKABLE_GAME_IDS` above, never a hardcoded `Edition[]`, so the
+ * superseded `2-0:SKIRMISH` can never be offered here; this only decides
+ * *display order* among whatever that list names.
  */
 function gameOrderRank(id: EditionId): number {
   switch (id) {
@@ -192,7 +203,7 @@ export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
     Partial<Record<RuleFlagId, string>>
   >(() => (lastPlayed ? { ...lastPlayed.flags } : {}));
   const selectedEdition = editionById(choice);
-  const games = [...playableEditions()].sort(
+  const games = PICKABLE_GAME_IDS.map((id) => GAMES[id].edition).sort(
     (a, b) => gameOrderRank(a.id) - gameOrderRank(b.id),
   );
 

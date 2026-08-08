@@ -150,8 +150,9 @@ export const SKIRMISH_EDITION: Edition = {
  * Historical table, story 00000025): the same board and army as
  * `SKIRMISH_EDITION`, but `spacing_only` Tower placement - towers were
  * allowed in front of a lane under this edition. Kept in `EDITIONS` so a
- * record naming it still reviews, but never returned by `playableEditions()`
- * and never offered by the picker. Exported separately (rather than only
+ * record naming it still reviews, but never offered by the picker (story
+ * 00000030's `games.ts` catalog never names it as a game's base edition).
+ * Exported separately (rather than only
  * reachable via `EDITIONS["2-0:SKIRMISH"]`) so tests that deliberately
  * exercise the historical path - as opposed to a fresh game, which always
  * means `SKIRMISH_EDITION` - can reach it without a map lookup, mirroring the
@@ -169,7 +170,8 @@ export const SUPERSEDED_SKIRMISH_EDITION: Edition = {
  * Every defined edition, keyed by its id - what `readRecord.ts` resolves a
  * `Ruleset` tag against, so a record naming any of the three (including the
  * superseded `2-0:SKIRMISH`) still reviews. Not all are necessarily playable
- * - see `playableEditions`.
+ * - see `games.ts`'s `playableGames()`, which decides which *games* (not
+ * editions) are offered.
  */
 export const EDITIONS: Readonly<Record<EditionId, Edition>> = {
   "2-0:BATTLE": BATTLE_EDITION,
@@ -180,20 +182,4 @@ export const EDITIONS: Readonly<Record<EditionId, Edition>> = {
 /** Looks up an edition by its id. */
 export function editionById(id: EditionId): Edition {
   return EDITIONS[id];
-}
-
-/**
- * The editions actually offered for play: those that are `active` (rules.md
- * Appendix B's Active table - excludes the superseded `2-0:SKIRMISH`, which
- * stays readable but is never offered) *and* whose army fits their board's
- * home zone. The two active editions (`2-0:BATTLE`, `2-1:SKIRMISH`) are
- * designed to pass the fit check; it exists so an invalid pairing is simply
- * never offered, rather than needing to be rejected elsewhere.
- */
-export function playableEditions(): Edition[] {
-  return Object.values(EDITIONS).filter(
-    (edition) =>
-      edition.status === "active" &&
-      combinationFits(edition.boardLayoutId, edition.armyCompositionId),
-  );
 }

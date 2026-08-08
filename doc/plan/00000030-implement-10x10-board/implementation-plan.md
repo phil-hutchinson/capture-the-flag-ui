@@ -712,7 +712,37 @@ end on the right board.
 
 ## Step 5 — The games catalog
 
-Status: pending
+Status: committed
+
+Notes: Added `src/rules/primary/v2/games.ts` exactly per Decision 6: a
+`GameId` union (`"battle" | "skirmish" | "clash"`), a `GAMES` catalog
+(`Record<GameId, GameEntry>`, exhaustive by construction) naming each game's
+base `Edition` and its `GameDefiningOverrides` (Battle/Skirmish state none;
+Clash states `BATTLE_EDITION` plus `ARMY_COMPOSITION=standard_clash` and
+`BOARD_LAYOUT=asymmetric_100`), `buildGameConfiguration(gameId,
+ruleChoiceOverrides?)` (the one place a `GameId` becomes a
+`RuleConfiguration`, layering an optional `RuleChoiceOverrides` - typed over
+the two diagonal flags only - on top of the entry's own game-defining
+overrides), `playableGames()` (filters `GAME_IDS` by `combinationFits` as the
+floor Decision 6 describes; all three pass today) and `identifyGame` (matches
+a configuration's resolved `(BOARD_LAYOUT, ARMY_COMPOSITION)` pair against
+each catalogued game's own, returning `null` for no match). `playableEditions()`
+was removed from `edition.ts` (the plan's stated preference, taken rather
+than the fallback of keeping it) along with its doc-comment references and
+its `edition.test.ts` case, which was replaced with a pointer to
+`games.test.ts`'s `playableGames` coverage. `GameChoice.tsx` was switched to
+a minimal, mechanical stand-in per the step's explicit allowance: a new
+`PICKABLE_GAME_IDS: readonly GameId[] = ["skirmish", "battle"]` (Clash
+deliberately excluded, documented as Step 9's job) replaces
+`playableEditions()` as the source of the button list, sourcing each
+`Edition` from `GAMES[id].edition`; `GAME_DETAIL`, `gameOrderRank`,
+`EditionId`-keying and every other observable behaviour of the screen are
+byte-for-byte unchanged. Added `games.test.ts` covering exactly the
+verification list below. No deviation from the plan; no production code
+outside `games.ts`, `edition.ts` and `GameChoice.tsx` was touched, and no
+existing fixture, sample, tag string or position block was edited. All five
+repository checks (typecheck, lint, test - 803 passed, up from 789 - format:check,
+build) are clean.
 
 Add `src/rules/primary/v2/games.ts`, per Decision 6. It holds:
 
