@@ -36,10 +36,11 @@
 // second live region.
 //
 // Story 00000023, Gate D defect fix: this screen renders `FullBoard` with
-// the `configuration` prop's `edition.boardLayout` (`readRecord.ts` resolves
-// it from the record's own `Ruleset` tag) rather than letting `FullBoard`'s
-// Battle default silently apply - a Skirmish record was previously drawn on
-// a 12x12 board with Battle's lakes, not Skirmish's.
+// the `configuration` prop's resolved `boardLayout` (story 00000030's
+// Decision 1; `readRecord.ts` resolves it from the record's own `Ruleset`
+// tag) rather than letting `FullBoard`'s Battle default silently apply - a
+// Skirmish record was previously drawn on a 12x12 board with Battle's lakes,
+// not Skirmish's.
 //
 // Story 00000027, Step 9: the status line also shows the record's
 // non-standard rules, if any (`ruleChoices.ts`'s `nonStandardRuleSentences`,
@@ -186,7 +187,7 @@ export function ReviewScreen({
           <FullBoard
             board={currentBoard(session)}
             side="white"
-            layout={configuration.edition.boardLayout}
+            layout={configuration.boardLayout}
             lastMove={
               move === null
                 ? undefined

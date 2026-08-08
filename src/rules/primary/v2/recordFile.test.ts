@@ -396,7 +396,9 @@ describe("parseRecordFile - the Skirmish edition's 8x8 board layout", () => {
       "\n\n",
     );
 
-    const record = parsed(parseRecordFile(text, skirmish.boardLayout));
+    const record = parsed(
+      parseRecordFile(text, SKIRMISH_GAME_STATE.configuration.boardLayout),
+    );
     expect(record.startingBoard).toEqual(SKIRMISH_GAME_STATE.board);
     expect(record.tags).toEqual({ ruleset: "2-1:SKIRMISH" });
   });

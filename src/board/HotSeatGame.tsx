@@ -463,7 +463,7 @@ export function HotSeatGame({
   function handleChooseGame(chosenConfiguration: RuleConfiguration) {
     onGameStarted(chosenConfiguration);
     setConfiguration(chosenConfiguration);
-    const freshSession = newSession(chosenConfiguration.edition);
+    const freshSession = newSession(chosenConfiguration);
     setSession(freshSession);
     const ruleSentences = nonStandardRuleSentences(chosenConfiguration);
     const ruleAnnouncement =
@@ -484,7 +484,7 @@ export function HotSeatGame({
         ? ` ${describeHandOff(openingSide, progress(freshSession[openingSide]))}`
         : "";
     setGameAnnouncement(
-      `You chose ${gameName(chosenConfiguration.edition)}. Placing on ${boardSizeDescription(chosenConfiguration.edition)}.${ruleAnnouncement}${turnAnnouncement}`,
+      `You chose ${gameName(chosenConfiguration.edition)}. Placing on ${boardSizeDescription(chosenConfiguration)}.${ruleAnnouncement}${turnAnnouncement}`,
     );
   }
 

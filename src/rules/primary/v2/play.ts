@@ -74,12 +74,12 @@ const FIRST_SIDE: Side = "white";
  * story 00000023's peer review, finding #2): an optional value invited a
  * call site to silently inherit Battle. Every ply-generation call below
  * (`legalAttacks`/`legalDestinations`/`resolveCombat`/`computeOutcome`) is
- * threaded with `configuration` (or its `edition.boardLayout`) - story
- * 00000023's Step 7, fixing a defect observed live at Step 6's Gate B where
- * these calls stayed on the Battle default even once a non-Battle board was
- * reachable through the picker; story 00000027's Step 3 widens the same
- * threading to the full configuration so a diagonal-attack flag reaches
- * `legalAttacks`/`hasAnyLegalPly` too.
+ * threaded with `configuration` (or its resolved `boardLayout`, story
+ * 00000030's Decision 1) - story 00000023's Step 7, fixing a defect observed
+ * live at Step 6's Gate B where these calls stayed on the Battle default
+ * even once a non-Battle board was reachable through the picker; story
+ * 00000027's Step 3 widens the same threading to the full configuration so a
+ * diagonal-attack flag reaches `legalAttacks`/`hasAnyLegalPly` too.
  */
 export interface PlayState {
   readonly ruleset: string;
@@ -188,7 +188,7 @@ export function applyMove(
     throw new Error("Cannot apply move: the game has already ended.");
   }
 
-  const layout = state.configuration.edition.boardLayout;
+  const layout = state.configuration.boardLayout;
 
   const fromKey = squareKey(from);
   const toKey = squareKey(to);

@@ -320,10 +320,8 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
       }
 
       expect(result.configuration.edition.id).toBe(id);
-      expect(result.configuration.edition.boardLayout.columnCount).toBe(
-        columnCount,
-      );
-      expect(result.configuration.edition.boardLayout.rowCount).toBe(rowCount);
+      expect(result.configuration.boardLayout.columnCount).toBe(columnCount);
+      expect(result.configuration.boardLayout.rowCount).toBe(rowCount);
     },
   );
 
@@ -341,11 +339,9 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
       return;
     }
 
-    expect(result.configuration.edition.boardLayout.lakeRows).toEqual([4, 5]);
+    expect(result.configuration.boardLayout.lakeRows).toEqual([4, 5]);
     expect(
-      result.configuration.edition.boardLayout.lakeColumnIndices.map(
-        columnLetter,
-      ),
+      result.configuration.boardLayout.lakeColumnIndices.map(columnLetter),
     ).toEqual(["B", "C", "F", "G"]);
   });
 
@@ -363,11 +359,9 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
       return;
     }
 
-    expect(result.configuration.edition.boardLayout.lakeRows).toEqual([6, 7]);
+    expect(result.configuration.boardLayout.lakeRows).toEqual([6, 7]);
     expect(
-      result.configuration.edition.boardLayout.lakeColumnIndices.map(
-        columnLetter,
-      ),
+      result.configuration.boardLayout.lakeColumnIndices.map(columnLetter),
     ).toEqual(["B", "C", "F", "G", "J", "K"]);
   });
 });

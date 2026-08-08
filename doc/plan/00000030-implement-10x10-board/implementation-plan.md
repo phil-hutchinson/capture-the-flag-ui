@@ -602,7 +602,50 @@ Run the five repository checks. Existing record fixtures and the four
 
 ## Step 4 — The configuration carries the board and the army
 
-Status: pending
+Status: committed
+
+Notes: Implemented as planned. `RuleConfiguration` gained resolved `boardLayout`
+(`BoardLayout`) and `army` (`ArmyRoster`) fields, computed by `configureRules`
+via a lookup of the resolved `BOARD_LAYOUT`/`ARMY_COMPOSITION` flag values in
+`BOARD_LAYOUTS`/`ARMY_COMPOSITIONS` - plain data, so `PlayState` still
+serializes across `searchWorker.ts`'s boundary (pinned by a new JSON
+round-trip test on a Clash-shaped configuration). `Edition`'s `boardLayout`
+and `army` fields were removed from the interface and from all three edition
+constants (`BATTLE_EDITION`, `SKIRMISH_EDITION`,
+`SUPERSEDED_SKIRMISH_EDITION`); `boardLayoutId`/`armyCompositionId`/
+`towerPlacement`/`status` stayed. Removing the fields (rather than leaving a
+compatibility shim) turned every old `edition.boardLayout`/`edition.army` read
+into a compile error, which the compiler enumerated across 12 non-test
+modules (movement.ts, outcome.ts, play.ts, gameState.ts, readRecord.ts,
+placementSession.ts, playAnnouncement.ts, playSession.ts, PlayBoard.tsx,
+ReviewScreen.tsx, gameNames.ts, HotSeatGame.tsx - one fewer than the plan's
+estimate of 13, since `edition.ts` itself needed no read-site fix, only the
+field removal) plus 6 test files (edition.test.ts, gameState.test.ts,
+recordFile.test.ts, readRecord.test.ts, placementSession.test.ts,
+gameNames.test.ts); every one was migrated to read
+`configuration.boardLayout`/`configuration.army` instead, and none was found
+to silently re-resolve a layout or roster itself. `TOWER_PLACEMENT` was left
+exactly where Decision 2 says: read as `configuration.edition.towerPlacement`,
+untouched, in `gameState.ts` and `placementSession.ts`. `newSession`
+(placementSession.ts) now takes a `RuleConfiguration` instead of an `Edition`,
+per the plan's explicit instruction; `boardSizeDescription` (gameNames.ts) was
+changed from taking an `Edition` to taking a `RuleConfiguration` for the same
+reason (it needs a board that is not always the edition's own) - `gameName`
+and `defaultGameId` were left keyed on `Edition`/`EditionId` since neither
+reads a board or roster and the plan defers the full `GameId`-based naming
+model to Step 9's Decision 7. `edition.test.ts`'s removed-field assertions
+moved to `configuration.test.ts` as the plan directs, plus a new
+`configuration.test.ts` case pinning that a Clash-shaped configuration's
+`boardLayout`/`army` are Clash's, not `BATTLE_EDITION`'s, and a new
+`edition.test.ts` case asserting (via `Object.hasOwn`) that none of the three
+registered `Edition` objects carries a `boardLayout` or `army` field any more.
+No record fixture, tag string, position block or `doc/samples/` file was
+touched (`git diff --stat -- doc/samples src/engine src/encoding` is empty);
+`src/engine/**` and `src/encoding/**` were not edited. All five repository
+checks (typecheck, lint, test - 789 passed, up from 782 - format:check,
+build) are clean. No deviation from the plan beyond the two noted above
+(module count, and `boardSizeDescription`'s signature change), both mechanical
+consequences of the refactor rather than judgment calls.
 
 The one large, mechanical, compiler-driven refactor of this story (Decision 1).
 **No behaviour changes**: every configuration the app can build today still

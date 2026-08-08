@@ -5,6 +5,7 @@
 // same "Battle" / "Skirmish" wording and the same plain-language board-size
 // phrase, so it is defined once here rather than redeclared in both.
 
+import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import type { Edition, EditionId } from "../rules/primary/v2/edition.ts";
 
 /**
@@ -29,12 +30,15 @@ export function gameName(edition: Edition): string {
 /**
  * A short, plain-language description of the board size, article included -
  * e.g. "an 8x8 board", "a 12x12 board" - for a sentence like "Placing on an
- * 8x8 board." Only ever called with the two published editions (Battle,
- * Skirmish), so the article is a direct, hand-picked pair rather than a
- * general number-to-article rule.
+ * 8x8 board." Reads `configuration`'s own resolved board layout (story
+ * 00000030's Decision 1) rather than its edition's - a configuration's board
+ * is not always its edition's own (Clash names `BATTLE_EDITION` but plays a
+ * 10x10 board). Only ever called with configurations resolving to one of the
+ * three known boards (8x8, 10x10, 12x12) today, so the article is a direct,
+ * hand-picked set rather than a general number-to-article rule.
  */
-export function boardSizeDescription(edition: Edition): string {
-  const { columnCount, rowCount } = edition.boardLayout;
+export function boardSizeDescription(configuration: RuleConfiguration): string {
+  const { columnCount, rowCount } = configuration.boardLayout;
   const article = columnCount === 8 ? "an" : "a";
   return `${article} ${columnCount}x${rowCount} board`;
 }

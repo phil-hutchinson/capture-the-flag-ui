@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { ARMY_COMPOSITIONS } from "./armyComposition.ts";
+import { BOARD_LAYOUTS } from "./boardLayout.ts";
 import {
   configureRules,
   deviatingFlags,
@@ -148,6 +150,34 @@ describe("configureRules (standard configurations)", () => {
       expect(renderRulesetTag(configuration)).toBe(id);
     },
   );
+
+  // Story 00000030's implementation plan, Decision 1: `Edition` no longer
+  // carries a resolved board or roster at all - `RuleConfiguration.boardLayout`
+  // / `.army` (looked up from the same resolved `BOARD_LAYOUT`/
+  // `ARMY_COMPOSITION` flag values `resolvedEditionValue` derives from the
+  // edition's own ids) are the *only* place a board or a roster comes from.
+  // These assertions moved here from `edition.test.ts`, which no longer has
+  // anything to assert about a board or roster living on the edition itself.
+  it.each([
+    ["2-0:BATTLE", BATTLE_EDITION, "standard_144", "standard_battle"],
+    ["2-1:SKIRMISH", SKIRMISH_EDITION, "standard_64", "standard_skirmish"],
+    [
+      "2-0:SKIRMISH",
+      SUPERSEDED_SKIRMISH_EDITION,
+      "standard_64",
+      "standard_skirmish",
+    ],
+  ] as const)(
+    "%s resolves its own board layout and army roster",
+    (_id, edition, boardLayoutId, armyCompositionId) => {
+      const configuration = configureRules(edition);
+
+      expect(configuration.boardLayout).toBe(BOARD_LAYOUTS[boardLayoutId]);
+      expect(configuration.army).toBe(
+        ARMY_COMPOSITIONS[armyCompositionId].roster,
+      );
+    },
+  );
 });
 
 describe("configureRules (deviations)", () => {
@@ -222,6 +252,19 @@ describe("configureRules (game-defining deviations, i.e. Clash)", () => {
     expect(renderRulesetTag(configuration)).toBe(
       "2-0:BATTLE ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100",
     );
+    // The resolved board and army come from the *configuration*'s own
+    // flags, not from `BATTLE_EDITION`'s - the whole point of story
+    // 00000030's Decision 1. `configuration.edition` still names Battle
+    // (the deliberately "messy" stamp), but `configuration.boardLayout`/
+    // `.army` are Clash's.
+    expect(configuration.boardLayout).toBe(BOARD_LAYOUTS.asymmetric_100);
+    expect(configuration.army).toBe(ARMY_COMPOSITIONS.standard_clash.roster);
+    expect(configuration.boardLayout).not.toBe(
+      BOARD_LAYOUTS[BATTLE_EDITION.boardLayoutId],
+    );
+    expect(configuration.army).not.toBe(
+      ARMY_COMPOSITIONS[BATTLE_EDITION.armyCompositionId].roster,
+    );
   });
 
   it("adding a diagonal deviation on top of Clash appends its token after both game-defining tokens", () => {
@@ -274,6 +317,23 @@ describe("a RuleConfiguration is a plain, JSON-round-trippable object", () => {
 
     const roundTripped = JSON.parse(JSON.stringify(configuration)) as unknown;
     expect(roundTripped).toEqual(configuration);
+  });
+
+  // Story 00000030's implementation plan, Step 4 verification: the resolved
+  // `boardLayout`/`army` (plain data, no functions or `Map`s - Decision 1)
+  // must survive the round trip intact too, including for a Clash-shaped
+  // configuration whose board and army are not its edition's own.
+  it("survives a JSON round trip with the resolved boardLayout and army intact (Clash-shaped configuration)", () => {
+    const configuration = configureRules(BATTLE_EDITION, {
+      ARMY_COMPOSITION: "standard_clash",
+      BOARD_LAYOUT: "asymmetric_100",
+    });
+
+    const roundTripped = JSON.parse(
+      JSON.stringify(configuration),
+    ) as typeof configuration;
+    expect(roundTripped.boardLayout).toEqual(configuration.boardLayout);
+    expect(roundTripped.army).toEqual(configuration.army);
   });
 });
 

@@ -49,9 +49,10 @@
 // plain movement, so it keeps its pre-story-00000027 shape. `legalAttacks`
 // and `hasAnyLegalPly`, below, instead take a **required** `RuleConfiguration`
 // (story 00000027's implementation plan, Decision 3): its resolved flags are
-// what the diagonal loop reads (Steps 4-5), and its `edition.boardLayout` is
-// what sizes the board - no default, so every call site names its
-// configuration explicitly rather than silently inheriting Battle's.
+// what the diagonal loop reads (Steps 4-5), and its resolved `boardLayout`
+// (story 00000030's Decision 1) is what sizes the board - no default, so
+// every call site names its configuration explicitly rather than silently
+// inheriting Battle's.
 
 import {
   allSquares,
@@ -242,7 +243,7 @@ export function legalDestinations(
  * and the target-square lake check above is untouched. `DIAGONAL_ATTACKABLE`
  * and `DIAGONAL_ATTACK_PATH` compose independently - neither reads the
  * other. `configuration` (story 00000027 - required, no default) sizes the
- * board via `configuration.edition.boardLayout` and its two resolved flags
+ * board via `configuration.boardLayout` and its two resolved flags
  * govern the diagonal loop above.
  */
 export function legalAttacks(
@@ -250,7 +251,7 @@ export function legalAttacks(
   origin: Square,
   configuration: RuleConfiguration,
 ): Square[] {
-  const layout = configuration.edition.boardLayout;
+  const layout = configuration.boardLayout;
   const occupant = board[squareKey(origin)];
   if (occupant === undefined || isImmobile(occupant.pieceType)) {
     return [];
@@ -328,7 +329,7 @@ export function legalAttacks(
  * stuck (any adjacent enemy piece is always a legal, if sacrificial, attack),
  * so both destination sets must be considered. `configuration` (story
  * 00000027 - required, no default) sizes the board via
- * `configuration.edition.boardLayout` and is threaded into `legalAttacks`, so
+ * `configuration.boardLayout` and is threaded into `legalAttacks`, so
  * a diagonal-attack flag reaches this "no legal move" primitive too.
  */
 export function hasAnyLegalPly(
@@ -336,7 +337,7 @@ export function hasAnyLegalPly(
   side: Side,
   configuration: RuleConfiguration,
 ): boolean {
-  const layout = configuration.edition.boardLayout;
+  const layout = configuration.boardLayout;
   for (const square of allSquares(layout)) {
     const placed = board[squareKey(square)];
     if (placed === undefined || placed.side !== side) {

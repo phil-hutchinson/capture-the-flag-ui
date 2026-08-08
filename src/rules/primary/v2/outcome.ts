@@ -22,9 +22,9 @@
 //
 // `computeOutcome`'s `configuration` parameter (story 00000027's
 // implementation plan, Decision 3) is threaded into the Flag scan (via its
-// `edition.boardLayout`) and `hasAnyLegalPly` (which additionally reads its
-// resolved flags, Steps 4-5) - no default, so every call site names its
-// configuration explicitly.
+// resolved `boardLayout`, story 00000030's Decision 1) and `hasAnyLegalPly`
+// (which additionally reads its resolved flags, Steps 4-5) - no default, so
+// every call site names its configuration explicitly.
 
 import { allSquares, otherSide, squareKey, type Side } from "./board.ts";
 import type { BoardLayout } from "./boardLayout.ts";
@@ -96,7 +96,7 @@ function hasFlag(board: BoardState, side: Side, layout: BoardLayout): boolean {
  * applied ply (`applyMove`), always with the counter and board already
  * reflecting that ply and `activeSide` already the *new* side to move.
  * `configuration` (story 00000027 - required, no default) sizes the board
- * via `configuration.edition.boardLayout` and is threaded into
+ * via `configuration.boardLayout` and is threaded into
  * `hasAnyLegalPly`.
  */
 export function computeOutcome(
@@ -105,7 +105,7 @@ export function computeOutcome(
   inactivityCounter: number,
   configuration: RuleConfiguration,
 ): GameOutcome {
-  const layout = configuration.edition.boardLayout;
+  const layout = configuration.boardLayout;
   const opponent = otherSide(activeSide);
 
   // 1. §5.1 Flag capture - "does this side still have a Flag on the board",

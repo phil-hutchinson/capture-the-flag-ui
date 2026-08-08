@@ -168,7 +168,7 @@ export function readRecord(text: string): ReadRecordResult {
     tokens.slice(1),
   );
 
-  const parseResult = parseRecordFile(text, edition.boardLayout);
+  const parseResult = parseRecordFile(text, configuration.boardLayout);
   if (parseResult.kind === "error") {
     return {
       kind: "error",

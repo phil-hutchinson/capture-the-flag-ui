@@ -74,11 +74,12 @@ describe("buildInitialGameState (ruleset major 2)", () => {
 
   it("tags the artifact with the given edition's id (Skirmish)", () => {
     const skirmish = SKIRMISH_EDITION;
+    const skirmishConfiguration = configureRules(skirmish);
     const white = autoFillOrThrow(
       emptyPlacement(
         "white",
-        skirmish.boardLayout,
-        skirmish.army,
+        skirmishConfiguration.boardLayout,
+        skirmishConfiguration.army,
         skirmish.towerPlacement,
       ),
       seededRandom(21),
@@ -86,8 +87,8 @@ describe("buildInitialGameState (ruleset major 2)", () => {
     const black = autoFillOrThrow(
       emptyPlacement(
         "black",
-        skirmish.boardLayout,
-        skirmish.army,
+        skirmishConfiguration.boardLayout,
+        skirmishConfiguration.army,
         skirmish.towerPlacement,
       ),
       seededRandom(22),
@@ -95,7 +96,7 @@ describe("buildInitialGameState (ruleset major 2)", () => {
     const gameState = buildInitialGameState(
       white,
       black,
-      configureRules(skirmish),
+      skirmishConfiguration,
     );
 
     expect(gameState.ruleset).toBe("2-1:SKIRMISH");
@@ -508,7 +509,10 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
     };
     const block = renderPositionBlock(gameState);
 
-    const result = parsePositionBlock(block, SKIRMISH_EDITION.boardLayout);
+    const result = parsePositionBlock(
+      block,
+      STANDARD_SKIRMISH_CONFIGURATION.boardLayout,
+    );
     expect(result.kind).toBe("parsed");
     expect((result as { kind: "parsed"; board: BoardState }).board).toEqual(
       board,
@@ -532,14 +536,14 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
   it("buildInitialGameState rejects placement states on a different board layout than the given edition", () => {
     const white = emptyPlacement(
       "white",
-      SKIRMISH_EDITION.boardLayout,
-      SKIRMISH_EDITION.army,
+      STANDARD_SKIRMISH_CONFIGURATION.boardLayout,
+      STANDARD_SKIRMISH_CONFIGURATION.army,
       SKIRMISH_EDITION.towerPlacement,
     );
     const black = emptyPlacement(
       "black",
-      SKIRMISH_EDITION.boardLayout,
-      SKIRMISH_EDITION.army,
+      STANDARD_SKIRMISH_CONFIGURATION.boardLayout,
+      STANDARD_SKIRMISH_CONFIGURATION.army,
       SKIRMISH_EDITION.towerPlacement,
     );
     // Battle passed against Skirmish-layout placement states: the mismatch is
@@ -552,14 +556,14 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
   it("rejects placement states whose TOWER_PLACEMENT variant disagrees with the given edition (story 00000025)", () => {
     const white = emptyPlacement(
       "white",
-      SKIRMISH_EDITION.boardLayout,
-      SKIRMISH_EDITION.army,
+      STANDARD_SKIRMISH_CONFIGURATION.boardLayout,
+      STANDARD_SKIRMISH_CONFIGURATION.army,
       "spacing_only", // SKIRMISH_EDITION (2-1:SKIRMISH) itself is spacing_and_lanes.
     );
     const black = emptyPlacement(
       "black",
-      SKIRMISH_EDITION.boardLayout,
-      SKIRMISH_EDITION.army,
+      STANDARD_SKIRMISH_CONFIGURATION.boardLayout,
+      STANDARD_SKIRMISH_CONFIGURATION.army,
       SKIRMISH_EDITION.towerPlacement,
     );
     // A placement built under the historical spacing_only variant, sealed

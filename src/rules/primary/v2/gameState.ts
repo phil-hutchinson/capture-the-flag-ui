@@ -18,7 +18,7 @@
 //
 // The position-block render/parse (`renderPositionBlock`/`parsePositionBlock`)
 // are sized to a `BoardLayout` rather than the fixed 12x12 grid:
-// `renderPositionBlock` reads it off `gameState.configuration.edition`
+// `renderPositionBlock` reads it off `gameState.configuration.boardLayout`
 // (required - see `InitialGameState`'s doc comment); `parsePositionBlock`
 // takes it as a parameter that defaults to Battle - that default is never
 // reachable from a live path (its one caller, `recordFile.ts`'s
@@ -109,10 +109,13 @@ export interface InitialGameState {
  * `Ruleset` record tag `renderGameRecord` (play.ts) writes (story 00000023's
  * Step 8, extended by story 00000027's Step 2). Rejects (throws) if either
  * state belongs to the wrong side, was placed on a different board layout
- * or `TOWER_PLACEMENT` value than `configuration.edition`'s (story 00000025's
- * Step 3 - a placement built for one edition must never be sealed into
- * another's game state), or is not a complete army for its own roster
- * (Battle 25 pieces, Skirmish 16) - by this point in the flow (both players
+ * than `configuration.boardLayout` or a different `TOWER_PLACEMENT` value
+ * than `configuration.edition.towerPlacement`'s (story 00000025's Step 3,
+ * updated by story 00000030's Decision 1 - a placement built for one
+ * configuration must never be sealed into another's game state; tower
+ * placement stays read off the edition per story 00000030's Decision 2), or
+ * is not a complete army for `configuration.army`'s own roster size (Battle
+ * 25 pieces, Skirmish 16, Clash 20) - by this point in the flow (both players
  * have confirmed) all three are structural invariants, not recoverable user
  * errors.
  */
@@ -121,7 +124,7 @@ export function buildInitialGameState(
   black: PlacementState,
   configuration: RuleConfiguration,
 ): InitialGameState {
-  const { edition } = configuration;
+  const { edition, boardLayout, army } = configuration;
   if (white.side !== "white") {
     throw new Error(
       "buildInitialGameState: `white` must be White's placement state.",
@@ -133,11 +136,11 @@ export function buildInitialGameState(
     );
   }
   if (
-    white.boardLayout.id !== edition.boardLayoutId ||
-    black.boardLayout.id !== edition.boardLayoutId
+    white.boardLayout.id !== boardLayout.id ||
+    black.boardLayout.id !== boardLayout.id
   ) {
     throw new Error(
-      `buildInitialGameState: both placement states must be on ${edition.boardLayoutId} for ${edition.id}.`,
+      `buildInitialGameState: both placement states must be on ${boardLayout.id} for ${edition.id}.`,
     );
   }
   if (
@@ -149,7 +152,7 @@ export function buildInitialGameState(
     );
   }
   if (!isComplete(white) || !isComplete(black)) {
-    const size = armySize(edition.army);
+    const size = armySize(army);
     throw new Error(
       `buildInitialGameState: both armies must be complete (${size}/${size} placed) before serializing.`,
     );
@@ -185,7 +188,7 @@ function positionBlockCell(
 
 /**
  * Renders the position-block text form of `gameState.board`: the full board
- * - sized to `gameState.configuration.edition`'s `BoardLayout` - in White's
+ * - sized to `gameState.configuration`'s resolved `BoardLayout` - in White's
  * absolute frame - highest row at top, row 1 at bottom, column A at left -
  * as one line per row of three-character cells separated by single spaces.
  * Cell encoding: White piece `[X]`, Black piece `*X*`, empty `---`, lake
@@ -193,7 +196,7 @@ function positionBlockCell(
  * `technical-notes.md`'s "Record file format" for the source of this format.
  */
 export function renderPositionBlock(gameState: InitialGameState): string {
-  const layout = gameState.configuration.edition.boardLayout;
+  const layout = gameState.configuration.boardLayout;
   const rowsTopToBottom = [...rowsOf(layout)].reverse();
   const columns = columnsOf(layout);
   return rowsTopToBottom

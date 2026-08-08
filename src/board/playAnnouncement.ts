@@ -370,7 +370,7 @@ export function describeActivation(
     // required on `PlayState` (story 00000023's peer review, finding #2, and
     // story 00000027's Step 3), so there is no default to fall back to.
     const { configuration } = after.play;
-    const layout = configuration.edition.boardLayout;
+    const layout = configuration.boardLayout;
     const count =
       legalDestinations(after.play.board, after.selection, layout).length +
       legalAttacks(after.play.board, after.selection, configuration).length;

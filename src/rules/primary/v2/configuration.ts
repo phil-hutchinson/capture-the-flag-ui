@@ -31,6 +31,8 @@
 // `src/board/ruleChoices.ts` for how an unrecognized token is described to a
 // reviewer instead of hidden or refused.
 
+import { ARMY_COMPOSITIONS, type ArmyRoster } from "./armyComposition.ts";
+import { BOARD_LAYOUTS, type BoardLayout } from "./boardLayout.ts";
 import { BATTLE_EDITION, SKIRMISH_EDITION, type Edition } from "./edition.ts";
 import {
   RULE_FLAG_CATALOG,
@@ -56,14 +58,27 @@ function isKnownFlagId(id: string): id is RuleFlagId {
 
 /**
  * What a game is set up, played, recorded and replayed under: a registered
- * `Edition` plus every rule flag's fully resolved value. Both fields are
- * plain, JSON-serializable data - no functions or `Map`s - so a
- * configuration can cross the `PlayState`/`searchWorker.ts` boundary once
- * Step 3 threads it there.
+ * `Edition` plus every rule flag's fully resolved value, plus the board and
+ * army those flags resolve to. All fields are plain, JSON-serializable data -
+ * no functions or `Map`s - so a configuration can cross the
+ * `PlayState`/`searchWorker.ts` boundary.
+ *
+ * `boardLayout` and `army` (story 00000030's implementation plan, Decision 1)
+ * are the resolved `BOARD_LAYOUT`/`ARMY_COMPOSITION` flag values looked up in
+ * `BOARD_LAYOUTS`/`ARMY_COMPOSITIONS` - **not** `edition.boardLayoutId`/
+ * `edition.armyCompositionId` read directly, because a configuration's board
+ * and army are not always its edition's own (a Clash configuration names
+ * `BATTLE_EDITION` as its edition but plays a different board and army
+ * entirely). `Edition` itself carries no resolved board or roster any more:
+ * these two fields on `RuleConfiguration` are the *only* place a board or a
+ * roster comes from, for every rule path, every play surface and every
+ * record. `configureRules` is the only place they are computed.
  */
 export interface RuleConfiguration {
   readonly edition: Edition;
   readonly flags: ResolvedRuleFlags;
+  readonly boardLayout: BoardLayout;
+  readonly army: ArmyRoster;
 }
 
 /**
@@ -123,9 +138,12 @@ export function configureRules(
   for (const flagId of RULE_FLAG_IDS) {
     flags[flagId] = overrides[flagId] ?? resolvedEditionValue(edition, flagId);
   }
+  const resolvedFlags = Object.freeze(flags) as ResolvedRuleFlags;
   return {
     edition,
-    flags: Object.freeze(flags) as ResolvedRuleFlags,
+    flags: resolvedFlags,
+    boardLayout: BOARD_LAYOUTS[resolvedFlags.BOARD_LAYOUT],
+    army: ARMY_COMPOSITIONS[resolvedFlags.ARMY_COMPOSITION].roster,
   };
 }
 

@@ -16,13 +16,24 @@
 // assume they do.
 //
 // This module is threaded through the rule engine and its consumers:
-// `board.ts`/`movement.ts`/`combat.ts`/`outcome.ts`/`placement.ts` take an
-// `Edition`'s resolved `BoardLayout`; `gameState.ts`'s game-state artifacts
-// carry the resolved `Edition`; `readRecord.ts` dispatches on the `Ruleset`
-// tag by looking it up in `EDITIONS` (every registered edition, readable
-// regardless of status); and `HotSeatGame.tsx`/`GameChoice.tsx` let the
-// player choose between the editions `playableEditions()` returns (active
-// editions only).
+// `board.ts`/`movement.ts`/`combat.ts`/`outcome.ts`/`placement.ts` take a
+// `RuleConfiguration`'s resolved `BoardLayout`; `gameState.ts`'s game-state
+// artifacts carry the resolved `RuleConfiguration`; `readRecord.ts`
+// dispatches on the `Ruleset` tag by looking its edition id up in `EDITIONS`
+// (every registered edition, readable regardless of status); and
+// `HotSeatGame.tsx`/`GameChoice.tsx` let the player choose between the games
+// `configuration.ts`/`games.ts` build (active editions only).
+//
+// Story 00000030 (Decision 1): `Edition` itself no longer carries a resolved
+// `boardLayout`/`army` - only the ids (`boardLayoutId`, `armyCompositionId`)
+// that name them. A `RuleConfiguration`'s resolved board and army
+// (`configuration.ts`) are the *only* place a board or a roster comes from,
+// because an edition's own ids are no longer necessarily the truth about the
+// game being played (a Clash configuration names `BATTLE_EDITION` but plays
+// on a different board and army entirely). Read `configuration.boardLayout`/
+// `configuration.army`, never `edition.boardLayout`/`edition.army` - the
+// latter two fields do not exist any more, precisely so that every old read
+// became a compile error and none could be missed.
 
 import {
   armySize,
@@ -66,10 +77,6 @@ export interface Edition {
   readonly armyCompositionId: ArmyCompositionId;
   readonly towerPlacement: TowerPlacement;
   readonly status: EditionStatus;
-  /** The resolved board geometry for this edition. */
-  readonly boardLayout: BoardLayout;
-  /** The resolved army roster for this edition. */
-  readonly army: ArmyRoster;
 }
 
 /** True if a roster's total piece count fits within a board layout's per-side home zone. */
@@ -116,8 +123,6 @@ export const BATTLE_EDITION: Edition = {
   armyCompositionId: "standard_battle",
   towerPlacement: "spacing_only",
   status: "active",
-  boardLayout: BOARD_LAYOUTS.standard_144,
-  army: ARMY_COMPOSITIONS.standard_battle.roster,
 };
 
 /**
@@ -138,8 +143,6 @@ export const SKIRMISH_EDITION: Edition = {
   armyCompositionId: "standard_skirmish",
   towerPlacement: "spacing_and_lanes",
   status: "active",
-  boardLayout: BOARD_LAYOUTS.standard_64,
-  army: ARMY_COMPOSITIONS.standard_skirmish.roster,
 };
 
 /**
@@ -160,8 +163,6 @@ export const SUPERSEDED_SKIRMISH_EDITION: Edition = {
   armyCompositionId: "standard_skirmish",
   towerPlacement: "spacing_only",
   status: "superseded",
-  boardLayout: BOARD_LAYOUTS.standard_64,
-  army: ARMY_COMPOSITIONS.standard_skirmish.roster,
 };
 
 /**

@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import {
+  STANDARD_BATTLE_CONFIGURATION,
+  STANDARD_SKIRMISH_CONFIGURATION,
+} from "../rules/primary/v2/configuration.ts";
 import { editionById } from "../rules/primary/v2/edition.ts";
 import { boardSizeDescription, defaultGameId, gameName } from "./gameNames.ts";
 
@@ -18,13 +22,13 @@ describe("gameName", () => {
 
 describe("boardSizeDescription", () => {
   it("describes Battle's 12x12 board", () => {
-    expect(boardSizeDescription(editionById("2-0:BATTLE"))).toBe(
+    expect(boardSizeDescription(STANDARD_BATTLE_CONFIGURATION)).toBe(
       "a 12x12 board",
     );
   });
 
   it("describes Skirmish's 8x8 board with an 'an' article", () => {
-    expect(boardSizeDescription(editionById("2-1:SKIRMISH"))).toBe(
+    expect(boardSizeDescription(STANDARD_SKIRMISH_CONFIGURATION)).toBe(
       "an 8x8 board",
     );
   });

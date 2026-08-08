@@ -15,13 +15,16 @@
 // module's; this module only exposes the fact that the session has reached
 // it (`active === null`) plus both sides' final `PlacementState`s.
 //
-// `newSession` takes the `Edition` to place for - required, since a silent
-// Battle default is the defect class this story's Gate B/D and its peer
-// review (findings #2 and #15) turned up; both sides' `PlacementState`s are
-// seeded with that edition's board layout and army roster (story 00000023's
-// Step 4) and, since story 00000025's Step 3, its `TOWER_PLACEMENT` value -
-// so a session's placements can never disagree with the edition they were
-// started for.
+// `newSession` takes the `RuleConfiguration` to place for - required, since a
+// silent Battle default is the defect class this story's Gate B/D and its
+// peer review (findings #2 and #15) turned up; both sides' `PlacementState`s
+// are seeded with that configuration's resolved board layout and army roster
+// (story 00000023's Step 4, updated by story 00000030's Decision 1 - a
+// configuration's board and army are not always its edition's own) and, since
+// story 00000025's Step 3, the *edition's* `TOWER_PLACEMENT` value (story
+// 00000030's Decision 2: tower placement stays read off the edition, which is
+// correct for every configuration this app can build today) - so a session's
+// placements can never disagree with the configuration they were started for.
 
 import {
   emptyPlacement,
@@ -29,7 +32,7 @@ import {
   type PlacementState,
 } from "../rules/primary/v2/placement.ts";
 import type { Side } from "../rules/primary/v2/board.ts";
-import type { Edition } from "../rules/primary/v2/edition.ts";
+import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 
 /**
  * The placement session's state: both players' placements, and whose turn it
@@ -43,25 +46,16 @@ export interface PlacementSession {
 }
 
 /**
- * A fresh session for `edition` (required): White goes first, both trays full
- * (sized to `edition`'s army) and boards empty (sized to `edition`'s board
- * layout).
+ * A fresh session for `configuration` (required): White goes first, both
+ * trays full (sized to `configuration.army`) and boards empty (sized to
+ * `configuration.boardLayout`).
  */
-export function newSession(edition: Edition): PlacementSession {
+export function newSession(configuration: RuleConfiguration): PlacementSession {
+  const { boardLayout, army, edition } = configuration;
   return {
     active: "white",
-    white: emptyPlacement(
-      "white",
-      edition.boardLayout,
-      edition.army,
-      edition.towerPlacement,
-    ),
-    black: emptyPlacement(
-      "black",
-      edition.boardLayout,
-      edition.army,
-      edition.towerPlacement,
-    ),
+    white: emptyPlacement("white", boardLayout, army, edition.towerPlacement),
+    black: emptyPlacement("black", boardLayout, army, edition.towerPlacement),
   };
 }
 
