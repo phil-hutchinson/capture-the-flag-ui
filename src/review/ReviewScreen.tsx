@@ -35,12 +35,18 @@
 // status line above the board - nothing here announces anything from a
 // second live region.
 //
-// Story 00000023, Gate D defect fix: this screen renders `FullBoard` with
-// the `configuration` prop's resolved `boardLayout` (story 00000030's
-// Decision 1; `readRecord.ts` resolves it from the record's own `Ruleset`
-// tag) rather than letting `FullBoard`'s Battle default silently apply - a
-// Skirmish record was previously drawn on a 12x12 board with Battle's lakes,
-// not Skirmish's.
+// Story 00000023, Gate D defect fix: this screen renders `FullBoard` with the
+// record's own `boardLayout` prop (`readRecord.ts` resolves it from the
+// record's own `Ruleset` tag) rather than letting `FullBoard`'s Battle
+// default silently apply - a Skirmish record was previously drawn on a 12x12
+// board with Battle's lakes, not Skirmish's.
+//
+// Story 00000030's Step 8 widens this: `boardLayout` is **not** always
+// `configuration.boardLayout` (Decision 1's field) - a record whose
+// `BOARD_LAYOUT` value this app has no geometry for is instead rendered on a
+// layout *derived* straight from the record's own position block (Decisions
+// 8 and 9), and this screen renders exactly that field, never
+// `configuration.boardLayout` directly, so the two never diverge on screen.
 //
 // Story 00000027, Step 9: the status line also shows the record's
 // non-standard rules, if any (`ruleChoices.ts`'s `nonStandardRuleSentences`,
@@ -57,7 +63,9 @@
 // unrecognized token, quoting it verbatim (`ruleChoices.ts`'s
 // `unrecognizedRuleSentence`) - so a reviewer is never misled into thinking
 // they are watching a standard game just because this app cannot describe
-// what makes it different.
+// what makes it different. Story 00000030's Step 8 gives the one unresolved
+// `BOARD_LAYOUT` token its own sentence instead (`derivedBoardLayoutSentence`),
+// since this app genuinely can still draw that board.
 
 import { useEffect, useRef, useState } from "react";
 import "../App.css";
@@ -65,10 +73,18 @@ import "./ReviewScreen.css";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
 import { FullBoard } from "../board/FullBoard.tsx";
 import {
+  derivedBoardLayoutSentence,
   nonStandardRuleSentences,
   unrecognizedRuleSentence,
 } from "../board/ruleChoices.ts";
-import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
+import {
+  DERIVED_BOARD_LAYOUT_ID,
+  type BoardLayout,
+} from "../rules/primary/v2/boardLayout.ts";
+import {
+  rawTokenFlagId,
+  type RuleConfiguration,
+} from "../rules/primary/v2/configuration.ts";
 import type { ReplayedRecord } from "../rules/primary/v2/replay.ts";
 import {
   createReviewSession,
@@ -95,9 +111,10 @@ export interface ReviewScreenProps {
   /**
    * The `RuleConfiguration` the record's `Ruleset` tag resolved to (story
    * 00000023's Gate D defect fix, widened from a bare `Edition` by story
-   * 00000027's Step 3) - `configuration.edition` drives the board this screen
-   * renders (dimensions and lake layout), so a Skirmish record is drawn on
-   * Skirmish's 8x8 board rather than silently defaulting to Battle's 12x12.
+   * 00000027's Step 3). Used here for `nonStandardRuleSentences`, not for the
+   * board - see `boardLayout` below (story 00000030's Step 8:
+   * `configuration.boardLayout` is not always what the record was actually
+   * played on).
    */
   readonly configuration: RuleConfiguration;
   /**
@@ -108,6 +125,16 @@ export interface ReviewScreenProps {
    * written itself.
    */
   readonly unrecognizedRuleTokens: readonly string[];
+  /**
+   * The board this record must actually be rendered on (story 00000030's
+   * Step 8 - `readRecord.ts`'s `boardLayout` field): `configuration
+   * .boardLayout` for a tag this app fully understands (so a Skirmish record
+   * is drawn on Skirmish's 8x8 board, a Clash record on Clash's 10x10 board,
+   * rather than silently defaulting to Battle's 12x12), or a layout *derived*
+   * from the record's own position block when the tag names a `BOARD_LAYOUT`
+   * value this app has no geometry for.
+   */
+  readonly boardLayout: BoardLayout;
   /** Returns to the start screen. Never prompts - reviewing loses nothing. */
   readonly onBack: () => void;
 }
@@ -117,6 +144,7 @@ export function ReviewScreen({
   record,
   configuration,
   unrecognizedRuleTokens,
+  boardLayout,
   onBack,
 }: ReviewScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -155,10 +183,34 @@ export function ReviewScreen({
   // first, then one sentence per unrecognized token this app cannot
   // describe (Step 10) - a record can carry both at once.
   const recognizedRuleSentences = nonStandardRuleSentences(configuration);
+  // Story 00000030's Step 8: when `boardLayout` was *derived* rather than
+  // looked up (its `id` is then never a catalog `BoardLayoutId`), the one
+  // unrecognized token that named the unresolvable `BOARD_LAYOUT` value gets
+  // `derivedBoardLayoutSentence` instead of the generic
+  // `unrecognizedRuleSentence` - a reviewer is told once, in wording that
+  // actually explains what happened to the board, not twice.
+  const derivedBoardLayoutToken =
+    boardLayout.id === DERIVED_BOARD_LAYOUT_ID
+      ? (unrecognizedRuleTokens.find(
+          (token) => rawTokenFlagId(token) === "BOARD_LAYOUT",
+        ) ?? null)
+      : null;
+  const otherUnrecognizedTokens =
+    derivedBoardLayoutToken === null
+      ? unrecognizedRuleTokens
+      : unrecognizedRuleTokens.filter(
+          (token) => token !== derivedBoardLayoutToken,
+        );
   const rulesSummary = [
     ...recognizedRuleSentences,
-    ...unrecognizedRuleTokens.map((token) =>
-      unrecognizedRuleSentence(token, recognizedRuleSentences.length > 0),
+    ...(derivedBoardLayoutToken === null
+      ? []
+      : [derivedBoardLayoutSentence(derivedBoardLayoutToken)]),
+    ...otherUnrecognizedTokens.map((token) =>
+      unrecognizedRuleSentence(
+        token,
+        recognizedRuleSentences.length > 0 || derivedBoardLayoutToken !== null,
+      ),
     ),
   ];
 
@@ -187,7 +239,7 @@ export function ReviewScreen({
           <FullBoard
             board={currentBoard(session)}
             side="white"
-            layout={configuration.boardLayout}
+            layout={boardLayout}
             lastMove={
               move === null
                 ? undefined

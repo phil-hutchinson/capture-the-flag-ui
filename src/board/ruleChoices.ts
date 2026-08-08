@@ -20,6 +20,14 @@
 // for every record, forever) requires saying plainly that this app cannot
 // describe that one rule.
 //
+// Story 00000030's Step 8 adds `derivedBoardLayoutSentence`, its own sibling
+// for the one case where an unresolvable token is a `BOARD_LAYOUT` value: the
+// board is still drawn (from the record's own position block, per
+// `readRecord.ts`'s `boardLayout` field), so the wording says that plainly
+// rather than reusing the generic "rule setting this app doesn't recognize"
+// phrasing. `ReviewScreen.tsx` renders it *instead of*
+// `unrecognizedRuleSentence` for that one token.
+//
 // Owner decision at the plan gate: the word is "diagonal", never
 // "corner-to-corner" - `rules.md` §4.3 and its glossary, themselves written
 // for players, already say "diagonal", so a player who follows the link to
@@ -233,4 +241,26 @@ export function unrecognizedRuleSentence(
 ): string {
   const also = precededByRecognizedDeviation ? " also" : "";
   return `This game${also} used a rule setting this app doesn't recognize ("${token}"). The game can still be reviewed.`;
+}
+
+/**
+ * The player-facing sentence for a record whose `Ruleset` tag names a
+ * `BOARD_LAYOUT` value this app has no geometry for (story 00000030's Step 8,
+ * Decisions 8 and 9) - `readRecord.ts`'s `boardLayout` field is then a layout
+ * *derived* straight from the record's own position block rather than one of
+ * this app's own layouts, and this sentence says so, quoting the token
+ * verbatim exactly as `unrecognizedRuleSentence` does. Like that sentence,
+ * this is a note, not a warning: reviewing such a record is guaranteed (see
+ * `unrecognizedRuleSentence`'s own doc comment), and this app genuinely has
+ * enough information to draw the board even without recognizing the tag's
+ * value - the position block is fully self-describing - so nothing here reads
+ * as "can't be reviewed".
+ *
+ * `ReviewScreen.tsx` renders this sentence **instead of**
+ * `unrecognizedRuleSentence` for the one token that named the unresolvable
+ * `BOARD_LAYOUT` value, so a reviewer is told once, in the wording that
+ * actually explains what happened to the board, rather than twice.
+ */
+export function derivedBoardLayoutSentence(token: string): string {
+  return `This game was played on a board this app doesn't know ("${token}"), so the board below is drawn from the record's own starting position.`;
 }

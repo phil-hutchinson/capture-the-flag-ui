@@ -953,7 +953,76 @@ repository checks.
 
 ## Step 8 — Reading a record on a board this app doesn't know
 
-Status: pending
+Status: committed
+
+Notes: Implemented as planned. `boardLayout.ts` gains `DERIVED_BOARD_LAYOUT_ID`
+("derived_from_record") and `DerivedBoardLayoutId`; `BoardLayout.id` widens to
+`BoardLayoutId | DerivedBoardLayoutId` (confirmed first that nothing switches
+exhaustively on `layout.id` - only equality checks in `gameState.ts` and
+tests - per the step's own instruction). `gameState.ts` gains
+`deriveBoardLayoutFromPositionBlock` beside `parsePositionBlock`: total,
+reads row/column counts and `XXX` cells straight off the block's own text in
+its bottom-up row numbering, and sets `homeRowsPerSide: 0`/`hasBuffer: false`
+as directed. `recordFile.ts`'s `parseRecordFile` now takes a
+`PositionBlockLayoutSource` (`{kind: "known", layout}` or `{kind: "derive"}`)
+instead of a bare `BoardLayout`, derives internally on `"derive"`, and returns
+the layout actually used alongside the parsed record (`RecordFileResult`
+gains a `layout` field) - the "derive, then validate as usual" design the
+plan calls for, with no second validation path. `configuration.ts` gains a
+small exported `rawTokenFlagId` helper (the flag id substring before a raw
+token's first `=`), reused by both `readRecord.ts` (to decide `"known"` vs
+`"derive"`: any unrecognized token whose flag id is `BOARD_LAYOUT` triggers
+derivation) and `ReviewScreen.tsx` (to find that same token again for its own
+sentence). `readRecord.ts`'s `ReadRecordResult` gains a `boardLayout` field -
+`configuration.boardLayout` for a tag this app fully understands, the derived
+layout otherwise - which callers must render from instead of
+`configuration.boardLayout` directly; `ImportScreen.tsx` → `App.tsx` →
+`ReviewScreen.tsx` thread it through exactly as the plan describes, and
+`ReviewScreen.tsx` renders `FullBoard` from it. `ruleChoices.ts` gains
+`derivedBoardLayoutSentence`, using the plan's exact draft copy; `ReviewScreen.tsx`
+substitutes it for `unrecognizedRuleSentence` on the one token that caused
+derivation, so a reviewer is told once, not twice - confirmed with a direct
+test of the sentence text, and integration coverage that it appears (and the
+generic sentence does not) when a board is derived. No new `ReadRecordError`,
+`RecordFileError` or `PositionBlockError` case was added anywhere;
+`readRecord.ts`'s `unknownRuleset` handling is untouched and is still the only
+refusal (pinned by a new test: an unknown edition id still rejects, unaffected
+by an accompanying unresolvable `BOARD_LAYOUT` token). `reviewText.ts` gained
+one source comment (no wording change) beside `wrongRowCount`, per the step's
+"worth a comment" note, explaining why the sentence's "{n}x{n}" phrase built
+from `expectedRowCount` alone stays harmless: every catalog layout is square,
+and a _derived_ layout's `rowCount` is always exactly its block's own line
+count by construction, so `wrongRowCount` can only ever fire on the _known_-
+board path (Decision 8) - its `default: return error satisfies never;`
+switches are otherwise exactly the compile-time proof that no new
+`PositionBlockError`/`RecordFileError`/`ReadRecordError` case was added
+(confirmed by `npm run typecheck` passing unchanged). Test coverage: a new
+`deriveBoardLayoutFromPositionBlock`
+describe block in `gameState.test.ts` (dimensions/lake cells from a hand-built
+block, lakeless block, empty block, ragged block, CRLF/whitespace tolerance);
+a `derivedBoardLayoutSentence` describe block in `ruleChoices.test.ts`;
+and a large new section in `readRecord.test.ts` covering the plan's full
+verification list - the headline 14x14 "unknown board" case, `homeRowsPerSide`/
+`hasBuffer` on the derived layout, a lakeless derived board, a ragged block
+still producing `wrongCellCount` (no new error kind), the tag winning for a
+known board against both a wrong-sized and a wrong-lake-position block, an
+unresolvable `ARMY_COMPOSITION` token not triggering derivation, the unknown-
+edition-id case, and a regression-guard suite asserting `boardLayout` is
+`configuration.boardLayout` (by reference) for all five checked-in
+`doc/samples/` fixtures plus the bare `2-0:BATTLE` tag. All five repository
+checks (typecheck, lint, test — 862 passed, up from 838 — format:check,
+build) are clean; `git diff --stat -- doc/samples src/engine src/encoding`
+against HEAD is empty, and no existing fixture, tag string or position block
+was edited.
+
+No deviation from the plan. One thing worth calling out even though it isn't
+one: the coordinator's brief (repeated in this step's own text) named
+`reviewText.ts` as `derivedBoardLayoutSentence`'s home, but the step's own
+body immediately overrides that in a parenthetical ("`reviewText.ts` words
+structured rejections... putting it there keeps one voice and one home...
+flagged for the owner rather than decided silently") and places it in
+`ruleChoices.ts` instead, alongside `unrecognizedRuleSentence` - which is
+what was implemented, matching the step's own stated resolution.
 
 Implement Decisions 8 and 9: a record whose `Ruleset` tag names a `BOARD_LAYOUT`
 value this app has no geometry for must **review normally**, on a board derived

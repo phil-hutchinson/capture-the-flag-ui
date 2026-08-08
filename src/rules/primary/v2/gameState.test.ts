@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { armySize, BATTLE_ARMY } from "./armyComposition.ts";
 import { BATTLE_LAYOUT, homeSquares } from "./board.ts";
+import { DERIVED_BOARD_LAYOUT_ID } from "./boardLayout.ts";
 import {
   configureRules,
   STANDARD_BATTLE_CONFIGURATION,
@@ -15,6 +16,7 @@ import { autoFill, emptyPlacement, type PlacementState } from "./placement.ts";
 const ARMY_SIZE = armySize(BATTLE_ARMY);
 import {
   buildInitialGameState,
+  deriveBoardLayoutFromPositionBlock,
   parsePositionBlock,
   renderPositionBlock,
   RULESET_TAG,
@@ -646,5 +648,72 @@ describe("Clash (asymmetric_100 / standard_clash) - story 00000030, Step 7", () 
       }
       expect(line.split(" ")).not.toContain("XXX");
     }
+  });
+});
+
+describe("deriveBoardLayoutFromPositionBlock - story 00000030, Step 8", () => {
+  it("derives dimensions and lake cells straight off a hand-built block, in the block's own bottom-up row numbering", () => {
+    // 3 rows x 4 columns. Top line (first) is row 3, bottom line (last) is
+    // row 1 - `renderPositionBlock`'s convention, this function's inverse.
+    const block = [
+      "--- XXX --- ---", // row 3: lake at column index 1
+      "--- --- --- ---", // row 2: no lake
+      "XXX --- --- XXX", // row 1: lake at column indices 0 and 3
+    ].join("\n");
+
+    const layout = deriveBoardLayoutFromPositionBlock(block);
+
+    expect(layout.id).toBe(DERIVED_BOARD_LAYOUT_ID);
+    expect(layout.rowCount).toBe(3);
+    expect(layout.columnCount).toBe(4);
+    expect(layout.homeRowsPerSide).toBe(0);
+    expect(layout.hasBuffer).toBe(false);
+    expect(layout.lakeRows).toEqual([1, 3]);
+    expect(layout.lakeColumnIndices).toEqual([0, 1, 3]);
+  });
+
+  it("derives a lakeless board when the block has no XXX cells at all", () => {
+    const block = ["--- --- ---", "--- --- ---"].join("\n");
+
+    const layout = deriveBoardLayoutFromPositionBlock(block);
+
+    expect(layout.rowCount).toBe(2);
+    expect(layout.columnCount).toBe(3);
+    expect(layout.lakeRows).toEqual([]);
+    expect(layout.lakeColumnIndices).toEqual([]);
+  });
+
+  it("is total: an empty block derives a degenerate 0x0 layout rather than throwing", () => {
+    expect(() => deriveBoardLayoutFromPositionBlock("")).not.toThrow();
+
+    const layout = deriveBoardLayoutFromPositionBlock("");
+    expect(layout.id).toBe(DERIVED_BOARD_LAYOUT_ID);
+    expect(layout.rowCount).toBe(0);
+    expect(layout.columnCount).toBe(0);
+    expect(layout.lakeRows).toEqual([]);
+    expect(layout.lakeColumnIndices).toEqual([]);
+  });
+
+  it("is total: a ragged block (rows of different widths) derives without throwing, column count from the first line only", () => {
+    const raggedBlock = ["--- --- ---", "--- ---", "XXX --- --- ---"].join(
+      "\n",
+    );
+
+    expect(() => deriveBoardLayoutFromPositionBlock(raggedBlock)).not.toThrow();
+
+    const layout = deriveBoardLayoutFromPositionBlock(raggedBlock);
+    expect(layout.rowCount).toBe(3);
+    expect(layout.columnCount).toBe(3);
+  });
+
+  it("tolerates CRLF line endings and leading/trailing whitespace, matching parsePositionBlock's own tolerance", () => {
+    const block = ["  XXX --- ---  ", " --- --- --- "].join("\r\n");
+
+    const layout = deriveBoardLayoutFromPositionBlock(block);
+
+    expect(layout.rowCount).toBe(2);
+    expect(layout.columnCount).toBe(3);
+    expect(layout.lakeRows).toEqual([2]);
+    expect(layout.lakeColumnIndices).toEqual([0]);
   });
 });

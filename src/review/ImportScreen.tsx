@@ -29,6 +29,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import "../App.css";
 import "./ImportScreen.css";
 import { readRecord } from "../rules/readRecord.ts";
+import type { BoardLayout } from "../rules/primary/v2/boardLayout.ts";
 import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import type { ReplayedRecord } from "../rules/primary/v2/replay.ts";
 import { describeRejection } from "./reviewText.ts";
@@ -58,15 +59,20 @@ export interface ImportScreenProps {
    * `RuleConfiguration` its `Ruleset` tag resolved to (story 00000023's Gate
    * D defect fix; widened from a bare `Edition` by story 00000027's Step 3) -
    * so the review screen renders the record's own board, not Battle's by
-   * default - and any `FLAG=value` tokens the tag carried that this app
-   * could not resolve (Step 10), verbatim, so the review screen can tell the
-   * player plainly it cannot describe those rules rather than staying
-   * silent about them.
+   * default - any `FLAG=value` tokens the tag carried that this app could not
+   * resolve (Step 10), verbatim, so the review screen can tell the player
+   * plainly it cannot describe those rules rather than staying silent about
+   * them, and the `BoardLayout` the record must actually be rendered on
+   * (story 00000030's Step 8 - `readRecord.ts`'s `boardLayout` field, equal
+   * to `configuration.boardLayout` for a tag this app fully understands, or a
+   * layout derived from the record's own position block when the tag names a
+   * `BOARD_LAYOUT` value this app has no geometry for).
    */
   readonly onImported: (
     record: ReplayedRecord,
     configuration: RuleConfiguration,
     unrecognizedRuleTokens: readonly string[],
+    boardLayout: BoardLayout,
   ) => void;
 }
 
@@ -99,6 +105,7 @@ export function ImportScreen({ onBack, onImported }: ImportScreenProps) {
         result.record,
         result.configuration,
         result.unrecognizedRuleTokens,
+        result.boardLayout,
       );
     } catch {
       setError(UNREADABLE_FILE_MESSAGE);

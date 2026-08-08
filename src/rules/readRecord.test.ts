@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { Edition } from "./primary/v2/edition.ts";
 import { EDITIONS } from "./primary/v2/edition.ts";
-import { columnLetter } from "./primary/v2/boardLayout.ts";
+import {
+  columnLetter,
+  DERIVED_BOARD_LAYOUT_ID,
+} from "./primary/v2/boardLayout.ts";
 import {
   configureRules,
   deviatingFlags,
@@ -1249,5 +1252,287 @@ describe("readRecord - the checked-in doc/samples/2-0-battle-clash-flag-capture.
       A1: { side: "white", pieceType: "flag" },
       E6: { side: "white", pieceType: "champion" },
     });
+  });
+});
+
+// Story 00000030, Step 8: a record whose `Ruleset` tag names a `BOARD_LAYOUT`
+// value this app has no registered geometry for. Decisions 8 and 9: this is
+// never a rejection - the board is instead derived straight from the
+// record's own position block, and the record reviews in full.
+describe("readRecord - a record naming a board this app doesn't know (story 00000030, Step 8)", () => {
+  /** A board size and lake pattern matching none of the three catalog layouts (12x12, 8x8, 10x10). */
+  const UNKNOWN_ROW_COUNT = 14;
+  const UNKNOWN_COLUMN_COUNT = 14;
+  const UNKNOWN_LAKE_ROWS = [7, 8];
+  const UNKNOWN_LAKE_COLUMN_INDICES = [5, 9];
+
+  /**
+   * Builds a hand-written position block for the unknown 14x14 board above:
+   * a White Flag at A1 and a White Master-of-Arms at B1 (both movable, for
+   * the replay case), a Black Flag at the far corner, and `XXX` lakes at
+   * `UNKNOWN_LAKE_ROWS`/`UNKNOWN_LAKE_COLUMN_INDICES` - two cells nothing in
+   * the catalog produces. `includeLakes` lets the "lakeless board" case reuse
+   * this builder with no `XXX` cells at all.
+   */
+  function unknownBoardBlock(includeLakes: boolean): string {
+    const linesTopToBottom: string[] = [];
+    for (let row = UNKNOWN_ROW_COUNT; row >= 1; row -= 1) {
+      const cells: string[] = [];
+      for (
+        let columnIndex = 0;
+        columnIndex < UNKNOWN_COLUMN_COUNT;
+        columnIndex += 1
+      ) {
+        if (
+          includeLakes &&
+          UNKNOWN_LAKE_ROWS.includes(row) &&
+          UNKNOWN_LAKE_COLUMN_INDICES.includes(columnIndex)
+        ) {
+          cells.push("XXX");
+        } else if (row === 1 && columnIndex === 0) {
+          cells.push("[F]"); // White Flag
+        } else if (row === 1 && columnIndex === 1) {
+          cells.push("[1]"); // White Master-of-Arms
+        } else if (row === UNKNOWN_ROW_COUNT && columnIndex === 0) {
+          cells.push("*F*"); // Black Flag
+        } else {
+          cells.push("---");
+        }
+      }
+      linesTopToBottom.push(cells.join(" "));
+    }
+    return linesTopToBottom.join("\n");
+  }
+
+  it("parses and replays end to end, reports the token as unrecognized, and derives a board matching the block exactly", () => {
+    const moveToken = renderMoveToken({
+      from: { column: "B", row: 1 },
+      to: { column: "B", row: 2 },
+      fromRemoved: false,
+      toRemoved: false,
+    });
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=huge_400"]',
+      unknownBoardBlock(true),
+      `1. ${moveToken}`,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+
+    expect(result.unrecognizedRuleTokens).toEqual(["BOARD_LAYOUT=huge_400"]);
+    // The unresolved token never affects the configuration, which falls back
+    // to Battle's own board - exactly why `result.boardLayout`, not
+    // `result.configuration.boardLayout`, is what must be rendered.
+    expect(result.configuration.boardLayout.id).toBe("standard_144");
+
+    expect(result.boardLayout.id).toBe(DERIVED_BOARD_LAYOUT_ID);
+    expect(result.boardLayout.rowCount).toBe(UNKNOWN_ROW_COUNT);
+    expect(result.boardLayout.columnCount).toBe(UNKNOWN_COLUMN_COUNT);
+    expect(result.boardLayout.lakeRows).toEqual(UNKNOWN_LAKE_ROWS);
+    expect(result.boardLayout.lakeColumnIndices).toEqual(
+      UNKNOWN_LAKE_COLUMN_INDICES,
+    );
+
+    expect(result.record.positions).toHaveLength(2);
+    expect(result.record.moves).toHaveLength(1);
+    expect(result.record.positions[1]).toEqual({
+      A1: { side: "white", pieceType: "flag" },
+      B2: { side: "white", pieceType: "masterOfArms" },
+      A14: { side: "black", pieceType: "flag" },
+    });
+  });
+
+  it("carries `homeRowsPerSide: 0` and `hasBuffer: false` on the derived layout, and still replays completely", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=huge_400"]',
+      unknownBoardBlock(true),
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.boardLayout.homeRowsPerSide).toBe(0);
+    expect(result.boardLayout.hasBuffer).toBe(false);
+    expect(result.record.positions).toHaveLength(1);
+  });
+
+  it("derives a lakeless board when the block has no XXX cells at all, and still replays", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=huge_400"]',
+      unknownBoardBlock(false),
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.boardLayout.lakeRows).toEqual([]);
+    expect(result.boardLayout.lakeColumnIndices).toEqual([]);
+    expect(result.record.positions).toHaveLength(1);
+  });
+
+  it("derivation is total: a ragged block still surfaces the ordinary wrongCellCount PositionBlockError, no new error kind", () => {
+    const raggedBlock = unknownBoardBlock(true)
+      .split("\n")
+      .map((line, index) => (index === 3 ? line.slice(0, -4) : line))
+      .join("\n");
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=huge_400"]',
+      raggedBlock,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("error");
+    if (result.kind !== "error") {
+      return;
+    }
+    expect(result.error.kind).toBe("recordFile");
+    if (result.error.kind !== "recordFile") {
+      return;
+    }
+    expect(result.error.error.kind).toBe("positionBlock");
+    if (result.error.error.kind !== "positionBlock") {
+      return;
+    }
+    expect(result.error.error.error.kind).toBe("wrongCellCount");
+  });
+
+  it("the tag wins for a known board: the Clash board with a 12x12 (Battle-sized) block is still rejected, naming the expected size", () => {
+    const battleShapedBlock = renderPositionBlock({
+      ruleset: RULESET_TAG,
+      configuration: STANDARD_BATTLE_CONFIGURATION,
+      board: { A1: { side: "white", pieceType: "flag" } },
+    });
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=asymmetric_100"]',
+      battleShapedBlock,
+    ].join("\n\n");
+
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: {
+        kind: "recordFile",
+        error: {
+          kind: "positionBlock",
+          error: { kind: "wrongRowCount", rowCount: 12, expectedRowCount: 10 },
+        },
+      },
+    });
+  });
+
+  it("the tag wins for a known board: a right-sized block whose lakes sit in Battle-like positions is still rejected", () => {
+    // 10x10, but with lakes at columns B/C on rows 5-6 (a 2-wide, edge-clear
+    // pattern like Battle's, rather than asymmetric_100's own A/D/G/H/I) -
+    // wrong for the *named* board, even though it is the right size.
+    const lines: string[] = [];
+    for (let row = 10; row >= 1; row -= 1) {
+      const cells: string[] = [];
+      for (let columnIndex = 0; columnIndex < 10; columnIndex += 1) {
+        const isLakeRow = row === 5 || row === 6;
+        cells.push(
+          isLakeRow && (columnIndex === 1 || columnIndex === 2) ? "XXX" : "---",
+        );
+      }
+      lines.push(cells.join(" "));
+    }
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=asymmetric_100"]',
+      lines.join("\n"),
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("error");
+    if (result.kind !== "error") {
+      return;
+    }
+    expect(result.error.kind).toBe("recordFile");
+    if (result.error.kind !== "recordFile") {
+      return;
+    }
+    expect(result.error.error.kind).toBe("positionBlock");
+    if (result.error.error.kind !== "positionBlock") {
+      return;
+    }
+    // Column A, row 6 is asymmetric_100's own first lake square - not marked
+    // XXX here, so it is the first mismatch parsePositionBlock finds.
+    expect(result.error.error.error.kind).toBe("lakeSquareNotXxx");
+  });
+
+  it("a record naming an unresolvable ARMY_COMPOSITION (not BOARD_LAYOUT) still reviews on the tag's own known board, not a derived one", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE ARMY_COMPOSITION=something_else"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.unrecognizedRuleTokens).toEqual([
+      "ARMY_COMPOSITION=something_else",
+    ]);
+    expect(result.boardLayout.id).toBe("standard_144");
+    expect(result.boardLayout).toBe(result.configuration.boardLayout);
+  });
+
+  it("still rejects an unknown edition id exactly as today - the derive path never applies before the edition id is known", () => {
+    const text = [
+      '[Ruleset "9-9:NOT_A_REAL_EDITION BOARD_LAYOUT=huge_400"]',
+      unknownBoardBlock(true),
+    ].join("\n\n");
+
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: { kind: "unknownRuleset", ruleset: "9-9:NOT_A_REAL_EDITION" },
+    });
+  });
+});
+
+// Story 00000030, Step 8: the regression guard against the derived path ever
+// leaking into the normal one - every record whose tag this app fully
+// understands (all four pre-existing checked-in `doc/samples/` fixtures plus
+// Step 7's Clash sample) must report `boardLayout` identical to
+// `configuration.boardLayout`, exactly as before this step existed.
+describe("readRecord - boardLayout matches configuration.boardLayout for every fully-understood tag (story 00000030, Step 8)", () => {
+  const SAMPLES_DIR = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../doc/samples",
+  );
+  const SAMPLE_FILES = [
+    "2-0-skirmish-tower-in-lane.txt",
+    "2-1-skirmish-diagonal-attack-path-open.txt",
+    "2-1-skirmish-diagonal-attackable-all.txt",
+    "2-1-skirmish-diagonal-both-flags.txt",
+    "2-0-battle-clash-flag-capture.txt",
+  ];
+
+  it.each(SAMPLE_FILES)("%s", (fileName) => {
+    const text = readFileSync(path.join(SAMPLES_DIR, fileName), "utf8");
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.unrecognizedRuleTokens).toEqual([]);
+    expect(result.boardLayout).toBe(result.configuration.boardLayout);
+  });
+
+  it("also holds for the bare 2-0:BATTLE tag", () => {
+    const result = readRecord(
+      ['[Ruleset "2-0:BATTLE"]', POSITION_BLOCK].join("\n\n"),
+    );
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.boardLayout).toBe(result.configuration.boardLayout);
   });
 });

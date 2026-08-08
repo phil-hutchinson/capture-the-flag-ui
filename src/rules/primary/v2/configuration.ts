@@ -57,6 +57,24 @@ function isKnownFlagId(id: string): id is RuleFlagId {
 }
 
 /**
+ * The flag id a raw `Ruleset` tag token names, whether or not the token as a
+ * whole is one this app could resolve: the text before its first `=`, or the
+ * whole token if it has none. `parseRuleFlagTokens` above already does this
+ * split internally but never surfaces it; this is exported for a caller that
+ * needs to recognize a *specific* flag id among tokens this app could not
+ * resolve at all (`ParsedRuleFlagTokens.unrecognizedTokens`) without
+ * re-parsing anything about the token's value - story 00000030's Step 8:
+ * `readRecord.ts` uses it to tell an unresolvable `BOARD_LAYOUT` token apart
+ * from any other unrecognized token (Decision 8), and `ruleChoices.ts` uses
+ * it again to give that one token its own sentence instead of the generic
+ * unrecognized-token wording.
+ */
+export function rawTokenFlagId(token: string): string {
+  const separatorIndex = token.indexOf("=");
+  return separatorIndex === -1 ? token : token.slice(0, separatorIndex);
+}
+
+/**
  * What a game is set up, played, recorded and replayed under: a registered
  * `Edition` plus every rule flag's fully resolved value, plus the board and
  * army those flags resolve to. All fields are plain, JSON-serializable data -

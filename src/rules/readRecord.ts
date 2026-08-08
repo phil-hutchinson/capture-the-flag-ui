@@ -45,13 +45,16 @@
 // is no partial result: a file that parses but cannot be replayed to the end
 // is rejected exactly as if it had failed to parse.
 
+import type { BoardLayout } from "./primary/v2/boardLayout.ts";
 import {
   parseRuleFlagTokens,
+  rawTokenFlagId,
   type RuleConfiguration,
 } from "./primary/v2/configuration.ts";
 import { EDITIONS, type EditionId } from "./primary/v2/edition.ts";
 import {
   parseRecordFile,
+  type PositionBlockLayoutSource,
   type RecordFileError,
 } from "./primary/v2/recordFile.ts";
 import {
@@ -95,10 +98,16 @@ export type ReadRecordError =
  * 00000027's Step 3 widens this from a bare `Edition` to the full
  * configuration, and Step 6 teaches this function to read a tag naming
  * deviating flags too - a stamp naming a flag at its resolved value is
- * canonicalized away, per `parseRuleFlagTokens`) and the verbatim text of
- * every `FLAG=value` token in the tag this app could not resolve (Step 10 -
- * always `[]` for a tag this app fully understands, including every tag it
- * has ever written itself), or a structured rejection. Never throws.
+ * canonicalized away, per `parseRuleFlagTokens`), the verbatim text of every
+ * `FLAG=value` token in the tag this app could not resolve (Step 10 - always
+ * `[]` for a tag this app fully understands, including every tag it has ever
+ * written itself), the `BoardLayout` the record was actually read on and
+ * must be rendered on (story 00000030's Step 8 - `configuration.boardLayout`
+ * for every tag this app understands, including the common case; a layout
+ * *derived* from the record's own position block, per Decisions 8 and 9,
+ * when the tag names a `BOARD_LAYOUT` value this app has no geometry for -
+ * see `boardLayout`'s own note below), or a structured rejection. Never
+ * throws.
  */
 export type ReadRecordResult =
   | {
@@ -106,6 +115,17 @@ export type ReadRecordResult =
       readonly record: ReplayedRecord;
       readonly configuration: RuleConfiguration;
       readonly unrecognizedRuleTokens: readonly string[];
+      /**
+       * The board this record must be rendered on. Equal to
+       * `configuration.boardLayout` whenever the tag's `BOARD_LAYOUT` token
+       * (or its absence) resolved to a board this app knows - the common
+       * case - and a layout derived from the position block's own text
+       * otherwise (its `id` is then `DERIVED_BOARD_LAYOUT_ID`, never a
+       * `BoardLayoutId`; `boardLayout.ts`). Callers must render `FullBoard`
+       * from *this* field, not `configuration.boardLayout` directly - the two
+       * differ in exactly this one case.
+       */
+      readonly boardLayout: BoardLayout;
     }
   | { readonly kind: "error"; readonly error: ReadRecordError };
 
@@ -144,6 +164,15 @@ function unescapeTagValue(raw: string): string {
  * carrying anything it cannot understand as an unrecognized token instead).
  * A tag naming a flag at the value it would resolve to anyway reads as the
  * standard configuration, reporting no deviation (canonicalization).
+ *
+ * Story 00000030's Step 8 adds one more wrinkle, still no rejection: when the
+ * tag's `BOARD_LAYOUT` token (if any) is among `unrecognizedTokens` - a value
+ * this app has no registered geometry for - `configuration.boardLayout` falls
+ * back to the edition's own board, which is *not* what the record was played
+ * on. The position block is then parsed against a layout **derived** from its
+ * own text instead (Decisions 8 and 9; `recordFile.ts`'s
+ * `PositionBlockLayoutSource`), and the result's `boardLayout` field - not
+ * `configuration.boardLayout` - carries whichever layout was actually used.
  */
 export function readRecord(text: string): ReadRecordResult {
   const match = RULESET_TAG_LINE.exec(text);
@@ -168,7 +197,22 @@ export function readRecord(text: string): ReadRecordResult {
     tokens.slice(1),
   );
 
-  const parseResult = parseRecordFile(text, configuration.boardLayout);
+  // Decision 8: a `BOARD_LAYOUT` token this app could resolve (including no
+  // token at all) means the tag wins - `configuration.boardLayout` is right,
+  // and the block is validated against it exactly as before. A `BOARD_LAYOUT`
+  // token this app could *not* resolve is carried in `unrecognizedTokens`
+  // rather than affecting `configuration` at all, so there is nothing correct
+  // to validate against - the layout is derived from the block itself
+  // instead (Decision 9). This is the *only* thing that decides between the
+  // two; nothing else about the tag matters here.
+  const boardLayoutUnresolved = unrecognizedTokens.some(
+    (token) => rawTokenFlagId(token) === "BOARD_LAYOUT",
+  );
+  const layoutSource: PositionBlockLayoutSource = boardLayoutUnresolved
+    ? { kind: "derive" }
+    : { kind: "known", layout: configuration.boardLayout };
+
+  const parseResult = parseRecordFile(text, layoutSource);
   if (parseResult.kind === "error") {
     return {
       kind: "error",
@@ -187,6 +231,7 @@ export function readRecord(text: string): ReadRecordResult {
   return {
     kind: "parsed",
     record: replayResult.record,
+    boardLayout: parseResult.layout,
     configuration,
     unrecognizedRuleTokens: unrecognizedTokens,
   };

@@ -30,6 +30,22 @@ import type { RuleFlagValue } from "./ruleFlags.ts";
  */
 export type BoardLayoutId = RuleFlagValue<"BOARD_LAYOUT">;
 
+/**
+ * The id of a `BoardLayout` derived from a record's own position block
+ * (`gameState.ts`'s `deriveBoardLayoutFromPositionBlock`, story 00000030's
+ * Step 8) rather than looked up in `BOARD_LAYOUTS` below - used when a
+ * record's `Ruleset` tag names a `BOARD_LAYOUT` value this app has no
+ * geometry for (Decisions 8 and 9: such a record is never rejected, it is
+ * reviewed on a board read straight off its own position block). Deliberately
+ * **not** a `BoardLayoutId` - a value this app never produces itself and can
+ * never be confused with a catalog value or a flag value - so `BOARD_LAYOUTS`
+ * below stays exhaustive over `BoardLayoutId` alone.
+ */
+export const DERIVED_BOARD_LAYOUT_ID = "derived_from_record" as const;
+
+/** The type of `DERIVED_BOARD_LAYOUT_ID`; see its own doc comment. */
+export type DerivedBoardLayoutId = typeof DERIVED_BOARD_LAYOUT_ID;
+
 /** Which region a row belongs to, from White's edge to Black's. */
 export type RowRegion = "white-home" | "black-home" | "buffer" | "lake";
 
@@ -40,7 +56,16 @@ export interface LakeCell {
 }
 
 export interface BoardLayout {
-  readonly id: BoardLayoutId;
+  /**
+   * A catalog `BoardLayoutId` for every layout `BOARD_LAYOUTS` below holds,
+   * or `DERIVED_BOARD_LAYOUT_ID` for a layout read straight off a record's
+   * own position block (story 00000030's Step 8) rather than looked up here -
+   * see `DerivedBoardLayoutId`'s doc comment. Nothing in `src/` switches
+   * exhaustively on this field (only equality checks - `gameState.ts`'s
+   * placement validation, and tests); confirm that stays true before adding
+   * one.
+   */
+  readonly id: BoardLayoutId | DerivedBoardLayoutId;
   /** Number of columns, lettered from "A" (up to 26, per rules.md §2.1). */
   readonly columnCount: number;
   /** Number of rows, numbered from 1. Row 1 is White's back rank, the highest row is Black's. */

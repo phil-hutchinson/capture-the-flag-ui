@@ -34,7 +34,7 @@ import {
   type Side,
   type Square,
 } from "./board.ts";
-import type { BoardLayout } from "./boardLayout.ts";
+import { DERIVED_BOARD_LAYOUT_ID, type BoardLayout } from "./boardLayout.ts";
 import { armySize } from "./armyComposition.ts";
 import {
   renderRulesetTag,
@@ -288,6 +288,72 @@ function parseCell(cell: string): ParsedCell | undefined {
     return { kind: "piece", side: "black", symbol: blackMatch[1] };
   }
   return undefined;
+}
+
+/**
+ * Derives a `BoardLayout` purely from a position block's own text - no
+ * `BOARD_LAYOUT` catalog lookup at all - for a record whose `Ruleset` tag
+ * names a board this app has no registered geometry for (story 00000030's
+ * Decisions 8 and 9, Step 8). The block is fully self-describing: its line
+ * count gives the row count, its cells-per-line give the column count, and
+ * every `XXX` cell marks a lake square - exactly the three things
+ * `parsePositionBlock` already reads off a `BoardLayout` - so nothing stops
+ * this app from drawing the board even without recognizing the tag's value.
+ * The block's own row numbering is bottom-up, matching
+ * `renderPositionBlock`'s "highest row at top, row 1 at bottom" convention
+ * (this function's inverse): the block's first (topmost) line is `rowCount`,
+ * its last (bottom) line is row 1.
+ *
+ * `homeRowsPerSide` is `0` and `hasBuffer` is `false` on the result: neither
+ * is recoverable from a position block alone (a review-only viewer does not
+ * need either - see `BoardLayout`'s doc comment and the implementation
+ * plan's Step 8), and no code path a *review* ever reads either field
+ * (`boardView.visibleRows`, the sole reader outside placement/movement, is
+ * the *placement* board's, which a derived layout is never used for).
+ * `0`/`false` are chosen deliberately over any plausible-looking guess: they
+ * make `homeZoneSize` zero and `homeSquares` empty, so any future code that
+ * wrongly reaches for them on a derived layout produces an obviously empty
+ * answer rather than a quietly wrong one.
+ *
+ * Total: this never fails and returns no error, however ragged, blank or
+ * malformed `text` is (an empty block derives a degenerate 0x0 layout with no
+ * lakes). Whatever it derives is handed straight to the ordinary
+ * `parsePositionBlock` pass that follows - the one and only validation path -
+ * so a ragged row still surfaces as `wrongCellCount`, for example, with no
+ * new error kind.
+ */
+export function deriveBoardLayoutFromPositionBlock(text: string): BoardLayout {
+  const linesTopToBottom = text
+    .split(/\r\n|\r|\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  const rowCount = linesTopToBottom.length;
+  const columnCount =
+    rowCount > 0 ? linesTopToBottom[0].split(/\s+/).length : 0;
+
+  const lakeRows = new Set<number>();
+  const lakeColumnIndices = new Set<number>();
+
+  linesTopToBottom.forEach((line, lineIndex) => {
+    const row = rowCount - lineIndex;
+    line.split(/\s+/).forEach((cell, columnIndex) => {
+      if (cell === "XXX") {
+        lakeRows.add(row);
+        lakeColumnIndices.add(columnIndex);
+      }
+    });
+  });
+
+  return {
+    id: DERIVED_BOARD_LAYOUT_ID,
+    columnCount,
+    rowCount,
+    homeRowsPerSide: 0,
+    hasBuffer: false,
+    lakeRows: [...lakeRows].sort((a, b) => a - b),
+    lakeColumnIndices: [...lakeColumnIndices].sort((a, b) => a - b),
+  };
 }
 
 /**
