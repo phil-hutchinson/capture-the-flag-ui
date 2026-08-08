@@ -1169,7 +1169,61 @@ Run the five repository checks.
 
 ## Step 9 — The new-game screen offers three games
 
-Status: pending
+Status: committed
+
+Notes: Implemented as planned. `gameNames.ts`: `gameName` is now an
+exhaustive per-`GameId` record lookup ("battle"→"Battle",
+"skirmish"→"Skirmish", "clash"→"Clash"), and a new
+`gameNameForConfiguration(configuration)` returns that name via `games.ts`'s
+`identifyGame`, or `null` for a configuration matching no catalogued game;
+`boardSizeDescription` was already `RuleConfiguration`-taking from Step 4 and
+needed no change; `defaultGameId` now takes `RuleConfiguration | null` and
+returns a `GameId` (via `identifyGame`, falling back to `"skirmish"` for
+`null` or - practically unreachable - a non-matching configuration).
+`GameChoice.tsx`: `GAME_DETAIL` and `gameOrderRank` are now exhaustive
+`Record<GameId, ...>`/`switch (GameId)` (Skirmish 0, Clash 1, Battle 2, per
+story.md's Policy); the button list comes from `games.ts`'s `playableGames()`
+sorted by that rank; the confirmed configuration is built with
+`buildGameConfiguration(choice, flagOverrides)` rather than
+`configureRules(selectedEdition, flagOverrides)`. Clash's description uses
+the plan's exact draft copy; Skirmish's and Battle's are unchanged
+byte-for-byte. `HotSeatGame.tsx`'s "You chose …" announcement now calls
+`gameNameForConfiguration` (with an unreachable-in-practice `?? "the game"`
+fallback, documented inline, to keep the result a plain `string`); its shape
+is otherwise unchanged. Updated `gameNames.test.ts` to the new signatures,
+covering `gameName` for all three `GameId`s, `gameNameForConfiguration` for
+Battle, Skirmish, superseded-Skirmish, Clash and a non-matching
+hand-built configuration (`null`), `boardSizeDescription`'s existing cases
+plus Clash's "a 10x10 board", and `defaultGameId` for `null` and all four
+registered configurations (Battle/Skirmish/superseded-Skirmish/Clash).
+
+One deviation, a correctness fix required by the plan's own architecture
+rather than a scope change: `flagOverrides`' seed and type were narrowed from
+"every flag in `lastPlayed.flags`" (`Partial<Record<RuleFlagId, string>>`) to
+"only the rule-choice flags" (`Partial<Record<RuleChoiceFlagId, string>>`,
+seeded via `RULE_CHOICE_FLAG_IDS`). The old "seed every flag" behaviour,
+harmless while `BOARD_LAYOUT`/`ARMY_COMPOSITION` were not yet flags, would
+otherwise carry the _previously played_ game's board and army forward as
+explicit overrides on this screen: after playing Clash and returning here,
+picking Battle and pressing Play would silently build a Battle-edition game
+still playing Clash's 10x10 board and 20-piece army, since `flagOverrides`
+would still hold `BOARD_LAYOUT=asymmetric_100`/`ARMY_COMPOSITION=standard_clash`
+from the Clash session. Narrowing the seed to rule-choice flags only (which
+is also what the plan's own text directs - "the confirmed configuration is
+built by combining the selected game's entry with the player's diagonal
+rule-choice overrides") is what makes game-defining flags come from the
+chosen game alone, as intended; documented at the seed's declaration.
+Automated checks only exercise the pure functions (`buildGameConfiguration`,
+`identifyGame`) this fix relies on; the "switch games after playing Clash"
+scenario itself is a manual-gate (Gate G) concern.
+
+All five repository checks (typecheck, lint, test — 869 passed, up from
+862 — format:check, build) are clean. `git diff --stat -- doc/samples
+src/engine src/encoding` against HEAD is empty; only `src/board/gameNames.ts`,
+`src/board/gameNames.test.ts`, `src/board/GameChoice.tsx` and
+`src/board/HotSeatGame.tsx` were touched, matching the step's scope. Manual
+verification (Gates B, C and G) is left to the orchestrator per this
+pipeline's standard division of labour.
 
 Make Clash reachable and correctly named, per Decisions 6, 7 and 10.
 
