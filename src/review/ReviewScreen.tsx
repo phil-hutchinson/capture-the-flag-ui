@@ -66,12 +66,24 @@
 // what makes it different. Story 00000030's Step 8 gives the one unresolved
 // `BOARD_LAYOUT` token its own sentence instead (`derivedBoardLayoutSentence`),
 // since this app genuinely can still draw that board.
+//
+// Story 00000030's Step 10 (Decision 11): the status line now leads with one
+// short line naming the record's game and board - "This is a Clash game, on
+// a 10x10 board." - shown for every record, not only Clash, since an edition
+// id no longer identifies a game one-to-one. `gameNames.ts`'s
+// `reviewedGameLine` (the pure helper deciding whether to show it) omits it
+// for any record carrying an unresolved `Ruleset` token, so this line is
+// never wrong about a game rendered on a board or army it merely fell back
+// to. This deliberately does not live in `ruleChoices.ts`'s "non-standard
+// rules" summary - Decision 5 keeps game-defining flags out of it, and
+// "Battle with two unusual settings" is exactly what story.md forbids.
 
 import { useEffect, useRef, useState } from "react";
 import "../App.css";
 import "./ReviewScreen.css";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
 import { FullBoard } from "../board/FullBoard.tsx";
+import { reviewedGameLine } from "../board/gameNames.ts";
 import {
   derivedBoardLayoutSentence,
   nonStandardRuleSentences,
@@ -176,6 +188,13 @@ export function ReviewScreen({
   // the record's claim. Shared with `describeStepAnnouncement` so the visible
   // text and the live-region announcement always agree.
   const recordedResult = recordedResultAt(session);
+  // Story 00000030's Step 10, Decision 11: names the record's game and board
+  // plainly ("This is a Clash game, on a 10x10 board.") for every record this
+  // app fully understood - never `null` for a record this app ever wrote
+  // itself. `null` (line omitted) for a record carrying any unresolved
+  // `Ruleset` token, so this line is never wrong about a game rendered on a
+  // board or army it fell back to rather than actually resolved.
+  const gameLine = reviewedGameLine(configuration, unrecognizedRuleTokens);
   // Empty for a record played on the standard values, so an existing
   // standard record's review looks exactly as it always has (story 00000027,
   // Step 9). Fixed for the whole review - the record's rules don't change as
@@ -227,6 +246,7 @@ export function ReviewScreen({
         <p className="review-status__position">
           {describeCurrentPosition(session)}
         </p>
+        {gameLine !== null && <p className="review-status__game">{gameLine}</p>}
         {rulesSummary.length > 0 && (
           <p className="review-status__rules">{rulesSummary.join(" ")}</p>
         )}

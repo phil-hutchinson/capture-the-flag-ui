@@ -34,9 +34,17 @@
 }
 
 .review-status__position,
+.review-status__game,
 .review-status__rules,
 .review-status__result {
   margin: 0;
+}
+
+/* Names the record's game and board (Step 10, Decision 11) - plain weight,
+   like the non-standard-rules line below it, and omitted entirely (not
+   rendered) whenever `reviewedGameLine` returns `null`. */
+.review-status__game {
+  font-weight: normal;
 }
 
 /* The record's non-standard rules (Step 9), if any - plain weight, distinct

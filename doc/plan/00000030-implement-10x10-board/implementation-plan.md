@@ -1287,7 +1287,37 @@ harness, so the screen itself is covered by the gates below.
 
 ## Step 10 — The reviewer says which game it was
 
-Status: pending
+Status: committed
+
+Notes: Implemented as planned. Added `gameNames.ts`'s `reviewedGameLine(configuration,
+unrecognizedRuleTokens)` - the pure helper the step's verification asks for -
+returning `` `This is a ${game} game, on ${boardSize}.` `` (built from the
+existing `gameNameForConfiguration`/`boardSizeDescription`) when
+`unrecognizedRuleTokens` is empty **and** the configuration matches a
+catalogued game, `null` otherwise (Decision 11's two-part rule). `ReviewScreen.tsx`
+renders it as a new `.review-status__game` line, above the existing
+`nonStandardRuleSentences`/unrecognized-token/derived-board-layout lines and
+the recorded-result line, exactly as the step's ordering calls for; nothing
+in `ruleChoices.ts` was touched (Decision 5's "non-standard rules" summary
+stays untouched, per the step's explicit instruction). `GameRecord.tsx`'s
+developer hint line now reads `Ruleset <code>...</code> (Clash).` -
+`gameNameForConfiguration(play.configuration)` directly, with a documented
+`?? "the game"` fallback (matching `HotSeatGame.tsx`'s Step 9 pattern) kept
+only to satisfy the type checker, since a live `PlayState` is always built
+from a catalogued game and the fallback is practically unreachable, per the
+step's own note. Added `reviewedGameLine` coverage to `gameNames.test.ts`:
+Battle, Skirmish and Clash with no unrecognized tokens; the superseded-Skirmish
+configuration; a Clash configuration with a non-empty `unrecognizedRuleTokens`
+(line omitted even though the configuration itself still matches Clash); and
+a hand-built configuration matching no catalogued game (line omitted). No
+deviation from the plan. All five repository checks (typecheck, lint, test —
+875 passed, up from 869 — format:check, build) are clean; `git diff --stat`
+touches only `src/board/GameRecord.tsx`, `src/board/gameNames.ts`,
+`src/board/gameNames.test.ts`, `src/review/ReviewScreen.tsx` and
+`src/review/ReviewScreen.css` — no fixture, sample, tag string, position
+block, `src/engine/**` or `src/encoding/**` file was touched. Manual
+verification (Gate F) is left to the orchestrator per this pipeline's
+standard division of labour.
 
 Per Decision 11:
 

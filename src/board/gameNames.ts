@@ -16,6 +16,11 @@
 // variant, built on `games.ts`'s `identifyGame`, for a caller that only has a
 // configuration in hand (a live game, or a record being reviewed) and needs
 // to know which game it actually is.
+//
+// Step 10 adds `reviewedGameLine`, the pure helper behind `ReviewScreen.tsx`'s
+// "This is a Clash game, on a 10x10 board." line (Decision 11): it decides
+// whether that line should be shown at all, given a record can carry a
+// `Ruleset` tag token this app could not resolve at all.
 
 import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import { identifyGame, type GameId } from "../rules/primary/v2/games.ts";
@@ -86,4 +91,34 @@ export function defaultGameId(lastPlayed: RuleConfiguration | null): GameId {
     return "skirmish";
   }
   return identifyGame(lastPlayed) ?? "skirmish";
+}
+
+/**
+ * The review screen's one-line game identification (story 00000030's Step
+ * 10, Decision 11) - `"This is a Clash game, on a 10x10 board."` - or `null`
+ * when it should be omitted. Pure so it is unit-testable without mounting
+ * `ReviewScreen.tsx`.
+ *
+ * Shown only when **both** hold: `unrecognizedRuleTokens` (`readRecord.ts`'s
+ * field of that name - always `[]` for a record this app fully understood)
+ * is empty, **and** `configuration` matches a catalogued game. Both checks
+ * matter, not just the first: with an unresolved `BOARD_LAYOUT` or
+ * `ARMY_COMPOSITION` token, `configuration`'s own resolved board/army falls
+ * back to its edition's own (`readRecord.ts`), so `gameNameForConfiguration`
+ * could otherwise happily name a game the record was never actually played
+ * as - Decision 11 calls that out explicitly as the failure this guards
+ * against.
+ */
+export function reviewedGameLine(
+  configuration: RuleConfiguration,
+  unrecognizedRuleTokens: readonly string[],
+): string | null {
+  if (unrecognizedRuleTokens.length > 0) {
+    return null;
+  }
+  const name = gameNameForConfiguration(configuration);
+  if (name === null) {
+    return null;
+  }
+  return `This is a ${name} game, on ${boardSizeDescription(configuration)}.`;
 }
