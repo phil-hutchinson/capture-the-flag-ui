@@ -1372,7 +1372,107 @@ that nothing else about those reviews changed. Then:
 
 ## Step 11 — A full Clash game, accessibility, and README
 
-Status: pending
+Status: committed
+
+Notes: Three parts, as the step specifies.
+
+**README.md**: updated all three passages named by the step. "There are two
+games to choose from" → "There are three games to choose from", adding a
+sentence naming Clash's size and its uneven lakes; the "Set up a game with a
+friend" bullet now reads "pick Skirmish, Clash, or Battle"; the "Status" note
+now reads "pick Skirmish, Clash, or Battle". Also added one short paragraph
+to the existing "The rules" section, immediately after the diagonal-attack
+proposal paragraph it already had, stating plainly that Clash's board and
+army aren't official rules yet and linking to the companion repository's
+`proposed-variants.md` - following story 00000027's precedent exactly, as
+the step's text explicitly permits. No flag identifier, value token or
+edition id appears anywhere in the file. Left the "The app has now moved to
+the latest rules — which brought the two games and diagonal attacks" sentence
+unchanged: it is a historical statement about the major-2 ruleset version
+bump (which Clash does not touch - no new ruleset version, per the Grounding
+facts), not a claim about how many games exist today, so "two games" there is
+still correct as written. The `/update-readme` command was not invoked;
+the three passages and the one addition were edited directly since their
+scope was already precisely bounded by the step's own text.
+
+**Copy sweep**: read `GameChoice.tsx`, `HotSeatGame.tsx`, `ReviewScreen.tsx`,
+`GameRecord.tsx`, `gameNames.ts`, `ruleChoices.ts` and `reviewText.ts` in full
+and grepped all seven for `edition`, `ply`, `BOARD_LAYOUT`, `ARMY_COMPOSITION`,
+every catalog value string (`standard_clash`, `asymmetric_100`,
+`standard_battle`, `standard_skirmish`, `standard_64`, `standard_144`) and
+both edition-id tag prefixes (`2-0:`, `2-1:`). Findings: every occurrence of
+"edition"/"ply" in all seven files is in a code comment or an identifier
+(e.g. `error.ply`, `edition.towerPlacement` in a comment), never in a
+player-facing string - matching this repository's vocabulary convention
+(CLAUDE.md: code says "ply", player-facing text says "move"). The two
+sanctioned token-quoting exceptions
+(`unrecognizedRuleSentence`/`derivedBoardLayoutSentence` in `ruleChoices.ts`)
+are the only places any of those value strings appear in an actual rendered
+string, both already flagged as deliberate in their own doc comments from
+Step 8. `GameRecord.tsx`'s hint line prints the raw `Ruleset` tag by design
+(developer-facing `<details>` disclosure, not player-facing copy), matching
+the task's own instruction to judge it on that basis - left unchanged.
+`reviewText.ts`'s `unknownRuleset` sentence (pre-existing, untouched by this
+story) also quotes the raw tag back, the same established pattern. No change
+was needed in any of the seven files.
+
+**Accessibility pass**: reviewed (code review, no live browser - the live
+check is the orchestrator's Gate H) every surface the story's asymmetry makes
+newly relevant, and confirmed each is driven generically off `BoardLayout`
+data with no hardcoded assumption of symmetry or of Battle/Skirmish's
+board sizes:
+
+- `FullBoard.tsx`'s `squareLabel` and `placementAnnouncement.ts`'s
+  `placementSquareLabel` both build a square's accessible name from
+  `squareKey(square)` and `isLake(square, layout)` alone - both fully
+  data-driven off `layout.lakeColumnIndices`/`lakeRows` - so a lake at the A5/
+  A6 board edge announces exactly as "A5, lake" / "A6, lake", the same
+  mechanism that already announces every other lake on Battle and Skirmish.
+  No special-casing exists (or is needed) for a lake sitting at a board edge,
+  for the 1-wide J lane (it is simply not a lake - no code path distinguishes
+  lane width at all), or for the 3-wide G-I block (same).
+- `boardView.ts` (`visibleColumns`, `fullBoardRows`, `visibleRows`) is fully
+  parametric over `layout` and `side`: column order for Black is
+  `[...columnsOf(layout)].reverse()`, not any fixed list, so Clash's column A
+  (lake, no lane) correctly becomes the *last* column in Black's view and
+  column J (the lane) the first - there is no "mirror" assumption anywhere
+  that a non-symmetric lake pattern could break.
+- `AccessibleGrid.tsx`/`gridNavigation.ts` are piece- and layout-agnostic:
+  every cell (lake or not) is `focusable: true` in both `Board.tsx` and
+  `FullBoard.tsx`, and `nextFocusPosition` only ever skips a *non-focusable*
+  cell - since lakes are always focusable, arrow-key navigation across a row
+  that begins with a lake (Clash's row 5/6 column A) behaves identically to
+  navigation across any other row: the cell is reached and announced, just
+  not activatable (matches the existing, un-changed contract for every other
+  lake on every other board).
+- The "Flip board between turns" toggle carries no board-geometry-specific
+  text of its own (`FlipBoardToggle.tsx`'s label is the fixed string "Flip
+  board between turns"); orientation is entirely a side effect of the
+  `visibleColumns`/`fullBoardRows` reversal above, so there is no separate
+  "orientation announcement" surface to check beyond the square labels
+  themselves, which the first bullet above already covers for both sides.
+- No CSS in `Board.css`/`FullBoard.css`/`AccessibleGrid.css` uses `nth-child`
+  or any other per-column/per-row rule (grepped and confirmed absent); board
+  sizing is entirely the `--columns`/`--rows` custom properties already
+  proven layout-parametric by Step 1's geometry tests.
+
+To increase confidence beyond reading the code, a temporary, not-committed
+Vitest file was written and run against `boardView.ts` on the Clash layout
+directly (six assertions: White's/Black's full-board column order at the two
+edges, the leftmost cell of lake row 5 being "A5"/lake for White and "J5"/
+open for Black, `fullBoardRows`' top/bottom row for each side, and
+`visibleRows`' band sequence for both sides' buffer/lake-row crop) - all six
+passed, then the file was deleted (`git status --porcelain` confirms no
+stray file remains). No production code was changed by this pass: nothing
+was found broken, per the step's own instruction this is recorded here as
+the reviewed finding rather than silently skipped.
+
+No deviation from the plan. All five repository checks (typecheck, lint,
+test - 875 passed, unchanged from Step 10 since no test or production code
+was touched - format:check, build) are clean. `git status --porcelain`
+shows only `README.md` modified. Manual verification (Gates D, E, H, and the
+re-checks of A and G) is left to the orchestrator per this pipeline's
+standard division of labour.
 
 The finishing pass, last so the copy describes finished behaviour and the
 accessibility work exercises the whole feature.
