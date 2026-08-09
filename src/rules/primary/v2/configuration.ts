@@ -182,7 +182,17 @@ export function deviatingFlags(
   );
 }
 
-/** True if `configuration` deviates from its edition on no flag at all. */
+/**
+ * True if `configuration` deviates from its edition on no flag at all.
+ *
+ * Unlike `nonStandardRuleSentences` (`ruleChoices.ts`), this predicate does
+ * **not** apply Decision 5's game-defining-flag filter: it treats
+ * `ARMY_COMPOSITION`/`BOARD_LAYOUT` exactly like any other flag, so a Clash
+ * configuration - which deviates from `BATTLE_EDITION` on both of those by
+ * design (story.md's "messy stamp" policy) - is deliberately reported as
+ * non-standard here, even though a player never sees Clash described that
+ * way (peer review #5, story 00000030).
+ */
 export function isStandardConfiguration(
   configuration: RuleConfiguration,
 ): boolean {
@@ -218,6 +228,17 @@ export function renderRulesetTag(configuration: RuleConfiguration): string {
 export interface ParsedRuleFlagTokens {
   readonly configuration: RuleConfiguration;
   readonly unrecognizedTokens: readonly string[];
+  /**
+   * The flag ids whose resolved value in `configuration` came from an
+   * explicit token in this call, as opposed to `edition`'s own value or the
+   * flag's catalog default (story 00000030's peer review #2). A flag id can
+   * appear here even when a *later* token naming the same id was rejected as
+   * an unrecognized conflicting duplicate - the flag still genuinely
+   * resolved, from the earlier token, so `readRecord.ts` uses this (rather
+   * than `unrecognizedTokens` alone) to tell a flag that truly never
+   * resolved from one that resolved and was merely *also* named again badly.
+   */
+  readonly resolvedFromToken: readonly RuleFlagId[];
 }
 
 /**
@@ -304,6 +325,7 @@ export function parseRuleFlagTokens(
   return {
     configuration: configureRules(edition, overrides as RuleFlagOverrides),
     unrecognizedTokens,
+    resolvedFromToken: Object.keys(overrides) as RuleFlagId[],
   };
 }
 

@@ -48,7 +48,6 @@
 import type { BoardLayout } from "./primary/v2/boardLayout.ts";
 import {
   parseRuleFlagTokens,
-  rawTokenFlagId,
   type RuleConfiguration,
 } from "./primary/v2/configuration.ts";
 import { EDITIONS, type EditionId } from "./primary/v2/edition.ts";
@@ -166,11 +165,14 @@ function unescapeTagValue(raw: string): string {
  * standard configuration, reporting no deviation (canonicalization).
  *
  * Story 00000030's Step 8 adds one more wrinkle, still no rejection: when the
- * tag's `BOARD_LAYOUT` token (if any) is among `unrecognizedTokens` - a value
- * this app has no registered geometry for - `configuration.boardLayout` falls
- * back to the edition's own board, which is *not* what the record was played
- * on. The position block is then parsed against a layout **derived** from its
- * own text instead (Decisions 8 and 9; `recordFile.ts`'s
+ * tag names a well-formed `BOARD_LAYOUT=value` token whose value this app has
+ * no registered geometry for, and that flag never resolved from any token in
+ * the tag (peer review #2 - a conflicting duplicate or a malformed,
+ * value-less `BOARD_LAYOUT` token both leave the flag resolved from the
+ * edition instead, so neither takes this path), `configuration.boardLayout`
+ * falls back to the edition's own board, which is *not* what the record was
+ * played on. The position block is then parsed against a layout **derived**
+ * from its own text instead (Decisions 8 and 9; `recordFile.ts`'s
  * `PositionBlockLayoutSource`), and the result's `boardLayout` field - not
  * `configuration.boardLayout` - carries whichever layout was actually used.
  */
@@ -192,22 +194,33 @@ export function readRecord(text: string): ReadRecordResult {
   }
   const edition = EDITIONS[editionId];
 
-  const { configuration, unrecognizedTokens } = parseRuleFlagTokens(
-    edition,
-    tokens.slice(1),
-  );
+  const { configuration, unrecognizedTokens, resolvedFromToken } =
+    parseRuleFlagTokens(edition, tokens.slice(1));
 
   // Decision 8: a `BOARD_LAYOUT` token this app could resolve (including no
   // token at all) means the tag wins - `configuration.boardLayout` is right,
-  // and the block is validated against it exactly as before. A `BOARD_LAYOUT`
-  // token this app could *not* resolve is carried in `unrecognizedTokens`
-  // rather than affecting `configuration` at all, so there is nothing correct
-  // to validate against - the layout is derived from the block itself
-  // instead (Decision 9). This is the *only* thing that decides between the
-  // two; nothing else about the tag matters here.
-  const boardLayoutUnresolved = unrecognizedTokens.some(
-    (token) => rawTokenFlagId(token) === "BOARD_LAYOUT",
-  );
+  // and the block is validated against it exactly as before. The layout is
+  // derived from the block itself (Decision 9) only when the `BOARD_LAYOUT`
+  // *flag* genuinely never resolved from any token in the tag - not merely
+  // when *some* unrecognized token happens to mention the flag id, which is
+  // also true of a conflicting duplicate (`BOARD_LAYOUT=a BOARD_LAYOUT=b`,
+  // where the first token already resolved it) and of a malformed token with
+  // no value at all (`BOARD_LAYOUT`, with no `=`, which never names a board
+  // for the flag to fail to resolve *to*) - both of those fall back to the
+  // tag's own (edition-resolved) board instead, per Decision 8 (story 00000030
+  // peer review #2). `resolvedFromToken` tells the two apart: a genuinely
+  // unresolved flag has an unrecognized token that both names `BOARD_LAYOUT`
+  // and is well-formed (`FLAG=value`, a non-empty value) - a value this app
+  // simply has no registered geometry for - while never having resolved the
+  // flag from any token at all.
+  const boardLayoutResolvedFromToken =
+    resolvedFromToken.includes("BOARD_LAYOUT");
+  const boardLayoutNamedWithValue = unrecognizedTokens.some((token) => {
+    const parts = token.split("=");
+    return parts.length === 2 && parts[0] === "BOARD_LAYOUT" && parts[1] !== "";
+  });
+  const boardLayoutUnresolved =
+    !boardLayoutResolvedFromToken && boardLayoutNamedWithValue;
   const layoutSource: PositionBlockLayoutSource = boardLayoutUnresolved
     ? { kind: "derive" }
     : { kind: "known", layout: configuration.boardLayout };

@@ -402,12 +402,14 @@ describe("parseRuleFlagTokens", () => {
     expect(battleResult).toEqual({
       configuration: STANDARD_BATTLE_CONFIGURATION,
       unrecognizedTokens: [],
+      resolvedFromToken: [],
     });
 
     const skirmishResult = parseRuleFlagTokens(SKIRMISH_EDITION, []);
     expect(skirmishResult).toEqual({
       configuration: STANDARD_SKIRMISH_CONFIGURATION,
       unrecognizedTokens: [],
+      resolvedFromToken: [],
     });
   });
 
@@ -427,7 +429,11 @@ describe("parseRuleFlagTokens", () => {
         const [, ...tokens] = rendered.split(" ");
         const parsed = parseRuleFlagTokens(edition, tokens);
 
-        expect(parsed).toEqual({ configuration, unrecognizedTokens: [] });
+        expect(parsed).toEqual({
+          configuration,
+          unrecognizedTokens: [],
+          resolvedFromToken: tokens.map((token) => token.split("=")[0]),
+        });
         expect(renderRulesetTag(parsed.configuration)).toBe(rendered);
       }
     },
@@ -461,6 +467,9 @@ describe("parseRuleFlagTokens", () => {
       const result = parseRuleFlagTokens(BATTLE_EDITION, [token]);
       expect(result.unrecognizedTokens).toEqual([token]);
       expect(isStandardConfiguration(result.configuration)).toBe(true);
+      // Peer review #2: a malformed token never resolves the flag it names
+      // (if any) - the flag falls back to the edition/default entirely.
+      expect(result.resolvedFromToken).toEqual([]);
     }
   });
 
@@ -505,6 +514,12 @@ describe("parseRuleFlagTokens", () => {
     ]);
     expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
     expect(result.unrecognizedTokens).toEqual([secondToken]);
+    // Peer review #2: the flag genuinely resolved, from the first token -
+    // `resolvedFromToken` says so even though a later, conflicting token for
+    // the same flag id was rejected. `readRecord.ts` relies on exactly this
+    // to tell a flag that resolved (and was merely also named again badly)
+    // apart from one that never resolved at all.
+    expect(result.resolvedFromToken).toEqual(["DIAGONAL_ATTACKABLE"]);
   });
 
   // Peer review #1, owner decision: an exact duplicate (same flag id, same
@@ -545,7 +560,11 @@ describe("parseRuleFlagTokens", () => {
     const [, ...tokens] = rendered.split(" ");
     const parsed = parseRuleFlagTokens(BATTLE_EDITION, tokens);
 
-    expect(parsed).toEqual({ configuration, unrecognizedTokens: [] });
+    expect(parsed).toEqual({
+      configuration,
+      unrecognizedTokens: [],
+      resolvedFromToken: ["ARMY_COMPOSITION", "BOARD_LAYOUT"],
+    });
     expect(renderRulesetTag(parsed.configuration)).toBe(rendered);
   });
 

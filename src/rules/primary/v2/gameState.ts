@@ -321,6 +321,13 @@ function parseCell(cell: string): ParsedCell | undefined {
  * `parsePositionBlock` pass that follows - the one and only validation path -
  * so a ragged row still surfaces as `wrongCellCount`, for example, with no
  * new error kind.
+ *
+ * No bound is placed on `columnCount` here (peer review #7), but
+ * `boardLayout.ts`'s `columnLetter` - which every square key on the derived
+ * layout ultimately goes through - is only valid up to 26 columns ("A".."Z",
+ * rules.md §2.1). A block wider than that derives a layout whose column
+ * letters run past "Z" into `[`, `\`, and so on; nothing here clamps or flags
+ * it, since no record any known writer produces is anywhere near that wide.
  */
 export function deriveBoardLayoutFromPositionBlock(text: string): BoardLayout {
   const linesTopToBottom = text

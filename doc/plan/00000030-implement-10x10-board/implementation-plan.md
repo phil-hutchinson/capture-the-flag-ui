@@ -1434,12 +1434,12 @@ board sizes:
 - `boardView.ts` (`visibleColumns`, `fullBoardRows`, `visibleRows`) is fully
   parametric over `layout` and `side`: column order for Black is
   `[...columnsOf(layout)].reverse()`, not any fixed list, so Clash's column A
-  (lake, no lane) correctly becomes the *last* column in Black's view and
+  (lake, no lane) correctly becomes the _last_ column in Black's view and
   column J (the lane) the first - there is no "mirror" assumption anywhere
   that a non-symmetric lake pattern could break.
 - `AccessibleGrid.tsx`/`gridNavigation.ts` are piece- and layout-agnostic:
   every cell (lake or not) is `focusable: true` in both `Board.tsx` and
-  `FullBoard.tsx`, and `nextFocusPosition` only ever skips a *non-focusable*
+  `FullBoard.tsx`, and `nextFocusPosition` only ever skips a _non-focusable_
   cell - since lakes are always focusable, arrow-key navigation across a row
   that begins with a lake (Clash's row 5/6 column A) behaves identically to
   navigation across any other row: the cell is reached and announced, just

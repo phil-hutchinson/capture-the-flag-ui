@@ -1536,3 +1536,58 @@ describe("readRecord - boardLayout matches configuration.boardLayout for every f
     expect(result.boardLayout).toBe(result.configuration.boardLayout);
   });
 });
+
+// Peer review #2 (story 00000030): the derive path must trigger only when the
+// `BOARD_LAYOUT` *flag* genuinely never resolved from any token, not merely
+// when *some* unrecognized token happens to mention the flag id. Both of
+// these tags carry an unrecognized token naming `BOARD_LAYOUT`, but in
+// neither case did the flag fail to resolve - so both must fall back to the
+// tag's own (edition-resolved) board, per Decision 8, and reject a
+// wrong-shaped block exactly as any other known-board mismatch does.
+describe("readRecord - a bad BOARD_LAYOUT token alongside a board this app does know (peer review #2)", () => {
+  const skirmish = EDITIONS["2-1:SKIRMISH"];
+  // Deliberately Battle-shaped (12x12), not Skirmish-shaped (8x8): proof the
+  // block is validated against Skirmish's own resolved board rather than
+  // derived from the block's own text.
+  const battleShapedBlock = renderPositionBlock({
+    ruleset: skirmish.id,
+    configuration: STANDARD_BATTLE_CONFIGURATION,
+    board: { A1: { side: "white", pieceType: "flag" } },
+  });
+
+  it("a conflicting duplicate BOARD_LAYOUT token: the first token already resolved the flag, so the tag's own board wins", () => {
+    const text = [
+      '[Ruleset "2-1:SKIRMISH BOARD_LAYOUT=standard_64 BOARD_LAYOUT=standard_144"]',
+      battleShapedBlock,
+    ].join("\n\n");
+
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: {
+        kind: "recordFile",
+        error: {
+          kind: "positionBlock",
+          error: { kind: "wrongRowCount", rowCount: 12, expectedRowCount: 8 },
+        },
+      },
+    });
+  });
+
+  it("a malformed BOARD_LAYOUT token with no value: the flag never resolved from it, so it falls back to the edition's own board rather than deriving", () => {
+    const text = [
+      '[Ruleset "2-1:SKIRMISH BOARD_LAYOUT"]',
+      battleShapedBlock,
+    ].join("\n\n");
+
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: {
+        kind: "recordFile",
+        error: {
+          kind: "positionBlock",
+          error: { kind: "wrongRowCount", rowCount: 12, expectedRowCount: 8 },
+        },
+      },
+    });
+  });
+});

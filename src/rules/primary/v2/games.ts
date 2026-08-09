@@ -118,34 +118,76 @@ export function buildGameConfiguration(
 }
 
 /**
- * The games actually offered for play: every catalogued game whose resolved
- * board and army fit together, per `combinationFits`. All three catalog
- * entries are designed pairings that already fit - this filter is the floor
+ * The key `GAME_BY_FLAG_PAIR` is built and looked up by: a game's resolved
+ * `(BOARD_LAYOUT, ARMY_COMPOSITION)` pair, joined so two distinct pairs can
+ * never collide on one string (neither flag's values ever contain `|`; see
+ * `ruleFlags.ts`'s catalog).
+ */
+function gameFlagPairKey(
+  boardLayout: ResolvedRuleFlags["BOARD_LAYOUT"],
+  armyComposition: ResolvedRuleFlags["ARMY_COMPOSITION"],
+): string {
+  return `${boardLayout}|${armyComposition}`;
+}
+
+/**
+ * Module-level lookup from a resolved `(BOARD_LAYOUT, ARMY_COMPOSITION)` pair
+ * to the `GameId` that pair identifies, built once from `GAMES` at module
+ * load rather than rebuilt on every `identifyGame` call (peer review #6:
+ * `identifyGame` is called on several render paths - `ReviewScreen`,
+ * `GameRecord`, `HotSeatGame`, `defaultGameId` - and was reconstructing all
+ * three catalog configurations, three `configureRules` calls, every time).
+ * Still exactly one source of truth: this is *derived* from `GAMES` via
+ * `buildGameConfiguration`, never hand-written, so a change to the catalog
+ * alone keeps the lookup correct.
+ */
+const GAME_BY_FLAG_PAIR: ReadonlyMap<string, GameId> = new Map(
+  GAME_IDS.map((id) => {
+    const configuration = buildGameConfiguration(id);
+    return [
+      gameFlagPairKey(
+        configuration.flags.BOARD_LAYOUT,
+        configuration.flags.ARMY_COMPOSITION,
+      ),
+      id,
+    ] as const;
+  }),
+);
+
+/**
+ * The games actually offered for play, precomputed once alongside
+ * `GAME_BY_FLAG_PAIR` for the same reason (`playableGames()` is called on
+ * every render of the picker): every catalogued game whose resolved board
+ * and army fit together, per `combinationFits`. All three catalog entries
+ * are designed pairings that already fit - this filter is the floor
  * `combinationFits` was always meant to be, not the rule that decides which
  * games are offered (story.md's Design decisions & constraints: "the fit
  * test is the floor, not the rule"). The rule is the catalog above: only
  * three games are ever declared, out of the nine `BOARD_LAYOUT` x
  * `ARMY_COMPOSITION` combinations that would otherwise fit or not.
  */
+const PLAYABLE_GAME_IDS: readonly GameId[] = GAME_IDS.filter((id) => {
+  const configuration = buildGameConfiguration(id);
+  return combinationFits(
+    configuration.flags.BOARD_LAYOUT,
+    configuration.flags.ARMY_COMPOSITION,
+  );
+});
+
+/** The games actually offered for play; see `PLAYABLE_GAME_IDS`. */
 export function playableGames(): readonly GameId[] {
-  return GAME_IDS.filter((id) => {
-    const configuration = buildGameConfiguration(id);
-    return combinationFits(
-      configuration.flags.BOARD_LAYOUT,
-      configuration.flags.ARMY_COMPOSITION,
-    );
-  });
+  return PLAYABLE_GAME_IDS;
 }
 
 /**
  * Which game `configuration` is, if any: the catalogued game whose resolved
  * `(BOARD_LAYOUT, ARMY_COMPOSITION)` pair matches `configuration`'s own -
  * matched by that pair alone, ignoring both the edition id and the diagonal
- * flags (which are orthogonal and apply to all three games equally). `null`
- * for a configuration matching no catalogued game (e.g. a hand-built
- * configuration pairing `standard_battle` with `asymmetric_100` - a pairing
- * that fits per `combinationFits` but that this app never offers or
- * produces).
+ * flags (which are orthogonal and apply to all three games equally), via the
+ * precomputed `GAME_BY_FLAG_PAIR`. `null` for a configuration matching no
+ * catalogued game (e.g. a hand-built configuration pairing `standard_battle`
+ * with `asymmetric_100` - a pairing that fits per `combinationFits` but that
+ * this app never offers or produces).
  *
  * Matching by the flag pair rather than by edition id is deliberate: it
  * means a configuration built on the superseded `2-0:SKIRMISH` edition still
@@ -156,14 +198,11 @@ export function playableGames(): readonly GameId[] {
  */
 export function identifyGame(configuration: RuleConfiguration): GameId | null {
   return (
-    GAME_IDS.find((id) => {
-      const gameConfiguration = buildGameConfiguration(id);
-      return (
-        gameConfiguration.flags.BOARD_LAYOUT ===
-          configuration.flags.BOARD_LAYOUT &&
-        gameConfiguration.flags.ARMY_COMPOSITION ===
-          configuration.flags.ARMY_COMPOSITION
-      );
-    }) ?? null
+    GAME_BY_FLAG_PAIR.get(
+      gameFlagPairKey(
+        configuration.flags.BOARD_LAYOUT,
+        configuration.flags.ARMY_COMPOSITION,
+      ),
+    ) ?? null
   );
 }

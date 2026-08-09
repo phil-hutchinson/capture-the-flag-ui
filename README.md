@@ -74,8 +74,8 @@ source of truth:
 The game is still in active pre-release development, and the rules are
 evolving with it; a recorded game only plays back correctly in the ruleset
 version it was recorded under. The app has now moved to the latest rules —
-which brought the two games and diagonal attacks — so recordings made under
-the earlier rules can no longer be reviewed here.
+which brought the current games and diagonal attacks — so recordings made
+under the earlier rules can no longer be reviewed here.
 
 The two diagonal-attack settings on the new-game screen aren't official rules
 yet — they're proposals from the companion project's
