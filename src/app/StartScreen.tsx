@@ -1,9 +1,9 @@
 // The start screen: the app's entry point (story 00000014, Step 8). Offers
-// exactly the two things a player can do here - play a hot-seat game, or
-// review one that was recorded earlier - each labeled in plain language a
-// player understands without explanation. `App.tsx` mounts this whenever
-// `screen.kind === "start"`; the two active buttons only ask the shell to
-// switch screens, so this component carries no state of its own.
+// the things a player can do here - play a hot-seat game, or review one that
+// was recorded earlier - each labeled in plain language a player understands
+// without explanation. `App.tsx` mounts this whenever `screen.kind ===
+// "start"`; "Play a game" and "Review a game" only ask the shell to switch
+// screens.
 //
 // "Play against the computer" is shown but unavailable (story 00000023, Step
 // 9): the trained engine has to be respecified for the major-2 rules before
@@ -25,20 +25,35 @@
 // `useEffect`, the same pattern `GameResult.tsx` uses for its "New game"
 // button) so a keyboard or screen-reader user landing here - whether at
 // app start or after returning from a game - is not stranded on `<body>`.
+//
+// "How to play" (story 00000032) is the first of the four choices (Decision
+// 10) - a player meeting the game for the first time finds it before "Play a
+// game". It was originally a popup opened from state held right here; the
+// story was amended (story.md's Amendment 1) to make it a page instead, so
+// as of Step 4 this component carries no state of its own beyond its heading
+// ref - it just asks `App.tsx` to switch screens, exactly as `onReviewAGame`
+// already does, via the `onHowToPlay` prop below.
 
 import { useEffect, useRef } from "react";
 import { APP_NAME, TAGLINE } from "../appInfo.ts";
+import { HOW_TO_PLAY_BUTTON } from "./rules/rulesCopy.ts";
 import "../App.css";
 import "./StartScreen.css";
 
 export interface StartScreenProps {
+  /** Goes to the "How to play" rules page. */
+  readonly onHowToPlay: () => void;
   /** Starts a fresh hot-seat game (placement, then play, two players at one device). */
   readonly onPlayAGame: () => void;
   /** Goes to the import screen, to choose a recorded game to watch. */
   readonly onReviewAGame: () => void;
 }
 
-export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
+export function StartScreen({
+  onHowToPlay,
+  onPlayAGame,
+  onReviewAGame,
+}: StartScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -52,6 +67,18 @@ export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
       </h1>
       <p className="start-screen__tagline">{TAGLINE}</p>
       <div className="start-screen__choices">
+        <button
+          type="button"
+          className="start-screen__choice"
+          onClick={onHowToPlay}
+        >
+          <span className="start-screen__choice-title">
+            {HOW_TO_PLAY_BUTTON.title}
+          </span>
+          <span className="start-screen__choice-detail">
+            {HOW_TO_PLAY_BUTTON.detail}
+          </span>
+        </button>
         <button
           type="button"
           className="start-screen__choice"

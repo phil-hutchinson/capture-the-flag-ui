@@ -1,0 +1,151 @@
+/* One "How to play" picture (story 00000032): a figure's pieces and markers
+   on a 5x5 board cutout (story.md amendment 3 - every figure draws one,
+   there is no board-less presentation). Step 7 adds the marker vocabulary
+   (move rings, attack arrows, removal marks) on top of Step 6's board and
+   pieces - see the implementation plan's Decisions 1 and 2, and
+   `RuleFigure.tsx`'s header comment for the geometry.
+
+   Reuses only the app's shared design tokens (`--parchment`, `--ink`, the
+   side colors, from `src/index.css`) - never a class name or file from
+   `src/board/` (implementation plan, Decision 5 and "Out of bounds").
+
+   `--figure-square` is this module's own cell size, declared once on the
+   outer `.rule-figure` element so every descendant (the board patch, its
+   squares, its pieces and its markers) is drawn at the same scale -
+   deliberately smaller and more stable than the live board's own `--square`
+   (`FullBoard.css`): a figure sits inside a two-column page section, not a
+   play surface. */
+
+.rule-figure {
+  --figure-square: clamp(22px, 4.5vmin, 34px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  max-width: 12rem;
+  text-align: center;
+}
+
+.rule-figure__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rule-figure__picture {
+  position: relative;
+  /* A crop of the real board, not a tiny complete board of its own: the
+     outer outline is 1px, deliberately thinner than the live board's 2px
+     `--board-border` (FullBoard.css). No lake, no board-edge treatment, no
+     coordinates. */
+  outline: 1px solid var(--ink);
+  background: var(--parchment);
+}
+
+.rule-figure__square {
+  position: absolute;
+  box-sizing: border-box;
+  width: var(--figure-square);
+  height: var(--figure-square);
+  background: var(--parchment);
+  /* Deliberately mirrors `FullBoard.css`'s `.full-board__square` faint
+     border literal (Decision 5) rather than sharing a class or file - free
+     to drift from it. */
+  border: 1px solid rgba(43, 33, 24, 0.2);
+}
+
+.rule-figure__piece {
+  position: absolute;
+  width: var(--figure-square);
+  height: var(--figure-square);
+}
+
+.rule-figure__piece-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* A removed piece is dimmed as well as crossed (Decision 2, story.md
+   amendment 4) - the dimming carries the "this one is gone" meaning for a
+   reader who cannot pick the ink out. Only the icon is dimmed, never the X
+   drawn over it (`.rule-figure__removal`, a later sibling), so the removal
+   mark itself stays fully legible. */
+.rule-figure__piece-icon--removed {
+  opacity: 0.45;
+}
+
+/* The marker overlay (move rings and attack arrows) sits between the board
+   squares and the pieces in the DOM, so it paints behind the pieces with no
+   `z-index` needed (Decision 2). One `<svg>` per figure, `viewBox`ed in cell
+   units - see `RuleFigure.tsx`'s `Markers`. */
+.rule-figure__markers {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Move marker (Decision 1): a thin shaft ending in an open ring. Used only
+   in figures 1 and 2. */
+.rule-figure__move-shaft {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 0.05;
+  stroke-linecap: round;
+}
+
+.rule-figure__move-ring {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 0.07;
+}
+
+/* Attack marker (Decision 1, resized by story.md amendment 7): a short, wide
+   shaft ending in a solid triangular arrowhead, the same shape whether or
+   not a fight is resolved (figures 3-10), so "may attack" and "did attack"
+   never read as two different markings. Its length and its stroke-width
+   both vary by size profile (a "stub" for figures 3/4, a "combat" arrow for
+   figures 5-10) - see `RuleFigure.tsx`'s sizing comment above `Markers`'
+   attack branch - so `stroke-width` is set inline per marker rather than
+   fixed here. */
+.rule-figure__attack-shaft {
+  fill: none;
+  stroke: var(--ink);
+  stroke-linecap: round;
+}
+
+.rule-figure__attack-head {
+  fill: var(--ink);
+}
+
+/* The removal X (Decision 2, story.md amendment 4): rendered as a sibling
+   *after* the piece icon, so it always paints on top of it - and of the
+   attack arrowhead beneath both. Two strokes per line: a wide `--parchment`
+   halo first, then the narrower `--ink` mark on top, so the X stays legible
+   over both `--side-a` and `--side-b`. */
+.rule-figure__removal {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.rule-figure__removal-halo {
+  stroke: var(--parchment);
+  stroke-width: 0.14;
+  stroke-linecap: round;
+}
+
+.rule-figure__removal-mark {
+  stroke: var(--ink);
+  stroke-width: 0.08;
+  stroke-linecap: round;
+}
+
+.rule-figure__caption {
+  font-size: 0.85rem;
+}
