@@ -444,7 +444,17 @@ if used.
 
 ## Step 1 — The ten figures as pure data, checked against the rule engine
 
-Status: pending
+Status: committed
+
+Notes: Created `src/app/rules/figures.ts` (the cutout window, `Figure`/
+`FigurePiece`/`FigureMarking`/`FigureId` types, and the ten figures from
+Decision 7's table, verbatim) and `src/app/rules/figures.test.ts` (55 tests:
+window sanity, placement sanity, the two movement figures against
+`legalDestinations`, the eight attack figures against `legalAttacks` under all
+four diagonal-flag combinations, the six combat figures against
+`resolveCombat`, and the story's standing constraints on figures 4 and 8). All
+five repository checks (typecheck, lint, test, format:check, build) pass; no
+file outside `src/app/rules/` was touched. No deviation from the plan.
 
 Create `src/app/rules/figures.ts` — **plain TypeScript, no React, no JSX, no
 CSS** — declaring:
