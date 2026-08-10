@@ -19,6 +19,14 @@
 // this module only transcribes that table into data. `RuleFigure.tsx` (a
 // later step) is the thin renderer that reads this module and `rulesCopy.ts`
 // (Step 2, the popup's text); nothing here knows about pixels, SVG or React.
+//
+// Each figure also carries a `presentation` (Step 5, Decision 7's "Board?"
+// column): four figures (1-4) draw a 5x5 board cutout, six (5-10) draw their
+// pieces without a board (story.md's Amendment 2). This field governs
+// **drawing only** - every figure, board or not, keeps its real,
+// engine-checked squares, because those squares are what `figures.test.ts`
+// feeds to `legalDestinations`/`legalAttacks`/`resolveCombat`. A figure whose
+// squares stopped being real would silently stop being checked.
 
 import type { Side } from "../../rules/primary/v2/board.ts";
 import {
@@ -62,6 +70,17 @@ export interface FigurePiece {
 }
 
 /**
+ * How a figure is drawn (implementation plan, Decision 7's "Board?" column,
+ * added by Step 5 for story.md's Amendment 2): a full 5x5 board cutout, or
+ * pieces on their own with no board at all. This governs **drawing only** -
+ * every figure, board or not, keeps its real, engine-checked squares below,
+ * because those squares are what `figures.test.ts` feeds to
+ * `legalDestinations`/`legalAttacks`/`resolveCombat`. A figure whose squares
+ * stopped being real would silently stop being checked (Decision 6).
+ */
+export type FigurePresentation = "board" | "noBoard";
+
+/**
  * What a figure marks: either a set of empty squares reachable by a move
  * (figures 1 and 2), or a single attack from one square onto another
  * (figures 3-10), carrying the set of squares whose pieces the fight
@@ -96,11 +115,15 @@ export type FigureId =
   | "combatRankUpAttack"
   | "combatRankUpDefend";
 
-/** One of the ten pictures: a stable id, the pieces it places, and its marking. */
+/**
+ * One of the ten pictures: a stable id, the pieces it places, its marking,
+ * and whether it is drawn on a board cutout or without one.
+ */
 export interface Figure {
   readonly id: FigureId;
   readonly pieces: readonly FigurePiece[];
   readonly marking: FigureMarking;
+  readonly presentation: FigurePresentation;
 }
 
 /**
@@ -114,6 +137,7 @@ export const FIGURES: readonly Figure[] = [
   // eight one- and two-square orthogonal destinations.
   {
     id: "movement",
+    presentation: "board",
     pieces: [{ square: "F3", side: "white", pieceType: "knight" }],
     marking: {
       kind: "move",
@@ -125,6 +149,7 @@ export const FIGURES: readonly Figure[] = [
   // piece, limiting it to its four one-square destinations.
   {
     id: "slowedMovement",
+    presentation: "board",
     pieces: [
       { square: "F3", side: "white", pieceType: "knight" },
       { square: "E4", side: "black", pieceType: "knight" },
@@ -139,6 +164,7 @@ export const FIGURES: readonly Figure[] = [
   // orthogonally is marked as attackable; no fight is resolved here.
   {
     id: "attackOrthogonal",
+    presentation: "board",
     pieces: [
       { square: "F3", side: "white", pieceType: "knight" },
       { square: "F5", side: "black", pieceType: "knight" },
@@ -152,6 +178,7 @@ export const FIGURES: readonly Figure[] = [
   // DIAGONAL_ATTACK_PATH=open_path as well as the defaults.
   {
     id: "attackDiagonal",
+    presentation: "board",
     pieces: [
       { square: "F3", side: "white", pieceType: "knight" },
       { square: "G4", side: "black", pieceType: "knight" },
@@ -162,6 +189,7 @@ export const FIGURES: readonly Figure[] = [
   // the defender is removed.
   {
     id: "combatRank1Wins",
+    presentation: "noBoard",
     pieces: [
       { square: "F2", side: "white", pieceType: "masterOfArms" },
       { square: "F3", side: "black", pieceType: "champion" },
@@ -172,6 +200,7 @@ export const FIGURES: readonly Figure[] = [
   // (a sacrifice); the attacker is removed.
   {
     id: "combatRank3Loses",
+    presentation: "noBoard",
     pieces: [
       { square: "F2", side: "white", pieceType: "knight" },
       { square: "F3", side: "black", pieceType: "champion" },
@@ -182,6 +211,7 @@ export const FIGURES: readonly Figure[] = [
   // loss; both pieces are removed.
   {
     id: "combatEqualRank",
+    presentation: "noBoard",
     pieces: [
       { square: "F2", side: "white", pieceType: "halberdier" },
       { square: "F3", side: "black", pieceType: "halberdier" },
@@ -194,6 +224,7 @@ export const FIGURES: readonly Figure[] = [
   // cannot be attacked diagonally at all.
   {
     id: "combatTower",
+    presentation: "noBoard",
     pieces: [
       { square: "F2", side: "white", pieceType: "halberdier" },
       { square: "F3", side: "black", pieceType: "tower" },
@@ -205,6 +236,7 @@ export const FIGURES: readonly Figure[] = [
   // a clean loss against the stronger rank 2 defender into a mutual loss.
   {
     id: "combatRankUpAttack",
+    presentation: "noBoard",
     pieces: [
       { square: "F2", side: "white", pieceType: "knight" },
       { square: "E2", side: "white", pieceType: "knight" },
@@ -213,16 +245,24 @@ export const FIGURES: readonly Figure[] = [
     marking: { kind: "attack", from: "F2", to: "F3", removed: ["F2", "F3"] },
   },
   // 10. Rank-up - the enemy's stronger rank 2 piece attacks a rank 3
-  // defender that has a friendly rank 3 piece beside it (E2, diagonally
-  // adjacent to the defender's square F3, and not adjacent to the attacker
-  // at F4); the defender's formation bonus turns what would otherwise be a
-  // clean attacker win into a mutual loss.
+  // defender that has a friendly rank 3 piece directly behind it (F2,
+  // orthogonally adjacent to the defender's square F3, and not adjacent to
+  // the attacker at F4); the defender's formation bonus turns what would
+  // otherwise be a clean attacker win into a mutual loss. The supporting
+  // piece is at F2, not E2 (implementation plan, Decision 12): of F3's four
+  // orthogonal neighbours, E3 and G3 are both diagonally adjacent to the
+  // blue attacker at F4 (and F4 is the attacker's own square), so either
+  // would hand the attacker a second legal attack and break this figure's
+  // single-arrow claim - F2 is the only orthogonal option. Being orthogonally
+  // (not diagonally) adjacent to the defender also makes the board-less
+  // Step 6 drawing read as "directly behind", not merely "nearby".
   {
     id: "combatRankUpDefend",
+    presentation: "noBoard",
     pieces: [
       { square: "F4", side: "black", pieceType: "champion" },
       { square: "F3", side: "white", pieceType: "knight" },
-      { square: "E2", side: "white", pieceType: "knight" },
+      { square: "F2", side: "white", pieceType: "knight" },
     ],
     marking: { kind: "attack", from: "F4", to: "F3", removed: ["F4", "F3"] },
   },

@@ -1119,7 +1119,34 @@ five repository checks.
 
 ## Step 5 — Figure data for the board-less direction
 
-Status: pending
+Status: committed
+
+Notes: Added `FigurePresentation` ("board" | "noBoard") to the `Figure` type
+in `src/app/rules/figures.ts` and set it on all ten figures (`board` for
+`movement`/`slowedMovement`/`attackOrthogonal`/`attackDiagonal`, `noBoard`
+for the six combat figures), with a module-header addition explaining the
+field governs drawing only. Moved figure `combatRankUpDefend`'s (figure 10)
+supporting piece from E2 to F2 and updated its in-line comment to explain
+why F2 is the only viable orthogonal neighbour. Updated caption 10 in
+`rulesCopy.ts` to "Blue's rank 2 attacks a red rank 3 with another red rank
+3 right behind it: both are removed." Verified F2 independently against the
+engine with a scratch script (`legalAttacks` from F4 = exactly `["F3"]`
+under all four `DIAGONAL_ATTACKABLE`×`DIAGONAL_ATTACK_PATH` combinations,
+`resolveCombat(F4→F3)` = `mutualLoss`), matching Decision 12's plan-time
+verification. Extended `figures.test.ts` with 16 new tests: presentation is
+declared on every figure and matches the board/no-board id lists exactly
+(counts 4 and 6); every board-less figure carries an attack marking with a
+non-empty removal set and the board-less set is exactly the six combat
+figures; a coverage check that the attack- and combat-figure id lists the
+existing generic tests iterate over include all six board-less figures (so
+none can later be silently exempted); and figure-10-specific checks on its
+three piece placements and the supporter's orthogonal-adjacency-to-defender
+/ non-adjacency-to-attacker geometry. `rulesCopy.test.ts` needed no changes
+and continues to pass. All five repository checks (typecheck, lint, test —
+958 tests, format:check, build) pass; `git diff --stat` touches only
+`src/app/rules/figures.ts`, `src/app/rules/figures.test.ts` and
+`src/app/rules/rulesCopy.ts` — no forbidden file, and `RulesScreen.tsx` was
+not touched. No deviation from the plan.
 
 Two data changes, both in the modules Steps 1 and 2 committed, both verified by
 extending the existing automated tests. Read Decisions 6, 7, 11 and 12 first.

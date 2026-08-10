@@ -122,7 +122,7 @@ export const RULES_CAPTIONS: Readonly<Record<FigureId, string>> = {
   combatRankUpAttack:
     "Red's rank 3, with a red rank 3 beside it, attacks blue's rank 2: both are removed.",
   combatRankUpDefend:
-    "Blue's rank 2 attacks a red rank 3 that has a red rank 3 beside it: both are removed.",
+    "Blue's rank 2 attacks a red rank 3 with another red rank 3 right behind it: both are removed.",
 };
 
 /** The "How to play" start-screen button's fixed copy. */
