@@ -1713,7 +1713,48 @@ checks.
 
 ## Step 9 — Nothing else moved, and the README
 
-Status: pending
+Status: committed
+
+Notes: `README.md`'s intro sentence now reads "…where you can play a game,
+review a recorded one, or read a quick guide to how the game works", and a new
+first "What you can do" bullet, "**Learn how to play**", describes the page as
+a short illustrated primer and points to "The rules" section below for the
+full rulebook — the existing outbound link to the companion rulebook was left
+untouched. `/update-readme` was not run as a slash command (this agent has no
+slash-command access); its guidance file was read instead and applied by hand,
+which is a documentation-only deviation with no effect on the result. Gate E
+was swept with a transiently-installed Playwright/Chromium browser (cached
+under the OS scratchpad only; `package.json`/`package-lock.json` confirmed
+byte-identical before and after, `git status --porcelain` showing only
+`README.md` modified throughout): a Skirmish, a Clash and a Battle game were
+each auto-filled on both sides, played one ply per side, and ended by a
+draw-by-agreement offer/accept, reaching "The game is a draw — Agreement." and
+a working "New game" button in all three; the review screen was opened via
+Import with `doc/samples/2-0-battle-clash-flag-capture.txt` and showed the
+expected round/move table; leaving an in-progress placement via "Back to
+start" still raised the "Leave this game? / The game in progress will be lost"
+prompt, and confirming it returned to a start screen with all four buttons
+intact; and the full transition matrix (start → play → start via the leave
+prompt, start → review(import) → review → start, start → rules → start with
+both "Back to start" buttons) all worked as before. `git diff --stat` against
+`main` confirms the only files touched by the whole branch are `src/App.tsx`,
+`src/app/StartScreen.tsx`, `src/app/rules/**` and `README.md` — no file under
+`src/rules/`, and none of `Board.tsx`/`FullBoard.tsx`/`PlayBoard.tsx`/
+`AccessibleGrid.tsx`; `src/App.tsx`'s diff was read in full and is exactly one
+new `Screen` union member (`"rules"`), one new `if` branch, one new
+`StartScreen` prop, plus comments. All five repository checks (typecheck,
+lint, test — 945 tests, format:check, build) pass. Not independently
+verified: an actual screen-reader session for Gate E (no screen reader is
+available in this container, consistent with every other manual gate in this
+story); a UI attack specifically (freshly auto-filled armies are not yet in
+range on move one, and playing far enough into any of the three games to
+bring pieces into contact was judged not worth the added time given this
+story's diff does not touch movement/combat code at all, and it is already
+exhaustively covered by `movement.test.ts`/`combat.test.ts`/`figures.test.ts`
+plus Steps 1-8's own gates); and a flag-capture/no-legal-move ending
+specifically (the draw-by-agreement path was used instead, as a faster,
+equally valid way to exercise "can be ended as before"). The owner's own
+manual gate remains free to re-check any of these.
 
 Two things:
 

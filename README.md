@@ -14,11 +14,17 @@ Skirmish's.
 
 This is the game's web app. It runs entirely in your browser — nothing to
 install, no account, no server. It opens on a start screen where you can play
-a game or review a recorded one. Playing against the computer is temporarily
-unavailable while the computer player catches up with the latest rules.
+a game, review a recorded one, or read a quick guide to how the game works.
+Playing against the computer is temporarily unavailable while the computer
+player catches up with the latest rules.
 
 ## What you can do
 
+- **Learn how to play** — the start screen's "How to play" button opens a
+  short illustrated page covering how pieces move, when they're slowed down,
+  how far an attack reaches, and how a fight is decided, all shown with the
+  game's own pieces. It's a quick primer, not the official rules — see
+  [The rules](#the-rules) below for the full rulebook.
 - **Set up a game with a friend** on the same device — pick Skirmish, Clash,
   or Battle, choose how you'd like diagonal attacks to work for this game, then
   take turns secretly choosing where on your side of the board to place your
