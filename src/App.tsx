@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { StartScreen } from "./app/StartScreen.tsx";
+import { RulesScreen } from "./app/rules/RulesScreen.tsx";
 import { HotSeatGame } from "./board/HotSeatGame.tsx";
 import { ImportScreen } from "./review/ImportScreen.tsx";
 import { ReviewScreen } from "./review/ReviewScreen.tsx";
@@ -8,14 +9,15 @@ import type { RuleConfiguration } from "./rules/primary/v2/configuration.ts";
 import type { ReplayedRecord } from "./rules/primary/v2/replay.ts";
 
 // The app shell (story 00000014, Step 8; a fifth screen added by story
-// 00000019, Step 5): which of the app's screens is showing, held as a
-// discriminated union in `useState` - no router library, no URL routing
-// (both out of scope; see story.md). Each screen is its own component with
-// its own state, mounted and unmounted here as `screen` changes: mounting
-// `HotSeatGame` starts a fresh game and unmounting it discards whatever was
-// in progress, and likewise a fresh import screen begins import cleanly
-// every time "Review a game" is chosen. The one thing that outlives those
-// unmounts is `lastPlayedConfiguration` below, which is why it is held here.
+// 00000019, Step 5; a sixth, `"rules"`, added by story 00000032, Step 4):
+// which of the app's screens is showing, held as a discriminated union in
+// `useState` - no router library, no URL routing (both out of scope; see
+// story.md). Each screen is its own component with its own state, mounted
+// and unmounted here as `screen` changes: mounting `HotSeatGame` starts a
+// fresh game and unmounting it discards whatever was in progress, and
+// likewise a fresh import screen begins import cleanly every time "Review a
+// game" is chosen. The one thing that outlives those unmounts is
+// `lastPlayedConfiguration` below, which is why it is held here.
 //
 // Every non-`start` screen can lead back to `start`: `ImportScreen` and
 // `ReviewScreen`'s own "Back" controls (Step 9) never prompt, since nothing
@@ -28,6 +30,12 @@ import type { ReplayedRecord } from "./rules/primary/v2/replay.ts";
 // defect fix, widened from a bare `Edition` by story 00000027's Step 3) -
 // `ReviewScreen` needs it to render the record's own board, not Battle's by
 // default; `ReviewScreen` renders it.
+//
+// `RulesScreen` (story 00000032) is the "How to play" primer: reached only
+// from the start screen's own "How to play" button, and its "Back to start"
+// controls never prompt either, exactly like import/review, since nothing is
+// lost by leaving a page of rules. It is not reachable from anywhere a game
+// is in progress or being reviewed.
 //
 // There is no `"engine"` screen (story 00000023, Step 9): "Play against the
 // computer" is shown on the start screen but disabled and never activatable,
@@ -45,6 +53,7 @@ type Screen =
   | { readonly kind: "start" }
   | { readonly kind: "play" }
   | { readonly kind: "import" }
+  | { readonly kind: "rules" }
   | {
       readonly kind: "review";
       readonly record: ReplayedRecord;
@@ -122,10 +131,15 @@ export function App() {
   if (screen.kind === "start") {
     return (
       <StartScreen
+        onHowToPlay={() => setScreen({ kind: "rules" })}
         onPlayAGame={() => setScreen({ kind: "play" })}
         onReviewAGame={() => setScreen({ kind: "import" })}
       />
     );
+  }
+
+  if (screen.kind === "rules") {
+    return <RulesScreen onBack={() => setScreen({ kind: "start" })} />;
   }
 
   if (screen.kind === "play") {

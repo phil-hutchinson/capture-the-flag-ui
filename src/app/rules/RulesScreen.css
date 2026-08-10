@@ -1,0 +1,106 @@
+/* The "How to play" rules page (story 00000032). Step 3 built this as a
+   modal popup (`RulesDialog.css`); Step 4 converts it into an ordinary page
+   (story.md's Amendment 1, Decisions 8 and 9) - the biggest single change is
+   that the page no longer scrolls internally: everything below is a plain
+   flow document, and the class prefix moves from `rules-dialog` to
+   `rules-screen` throughout.
+
+   `RulesScreen.tsx` renders a `<main className="app">` (`App.css`), so the
+   header (`<h1 className="app__title">`), the header lines, both "Back to
+   start" buttons and the sections region are all direct children of that
+   flex column and already get its `gap: 1.5rem` and centering for free -
+   nothing here repeats them. The two header lines are grouped under their
+   own wrapper (`.rules-screen__header-lines`) so they read as one small
+   paragraph rather than being pulled 1.5rem apart by the shell's own gap.
+
+   The sections region is a CSS grid, one column by default and two above a
+   ~48rem viewport breakpoint - never CSS multi-column, which would split a
+   section's own content across columns. The three left-column sections and
+   the three right-column sections are each grouped, in the DOM, under their
+   own wrapper element (`.rules-screen__column`) rather than pinned
+   individually via `grid-column`: with exactly two wrapper elements as the
+   grid's direct children, the grid's own row-by-row auto-placement already
+   puts the first wrapper in column 1 and the second in column 2, both in row
+   1, with no explicit row or column assignment (and no reliance on there
+   being exactly three sections per column - see `RulesScreen.tsx`, which
+   builds each wrapper's contents from `rulesCopy.ts`'s per-section `column`
+   field). Never `order` - DOM order (Movement, Slowed movement, Movement for
+   attacks, Combat, Equal-ranked pieces and Tower attacks, Rank-up) always
+   matches reading and tab order, in every layout, because the left wrapper
+   simply precedes the right wrapper in the DOM.
+
+   No `overflow`, no `max-height`, no `overscroll-behavior` anywhere in this
+   file: the document itself scrolls, exactly like every other screen in the
+   app. That is the single biggest reason story.md moved this off the modal,
+   and no later step may reintroduce an internal scroll region here. */
+
+.rules-screen__header-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0;
+  text-align: center;
+}
+
+.rules-screen__header-line {
+  margin: 0;
+}
+
+/* Restates `.review-screen__back` / `.import-screen__back`'s chrome locally
+   (duplicated per screen in this repo today, not shared - see the
+   implementation plan's Decision 9). Used by both "Back to start" buttons:
+   one right after the header lines, and one after the sections region. */
+.rules-screen__back {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.rules-screen__sections {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem 2rem;
+  width: 100%;
+  max-width: 64rem;
+}
+
+@media (min-width: 48rem) {
+  .rules-screen__sections {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.rules-screen__column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.rules-screen__section-heading {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.rules-screen__section-body {
+  margin: 0 0 0.6rem;
+}
+
+.rules-screen__figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* Stands in for a real `RuleFigure` (Step 6) so the section and column
+   layout can be judged with realistic content before the pictures exist. */
+.rules-screen__figure-placeholder {
+  width: 9rem;
+  height: 7.5rem;
+  border: 1px dashed var(--ink);
+  opacity: 0.4;
+}

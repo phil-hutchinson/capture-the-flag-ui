@@ -988,7 +988,40 @@ repository checks.
 
 ## Step 4 — Turn the popup into a screen
 
-Status: pending
+Status: committed
+
+Notes: `git mv`'d `RulesDialog.tsx`/`RulesDialog.css` to `RulesScreen.tsx`/
+`RulesScreen.css` and converted the modal to a page per Decisions 8 and 9:
+`<dialog>` → `<main className="app">`, `open`/`onClose` props → a single
+`onBack: () => void`, the `<h2>` title → the page's `<h1 className="app__title"
+tabIndex={-1}>` (still focused on mount), section headings `<h3>` → `<h2>`,
+all internal-scroll CSS removed (`overflow-y`, `overscroll-behavior`,
+`max-height`, `flex: 1 1 auto`, the `::backdrop` rule, the `[open]` display
+gate), and the `rules-dialog` class prefix renamed to `rules-screen`
+throughout both files. Added two "Back to start" buttons calling `onBack`,
+one right after the header lines (grouped in a new
+`.rules-screen__header-lines` wrapper so they don't inherit the `.app`
+shell's 1.5rem inter-child gap) and one after the sections region, both
+sharing one `.rules-screen__back` rule restating
+`.review-screen__back`'s chrome locally. Kept the two-column wrapper
+structure, the 48rem breakpoint and the `aria-hidden` figure placeholders
+unchanged. `App.tsx` gained `{ readonly kind: "rules" }` in the `Screen`
+union and a branch mounting `<RulesScreen onBack={() => setScreen({ kind:
+"start" })} />`, plus a header-comment update; `StartScreen.tsx` gained an
+`onHowToPlay` prop wired to the same button, and lost the `rulesOpen`
+`useState` and the rendered `<RulesDialog>`. All five repository checks
+(typecheck, lint, test — 942 tests, format:check, build) pass; `git diff
+--stat` touches only `src/App.tsx`, `src/app/StartScreen.tsx` and the two
+renamed `src/app/rules/` files — no forbidden file. One deviation from the
+plan's literal text: the plan didn't specify a wrapper for the two header
+lines, but without one they inherited the `.app` shell's `gap: 1.5rem` and
+read as two separate blocks rather than one short paragraph, so a
+`.rules-screen__header-lines` div with its own small `gap: 0.15rem` was
+added (mirroring Step 3's `.rules-dialog__header-text` treatment) — purely a
+visual grouping choice within Decision 8's "header block", not a change to
+DOM order, copy, or the two-`onBack`-buttons requirement. Not yet manually
+verified — that is the owner's gate (Gates A/C re-run for a page, "no modal
+behaviour survives", and the shell-regression check), per the plan.
 
 This is story.md's Amendment 1, and it is the only step that touches
 `App.tsx`. Nothing about the page's copy, its two-column layout or its figures

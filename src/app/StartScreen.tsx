@@ -26,30 +26,35 @@
 // button) so a keyboard or screen-reader user landing here - whether at
 // app start or after returning from a game - is not stranded on `<body>`.
 //
-// "How to play" (story 00000032) opens the popup below its own button, first
-// in the list of choices (Decision 10) - a player meeting the game for the
-// first time finds it before "Play a game". It is the one piece of state
-// this component carries: whether the popup is open. The popup itself is
-// only reachable from here (story.md's Policy), so `App.tsx` needs no new
-// screen and no new route for it.
+// "How to play" (story 00000032) is the first of the four choices (Decision
+// 10) - a player meeting the game for the first time finds it before "Play a
+// game". It was originally a popup opened from state held right here; the
+// story was amended (story.md's Amendment 1) to make it a page instead, so
+// as of Step 4 this component carries no state of its own beyond its heading
+// ref - it just asks `App.tsx` to switch screens, exactly as `onReviewAGame`
+// already does, via the `onHowToPlay` prop below.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { APP_NAME, TAGLINE } from "../appInfo.ts";
 import { HOW_TO_PLAY_BUTTON } from "./rules/rulesCopy.ts";
-import { RulesDialog } from "./rules/RulesDialog.tsx";
 import "../App.css";
 import "./StartScreen.css";
 
 export interface StartScreenProps {
+  /** Goes to the "How to play" rules page. */
+  readonly onHowToPlay: () => void;
   /** Starts a fresh hot-seat game (placement, then play, two players at one device). */
   readonly onPlayAGame: () => void;
   /** Goes to the import screen, to choose a recorded game to watch. */
   readonly onReviewAGame: () => void;
 }
 
-export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
+export function StartScreen({
+  onHowToPlay,
+  onPlayAGame,
+  onReviewAGame,
+}: StartScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const [rulesOpen, setRulesOpen] = useState(false);
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -65,9 +70,7 @@ export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
         <button
           type="button"
           className="start-screen__choice"
-          onClick={() => {
-            setRulesOpen(true);
-          }}
+          onClick={onHowToPlay}
         >
           <span className="start-screen__choice-title">
             {HOW_TO_PLAY_BUTTON.title}
@@ -121,12 +124,6 @@ export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
           </span>
         </button>
       </div>
-      <RulesDialog
-        open={rulesOpen}
-        onClose={() => {
-          setRulesOpen(false);
-        }}
-      />
     </main>
   );
 }
