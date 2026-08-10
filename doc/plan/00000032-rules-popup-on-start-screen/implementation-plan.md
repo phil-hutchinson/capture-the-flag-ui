@@ -234,12 +234,22 @@ so the two markers differ by **shape**:
   can reach", "four arrows"). Used in figures 1 and 2 only.
 - **Attack marker** — a thicker `--ink` arrow from the attacking piece to the
   attacked piece, ending in a **solid filled triangular arrowhead** whose tip
-  reaches the **centre of the attacked piece**. Used in figures 3–10. In figures
-  3 and 4 it spans one square, to the adjacent square its target stands on; in
-  the six combat figures it spans two, crossing the deliberately empty square
-  between the pieces (story.md amendment 5) — which is the whole reason that
-  square is empty, so the arrow must be drawn to occupy it rather than to hug
-  either piece.
+  ending in a **solid filled triangular arrowhead**. Used in figures 3–10.
+
+  **Its size and extent are fixed by story.md's amendment 7**, which the owner
+  made after seeing Step 7's first attempt — the arrow was too long and too thin
+  to read at a glance:
+
+  - **In the six combat figures**, the arrow is **contained entirely within the
+    empty square between the two pieces** (the square amendment 5 left clear for
+    exactly this) and drawn about **three times the width** of the first
+    attempt's. It does not reach, touch or overlap either piece.
+  - **In pictures 3 and 4**, the arrow keeps the **same centre point** it had
+    but is **two-thirds as long** and **twice as wide** — a stub between the two
+    pieces rather than a line joining them.
+  - **The width is what does the work.** A short arrow reads as directional only
+    if it is fat enough for the head to be obviously a head; do not compensate
+    for the shortening by making it thinner.
 
 The two are additionally, redundantly distinguishable by their context: a move
 marker always lands on an empty square, an attack marker always lands on an
@@ -267,13 +277,15 @@ record it as a deviation in the step's Notes if used.
 A figure is drawn in four layers, back to front: **board squares → arrows →
 pieces → removal marks.**
 
-- The arrow is drawn **behind** the pieces. Its head therefore terminates at the
-  attacked piece's centre and visibly runs _under_ that piece, which is what
-  makes it read as "the attacker arrives here" rather than "the attacker points
-  at that square" (story.md's requirement that the arrow do the double duty a
-  single static picture otherwise cannot). What the head lands on is the
-  defending **piece**, not the square beneath it, and the piece is opaque enough
-  to sit convincingly on top of it.
+- The arrow is drawn **behind** the pieces. Since amendment 7 shortened it to
+  sit clear of both pieces this rarely matters visually, but the layering stays:
+  a marker must never paint over a piece, and nothing should have to be
+  re-reasoned if an arrow is ever lengthened again.
+- **The arrow stops short of the defending piece** (amendment 7). An earlier
+  draft had its head terminate on the defender, so that the overlap implied "the
+  attacker moves to the destination square"; the owner preferred a short, wide
+  arrow in the clear square, and that implication now rests on the section's
+  sentence instead. Do not restore the overlap.
 - A **removed** piece is marked two ways, not one: it is **dimmed** (drawn at
   roughly 45% opacity) **and** overlaid with a **black X** — two straight
   strokes corner to corner, in the app's existing ink (`--ink`), each stroke
@@ -1402,7 +1414,56 @@ run the five repository checks.
 
 ## Step 7 — The markers: move rings, attack arrows, removals
 
-Status: pending
+Status: implemented
+
+Notes: Added the marker vocabulary to `RuleFigure.tsx`/`RuleFigure.css`,
+derived entirely from each figure's existing `marking` data (no changes to
+`figures.ts` or `rulesCopy.ts` were needed). A new `Markers` component draws
+one `<svg viewBox="0 0 5 5">` per figure, positioned in the DOM between
+`BoardSquares` and the piece divs so it paints behind the pieces with no
+`z-index` (every layer is `position: absolute`, so DOM order alone decides
+paint order - Decision 2). For a `"move"` marking it draws all destination
+shafts first and all open rings second, so a two-square shaft passes under a
+one-square destination's ring rather than over it, matching Decision 1's
+pre-approved handling; for an `"attack"` marking it draws one thicker shaft
+plus a solid triangular arrowhead computed from the attacker-to-defender unit
+vector, with the shaft stopping at the arrowhead's base and the tip landing
+exactly on the target square's centre. A removed piece's `PieceIcon` gets a
+`--removed` modifier class (opacity 0.45); a `RemovalMark` (two diagonal
+lines, each drawn twice - a wide `--parchment` halo, then a narrower `--ink`
+line on top) is rendered as a later sibling of the icon, inside the same
+piece wrapper, so it is never itself dimmed and always paints over both the
+piece and the arrowhead. The X's vertical bounds (`REMOVAL_X_TOP = 0.4` of
+the cell) were chosen to clear `PieceIcon`'s top-left rank numeral (bounded
+at roughly `y ≤ 0.27` of the cell, worked out from its `x=15,y=17,
+fontSize=18` text in the 64x64 `viewBox`), verified visually against figure
+8's Tower `T` and every other figure. All geometry (cell centres, shaft
+endpoints, arrowhead points, ring positions) is computed from
+`cellCenter`/`windowCell`, the same lattice Step 6 established from each
+figure's own square keys - no per-figure hand-tuned coordinate was added.
+Verified visually with a transient Playwright/Chromium install (browser
+binary cached under the OS scratchpad only; `package.json` and
+`package-lock.json` checksums confirmed byte-identical before and after, and
+`git diff --stat` for this step touches only `RuleFigure.tsx` and
+`RuleFigure.css`) at desktop and phone (420px) widths, after discovering and
+working around a stale dev-server instance left over from a prior session
+(killed it and started a fresh one - not a code defect). By eye: figure 1
+shows eight rings and figure 2 four, all reachable by a shaft distinguishable
+by shape (open ring) from the six combat figures' solid arrowheads; figures
+3-10 each show one arrow spanning exactly the gap `figures.ts` leaves between
+attacker and defender (one square in 3/4, two squares with a visibly empty
+middle square in 5-10), terminating on the defending piece; the right
+piece(s) are struck through and dimmed in each combat figure (one in 5 and
+6, both in 7-10) and the rank numeral stays legible on every struck piece
+including figure 8's Tower; figures 9 and 10's supporting piece is
+unmarked and plainly adjacent to its partner. All five repository checks
+(typecheck, lint, test - 945 tests, unchanged since no data changed,
+format:check, build) pass. No deviation from the plan's substance; the only
+departure from its literal text is drawing the attack arrowhead as a
+manually-computed `<polygon>` rather than an SVG `<marker>` element, to avoid
+`id` collisions across the ten separately-rendered `RuleFigure` instances on
+one page without reaching for `useId` - the visual result (Decision 1's
+"solid filled triangular arrowhead") is unaffected.
 
 Add the marker vocabulary to `RuleFigure.tsx` / `RuleFigure.css`, per Decisions
 1 and 2:
@@ -1410,10 +1471,11 @@ Add the marker vocabulary to `RuleFigure.tsx` / `RuleFigure.css`, per Decisions
 - **Move marker** — a thin `--ink` arrow from the moving piece to each marked
   destination, ending in an **open ring** on that destination square. Figures 1
   and 2 only (both board figures).
-- **Attack marker** — a thicker `--ink` arrow from the attacker whose **solid
-  triangular head reaches the centre of the attacked piece**. Figures 3–10, the
-  same marking in all eight, spanning one cell boundary to the adjacent square
-  its target stands on. Its head lands under the defending piece.
+- **Attack marker** — a short, wide `--ink` arrow with a solid triangular head,
+  sized per Decision 1 as amended: in the six combat figures it sits **entirely
+  within the empty square between the pieces**, about three times the width of
+  Step 7's first attempt; in figures 3 and 4 it is two-thirds as long about the
+  same centre point, and twice as wide. It touches neither piece.
 - **Removal** — the removed piece is drawn **dimmed** and overlaid with a
   **black X** (`--ink`) with a parchment halo, **sitting low enough on the piece
   not to cover the rank numeral in its top-left corner** (Decision 2, story.md
@@ -1437,9 +1499,10 @@ run the five repository checks.
   - Figures 3 and 4 each mark the enemy piece as attackable, with the same
     marking figures 5–10 use — no second, near-identical marking that reads as
     an unexplained distinction.
-  - Figures 5–10 each run an arrow from the attacker **onto** the defending
-    piece, and the arrow reads as the attacker **arriving at** the defender
-    rather than merely pointing at it.
+  - Figures 5–10 each carry an arrow **filling the empty square between the two
+    pieces**, touching neither, and it is wide enough that which piece it points
+    at is in no doubt. Figures 3 and 4 carry the same arrow as a shorter stub
+    centred between their two pieces.
   - Exactly the right pieces are struck out: **one** in figures 5 and 6,
     **both** in 7, 8, 9 and 10 — and in 9 and 10 the supporting red piece is
     **not** struck out.

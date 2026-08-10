@@ -34,7 +34,7 @@ What a player will notice:
 
 Recorded so the changes of direction stay visible, in the order they were made.
 All were decided by the owner on seeing the work running — amendments 1 and 2
-after Step 3, amendments 3 to 6 after Step 6. Amendment 3 reverses amendment 2,
+after Step 3, amendments 3 to 6 after Step 6, amendment 7 after Step 7. Amendment 3 reverses amendment 2,
 which is left in place rather than deleted because code was built to it.
 
 1. **The rules surface is a page, not a modal popup.** It was originally
@@ -69,6 +69,17 @@ which is left in place rather than deleted because code was built to it.
    the ten pictures repeating one shape. One square ahead (picture 3), one
    square diagonally (picture 4) and two squares ahead (pictures 5-10) between
    them cover the range a piece actually has.
+7. **The attack arrows are shorter and wider.** In the six combat figures the
+   arrow is **contained entirely within the empty square between the pieces**
+   and drawn about **three times as wide**, so which way it points is obvious at
+   a glance instead of being inferred from a thin line. In "Movement for
+   attacks" (pictures 3 and 4) the arrow is **two-thirds of its previous length,
+   keeping the same centre point, and twice as wide**.
+   - **Consequence, accepted:** a combat arrow no longer reaches the defending
+     piece, so it points at the defender rather than arriving on it. The plan
+     had leaned on that overlap to carry "the attacker moves to the destination
+     square"; that now rests on the section's own sentence, and on an arrow
+     emphatic enough that its target is not in doubt.
 
 The story folder and branch keep their original `…-rules-popup-on-start-screen`
 name; only the surface changed.
@@ -307,11 +318,14 @@ four corrections were applied to what was dictated:
   declared; an **arrow runs from the attacker to the defending piece**; and
   whichever piece or pieces the fight removes carry a **black X** drawn over
   them — one of them in pictures 5 and 6, both in 7, 8, 9 and 10.
-  - **The arrow does double duty**: it marks the attack, and it is what conveys
-    "the attacker moves to the destination square", which a single static
-    picture cannot show outright — the attacker can only be drawn in one place.
-    So the arrow must read as directional and must clearly terminate _on_ the
-    defender, not merely point toward it.
+  - **The arrow must read as unmistakably directional** — which piece is
+    attacking which is the whole of what it says. It is drawn short and wide
+    (amendment 7): in the combat figures it sits entirely inside the empty
+    square between the two pieces, and in pictures 3 and 4 it is a stub centred
+    between them. It does not reach or overlap the defending piece.
+  - **What the arrow no longer carries**, as a result: "the attacker moves to
+    the destination square". A single static picture could only ever imply that,
+    and it is now the section's sentence that states it.
   - **Reconciling the arrow with picture 3 and 4's attack marking.** Those two
     figures mark an enemy as attackable, on a board, without any fight
     happening. Whether they use this same arrow or a distinct "attackable"
@@ -404,8 +418,8 @@ four corrections were applied to what was dictated:
   diagonally beside it, and pictures
   5–10 each run an arrow from the attacker to the defender and strike out
   exactly the right piece or pieces — one in 5 and 6, both in 7, 8, 9 and 10.
-  Nothing in a picture contradicts its sentence; the arrow reads as the
-  attacker arriving rather than merely pointing; the X is legible over both
+  Nothing in a picture contradicts its sentence; each arrow is wide enough that
+  which piece it points at is in no doubt; the X is legible over both
   side colors and does not cover any piece's rank numeral; and in pictures 9
   and 10 the supporting piece plainly stands in one of the eight squares
   surrounding its partner.
