@@ -538,7 +538,20 @@ existing round-trip tests for both values.
 
 ## Step 5 — Hide the developer game-record panel
 
-Status: pending
+Status: committed
+
+Notes: In `GameRecord.tsx`, moved the `rulesSummary`/`gameName` computations
+(used only by the JSX) to after a new `if (!SHOW_DEVELOPER_GAME_RECORD)
+return null;` guard placed immediately after the existing `useMemo` and
+`useEffect` hooks, so both hooks still run unconditionally and no unused-var
+lint issue arises. Added the `SHOW_DEVELOPER_GAME_RECORD` import from
+`../featureVisibility.ts` and updated the module header comment to record
+story 00000034's change. `GameRecord.css`, the `<details>` markup, summary
+text, hint line and `<pre>` are byte-identical to before. `HotSeatGame.tsx`
+and `EngineGame.tsx` were not touched. All five repository checks
+(typecheck, lint, test, format:check, build) pass; `git diff --stat` touches
+only `src/board/GameRecord.tsx`. The manual Gate D check is left for the
+owner per the pipeline. No deviations from the plan.
 
 In `src/board/GameRecord.tsx`, gate the rendered
 `<details className="game-record">` block on `SHOW_DEVELOPER_GAME_RECORD` from

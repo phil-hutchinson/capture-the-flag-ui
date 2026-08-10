@@ -15,9 +15,16 @@
 // Clash) right beside the `Ruleset` tag it already prints, via
 // `gameNames.ts`'s `gameNameForConfiguration` - the same naming
 // `ReviewScreen.tsx`'s "This is a Clash game..." line uses.
+//
+// Story 00000034 hid the <details> disclosure itself behind
+// `featureVisibility.ts`'s `SHOW_DEVELOPER_GAME_RECORD` (off because the
+// panel is not meant for a first-time viewer); the dev-build console logging
+// below is deliberately left running either way, so the `useMemo`/`useEffect`
+// pair still executes before the early return that skips the disclosure.
 
 import { useEffect, useMemo } from "react";
 import { renderGameRecord, type PlayState } from "../rules/primary/v2/play.ts";
+import { SHOW_DEVELOPER_GAME_RECORD } from "../featureVisibility.ts";
 import { gameNameForConfiguration } from "./gameNames.ts";
 import { nonStandardRuleSentences } from "./ruleChoices.ts";
 import "./GameRecord.css";
@@ -29,6 +36,19 @@ export interface GameRecordProps {
 
 export function GameRecord({ play }: GameRecordProps) {
   const record = useMemo(() => renderGameRecord(play), [play]);
+
+  useEffect(() => {
+    // Developer inspection path (the <details> dump below covers production).
+    // Gated to dev builds so the artifact isn't logged in a shipped app.
+    if (import.meta.env.DEV) {
+      console.log("Game record:", record);
+    }
+  }, [record]);
+
+  if (!SHOW_DEVELOPER_GAME_RECORD) {
+    return null;
+  }
+
   // Empty on the standard configuration, so this line is byte-identical to
   // before story 00000027 for any game played on the standard values
   // (`ruleChoices.ts`'s `nonStandardRuleSentences`, Step 9).
@@ -41,14 +61,6 @@ export function GameRecord({ play }: GameRecordProps) {
   // here - the fallback exists only to keep this a plain `string` for the
   // type checker, matching `HotSeatGame.tsx`'s "You chose ..." announcement.
   const gameName = gameNameForConfiguration(play.configuration) ?? "the game";
-
-  useEffect(() => {
-    // Developer inspection path (the <details> dump below covers production).
-    // Gated to dev builds so the artifact isn't logged in a shipped app.
-    if (import.meta.env.DEV) {
-      console.log("Game record:", record);
-    }
-  }, [record]);
 
   return (
     <details className="game-record">
