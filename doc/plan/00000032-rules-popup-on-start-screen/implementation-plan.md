@@ -244,9 +244,18 @@ so the two markers differ by **shape**:
     empty square between the two pieces** (the square amendment 5 left clear for
     exactly this) and drawn about **three times the width** of the first
     attempt's. It does not reach, touch or overlap either piece.
+  - **It is offset ~10% of a cell along its own direction**, so it sits slightly
+    forward of that square's centre rather than dead centre in it — up for the
+    five red attacks, down for figure 10's blue one. Express this as a shift
+    along the attack vector, not as "up" or "down": a figure attacking sideways
+    or diagonally must get the same treatment without new code. The offset is
+    small enough that the arrow stays fully inside the empty square, which is
+    the constraint that must not be broken to accommodate it.
   - **In pictures 3 and 4**, the arrow keeps the **same centre point** it had
-    but is **two-thirds as long** and **twice as wide** — a stub between the two
-    pieces rather than a line joining them.
+    but is **half the full span between the two pieces** and **twice as wide** —
+    a stub between them rather than a line joining them. Half, not the
+    two-thirds of the first resizing pass: at two-thirds it still grazed the
+    pieces, and clearing them entirely looks better.
   - **The width is what does the work.** A short arrow reads as directional only
     if it is fat enough for the head to be obviously a head; do not compensate
     for the shortening by making it thinner.
@@ -1464,6 +1473,48 @@ manually-computed `<polygon>` rather than an SVG `<marker>` element, to avoid
 `id` collisions across the ten separately-rendered `RuleFigure` instances on
 one page without reaching for `useId` - the visual result (Decision 1's
 "solid filled triangular arrowhead") is unaffected.
+
+**Resizing pass** (story.md amendment 7, made after the owner saw this
+step's first attempt and found the arrow too long and too thin to read at a
+glance): reworked only the attack-marker geometry in `RuleFigure.tsx`'s
+`Markers` component and its supporting CSS; nothing else from the first
+attempt changed - `figures.ts`, `rulesCopy.ts`, the move-ring branch, and the
+removal-mark code are all untouched. The arrow now has two size profiles,
+chosen from the actual distance between the attacker's and defender's cell
+centres (never from the figure's id, so a data change can never leave a
+stale arrow): a **stub** for figures 3 and 4 (distance ~1 or ~1.41, i.e. one
+square apart) is centred on the same midpoint the old arrow always used, at
+two-thirds of the old full attacker-to-defender length and twice the old
+head/shaft width; a **combat** arrow for figures 5-10 (distance exactly 2,
+i.e. two squares apart with one empty square between) is a fixed 0.7
+cell-unit length centred on that empty square's own centre, well clear of
+both pieces' squares, at about three times the old head/shaft width. Both
+profiles derive the arrowhead's length as 45% of the arrow's own (new,
+shorter) length, so the head reads as unmistakably a head with a visible
+shaft behind it. The arrow's tip now stops short of the defending piece in
+every figure - it no longer lands on the target square's centre - per the
+amendment's explicit instruction not to restore that overlap; the shaft's
+stroke-width, which used to be a flat value in `RuleFigure.css`, is now
+computed in JS alongside the head width (both derive from the same
+per-context multiplier) and applied via an inline style, so the two never
+drift apart. Rewrote the stale parts of both files' header comments that
+described the old "arrow terminates on the defender" behaviour. Verified
+visually with another transient Playwright/Chromium install in the OS
+scratchpad (`package.json`/`package-lock.json` checksums confirmed
+byte-identical before and after; `git diff --stat` for this pass touches
+only `RuleFigure.tsx` and `RuleFigure.css`), screenshotting the full page and
+each of the ten individual figures: in the six combat figures the arrow now
+sits visibly inside the empty middle square, touching neither piece, clearly
+wider than long; in figures 3 and 4 the arrow is a short, fat stub centred
+between the two pieces, touching neither; move rings, the black X's,
+dimming, rank-numeral clearance and draw order are all visually unchanged
+from before this pass. All five repository checks (typecheck, lint, test -
+945 tests unchanged since no data changed, format:check, build) pass. No
+deviation from this resizing pass's instructions - the only judgement call
+was the concrete numbers (the 0.7 cell-unit combat-arrow length, the 45%
+head-length fraction), which aren't dictated by the plan and were chosen and
+confirmed by eye to satisfy "contained entirely within the empty square,
+touching neither piece" and "the arrowhead needs to be obviously a head."
 
 Add the marker vocabulary to `RuleFigure.tsx` / `RuleFigure.css`, per Decisions
 1 and 2:

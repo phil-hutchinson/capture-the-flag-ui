@@ -72,9 +72,12 @@ which is left in place rather than deleted because code was built to it.
 7. **The attack arrows are shorter and wider.** In the six combat figures the
    arrow is **contained entirely within the empty square between the pieces**
    and drawn about **three times as wide**, so which way it points is obvious at
-   a glance instead of being inferred from a thin line. In "Movement for
-   attacks" (pictures 3 and 4) the arrow is **two-thirds of its previous length,
-   keeping the same centre point, and twice as wide**.
+   a glance instead of being inferred from a thin line; it is nudged slightly
+   **along its own direction** rather than sitting dead centre in that square.
+   In "Movement for attacks" (pictures 3 and 4) the arrow is **half its original
+   length, keeping the same centre point, and twice as wide** — short enough to
+   clear both pieces entirely. The exact proportions were tuned over two passes
+   at the gate; the plan's Decision 1 carries the settled numbers.
    - **Consequence, accepted:** a combat arrow no longer reaches the defending
      piece, so it points at the defender rather than arriving on it. The plan
      had leaned on that overlap to carry "the attacker moves to the destination
