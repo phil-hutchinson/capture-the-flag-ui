@@ -318,7 +318,36 @@ asserting all of the following, then run the five repository checks.
 
 ## Step 2 — The start screen shows two choices
 
-Status: pending
+Status: committed
+
+Notes: Rewrote `StartScreen.tsx` to map over
+`visibleStartScreenChoices(START_SCREEN_CHOICES)`, choosing between a plain
+button and the `aria-disabled`/`aria-describedby`/no-op-`onClick` + note-span
+markup based on whether the descriptor carries a `note`; added an
+id→handler `Record<StartScreenChoiceId, () => void>` covering all four ids so
+`onReviewAGame` stays used and no edit is needed here to re-enable a choice.
+Updated the module header comment to describe the new data-driven structure.
+`StartScreen.css` and `App.tsx` were not touched. All five automated checks
+(typecheck, lint, test, format:check, build) pass; the manual Gate A check is
+left for the owner per the pipeline. No deviations from the plan.
+
+Owner feedback at the Gate A manual gate: "It looks good, maybe just make the
+two buttons the same size." `.start-screen__choice` was sized only by
+`min-width: 12rem`, so each button hugged its own title/detail text and "How
+to play" (longer copy) came out wider than "Play a game". Fixed in
+`StartScreen.css` only (`StartScreen.tsx` untouched) by replacing `min-width`
+with a fixed `width: 16rem` plus `box-sizing: border-box`, and updating the
+stale header comment (it said "the three entry choices"); this is a
+deviation from the plan's "`src/app/StartScreen.css` is not modified" line,
+made at the owner's explicit request at the gate. Equal sizing was
+deliberately made content-independent (a fixed width rather than
+flex-grow/stretch) so it holds for two, three or four buttons once
+`SHOW_PLAY_AGAINST_THE_COMPUTER` / `SHOW_REVIEW_A_GAME` return, and the row's
+existing `flex-wrap: wrap` still drops buttons to their own line on a narrow
+viewport; verified by re-running all five repository checks (typecheck,
+lint, test, format:check, build), all clean. No browser-automation tooling
+is available in this environment, so the visual result itself still needs
+the owner's re-check at the gate.
 
 Rewrite `src/app/StartScreen.tsx`'s choice row to map over Step 1's filtered
 catalog instead of four hand-written buttons, so that "Play against the
