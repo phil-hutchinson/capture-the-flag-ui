@@ -24,16 +24,18 @@ What a player will notice:
 - **A page with six short sections**, laid out with a full-width header and
   then two columns: movement on the left, combat on the right. Each section is
   one heading, a sentence or two, and one or two small pictures.
-- **Pictures drawn with the game's own pieces** — the movement ones on small
-  cutouts of a board, the combat ones as pieces on their own. They look like
-  the real thing because they are drawn with the real board's artwork.
+- **Pictures drawn with the game's own pieces**, on small cutouts of a board.
+  They look like the real board because they are drawn with the real board's
+  artwork.
 - **Nothing else changes.** A "Back to start" control returns the player to the
   start screen exactly as they left it.
 
 ## Amendments
 
-Recorded so the change of direction is visible; both were decided by the owner
-after seeing Step 3 running.
+Recorded so the changes of direction stay visible, in the order they were made.
+All were decided by the owner on seeing the work running — amendments 1 and 2
+after Step 3, amendments 3 and 4 after Step 6. Amendment 3 reverses amendment 2,
+which is left in place rather than deleted because code was built to it.
 
 1. **The rules surface is a page, not a modal popup.** It was originally
    specified as a single popup over the start screen. A page sizes itself
@@ -41,12 +43,21 @@ after seeing Step 3 running.
    a small screen — all of which the modal was working against. The app has no
    router, so this is a new screen in `App.tsx`'s existing screen union, not a
    URL.
-2. **The six combat figures are drawn without a board.** Pictures 5–10 show
-   pieces on their own rather than on a board cutout: less busy, and it opens a
-   gap between the attacker and the defender for the arrow to occupy. The four
-   movement figures (1–4), including both "Movement for attacks" pictures, keep
-   their board cutouts — the board is what makes distance and direction legible
-   there.
+2. ~~**The six combat figures are drawn without a board.**~~ **Superseded by
+   amendment 3** — recorded here because Steps 5 and 6 were partly built to it.
+   Pictures 5–10 were to show pieces on their own rather than on a board cutout:
+   less busy, and it opened a gap between attacker and defender for the arrow to
+   occupy.
+3. **All ten figures are drawn on a board cutout after all**, reversing
+   amendment 2. That amendment was made to save vertical space while the rules
+   were still a popup; once amendment 1 made them a full page, the space was no
+   longer worth the loss. The board is what makes adjacency legible — which was
+   a live risk for the rank-up figures specifically — so it comes back
+   everywhere.
+4. **The removal mark is a black X, not a red one.** Red reads poorly over the
+   red side's own pieces, which is exactly where half of the marks land. It is
+   drawn in the app's existing ink, and sits **low enough on the piece not to
+   cover the rank numeral**, which is what tells a reader which piece is which.
 
 The story folder and branch keep their original `…-rules-popup-on-start-screen`
 name; only the surface changed.
@@ -166,9 +177,6 @@ beside it, marked as attackable.
 
 ### Right column
 
-The six pictures in this column are drawn **without a board** — see Design
-decisions.
-
 **Combat**
 
 > In combat, the stronger piece wins, regardless of which piece attacks which.
@@ -232,9 +240,9 @@ four corrections were applied to what was dictated:
    single column when there is not room for two, with the left column's
    sections read before the right column's in every layout, and a "Back to
    start" control that returns without prompting.
-3. **The ten pictures**, drawn from the game's own piece artwork — four on
-   board cutouts, six without a board — each accompanied by a text equivalent
-   conveying the same fact in the same plain language.
+3. **The ten pictures**, drawn from the game's own piece artwork on small
+   board cutouts, each accompanied by a text equivalent conveying the same fact
+   in the same plain language.
 4. **A picture-drawing module that lives beside the core board code** and is
    reusable across all ten figures — cutout geometry, a piece drawn with or
    without a square under it, a move/attack marker, and the struck-out marking
@@ -267,32 +275,20 @@ four corrections were applied to what was dictated:
   interactive, they are not part of a grid in the accessibility tree, and they
   animate nothing. A reader should not be able to click, focus or arrow around
   them.
-- **The four movement figures (1–4) are drawn on a 5×5 board cutout.** The
-  board is what makes "two squares in that direction" and "diagonally beside
-  it" legible, so it stays for every figure whose point is _distance or
-  direction_ — including both "Movement for attacks" pictures.
-- **The six combat figures (5–10) are drawn without a board** (the owner's
-  decision). Their point is _who wins_, not where anyone stands, and the board
-  made them busy. The pieces sit on their own, with a deliberate gap between
-  attacker and defender for the arrow to occupy.
-  - **Accepted consequence:** a gap between two pieces that are, in the rules,
-    on adjacent squares. The arrow spanning it is what carries the relationship.
-  - **Watch the rank-up figures (9 and 10).** Their rule condition is that the
-    friendly same-rank piece is in one of the eight _surrounding squares_ —
-    adjacency, which a board makes obvious and a void does not. The supporting
-    piece must sit visibly closer to its partner than the gap the arrow crosses,
-    so "beside it" still reads. If it cannot be made to read, that is worth
-    raising rather than shipping an ambiguous picture.
-- **Dropping the board does not drop the squares.** Every figure — the six
-  board-less ones included — keeps its real board squares in the figure data,
-  because those squares are what the rule-engine agreement check consumes. The
-  board is removed from the _drawing_ only; a figure whose squares stopped
+- **All ten figures are drawn on a 5×5 board cutout** (amendment 3). The board
+  is what makes "two squares in that direction", "diagonally beside it" and —
+  in the rank-up figures — "in one of the eight surrounding squares" legible.
+  Adjacency is a rule condition in figures 9 and 10, and a board states it
+  without the picture having to imply it by proximity.
+- **The figure data carries real board squares regardless**, and always did:
+  those squares are what the rule-engine agreement check consumes. Drawing
+  choices must never reach back into the data — a figure whose squares stopped
   being real would silently stop being checked.
 - **Every combat figure is one picture, not a before-and-after pair** (the
   owner's decision). The pieces are shown as they stand when the attack is
   declared; an **arrow runs from the attacker to the defending piece**; and
-  whichever piece or pieces the fight removes carry a **red X** drawn over them
-  — one of them in pictures 5 and 6, both in 7, 8, 9 and 10.
+  whichever piece or pieces the fight removes carry a **black X** drawn over
+  them — one of them in pictures 5 and 6, both in 7, 8, 9 and 10.
   - **The arrow does double duty**: it marks the attack, and it is what conveys
     "the attacker moves to the destination square", which a single static
     picture cannot show outright — the attacker can only be drawn in one place.
@@ -304,9 +300,15 @@ four corrections were applied to what was dictated:
     marking is a plan-time call, but the two must not look
     similar-but-different in a way that reads as a distinction the page never
     explains.
-  - The red X must not be the only thing distinguishing a removed piece, per
-    the color rule below, and must stay legible over both side colors, over
-    the rank numeral in the piece's corner, and under the head of the arrow.
+  - **The X is black, not red** (amendment 4). Red reads poorly over the red
+    side's own pieces, and half the marks land there. It is the app's existing
+    ink, and it must stay legible over both side colors and under the head of
+    the arrow.
+  - **The X sits low enough on the piece not to cover the rank numeral.** That
+    numeral is what tells a reader which piece is which, so the mark that says
+    "this one is gone" must not obscure the mark that says which one it was.
+  - The X must not be the only thing distinguishing a removed piece, per the
+    color rule below.
 - **Figure data is pure; figure rendering is thin.** Because the repo has no
   DOM test environment, each figure is declared as plain data (which squares
   hold which pieces, which squares are marked, what the outcome is, and whether
@@ -384,9 +386,10 @@ four corrections were applied to what was dictated:
   5–10 each run an arrow from the attacker to the defender and strike out
   exactly the right piece or pieces — one in 5 and 6, both in 7, 8, 9 and 10.
   Nothing in a picture contradicts its sentence; the arrow reads as the
-  attacker arriving rather than merely pointing; and in pictures 9 and 10 the
-  supporting piece reads as standing _beside_ its partner despite there being
-  no board.
+  attacker arriving rather than merely pointing; the X is legible over both
+  side colors and does not cover any piece's rank numeral; and in pictures 9
+  and 10 the supporting piece plainly stands in one of the eight squares
+  surrounding its partner.
 - **Gate C — Layout.** At a comfortable desktop width the header spans the full
   page and the two columns sit side by side; narrowing the window collapses
   them to one column with movement still read before combat; the page scrolls
@@ -410,16 +413,12 @@ four corrections were applied to what was dictated:
   legend. The board's own `--destination` and `--attack` highlights are a
   starting point but were designed for a board with a live selection on it, not
   for a static picture.
-- **How the arrowhead and the red X sit together** in the six combat figures
-  without either becoming unreadable — the defender carries an arrow
-  terminating on it, an X over it, and a rank numeral in its corner. Related:
-  whether the struck-out piece is dimmed as well as crossed, which would carry
-  the meaning for a reader who cannot pick the red out; and whether pictures 3
-  and 4 reuse the same arrow.
-- **How a board-less figure is laid out** — how big the gap is, how the
-  supporting piece in figures 9 and 10 is placed so adjacency reads, and
-  whether the piece positions are derived from the figure's real squares or
-  stated separately for the void.
+- **How the arrowhead and the black X sit together** in the six combat figures
+  without either becoming unreadable — the defender's square carries an arrow
+  terminating on it, an X over the piece, and a rank numeral the X must stay
+  clear of. Related: whether the struck-out piece is dimmed as well as crossed,
+  which would carry the meaning for a reader who cannot pick the ink out; and
+  whether pictures 3 and 4 reuse the same arrow.
 - **How each picture's text equivalent is worded and attached** — settled for
   the popup as a visible caption per figure; confirm that still holds on a page.
 - **How much of the cutout's look is shared with `Board.css`** without coupling

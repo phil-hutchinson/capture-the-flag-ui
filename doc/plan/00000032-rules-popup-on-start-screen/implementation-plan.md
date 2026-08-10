@@ -21,11 +21,16 @@ and their own step, and nothing else.
 ### Read this before Steps 1–3 confuse you
 
 This plan was **revised mid-flight**, after Steps 1, 2 and 3 were implemented
-and committed, because the owner changed direction on two things (story.md's
-**Amendments** section records both):
+and committed, because the owner changed direction (story.md's **Amendments**
+section records every change):
 
 1. The rules surface is a **page**, not a modal popup.
-2. The **six combat figures (5–10) are drawn without a board**.
+2. ~~The six combat figures are drawn without a board.~~ Reversed by amendment
+   3 after Step 6's first attempt: **all ten figures are drawn on a board
+   cutout.** Decision 11 is marked superseded and Step 6 has been rewritten;
+   Step 5's `presentation` field is removed as part of that rewrite.
+3. The removal mark is a **black X, not a red one**, kept clear of each piece's
+   rank numeral (amendment 4).
 
 Steps 1–3 below are left **exactly as they were written and executed**,
 including their Status and Notes — they are the record of what was actually
@@ -68,9 +73,7 @@ stays a separate proposed story). Consequences that shape every step:
   in this repo.
 - That is why Steps 1 and 2 pull everything that _can_ be data — the ten
   figures, and the page's copy — out into React-free `.ts` modules, leaving
-  the `.tsx` layer as thin rendering. Step 5 keeps that bargain when the
-  board-less presentation is added: the fact that a figure draws without a
-  board is **data**, and is asserted in `figures.test.ts`.
+  the `.tsx` layer as thin rendering.
 
 ### Where the relevant code is today
 
@@ -143,8 +146,8 @@ stays a separate proposed story). Consequences that shape every step:
 - `src/index.css` — the shared custom properties on `:root`: `--parchment`,
   `--ink`, `--side-a`, `--side-b`, `--focus-ring`; and `body`'s background,
   which is `var(--parchment)`. **The page's background is therefore the same
-  parchment the board's squares are painted in** — which is what lets a
-  board-less figure drop its squares and still look like part of the game.
+  parchment the board's squares are painted in**, so a cutout sits on the page
+  without a seam.
 - `src/App.css` — `.app` (the shared screen shell: a centred flex column,
   `gap: 1.5rem`, `padding: 2rem 1rem`) and `.app__title` with its
   keyboard-modality-gated focus ring. Every screen in the app uses both.
@@ -214,9 +217,10 @@ restarted before observing anything.**
 
 These resolve story.md's "Open items to resolve at plan time". Decisions 4, 8
 and 9 were **rewritten** when the story was amended (page, not popup);
-Decisions 2, 5, 6 and 7 were **amended** for the board-less figures; Decisions
-11 and 12 are **new**. Every step from 4 onward assumes them as they now
-stand.
+Decision 11 is **superseded** by amendment 3 (the board is back on all ten
+figures) and Decisions 2 and 12 were rewritten with it; Decision 2 also carries
+amendment 4 (a black X, clear of the rank numeral). Every step from 4 onward
+assumes them as they now stand.
 
 ### Decision 1 — Two marker shapes: a ring for a move, an arrowhead for an attack
 
@@ -227,14 +231,12 @@ so the two markers differ by **shape**:
   reachable square, ending in an **open ring** (an unfilled circle outline)
   drawn on that square. One arrow per reachable square, as story.md's
   descriptions of pictures 1 and 2 ask ("arrows showing the eight squares it
-  can reach", "four arrows"). Used in figures 1 and 2 only — both of which are
-  board figures, so move markers only ever appear on a cutout.
+  can reach", "four arrows"). Used in figures 1 and 2 only.
 - **Attack marker** — a thicker `--ink` arrow from the attacking piece to the
   attacked piece, ending in a **solid filled triangular arrowhead** whose tip
-  reaches the **centre of the attacked piece**. Used in figures 3–10. On the
-  two board figures that use it (3 and 4) the arrow spans one or two board
-  squares; on the six board-less figures it spans the gap Decision 11 opens,
-  which is what that gap is for.
+  reaches the **centre of the attacked piece**. Used in figures 3–10. In figure
+  3 it spans two squares; everywhere else it spans one, to the adjacent square
+  the target stands on.
 
 The two are additionally, redundantly distinguishable by their context: a move
 marker always lands on an empty square, an attack marker always lands on an
@@ -259,35 +261,40 @@ record it as a deviation in the step's Notes if used.
 
 ### Decision 2 — Draw order: arrow under the pieces, X and dimming over them
 
-_(Amended for the board-less figures: the square that used to sit under the
-defender is gone in figures 5–10, so the ordering is stated per figure rather
-than per square. Everything else stands.)_
-
-A figure is drawn in four layers, back to front: **board squares (figures 1–4
-only) → arrows → pieces → removal marks.**
+A figure is drawn in four layers, back to front: **board squares → arrows →
+pieces → removal marks.**
 
 - The arrow is drawn **behind** the pieces. Its head therefore terminates at the
   attacked piece's centre and visibly runs _under_ that piece, which is what
   makes it read as "the attacker arrives here" rather than "the attacker points
   at that square" (story.md's requirement that the arrow do the double duty a
-  single static picture otherwise cannot). This works identically with or
-  without a board: what the head lands on is the defending **piece**, not the
-  square, and the piece is opaque enough to sit convincingly on top of it.
+  single static picture otherwise cannot). What the head lands on is the
+  defending **piece**, not the square beneath it, and the piece is opaque enough
+  to sit convincingly on top of it.
 - A **removed** piece is marked two ways, not one: it is **dimmed** (drawn at
-  roughly 45% opacity) **and** overlaid with a **red X** — two straight strokes
-  corner to corner, in the app's existing "this loses something" red
-  `rgb(154 34 34)` (already used by `LeaveGameDialog.css` and
-  `ImportScreen.css`), each stroke given a `--parchment` outline/halo so it
-  stays legible over `--side-a` red, over `--side-b` blue, and over the rank
-  numeral in the piece's top-left corner. story.md's open question "whether the
-  struck-out piece is dimmed as well as crossed" is settled: **yes** — the
-  dimming is what carries the meaning for a reader who cannot pick the red out.
+  roughly 45% opacity) **and** overlaid with a **black X** — two straight
+  strokes corner to corner, in the app's existing ink (`--ink`), each stroke
+  given a `--parchment` outline/halo so it stays legible over `--side-a` red and
+  over `--side-b` blue. story.md's open question "whether the struck-out piece
+  is dimmed as well as crossed" is settled: **yes** — the dimming is what
+  carries the meaning for a reader who cannot pick the ink out.
+- **The X is black, not red** (story.md amendment 4, the owner's decision after
+  Step 6). Red was the original choice; it reads poorly over `--side-a`, which
+  is red, and half of all removal marks land on a red piece. Do not reintroduce
+  `rgb(154 34 34)` here, even though that red is the app's established "this
+  loses something" colour elsewhere (`LeaveGameDialog.css`, `ImportScreen.css`)
+  — over a red piece it is close to invisible, which is the whole reason it was
+  dropped.
+- **The X must not cover the piece's rank numeral** (same amendment). `PieceIcon`
+  draws that numeral in the piece's **top-left** corner (`x=15, y=17` in a 64×64
+  viewBox — note the owner described it as top-right; the code is what to build
+  against). The numeral is what tells a reader which piece is which, so the mark
+  saying "this one is gone" must not obscure the mark saying which one it was.
+  Sit the X low on the piece: bound its strokes to roughly the lower two-thirds
+  of the cell rather than running the full corner-to-corner diagonal, and check
+  it against figure 8, where the Tower's `T` sits in the same corner.
 - The X is the last thing drawn on its piece, so it sits over both the piece
   and the arrowhead.
-- **Without a board the halo matters more, not less.** On a cutout the X sits
-  on a parchment square; on a board-less figure it sits on the page's parchment
-  background, which is the same colour — so the halo is doing the same job
-  either way and needs no separate treatment.
 
 ### Decision 3 — Each figure carries a visible caption
 
@@ -338,7 +345,7 @@ The files under `src/app/rules/` after this story:
 | `figures.test.ts`                     | test                | the figures-versus-engine agreement check                              |
 | `rulesCopy.ts`                        | pure data, no React | the header, the six sections, the ten captions, the button copy        |
 | `rulesCopy.test.ts`                   | test                | structural and vocabulary guards on the copy                           |
-| `RuleFigure.tsx` / `RuleFigure.css`   | thin render         | one figure — cutout or board-less                                      |
+| `RuleFigure.tsx` / `RuleFigure.css`   | thin render         | one figure, drawn on its board cutout                                  |
 | `RulesScreen.tsx` / `RulesScreen.css` | thin render         | the page: header, "Back to start", sections, layout                    |
 
 `RulesDialog.tsx` / `RulesDialog.css` (Step 3's modal) become
@@ -378,7 +385,7 @@ copy. `StartScreen.tsx` needs no knowledge of it.
 `RuleFigure.css` uses `var(--parchment)`, `var(--ink)`, `var(--side-a)` and
 `var(--side-b)` from `:root` (`src/index.css`) — those are the app's shared
 design tokens and reusing them is exactly right, and is what makes the cutouts
-look like the real board and the board-less pieces look like the real pieces.
+look like the real board.
 
 It does **not** reference, extend, `@import` or copy any `.board*` /
 `.full-board*` class name, and does not import `Board.css` or `FullBoard.css`.
@@ -389,11 +396,10 @@ saying it deliberately mirrors `FullBoard.css`'s and is free to drift.
 The figure declares its **own** cell size, `--figure-square:
 clamp(22px, 4.5vmin, 34px)` — deliberately not the board's
 `clamp(28px, 6vmin, 64px)`. A figure inside a two-column page must stay small
-and stable; it is not a play surface. **The same cell size governs the
-board-less figures** (Decision 11), so a piece is drawn at exactly the same
-scale in all ten pictures, board or no board.
+and stable; it is not a play surface. One cell size governs all ten figures, so
+a piece is drawn at exactly the same scale in every picture.
 
-For the four figures that draw a board, the cutout is a plain 5×5 patch of
+The cutout is a plain 5×5 patch of
 squares with a thin `--ink` outline around the patch, reading as a crop of a
 board rather than as a tiny complete board (the real board's outer border is
 2px; the cutout's is 1px). No lake, no buffer band, no rank/file labels, no
@@ -428,9 +434,7 @@ F, G, H by rows 1, 2, 3, 4, 5. The window's centre square is **F3**.
   already uses for Red's view: **higher rows nearer the top, column D at the
   left, column H at the right.** Red (= White = `--side-a`) therefore
   advances **up** the picture and Blue (= Black = `--side-b`) advances **down**,
-  which is what the game's own board shows. This holds for the board-less
-  figures too — they keep the same orientation, they simply do not draw the
-  grid.
+  which is what the game's own board shows.
 - **Sides.** Red is always the piece the reader is invited to identify with;
   Blue is always the enemy. In figure 10 — the only figure where the enemy is
   the attacker — Blue attacks downward, which is the direction Blue really
@@ -449,21 +453,22 @@ grid is dropped, and only for figures 5–10.
 Piece types: rank 1 = `masterOfArms`, rank 2 = `champion`, rank 3 = `knight`,
 rank 4 = `halberdier`. Red = `"white"`, Blue = `"black"`.
 
-The **Board?** column is the amendment: it is data (Step 5 adds it to
-`figures.ts`), not a rendering flag invented in the `.tsx` layer.
+All ten are drawn on the 5×5 cutout (amendment 3). The **Board?** column that
+briefly distinguished them is gone, along with the `presentation` field Step 5
+added to back it — Step 6 removes both.
 
-| #   | Section                               | Board? | Pieces                                       | Marked                                               |
-| --- | ------------------------------------- | ------ | -------------------------------------------- | ---------------------------------------------------- |
-| 1   | Movement                              | yes    | red R3 **F3**                                | move rings on D3, E3, F1, F2, F4, F5, G3, H3 (eight) |
-| 2   | Slowed movement                       | yes    | red R3 **F3**; blue R3 **E4**                | move rings on E3, F2, F4, G3 (four)                  |
-| 3   | Movement for attacks                  | yes    | red R3 **F3**; blue R3 **F5**                | attack arrow F3 → F5                                 |
-| 4   | Movement for attacks                  | yes    | red R3 **F3**; blue R3 **G4**                | attack arrow F3 → G4                                 |
-| 5   | Combat                                | no     | red R1 **F2**; blue R2 **F3**                | attack arrow F2 → F3; X on F3                        |
-| 6   | Combat                                | no     | red R3 **F2**; blue R2 **F3**                | attack arrow F2 → F3; X on F2                        |
-| 7   | Equal-ranked pieces and Tower attacks | no     | red R4 **F2**; blue R4 **F3**                | attack arrow F2 → F3; X on F2 **and** F3             |
-| 8   | Equal-ranked pieces and Tower attacks | no     | red R4 **F2**; blue **Tower F3**             | attack arrow F2 → F3; X on F2 **and** F3             |
-| 9   | Rank-up                               | no     | red R3 **F2**; red R3 **E2**; blue R2 **F3** | attack arrow F2 → F3; X on F2 **and** F3             |
-| 10  | Rank-up                               | no     | blue R2 **F4**; red R3 **F3**; red R3 **F2** | attack arrow F4 → F3; X on F4 **and** F3             |
+| #   | Section                               | Pieces                                       | Marked                                               |
+| --- | ------------------------------------- | -------------------------------------------- | ---------------------------------------------------- |
+| 1   | Movement                              | red R3 **F3**                                | move rings on D3, E3, F1, F2, F4, F5, G3, H3 (eight) |
+| 2   | Slowed movement                       | red R3 **F3**; blue R3 **E4**                | move rings on E3, F2, F4, G3 (four)                  |
+| 3   | Movement for attacks                  | red R3 **F3**; blue R3 **F5**                | attack arrow F3 → F5                                 |
+| 4   | Movement for attacks                  | red R3 **F3**; blue R3 **G4**                | attack arrow F3 → G4                                 |
+| 5   | Combat                                | red R1 **F2**; blue R2 **F3**                | attack arrow F2 → F3; X on F3                        |
+| 6   | Combat                                | red R3 **F2**; blue R2 **F3**                | attack arrow F2 → F3; X on F2                        |
+| 7   | Equal-ranked pieces and Tower attacks | red R4 **F2**; blue R4 **F3**                | attack arrow F2 → F3; X on F2 **and** F3             |
+| 8   | Equal-ranked pieces and Tower attacks | red R4 **F2**; blue **Tower F3**             | attack arrow F2 → F3; X on F2 **and** F3             |
+| 9   | Rank-up                               | red R3 **F2**; red R3 **E2**; blue R2 **F3** | attack arrow F2 → F3; X on F2 **and** F3             |
+| 10  | Rank-up                               | blue R2 **F4**; red R3 **F3**; red R3 **F2** | attack arrow F4 → F3; X on F4 **and** F3             |
 
 Figure 10's supporting red piece is **F2**, changed from the committed **E2**
 by Decision 12. Everything else in this table is exactly what `figures.ts`
@@ -616,105 +621,63 @@ tightening of `.start-screen__choice`'s vertical padding via a media query
 **scoped to `StartScreen.css`** — record it as a deviation in the step's Notes
 if used.
 
-### Decision 11 — How a board-less figure is laid out (new)
+### Decision 11 — How a board-less figure is laid out (superseded)
 
-story.md's Amendment 2 removes the board from figures 5–10 and asks for "a
-deliberate gap between attacker and defender for the arrow to occupy". This
-decision fixes what that means geometrically, and it is fixed as a **rule
-derived from the figure's own squares** — never as per-figure hand-placed
-coordinates, so a change to `figures.ts` moves the picture automatically and
-cannot leave a stale drawing behind.
+**Superseded by story.md's amendment 3**, which restores the board cutout to all
+ten figures. This decision fixed the geometry of a board-less figure — same cell
+pitch, the defending side translated one whole cell along the attack vector to
+open a gap for the arrow, everything derived from the figure's own squares. Step
+6 was built to it and is being rebuilt without it.
 
-1. **Same lattice, same scale.** A board-less figure uses the same cell pitch
-   as a cutout (`--figure-square`, Decision 5). A piece on square (column,
-   row) is placed at the same cell it would occupy in the 5×5 window: column
-   offset from the anchor's column, row offset counted downward from the top of
-   the window. Pieces are therefore the same size, and adjacent pieces sit edge
-   to edge, exactly as on a cutout.
-2. **Nothing is drawn but the pieces and the markers.** No square fill, no
-   square border, no patch outline, no background box. The page's parchment
-   shows through.
-3. **The two sides are pulled apart by exactly one cell.** Partition the
-   figure's pieces by side. The **defending side's** group (which in figures
-   5–9 is Blue and in figure 10 is Red) is translated **one whole cell along
-   the attack direction, away from the attacker**; the attacking side's group
-   does not move. All six board-less attacks are orthogonal today (five run
-   F2 → F3, one runs F4 → F3), so this is a one-cell translation up or down; a
-   hypothetical diagonal attack would translate one cell along each axis of the
-   attack vector. The result: attacker and defender centres are two cells
-   apart, leaving one clear cell of parchment — about one piece width — for the
-   arrow to cross.
-4. **Within a group nothing moves.** Two friendly pieces that are adjacent on
-   the real board are drawn touching. This is what makes Decision 12's
-   adjacency read: the supporting piece touches its partner while the arrow
-   crosses a full piece-width void.
-5. **Crop and centre.** The drawing area is the bounding box of the placed
-   pieces plus a half-cell margin on every side; the picture is centred in the
-   space its section gives it. The six board-less pictures therefore differ in
-   size (figure 5 is 1 × 3 cells, figure 10 is 1 × 4), which is fine — but give
-   the figure wrapper a common minimum height so two figures side by side in
-   one section align on their captions rather than jittering.
-6. **Nothing about the underlying squares changes.** The translation is a
-   drawing transform only. `figures.ts` continues to name real squares, and
-   `figures.test.ts` continues to check them against the engine (Decision 6).
+Nothing of it survives except the principle that outlasted it, which every
+figure still obeys: **piece positions are derived from the figure's own square
+data, never hand-placed per figure.** That is what keeps the drawing honest
+against the engine-checked squares.
 
-**Accepted consequence, per story.md:** a gap appears between two pieces that
-are, in the rules, on adjacent squares. The arrow spanning it is what carries
-the relationship, and the caption says so in words.
+There is now **one** presentation. Every figure is drawn on the 5×5 cutout
+described in Decisions 5 and 6, and attacker and defender occupy adjacent cells
+exactly as they do in the rules — so the arrow spans one cell boundary, the same
+way it does in figures 3 and 4.
 
-### Decision 12 — Making "beside it" read in the rank-up figures (new)
+### Decision 12 — The rank-up figures, and why figure 10's supporter is at F2
 
-story.md flags figures 9 and 10 as the real risk of dropping the board: their
-rule condition is _adjacency_, which a board makes obvious and a void does not,
-and it asks that the supporting piece "sit visibly closer to its partner than
-the gap the arrow crosses".
+story.md flagged figures 9 and 10 as the real risk of dropping the board: their
+rule condition is _adjacency_, which a board makes obvious and a void does not.
+**Amendment 3 removes that risk at the root** by restoring the cutout — on a
+board, a piece in one of the eight surrounding squares simply _is_ in one of the
+eight surrounding squares, and the reader can count it.
 
-- **Figure 9 already reads.** Its supporting red piece is at E2, orthogonally
-  beside the attacker at F2, so under Decision 11 the two red pieces are drawn
-  **touching, side by side**, while the blue defender sits a clear cell above.
-  No change.
-- **Figure 10 does not, as committed.** Its supporting red piece is at E2,
-  _diagonally_ adjacent to the defender at F3 — a corner-to-corner touch, the
-  weakest adjacency cue there is. Worse, once Decision 11's one-cell gap is
-  opened the supporter sits about 1.41 cells from the defender while the
-  attacker sits 2 cells away: the supporter is barely closer than the thing the
-  arrow crosses, which is the opposite of the comfortable margin story.md asks
-  for. In a void that is exactly the ambiguity story.md warns against.
-- **Resolution: figure 10's supporting red piece moves from E2 to F2** —
-  directly behind the defender at F3, on the far side from the blue attacker at
-  F4. The two red pieces are then drawn **touching, stacked vertically**, with
-  the blue attacker one clear cell above the pair. Adjacency is unmistakable;
-  the arrow crosses the only gap in the picture.
+What survives from the board-less round, and why it should **not** be reverted:
+
+- **Figure 10's supporting red piece stays at F2**, where Step 5 moved it (it
+  was E2 as first committed). The move was made for the void, but it is at least
+  as good on a board: F2 is orthogonally behind the defender at F3, on the far
+  side from the blue attacker at F4, so the supporting pair reads as a column
+  and the attacker is unambiguously the odd one out. Reverting to E2 would churn
+  committed data and its caption for no gain.
 - **Why F2 and not another square.** The supporter must be adjacent to the
-  defender (the rule) and **not** adjacent to the blue attacker (or the
-  attacker gains a second legal attack and the figure's single-arrow claim
-  breaks). Of F3's four orthogonal neighbours, E3 and G3 are both diagonally
-  adjacent to F4 and F4 is the attacker itself — leaving F2 as the only
-  orthogonal option.
-- **Verified at plan time** against this repository's own
+  defender (the rule) and **not** adjacent to the blue attacker (or the attacker
+  gains a second legal attack and the figure's single-arrow claim breaks). Of
+  F3's four orthogonal neighbours, E3 and G3 are both diagonally adjacent to F4
+  and F4 is the attacker itself — leaving F2 as the only orthogonal option.
+- **Verified at plan time and again in Step 5** against this repository's own
   `legalAttacks`/`resolveCombat`: with red knights on F3 and F2 and a blue
   champion on F4, `legalAttacks` from F4 is exactly `["F3"]` under all four
   combinations of `DIAGONAL_ATTACKABLE` × `DIAGONAL_ATTACK_PATH`, and
-  `resolveCombat(F4 → F3)` is `mutualLoss` — identical to the committed E2
-  version. Step 5 makes the change and the existing generic assertions in
-  `figures.test.ts` re-verify it automatically.
-- **Caption 10 changes with it** (Decision 3, item 10): "beside it" becomes
-  "right behind it", because the picture now shows the supporter behind the
-  defender and the caption must describe the picture. The rule sentence above
-  it — story.md's fixed copy — already says "any of the eight squares
+  `resolveCombat(F4 → F3)` is `mutualLoss`. The generic assertions in
+  `figures.test.ts` re-verify this on every run.
+- **Caption 10 keeps Step 5's wording** — "with another red rank 3 right behind
+  it" — because it describes the picture that is actually drawn. The rule
+  sentence above it, story.md's fixed copy, still says "any of the eight squares
   immediately surrounding it", so nothing about the rule's statement narrows.
-- **Escalation clause, per story.md.** If Step 7's Gate B still finds figure 9
-  or 10 ambiguous — a reader cannot tell that the two same-coloured pieces are
-  meant to be adjacent — **stop and escalate to the owner rather than shipping
-  an ambiguous picture.** Two remedies are worth putting to them, and both are
-  the owner's call, not the implementer's: (a) an alternative arrangement for
-  figure 10 in which the attack runs sideways — blue on E3 attacking red on F3
-  with the red supporter on G3, which makes the red pair a touching _horizontal_
-  pair and matches figure 9's shape; this was also verified at plan time to
-  give exactly one legal attack under all four flag combinations and a
-  `mutualLoss`; or (b) restoring a 5×5 cutout for figures 9 and 10 only, which
-  reverses part of story.md's Amendment 2 and therefore cannot be done without
-  the owner.
+- **Figure 9 is unchanged**: its supporting red piece is at E2, orthogonally
+  beside the attacker at F2, and on a cutout the two red pieces sit side by side
+  on adjacent squares.
+
+**The escalation clause is retired.** It existed because a void might have left
+adjacency unreadable; with the board back, the picture states it. If Gate B
+still finds either figure ambiguous, that is ordinary gate feedback, not an
+escalation.
 
 ---
 
@@ -1213,28 +1176,47 @@ the five repository checks.
 
 ---
 
-## Step 6 — Draw the figures: cutouts and board-less pieces, no markers yet
+## Step 6 — Draw the figures on their board cutouts, no markers yet
 
 Status: pending
 
-Create `src/app/rules/RuleFigure.tsx` and `RuleFigure.css`: a thin component
-that takes one figure from `figures.ts` and draws it — **pieces only, no
-markers yet** — in whichever of the two presentations the figure declares.
-Read Decisions 5, 6 and 11 first.
+**This step was implemented once and rejected at its gate**, not because the
+work was wrong but because the owner reversed the direction it was built to
+(story.md amendment 3: the board comes back for all ten figures). The
+uncommitted `RuleFigure.tsx` / `RuleFigure.css` from that attempt are in the
+tree and are the right starting point — the cutout half of them is exactly what
+is now wanted for all ten. Read Decisions 5, 6, 11 and 12 before starting;
+Decision 11 is marked superseded and says what survives it.
 
-- **Both presentations share one lattice.** A piece's position is derived from
-  its square key and the window anchor (Decision 6): column offset from D,
-  rows running downward from row 5 at the top to row 1 at the bottom, one
-  `--figure-square` cell each. No per-figure hand-placed coordinates anywhere.
-- **Figures that draw a board** (1–4) draw the full 5×5 patch: `var(--parchment)`
-  square fill, the faint square border of Decision 5, and a 1px `var(--ink)`
-  outline around the patch. No lake, no board edge treatment, no coordinates.
-- **Figures that do not** (5–10) draw no squares, no borders and no background
-  at all; the defending side's pieces are translated one whole cell along the
-  attack direction away from the attacker, opening a one-cell gap for Step 7's
-  arrow (Decision 11), and the drawing is cropped to the pieces' bounding box
-  plus a half-cell margin. Pieces on adjacent squares within one side are drawn
-  touching.
+Create/finish `src/app/rules/RuleFigure.tsx` and `RuleFigure.css`: a thin
+component that takes one figure from `figures.ts` and draws it — **pieces only,
+no markers yet** — on a 5×5 board cutout.
+
+- **One presentation, not two.** Every figure draws the full 5×5 patch:
+  `var(--parchment)` square fill, the faint square border of Decision 5, and a
+  1px `var(--ink)` outline around the patch. No lake, no board edge treatment,
+  no coordinates.
+- **Remove the board-less path entirely** — the one-cell translation of the
+  defending side, the bounding-box crop, and the branch that selects between
+  presentations. Attacker and defender sit on adjacent squares exactly as the
+  rules have them, so Step 7's arrow spans one cell boundary, the same way it
+  will in figures 3 and 4.
+- **Remove the now-vestigial `presentation` field** from `figures.ts`, along
+  with the `FigurePresentation` type and the `figures.test.ts` assertions that
+  pin the board / no-board id lists and their counts (Step 5 added all of it).
+  A field whose every value is the same is noise, and a test asserting a
+  distinction that no longer exists is worse than none. **Keep** everything else
+  Step 5 did: figure 10's supporter at F2, its caption, and the coverage check
+  that ties the figure ids to the engine-checked id lists — that check is what
+  stops a figure being silently exempted from verification, and it must survive
+  this edit. Run the suite and confirm the count drops only by the assertions
+  deliberately removed.
+- **Positions are derived from the figure's own square data** — column offset
+  from the window anchor, rows running downward from row 5 at the top to row 1
+  at the bottom, one `--figure-square` cell each. No per-figure hand-placed
+  coordinates anywhere. This is the one principle that outlived the board-less
+  round and it is not negotiable: it is what keeps the drawing honest against
+  the engine-checked squares.
 - Each piece is drawn with `PieceIcon` (`src/art/PieceIcon.tsx`), passing the
   figure's own side and piece type — so the artwork, the side colour and the
   corner rank numeral are the real board's, unmodified, at the same size in all
@@ -1243,26 +1225,23 @@ Read Decisions 5, 6 and 11 first.
   focusable and animates nothing (story.md: illustrations, not a live board).
 - The component wraps the picture and its caption in a `<figure>` /
   `<figcaption>` (Decision 3), taking the caption text from `rulesCopy.ts`.
-  Give the picture area a common minimum height so two figures in one section
-  align on their captions (Decision 11, item 5).
 - **Nothing in `src/board/` is imported, referenced or changed** (Decisions 4
   and 5, and the hard constraint in "Out of bounds"). The board's class names
   are not reused; the custom properties are.
 
-Replace Step 4's placeholders in `RulesScreen.tsx` with real `RuleFigure`s,
-driven by each section's figure-id list, and delete the placeholder CSS.
+`RulesScreen.tsx` renders a `RuleFigure` per figure id in each section, in place
+of Step 4's placeholders; the placeholder CSS goes.
 
-Note for this step's gate: the captions describe markers that do not exist
-yet — that is expected here and is fixed in Step 7.
+Note for this step's gate: the captions describe markers that do not exist yet —
+that is expected here and is fixed in Step 7.
 
 Why it comes here: geometry, scale and the piece artwork are one thing to get
 right and to look at; the marker vocabulary (Step 7) is another, and is where
 this story's hardest visual questions live. Splitting them keeps each gate to
 one judgement.
 
-Depends on: Step 4 (the page to render into), Step 5 (which figures draw a
-board, and figure 10's placement), Step 1 (the figure data), Step 2 (the
-captions).
+Depends on: Step 4 (the page to render into), Step 5 (figure 10's placement and
+its caption), Step 1 (the figure data), Step 2 (the captions).
 
 Verification (**manual**). Restart the dev server and open the rules page. Then
 run the five repository checks.
@@ -1275,23 +1254,20 @@ run the five repository checks.
   in all ten**) and the right corner numerals — R1 in figure 5, a Tower in
   figure 8, and so on. Red always advances **up** the picture; the blue
   attacker in figure 10 attacks **down**.
-- **The first four** read as cutouts of the real board — same artwork, same
-  parchment, same square grid — at a size that sits comfortably in a column
-  without dominating it. No lake, no board edge treatment, no coordinates.
-- **The last six** show pieces on their own with **no squares, no grid lines and
-  no box around them**, at the same piece size as the cutouts, with a clear gap
-  of about one piece width between attacker and defender for the arrow to
-  occupy.
-- **Adjacency in the rank-up figures (9 and 10).** In both, the two red pieces
-  are visibly **touching**, and the gap between the attacking and defending
-  sides is visibly larger than the space between the two red pieces — so
-  "beside it" / "right behind it" reads without a board. If it does not,
-  Decision 12's escalation clause applies: raise it with the owner rather than
-  proceeding.
+- **All ten** read as cutouts of the real board — same artwork, same parchment,
+  same square grid — at a size that sits comfortably in a column without
+  dominating it. No lake, no board edge treatment, no coordinates, and no figure
+  drawn without a board.
+- Attacker and defender sit on **adjacent squares** in the six combat figures,
+  with no gap opened between them.
+- **The rank-up figures (9 and 10).** In figure 9 the two red pieces sit side by
+  side on adjacent squares; in figure 10 the supporting red piece sits directly
+  behind the defender. In both, a reader can see that the two red pieces are on
+  neighbouring squares.
 - Nothing in a picture can be clicked, focused or arrowed into: press Tab
   repeatedly through the page and confirm focus never lands inside a picture.
-- Each figure has its caption below it, and the amended caption 10 reads
-  "…with another red rank 3 right behind it…".
+- Each figure has its caption below it, and caption 10 reads "…with another red
+  rank 3 right behind it…".
 - `git diff --stat` shows no forbidden file — in particular `FullBoard.tsx`,
   `Board.tsx`, `PlayBoard.tsx` and `AccessibleGrid.tsx` are untouched.
 
@@ -1308,50 +1284,51 @@ Add the marker vocabulary to `RuleFigure.tsx` / `RuleFigure.css`, per Decisions
   destination, ending in an **open ring** on that destination square. Figures 1
   and 2 only (both board figures).
 - **Attack marker** — a thicker `--ink` arrow from the attacker whose **solid
-  triangular head reaches the centre of the attacked piece**. Figures 3–10 —
-  the same marking on the two board figures (3 and 4) as on the six board-less
-  ones, deliberately, differing only in length. On a board-less figure the
-  arrow spans the one-cell gap Step 6 opened, and its head lands under the
-  defending piece.
-- **Removal** — the removed piece is drawn **dimmed** and overlaid with a **red
-  X** with a parchment halo. Figures 5–10.
-- Draw order: board squares (where drawn) → arrows → pieces → X. The arrows run
-  **behind** the pieces; the X is on top of everything.
+  triangular head reaches the centre of the attacked piece**. Figures 3–10, the
+  same marking in all eight, spanning one cell boundary to the adjacent square
+  its target stands on. Its head lands under the defending piece.
+- **Removal** — the removed piece is drawn **dimmed** and overlaid with a
+  **black X** (`--ink`) with a parchment halo, **sitting low enough on the piece
+  not to cover the rank numeral in its top-left corner** (Decision 2, story.md
+  amendment 4). Figures 5–10.
+- Draw order: board squares → arrows → pieces → X. The arrows run **behind** the
+  pieces; the X is on top of everything.
 
 All marker geometry is derived from the figure's own data (which squares, which
-direction) and from the same lattice and translation Step 6 established — no
-per-figure hand-tuned coordinates, so a figure that changes does not silently
-keep a stale arrow.
+direction) and from the same lattice Step 6 established — no per-figure
+hand-tuned coordinates, so a figure that changes does not silently keep a stale
+arrow.
 
-Depends on: Step 6 (the pictures to draw on) and Steps 1 and 5 (which squares
-are marked, and which figures draw a board).
+Depends on: Step 6 (the pictures to draw on) and Step 1 (which squares are
+marked).
 
 Verification (**manual**). Restart the dev server and open the rules page. Then
 run the five repository checks.
 
 - **Gate B.** With the six sentences and the rules in view, read each section:
   - Figure 1 shows **eight** reachable squares, figure 2 **four**.
-  - Figures 3 and 4 each mark the enemy piece as attackable **on a board
-    cutout**, with the same marking figures 5–10 use — no second,
-    near-identical marking that reads as an unexplained distinction.
+  - Figures 3 and 4 each mark the enemy piece as attackable, with the same
+    marking figures 5–10 use — no second, near-identical marking that reads as
+    an unexplained distinction.
   - Figures 5–10 each run an arrow from the attacker **onto** the defending
-    piece, across the gap, and the arrow reads as the attacker **arriving at**
-    the defender rather than merely pointing at it.
+    piece, and the arrow reads as the attacker **arriving at** the defender
+    rather than merely pointing at it.
   - Exactly the right pieces are struck out: **one** in figures 5 and 6,
     **both** in 7, 8, 9 and 10 — and in 9 and 10 the supporting red piece is
     **not** struck out.
   - In figures 9 and 10 the supporting piece still reads as standing beside (9)
-    or right behind (10) its partner despite there being no board, now that the
-    arrow is present to be compared against. If it does not, Decision 12's
-    escalation clause applies: **stop and raise it with the owner** rather than
-    shipping an ambiguous picture.
+    or right behind (10) its partner now that the arrow is present to be
+    compared against, and is plainly not what the arrow points at.
   - Nothing in any picture contradicts the sentence above it, and every caption
     says what its picture shows.
-- **Legibility.** The red X is legible over a red piece, over a blue piece, over
-  the corner rank numeral, and where it meets the arrowhead. The removed piece
-  is visibly dimmed as well as crossed, so the removal survives being read
-  without colour. Squint-test or use a greyscale filter: move markers and attack
-  markers are still tellable apart by shape alone.
+- **Legibility.** The black X is legible over a red piece, over a blue piece,
+  and where it meets the arrowhead — check figure 5's red rank 1 and figure 6's
+  blue rank 2 in particular, since a dark mark over a dark piece is the risk
+  that made red unusable. **The X leaves every rank numeral readable**, figure
+  8's Tower `T` included. The removed piece is visibly dimmed as well as
+  crossed, so the removal survives being read without colour. Squint-test or use
+  a greyscale filter: move markers and attack markers are still tellable apart
+  by shape alone.
 - **Gate C (second pass).** With the real pictures in, re-check the layout at a
   comfortable desktop width, at a narrow width (single column, movement before
   combat), on a short viewport and at phone width — the document scrolls
