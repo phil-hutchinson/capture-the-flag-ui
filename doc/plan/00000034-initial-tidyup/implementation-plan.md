@@ -493,7 +493,21 @@ restart `npm run dev` and open `http://localhost:5173`.
 
 ## Step 4 — The board no longer flips between turns by default
 
-Status: pending
+Status: committed
+
+Notes: Changed `DEFAULT_FLIP_BETWEEN_TURNS` to `false` in
+`src/board/flipBoardSetting.ts` and rewrote its comment to explain the new
+default (most viewers drive both sides themselves, so a spinning board is
+disorienting; a stored preference still outranks the default). Updated
+`src/board/flipBoardSetting.test.ts`: the three "defaults to true…" tests
+now assert `false` with matching titles, and a new "a stored preference
+outranks the new default" test writes `true` then reads `true`; the two
+existing round-trip tests (for `true` and `false`) were left unchanged.
+`STORAGE_KEY`, `readFlipBetweenTurns`, `writeFlipBetweenTurns`,
+`FlipBoardToggle.tsx` and `playSession.ts` were not touched. All five
+repository checks (typecheck, lint, test, format:check, build) pass; `git
+diff --stat` touches exactly the two files named in the step. No
+deviations from the plan.
 
 In `src/board/flipBoardSetting.ts`, change `DEFAULT_FLIP_BETWEEN_TURNS` to
 `false` and update its comment to say what the default now is and why (most

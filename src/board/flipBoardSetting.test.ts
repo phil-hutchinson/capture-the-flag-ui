@@ -60,21 +60,27 @@ describe("flipBoardSetting", () => {
     expect(readFlipBetweenTurns()).toBe(true);
   });
 
-  it("defaults to true when nothing is stored", () => {
+  it("defaults to false when nothing is stored", () => {
     globalThis.localStorage = inMemoryLocalStorage();
-    expect(readFlipBetweenTurns()).toBe(true);
+    expect(readFlipBetweenTurns()).toBe(false);
   });
 
-  it("defaults to true and does not throw when localStorage is undefined", () => {
+  it("defaults to false and does not throw when localStorage is undefined", () => {
     // @ts-expect-error - deleting a global that may or may not exist.
     delete globalThis.localStorage;
-    expect(readFlipBetweenTurns()).toBe(true);
+    expect(readFlipBetweenTurns()).toBe(false);
     expect(() => writeFlipBetweenTurns(false)).not.toThrow();
   });
 
-  it("defaults to true and does not throw when localStorage throws", () => {
+  it("defaults to false and does not throw when localStorage throws", () => {
     globalThis.localStorage = throwingLocalStorage();
-    expect(readFlipBetweenTurns()).toBe(true);
+    expect(readFlipBetweenTurns()).toBe(false);
     expect(() => writeFlipBetweenTurns(false)).not.toThrow();
+  });
+
+  it("a stored preference outranks the new default", () => {
+    globalThis.localStorage = inMemoryLocalStorage();
+    writeFlipBetweenTurns(true);
+    expect(readFlipBetweenTurns()).toBe(true);
   });
 });
