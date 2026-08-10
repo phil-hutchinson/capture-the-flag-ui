@@ -596,7 +596,27 @@ alternatively clear that key first).
 
 ## Step 6 — Full play-through and reversibility check
 
-Status: pending
+Status: committed
+
+Notes: Both gates run by the owner at the manual gate and both pass. **Gate
+E** — a full Skirmish game played from placement to a real result, plus a
+Clash and a Battle game set up and moved in; placement, hand-off, attacks,
+warnings, the result screen and "New game" all behaved as before. **Gate F** —
+run in **two passes rather than three** (a deviation from this step's "one
+constant at a time"): pass 1 flipped `SHOW_REVIEW_A_GAME` alone, confirming
+that the choice came back on its own — "Play against the computer" stayed
+hidden, which is what proves each constant governs only its own choice — that
+it reached the import screen, and that **a real game-record file from the
+companion project still imported and replayed** (the stronger check; the
+step's fallback was not needed). Pass 2 reverted that and flipped
+`SHOW_PLAY_AGAINST_THE_COMPUTER` and `SHOW_DEVELOPER_GAME_RECORD` together,
+which cannot be ambiguous since the two features are on different screens:
+the computer choice returned in its original third position, dimmed,
+Tab-reachable and not activatable with its explanatory note (story 00000002's
+decision 7 surviving the round trip), and the developer disclosure returned at
+the foot of the game screen still showing the evolving record. All three
+constants were then reverted with `git checkout src/featureVisibility.ts` and
+the committed state re-confirmed as all-`false` with a clean `git status`.
 
 **This step implements nothing and commits no source change.** It exists
 because story.md's Gates E and F can only be run once every part of the hiding
