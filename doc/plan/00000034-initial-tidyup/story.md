@@ -36,8 +36,8 @@ that hides something:
   obvious place** — findable by someone who wasn't here when it was hidden,
   without hunting through components. A deletion "recoverable from git
   history" does not satisfy this.
-- Copy that is being shortened *is* edited in place (the old wording is in git
-  history and is not coming back as-is); only the *features* are hidden rather
+- Copy that is being shortened _is_ edited in place (the old wording is in git
+  history and is not coming back as-is); only the _features_ are hidden rather
   than removed.
 
 ## In scope
@@ -81,11 +81,11 @@ behind a flag.
 
 In `src/board/GameChoice.tsx`, `GAME_DETAIL` becomes:
 
-| Game     | Description                                             |
-| -------- | ------------------------------------------------------- |
-| Skirmish | `Play on an 8x8 board with a 16-piece army.`            |
+| Game     | Description                                                    |
+| -------- | -------------------------------------------------------------- |
+| Skirmish | `Play on an 8x8 board with a 16-piece army.`                   |
 | Clash    | `Play on a 10x10 board with a 20-piece army. Irregular lakes.` |
-| Battle   | `Play on a 12x12 board with a 25-piece army.`           |
+| Battle   | `Play on a 12x12 board with a 25-piece army.`                  |
 
 Two earlier stories' deliberate additions are dropped by this, knowingly:
 

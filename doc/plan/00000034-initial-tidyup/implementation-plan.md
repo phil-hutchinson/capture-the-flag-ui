@@ -258,7 +258,17 @@ in a private window.
 
 ## Step 1 — Visibility constants and the start screen's choices as data
 
-Status: pending
+Status: committed
+
+Notes: Created `src/featureVisibility.ts` (three `boolean`-annotated
+constants, all `false`) and `src/app/startScreenChoices.ts` (the
+`StartScreenChoice` descriptor type, the four-entry `START_SCREEN_CHOICES`
+catalog with `howToPlay`'s copy read from `HOW_TO_PLAY_BUTTON`, and the pure
+`visibleStartScreenChoices` filter), plus
+`src/app/startScreenChoices.test.ts`. No existing file was modified. All
+five repository checks (typecheck, lint, test, format:check, build) pass;
+`format:check`'s lone remaining warning is a pre-existing issue in
+`story.md`, untouched by this step. No deviations from the plan.
 
 Create two new plain-TypeScript modules (no React, no JSX, no CSS) and one
 test file. **Nothing renders differently after this step** — no existing file
