@@ -248,9 +248,10 @@ describe("no jargon leaks into player-facing copy", () => {
   // "always" are deliberately *not* checked here even though they are two of
   // the four value tokens - both are ordinary English words the plain-copy
   // sentences legitimately use (e.g. "A piece can always attack an eligible
-  // enemy diagonally"), so checking for them as bare substrings would fail on prose that has
-  // nothing to do with the internal token spelling. The unambiguous,
-  // snake_case-only tokens below can never appear in ordinary English text.
+  // enemy diagonally"), so checking for them as bare substrings would fail
+  // on prose that has nothing to do with the internal token spelling. The
+  // unambiguous, snake_case-only tokens below can never appear in ordinary
+  // English text.
   const forbiddenSubstrings = [
     "DIAGONAL_ATTACKABLE",
     "DIAGONAL_ATTACK_PATH",

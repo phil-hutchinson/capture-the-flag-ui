@@ -20,7 +20,12 @@
 // `featureVisibility.ts`'s `SHOW_DEVELOPER_GAME_RECORD` (off because the
 // panel is not meant for a first-time viewer); the dev-build console logging
 // below is deliberately left running either way, so the `useMemo`/`useEffect`
-// pair still executes before the early return that skips the disclosure.
+// pair still executes before the early return that skips the disclosure. A
+// known trade-off of this: `renderGameRecord(play)` now runs on every ply in
+// production builds too, with its output going unread there. This is
+// accepted rather than fixed, because moving the render into the
+// `import.meta.env.DEV` branch would be conditional logic beyond visibility
+// and would make re-enabling the panel more than a one-line change.
 
 import { useEffect, useMemo } from "react";
 import { renderGameRecord, type PlayState } from "../rules/primary/v2/play.ts";
@@ -38,7 +43,9 @@ export function GameRecord({ play }: GameRecordProps) {
   const record = useMemo(() => renderGameRecord(play), [play]);
 
   useEffect(() => {
-    // Developer inspection path (the <details> dump below covers production).
+    // Developer inspection path. The <details> dump below is hidden by
+    // `SHOW_DEVELOPER_GAME_RECORD` (story 00000034), but this dev-only log is
+    // deliberately kept regardless.
     // Gated to dev builds so the artifact isn't logged in a shipped app.
     if (import.meta.env.DEV) {
       console.log("Game record:", record);

@@ -5,11 +5,16 @@
 // breaks this suite (Decision 1).
 
 import { describe, expect, it } from "vitest";
+import {
+  SHOW_PLAY_AGAINST_THE_COMPUTER,
+  SHOW_REVIEW_A_GAME,
+} from "../featureVisibility.ts";
 import { HOW_TO_PLAY_BUTTON } from "./rules/rulesCopy.ts";
 import {
   START_SCREEN_CHOICES,
   visibleStartScreenChoices,
   type StartScreenChoice,
+  type StartScreenChoiceId,
 } from "./startScreenChoices.ts";
 
 describe("START_SCREEN_CHOICES", () => {
@@ -76,14 +81,32 @@ describe("START_SCREEN_CHOICES", () => {
     expect(howToPlay?.visible).toBe(true);
     expect(playAGame?.visible).toBe(true);
   });
+
+  it("wires each hidden choice to its own visibility constant", () => {
+    // Pins wiring, not a value: this compares against the imported constants
+    // (never a literal), so it stays green whichever way each constant is
+    // set - a copy-paste that gave both entries the same constant would fail
+    // this regardless.
+    const computer = START_SCREEN_CHOICES.find(
+      (choice) => choice.id === "playAgainstTheComputer",
+    );
+    const reviewAGame = START_SCREEN_CHOICES.find(
+      (choice) => choice.id === "reviewAGame",
+    );
+    expect(computer?.visible).toBe(SHOW_PLAY_AGAINST_THE_COMPUTER);
+    expect(reviewAGame?.visible).toBe(SHOW_REVIEW_A_GAME);
+  });
 });
 
 describe("visibleStartScreenChoices", () => {
   // Synthetic catalogs only - never the real START_SCREEN_CHOICES - so that
   // flipping a real featureVisibility.ts constant to `true` can never break
   // this suite.
-  const makeChoice = (id: string, visible: boolean): StartScreenChoice => ({
-    id: id as StartScreenChoice["id"],
+  const makeChoice = (
+    id: StartScreenChoiceId,
+    visible: boolean,
+  ): StartScreenChoice => ({
+    id,
     title: id,
     detail: id,
     visible,
@@ -119,14 +142,14 @@ describe("visibleStartScreenChoices", () => {
 
   it("preserves order regardless of which entries are hidden", () => {
     const catalog = [
-      makeChoice("a", false),
-      makeChoice("b", true),
-      makeChoice("c", false),
-      makeChoice("d", true),
+      makeChoice("howToPlay", false),
+      makeChoice("playAGame", true),
+      makeChoice("playAgainstTheComputer", false),
+      makeChoice("reviewAGame", true),
     ];
     expect(visibleStartScreenChoices(catalog).map((c) => c.id)).toEqual([
-      "b",
-      "d",
+      "playAGame",
+      "reviewAGame",
     ]);
   });
 });

@@ -1,8 +1,7 @@
 // The start screen: the app's entry point (story 00000014, Step 8). Offers
-// the things a player can do here - play a hot-seat game, or review one that
-// was recorded earlier - each labeled in plain language a player understands
-// without explanation. `App.tsx` mounts this whenever `screen.kind ===
-// "start"`.
+// a catalog of entry choices, each labeled in plain language a player
+// understands without explanation. `App.tsx` mounts this whenever
+// `screen.kind === "start"`.
 //
 // The choices themselves are data, not markup (story 00000034, Step 2): this
 // component maps over `visibleStartScreenChoices(START_SCREEN_CHOICES)` from

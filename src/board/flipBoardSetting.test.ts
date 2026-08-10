@@ -79,8 +79,11 @@ describe("flipBoardSetting", () => {
   });
 
   it("a stored preference outranks the new default", () => {
+    // Seeds storage directly, as a device that stored `true` before the
+    // default flipped to `false` would already have it - `STORAGE_KEY` is
+    // module-private, so the literal is required here.
     globalThis.localStorage = inMemoryLocalStorage();
-    writeFlipBetweenTurns(true);
+    globalThis.localStorage.setItem("ctf:flip-board-between-turns", "true");
     expect(readFlipBetweenTurns()).toBe(true);
   });
 });
