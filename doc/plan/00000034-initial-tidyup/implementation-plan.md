@@ -403,7 +403,30 @@ open `http://localhost:5173`.
 
 ## Step 3 — The copy edits
 
-Status: pending
+Status: committed
+
+Notes: Made the four copy edits in place: `RULES_HEADER.lines[1]` and its
+matching `EXPECTED_HEADER_LINES` entry in `rulesCopy.test.ts`;
+`GAME_DETAIL`'s three descriptions in `GameChoice.tsx` shortened to
+story.md's exact strings, with the doc comment rewritten to record that
+story 00000034 dropped the tower/lane clause and the fuller lake
+explanation, and that the tower/lane rule is now explained only at
+placement time; the `.game-choice__start` button now renders plain "Play"
+(the `gameName` import stays, used by the game buttons above); and
+`ruleChoices.ts`'s `DIAGONAL_ATTACKABLE`/`all` description now says "attack"
+instead of "strike". Also updated three other stale mentions of the old
+button label ("Play <Game>") in `GameChoice.tsx`'s header and inline
+comments for accuracy, and corrected the stale "strike" quotation in
+`ruleChoices.test.ts`'s comment around line 250 — a repository-wide
+`grep -rn "strike" src/` after the edits returns nothing, confirming no
+stale copy remains outside `README.md` (Step 7's responsibility). All five
+repository checks (typecheck, lint, test, format:check, build) pass; `git
+diff --stat` touches exactly the five files named in the step (the four
+listed plus their paired test files). No deviations from the plan beyond
+tidying the two additional stale "Play &lt;Game&gt;" comment references the
+plan didn't enumerate line-by-line but which its instruction to "update the
+component's header comment where it describes a 'Play &lt;Game&gt;' button"
+covers. The manual Gates B and C are left for the owner per the pipeline.
 
 Make story.md's four copy edits, in place (Decision 5). No feature is hidden
 in this step and no visibility constant is involved. No copy other than the

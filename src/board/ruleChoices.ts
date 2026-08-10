@@ -107,7 +107,7 @@ const RULE_CHOICE_COPY: RuleChoiceCopy = {
       all: {
         label: "Any piece, flag/towers included",
         description:
-          "A piece can strike any enemy standing diagonally next to it, towers and the flag included — so the flag can be captured from a diagonal.",
+          "A piece can attack any enemy standing diagonally next to it, towers and the flag included — so the flag can be captured from a diagonal.",
       },
     },
   },
