@@ -1620,7 +1620,53 @@ run the five repository checks.
 
 ## Step 8 — Keyboard and screen reader
 
-Status: pending
+Status: committed
+
+Notes: A keyboard-driven pass (via a transiently-installed Playwright/Chromium
+
+- browser cached under the OS scratchpad only, `package.json`/
+  `package-lock.json` confirmed byte-identical by checksum before and after,
+  `git status --porcelain` empty throughout) found **no defects**: Steps 4-7
+  already satisfy Decisions 3 and 9 exactly, so **no source file was changed**
+  in this step. Verified programmatically and by screenshot: (1) from the start
+  screen, one Tab reaches "How to play" (the page's `<h1>` is `tabIndex={-1}`
+  and correctly outside the native tab sequence) and Enter navigates to the
+  rules page, landing focus on its `<h1>`; (2) the rules page's entire tab
+  sequence is exactly the two "Back to start" buttons (nothing else on the page
+  is focusable, confirmed by walking Tab 12 times and observing the two-button
+  cycle), each reachable and each returning to the start screen with no
+  confirmation prompt, whose own `<h1>` then takes focus (confirmed for both
+  the header and the footer button); (3) an `ariaSnapshot` of the rendered page
+  shows exactly one `heading [level=1]` followed by six `heading [level=2]`s in
+  DOM order (Movement, Slowed movement, Movement for attacks, Combat,
+  Equal-ranked pieces and Tower attacks, Rank-up), matching reading order in
+  every layout since the two-column CSS grid never reorders DOM children; (4)
+  every one of the ten pictures reports as an accessible-tree `figure` node
+  whose accessible name is exactly its caption text, with the picture markup
+  itself (`.rule-figure__stage`) carrying `aria-hidden="true"` and containing no
+  focusable descendant, and no `table`/`grid`/`row`/`cell` role appears
+  anywhere in the tree; (5) `PageDown` scrolls the document (0 -> 482px) from
+  anywhere on the page with no inner scroll container involved; (6) `Escape` on
+  the rules page does nothing (no navigation, no state change), confirming no
+  modal behaviour survived Step 4's conversion; (7) screenshots with focus
+  programmatically walked onto "How to play" and onto the rules page's header
+  "Back to start" button both show a clearly visible dark focus outline (the
+  browser's default `:focus-visible` ring in `--ink`, unsuppressed by any CSS
+  in `App.css`/`StartScreen.css`/`RulesScreen.css` - only `.app__title:focus`
+  suppresses its own ring, which does not apply to either button). The two
+  identically-labelled "Back to start" buttons were left exactly as Decision 9
+  specifies - no `aria-label` was added to disambiguate them - since they are
+  the page's only two controls, far apart in reading order, and both were
+  confirmed to work correctly by keyboard alone. No screen reader (Narrator)
+  session was available in this container; the ARIA-tree and heading-structure
+  checks above are the available proxy for it, consistent with how this story's
+  DOM-level manual gates have been verified throughout (no DOM/component test
+  environment - see the plan's grounding facts). All five repository checks
+  (typecheck, lint, test - 945 tests unchanged, format:check, build) pass;
+  `git diff --stat` is empty for this step - no file was touched. No deviation
+  from the plan's substance; the only departure is that inspection substituted
+  for an actual screen-reader session, which the owner's own manual gate (Gate
+  D) remains free to re-run.
 
 Work the page over from the keyboard and with a screen reader, and fix what
 that finds. Expected work in this step (do each, and adjust only
