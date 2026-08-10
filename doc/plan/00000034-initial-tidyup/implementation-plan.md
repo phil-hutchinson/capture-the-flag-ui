@@ -665,7 +665,32 @@ edits). Re-run the five repository checks.
 
 ## Step 7 — README
 
-Status: pending
+Status: committed
+
+Notes: Edited `README.md` directly (no `/update-readme` slash command available
+in this session; reviewed `git diff main...HEAD --stat` and the individual
+diffs instead, confirming the intro, "What you can do", Status blockquote and
+"The rules" section were the only places touching the hidden/changed
+capabilities). Intro paragraph now says the start screen lets you "play a
+game or read a quick guide" and drops the temporarily-unavailable computer
+sentence. Removed the "Review a recorded game" and "Play against the
+computer" bullets from "What you can do". In the "Move, attack, and capture"
+bullet, "strike" became "attack", and the flip sentence was inverted: the
+board now stays on red's side by default, and the switch turns flipping on.
+The Status blockquote was condensed to one sentence naming the three
+unavailable things (saving a game played here, playing against the computer,
+reviewing recorded games) instead of a clause each. In "The rules", trimmed
+the dangling "so recordings made under the earlier rules can no longer be
+reviewed here" clause (and the sentence explaining that ruleset version
+affects playback, which existed only to set up that clause) since reviewing
+is no longer mentioned anywhere else in the README and a floating reference
+to "playback"/"reviewed here" would confuse a reader with no other context
+for either concept; kept the surrounding sentences about the rules still
+evolving and the app having moved to the latest ruleset. All five repository
+checks (typecheck, lint, test, format:check, build) pass; `git diff --stat`
+touches only `README.md`. Deviation: could not run the `/update-readme`
+slash command (no slash-command tool access in this agent), so the branch
+diff was reviewed manually instead, per the dispatching instructions.
 
 Bring `README.md` in line with what a viewer can now see. Run the
 `/update-readme` command first (it reviews the branch diff and proposes the
