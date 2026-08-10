@@ -34,7 +34,7 @@ What a player will notice:
 
 Recorded so the changes of direction stay visible, in the order they were made.
 All were decided by the owner on seeing the work running — amendments 1 and 2
-after Step 3, amendments 3 and 4 after Step 6. Amendment 3 reverses amendment 2,
+after Step 3, amendments 3 to 6 after Step 6. Amendment 3 reverses amendment 2,
 which is left in place rather than deleted because code was built to it.
 
 1. **The rules surface is a page, not a modal popup.** It was originally
@@ -58,6 +58,17 @@ which is left in place rather than deleted because code was built to it.
    red side's own pieces, which is exactly where half of the marks land. It is
    drawn in the app's existing ink, and sits **low enough on the piece not to
    cover the rank numeral**, which is what tells a reader which piece is which.
+5. **The six combat figures leave an empty square between attacker and
+   defender**, for the arrow to sit in rather than crowd against the pieces.
+   This is not a drawing trick: an attack from two squares away is a legal
+   two-square attack, so the figures stay exactly as engine-checkable as they
+   were. It does not apply to picture 4, which must stay diagonally adjacent to
+   show what it shows.
+6. **Picture 3 attacks one square ahead, not two.** With the combat figures now
+   all attacking at two squares, showing a two-square attack here as well left
+   the ten pictures repeating one shape. One square ahead (picture 3), one
+   square diagonally (picture 4) and two squares ahead (pictures 5-10) between
+   them cover the range a piece actually has.
 
 The story folder and branch keep their original `…-rules-popup-on-start-screen`
 name; only the surface changed.
@@ -170,7 +181,7 @@ only and deliberately ignores the fact that the enemy could be attacked.
 > Pieces can attack other pieces with the same movements as regular movement,
 > as well as on the immediate diagonal.
 
-_Picture 3_ — on a board cutout, a friendly piece with an enemy two squares in
+_Picture 3_ — on a board cutout, a friendly piece with an enemy one square in
 front of it, marked as attackable.
 _Picture 4_ — on a board cutout, a friendly piece with an enemy diagonally
 beside it, marked as attackable.
@@ -275,6 +286,13 @@ four corrections were applied to what was dictated:
   interactive, they are not part of a grid in the accessibility tree, and they
   animate nothing. A reader should not be able to click, focus or arrow around
   them.
+- **The six combat figures place an empty square between attacker and defender**
+  (amendment 5), so the arrow occupies a square of its own rather than crowding
+  the two pieces. A two-square attack is legal whenever the attacker is
+  unencumbered, so this is a real position and the engine check still applies to
+  it unchanged — the gap must never be a drawing offset applied to adjacent
+  squares. Picture 4 is exempt: a diagonal attack only ever reaches one square,
+  and that is the whole point of the picture.
 - **All ten figures are drawn on a 5×5 board cutout** (amendment 3). The board
   is what makes "two squares in that direction", "diagonally beside it" and —
   in the rank-up figures — "in one of the eight surrounding squares" legible.
@@ -382,7 +400,8 @@ four corrections were applied to what was dictated:
   no confirmation prompt, and going back in works.
 - **Gate B — The pictures say what the sentences say.** Read each section with
   the rules open: picture 1 shows eight destinations, picture 2 shows four,
-  pictures 3 and 4 mark the enemy as attackable on a board cutout, and pictures
+  picture 3 marks an enemy one square ahead as attackable and picture 4 an enemy
+  diagonally beside it, and pictures
   5–10 each run an arrow from the attacker to the defender and strike out
   exactly the right piece or pieces — one in 5 and 6, both in 7, 8, 9 and 10.
   Nothing in a picture contradicts its sentence; the arrow reads as the

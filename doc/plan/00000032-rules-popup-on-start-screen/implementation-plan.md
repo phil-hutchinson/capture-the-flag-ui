@@ -234,9 +234,12 @@ so the two markers differ by **shape**:
   can reach", "four arrows"). Used in figures 1 and 2 only.
 - **Attack marker** — a thicker `--ink` arrow from the attacking piece to the
   attacked piece, ending in a **solid filled triangular arrowhead** whose tip
-  reaches the **centre of the attacked piece**. Used in figures 3–10. In figure
-  3 it spans two squares; everywhere else it spans one, to the adjacent square
-  the target stands on.
+  reaches the **centre of the attacked piece**. Used in figures 3–10. In figures
+  3 and 4 it spans one square, to the adjacent square its target stands on; in
+  the six combat figures it spans two, crossing the deliberately empty square
+  between the pieces (story.md amendment 5) — which is the whole reason that
+  square is empty, so the arrow must be drawn to occupy it rather than to hug
+  either piece.
 
 The two are additionally, redundantly distinguishable by their context: a move
 marker always lands on an empty square, an attack marker always lands on an
@@ -322,7 +325,7 @@ everything else on the page is story.md's fixed copy). They live in
 
 1. "Red's piece can move to any of the eight ringed squares."
 2. "With a blue piece diagonally beside it, red can reach only four squares."
-3. "Red can attack the blue piece two squares ahead."
+3. "Red can attack the blue piece one square ahead."
 4. "Red can attack the blue piece diagonally beside it."
 5. "Red's rank 1 attacks blue's rank 2: the blue piece is removed."
 6. "Red's rank 3 attacks blue's rank 2: the red piece is removed."
@@ -461,18 +464,37 @@ added to back it — Step 6 removes both.
 | --- | ------------------------------------- | -------------------------------------------- | ---------------------------------------------------- |
 | 1   | Movement                              | red R3 **F3**                                | move rings on D3, E3, F1, F2, F4, F5, G3, H3 (eight) |
 | 2   | Slowed movement                       | red R3 **F3**; blue R3 **E4**                | move rings on E3, F2, F4, G3 (four)                  |
-| 3   | Movement for attacks                  | red R3 **F3**; blue R3 **F5**                | attack arrow F3 → F5                                 |
+| 3   | Movement for attacks                  | red R3 **F3**; blue R3 **F4**                | attack arrow F3 → F4                                 |
 | 4   | Movement for attacks                  | red R3 **F3**; blue R3 **G4**                | attack arrow F3 → G4                                 |
-| 5   | Combat                                | red R1 **F2**; blue R2 **F3**                | attack arrow F2 → F3; X on F3                        |
-| 6   | Combat                                | red R3 **F2**; blue R2 **F3**                | attack arrow F2 → F3; X on F2                        |
-| 7   | Equal-ranked pieces and Tower attacks | red R4 **F2**; blue R4 **F3**                | attack arrow F2 → F3; X on F2 **and** F3             |
-| 8   | Equal-ranked pieces and Tower attacks | red R4 **F2**; blue **Tower F3**             | attack arrow F2 → F3; X on F2 **and** F3             |
-| 9   | Rank-up                               | red R3 **F2**; red R3 **E2**; blue R2 **F3** | attack arrow F2 → F3; X on F2 **and** F3             |
-| 10  | Rank-up                               | blue R2 **F4**; red R3 **F3**; red R3 **F2** | attack arrow F4 → F3; X on F4 **and** F3             |
+| 5   | Combat                                | red R1 **F2**; blue R2 **F4**                | attack arrow F2 → F4; X on F4                        |
+| 6   | Combat                                | red R3 **F2**; blue R2 **F4**                | attack arrow F2 → F4; X on F2                        |
+| 7   | Equal-ranked pieces and Tower attacks | red R4 **F2**; blue R4 **F4**                | attack arrow F2 → F4; X on F2 **and** F4             |
+| 8   | Equal-ranked pieces and Tower attacks | red R4 **F2**; blue **Tower F4**             | attack arrow F2 → F4; X on F2 **and** F4             |
+| 9   | Rank-up                               | red R3 **F2**; red R3 **E2**; blue R2 **F4** | attack arrow F2 → F4; X on F2 **and** F4             |
+| 10  | Rank-up                               | blue R2 **F4**; red R3 **F2**; red R3 **F1** | attack arrow F4 → F2; X on F4 **and** F2             |
 
-Figure 10's supporting red piece is **F2**, changed from the committed **E2**
-by Decision 12. Everything else in this table is exactly what `figures.ts`
-already holds.
+**This table is amended by story.md's amendments 5 and 6** and no longer matches
+`figures.ts`; Step 6 is what brings the data to it.
+
+- **Figures 5–10 now attack from two squares away**, leaving the square between
+  attacker and defender empty for the arrow. Five run **F2 → F4** with F3 empty;
+  figure 10 runs **F4 → F2** with F3 empty. This is a legal two-square attack in
+  every case (the attacker is unencumbered — a friendly supporting piece does
+  not encumber), never a drawing offset applied to adjacent squares.
+- **Figure 3 attacks one square ahead**, F3 → F4, where it previously ran
+  F3 → F5. Picture 4 is unchanged at F3 → G4: a diagonal attack reaches one
+  square only.
+- **Figure 10's supporting red piece is F1**, directly behind the defender at
+  F2 — E2 as first committed, F2 after Step 5, and now F1 because the defender
+  itself moved. It is still orthogonally behind the defender and still not
+  adjacent to the attacker, which is what Decision 12 requires of it.
+- **Figures 1, 2 and 4 are unchanged.**
+
+Every attack above was re-verified against this repository's own
+`legalAttacks`/`resolveCombat` when these amendments were written: each gives
+**exactly one** legal attack, **identical under all four combinations** of
+`DIAGONAL_ATTACKABLE` × `DIAGONAL_ATTACK_PATH`, and the outcomes are
+`attackerWins` (5), `attackerLoses` (6) and `mutualLoss` (7, 8, 9, 10).
 
 Every row above was checked against the real `legalDestinations`,
 `legalAttacks` and `resolveCombat` while this plan was written, under all four
@@ -1178,7 +1200,62 @@ the five repository checks.
 
 ## Step 6 — Draw the figures on their board cutouts, no markers yet
 
-Status: pending
+Status: implemented
+
+Notes: **First attempt** (superseded): built `RuleFigure.tsx`/`RuleFigure.css`
+with two presentations - a board cutout for figures 1-4 and a translated,
+bounding-box-cropped "no board" layout for figures 5-10 (Decision 11, since
+superseded). Rejected at the manual gate not for a defect but because the
+owner reversed direction (story.md amendment 3): all ten figures draw on a
+board cutout after all. **This attempt** (current): adapted the rejected
+attempt's uncommitted board-cutout half rather than starting over. Rewrote
+`RuleFigure.tsx`/`RuleFigure.css` to a single presentation - every figure
+draws the full 5x5 patch (`BoardSquares`, unconditional), with piece
+positions derived purely from `windowCell(piece.square)` and the shared
+`FIGURE_WINDOW` anchor; removed `boardlessPlacements`, the one-cell
+translation along the attack vector, the bounding-box crop/margin
+arithmetic, and the `data-presentation` branch entirely. Removed the
+`presentation` field from the `Figure` interface and the `FigurePresentation`
+type in `figures.ts` (and its per-figure literals), updating the module's
+header comments to describe one presentation; kept figure 10's supporter at
+F2 and its caption unchanged. In `figures.test.ts`, deleted the
+`"figure presentation (board or no board)"` describe block's ten
+board/no-board-listing tests (declares-a-presentation, the four+six
+per-id loops, the counts-of-4-and-6 test, and the board-less-attack-marking
+test) and the `expect(figure.presentation).toBe("noBoard")` line in the
+`combatRankUpDefend` tests (leaving an unused `figure` var there, also
+removed). **Kept and relocated** the coverage test (renamed describe block to
+`"figure coverage"`) that asserts every figure id is covered by the move-,
+attack- or combat-figure id lists the engine checks iterate over, and that
+every combat figure id appears in both the attack-figure and combat-figure
+lists - rewritten to iterate `COMBAT_FIGURES` directly instead of the deleted
+`NO_BOARD_FIGURE_IDS` constant (the two were the same six ids), so the
+"can't silently exempt a figure from checking" protection survives unchanged
+in substance. `RulesScreen.tsx`/`RulesScreen.css` needed no further edits:
+the rejected attempt's uncommitted changes there (rendering a `RuleFigure`
+per figure id in place of Step 4's placeholders, and removing the
+placeholder CSS) already matched what this step wants and were left as-is.
+Test count dropped from 958 to 945 (figures.test.ts: 71 → 58) - exactly 13
+fewer `it(...)` blocks (1 declares-a-presentation + 4 per-id board + 6
+per-id no-board + 1 counts-of-4-and-6 + 1 board-less-attack-marking), the
+coverage test surviving as one test both before and after since it was
+rewritten in place rather than deleted. All five repository checks (typecheck, lint,
+test - 945 tests, format:check, build) pass; `git diff --stat` touches only
+`src/app/rules/figures.ts`, `src/app/rules/figures.test.ts`,
+`src/app/rules/RulesScreen.tsx` and `src/app/rules/RulesScreen.css`
+(modified) plus the new `src/app/rules/RuleFigure.tsx`/`RuleFigure.css` - no
+forbidden file, `src/board/**` and `src/rules/**` untouched. Rendered the
+page with a Playwright screenshot (Chromium, installed transiently for this
+check only - not added as a project dependency) at desktop width to confirm
+by eye that all ten pictures show a visible 5x5 grid, attacker and defender
+sit on adjacent squares with no gap, figure 9's two red pieces sit side by
+side and figure 10's sit in a vertical column with blue attacking downward
+into it, and caption 10 reads "…with another red rank 3 right behind it…" -
+this was a self-check, not a substitute for the step's own manual gate, which
+remains the owner's to run. No deviation from the plan's substance; the only
+departure from its literal text is keeping the coverage test's assertions as
+one rewritten test rather than deleting and re-adding it, which the plan's
+"keep… the coverage check" instruction anticipates.
 
 **This step was implemented once and rejected at its gate**, not because the
 work was wrong but because the owner reversed the direction it was built to
@@ -1198,9 +1275,22 @@ no markers yet** — on a 5×5 board cutout.
   no coordinates.
 - **Remove the board-less path entirely** — the one-cell translation of the
   defending side, the bounding-box crop, and the branch that selects between
-  presentations. Attacker and defender sit on adjacent squares exactly as the
-  rules have them, so Step 7's arrow spans one cell boundary, the same way it
-  will in figures 3 and 4.
+  presentations. Where a figure needs a gap between attacker and defender, that
+  gap is now a **real empty square in the figure's own data**, not a drawing
+  offset (below).
+- **Move the pieces onto their amended squares** (Decision 7's table, as revised
+  by story.md's amendments 5 and 6). Figures 5–9 attack **F2 → F4** and figure
+  10 attacks **F4 → F2**, each leaving **F3 empty** for Step 7's arrow to sit
+  in; figure 10's supporting piece follows its defender to **F1**; figure 3
+  becomes a one-square attack, **F3 → F4**. Figures 1, 2 and 4 do not change.
+  Caption 3 in `rulesCopy.ts` becomes "Red can attack the blue piece one square
+  ahead." — caption 10 keeps its "right behind it" wording, which is still what
+  the picture shows.
+  - **The gap is a legal position, not a trick.** Every one of these is a real
+    two-square attack by an unencumbered piece. `figures.test.ts` re-verifies
+    that automatically and will fail loudly if a placement is wrong — trust it
+    rather than reasoning about the geometry by hand, and do not "simplify" a
+    figure back onto adjacent squares.
 - **Remove the now-vestigial `presentation` field** from `figures.ts`, along
   with the `FigurePresentation` type and the `figures.test.ts` assertions that
   pin the board / no-board id lists and their counts (Step 5 added all of it).
@@ -1258,12 +1348,14 @@ run the five repository checks.
   same square grid — at a size that sits comfortably in a column without
   dominating it. No lake, no board edge treatment, no coordinates, and no figure
   drawn without a board.
-- Attacker and defender sit on **adjacent squares** in the six combat figures,
-  with no gap opened between them.
+- In the six combat figures the attacker and defender are **two squares apart
+  with one visibly empty square between them** — that square is where Step 7's
+  arrow will go. In figure 3 the enemy is **one square ahead**; in figure 4 it
+  is diagonally adjacent.
 - **The rank-up figures (9 and 10).** In figure 9 the two red pieces sit side by
   side on adjacent squares; in figure 10 the supporting red piece sits directly
-  behind the defender. In both, a reader can see that the two red pieces are on
-  neighbouring squares.
+  behind the defender, with the empty square on the defender's other side. In
+  both, a reader can see that the two red pieces are on neighbouring squares.
 - Nothing in a picture can be clicked, focused or arrowed into: press Tab
   repeatedly through the page and confirm focus never lands inside a picture.
 - Each figure has its caption below it, and caption 10 reads "…with another red
