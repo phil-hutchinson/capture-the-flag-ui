@@ -517,7 +517,22 @@ configuration)` equals exactly the single marked attack target — **for all
 
 ## Step 2 — The popup's copy as pure data
 
-Status: pending
+Status: committed
+
+Notes: Created `src/app/rules/rulesCopy.ts` (the header, the six sections keyed
+by `RulesSectionId` with column/heading/body/figureIds, and the ten captions
+keyed by `figures.ts`'s `FigureId`, all transcribed character-for-character
+from story.md) and `src/app/rules/rulesCopy.test.ts` (structure, figure
+coverage, and vocabulary guards). Deviation: the "capitalises Tower/Flag"
+guard is scoped to the six sections' headings/bodies and the ten captions,
+excluding the header — the header's second line ("Capture the opponent's
+flag before they capture yours") is fixed copy transcribed verbatim from
+story.md and deliberately keeps lower-case "flag" (an idiom, not a naming of
+the piece; story.md's correction 2 capitalises Tower/Flag only in the
+equal-rank section and its heading), so a blanket check over the header would
+fail against the copy of record rather than catch a real regression. All five
+repository checks (typecheck, lint, test, format:check, build) pass; no file
+outside `src/app/rules/` was touched.
 
 Create `src/app/rules/rulesCopy.ts` — **plain TypeScript, no React** — holding
 the popup's entire text, transcribed **exactly** from story.md's "The popup's
