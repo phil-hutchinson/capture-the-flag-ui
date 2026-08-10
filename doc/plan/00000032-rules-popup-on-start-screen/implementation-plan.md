@@ -1200,7 +1200,7 @@ the five repository checks.
 
 ## Step 6 — Draw the figures on their board cutouts, no markers yet
 
-Status: implemented
+Status: committed
 
 Notes: **First attempt** (superseded): built `RuleFigure.tsx`/`RuleFigure.css`
 with two presentations - a board cutout for figures 1-4 and a translated,
@@ -1256,6 +1256,41 @@ remains the owner's to run. No deviation from the plan's substance; the only
 departure from its literal text is keeping the coverage test's assertions as
 one rewritten test rather than deleting and re-adding it, which the plan's
 "keep… the coverage check" instruction anticipates.
+
+**Amendment pass** (story.md amendments 5 and 6, applied after this step's
+first gate): the owner asked for a real empty square between attacker and
+defender in the six combat figures, and a one-square (not two-square) attack
+in figure 3. Updated only `figures.ts`'s data: figures `combatRank1Wins`,
+`combatRank3Loses`, `combatEqualRank`, `combatTower` and
+`combatRankUpAttack` now attack **F2 → F4** (previously the adjacent
+F2 → F3), each leaving F3 empty; `combatRankUpDefend` now attacks
+**F4 → F2** (previously F4 → F3), also leaving F3 empty, with its
+supporting piece moved from F2 to **F1** (directly behind the new defender
+square, still orthogonally adjacent to it and not adjacent to the attacker);
+`attackOrthogonal` (figure 3) now attacks **F3 → F4** (previously F3 → F5),
+a one-square attack. Updated caption `attackOrthogonal` in `rulesCopy.ts`
+from "…two squares ahead." to "…one square ahead."; caption
+`combatRankUpDefend` ("…right behind it…") needed no change since it already
+described a piece directly behind, not beside. Updated `figures.test.ts`'s
+figure-10-specific tests (piece placements and the supporter-adjacency
+check) to name F4/F2/F1 instead of F4/F3/F2, and to assert F3 is empty; no
+other test needed updating, since every other assertion is written generically
+against each figure's own `marking`/`pieces` data rather than hand-coded
+squares. Confirmed by re-reading it that `RuleFigure.tsx`/`RuleFigure.css`
+derive every piece's drawn position purely from `windowCell(piece.square)`
+and the shared window anchor, with no per-figure hand-placed coordinate
+anywhere - so **no renderer change was needed or made**; a transient
+Playwright screenshot (Chromium installed to the OS scratchpad only, not
+added to `package.json`/`package-lock.json` - both files' checksums were
+confirmed unchanged before and after) of the rendered page confirmed the six
+combat figures now show a visibly empty square between attacker and
+defender, figure 3 shows a one-square attack, figure 10's three pieces read
+as attacker/gap/defender/supporter in a vertical column, and caption 3 reads
+"…one square ahead." All five repository checks (typecheck, lint, test - 945
+tests unchanged, format:check, build) pass. `git diff --stat` for this pass
+touches only `src/app/rules/figures.ts`, `src/app/rules/figures.test.ts` and
+`src/app/rules/rulesCopy.ts` - no forbidden file, no new dependency. No
+deviation from the amendment's instructions.
 
 **This step was implemented once and rejected at its gate**, not because the
 work was wrong but because the owner reversed the direction it was built to

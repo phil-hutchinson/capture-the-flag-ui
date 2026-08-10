@@ -32,19 +32,39 @@
 //
 // `PieceSpriteDefs` (`src/art/PieceIcon.tsx`) is mounted here, as the first
 // child of the `<main>`, exactly where `ReviewScreen.tsx` mounts its own
-// copy - Steps 6 and 7 draw real pictures with it; nothing in this step draws
-// a piece yet.
+// copy - `RuleFigure.tsx` (Step 6) draws each section's pictures with it.
+// Markers (move rings, attack arrows, removal marks) are Step 7's work.
 
 import { useEffect, useRef } from "react";
 import { PieceSpriteDefs } from "../../art/PieceIcon.tsx";
 import "../../App.css";
+import { FIGURES, type Figure, type FigureId } from "./figures.ts";
 import {
   RULES_HEADER,
   RULES_SECTIONS,
   type RulesSection,
   type RulesSectionColumn,
 } from "./rulesCopy.ts";
+import { RuleFigure } from "./RuleFigure.tsx";
 import "./RulesScreen.css";
+
+/**
+ * Every figure, keyed by id, for `RulesSectionView` below to look up. A plain
+ * `Map` rather than a per-render `.find` - the ten figures never change while
+ * the page is mounted.
+ */
+const FIGURES_BY_ID = new Map<FigureId, Figure>(
+  FIGURES.map((figure) => [figure.id, figure]),
+);
+
+/** The figure for a section's figure id. `rulesCopy.test.ts` guarantees every id here has exactly one figure. */
+function getFigure(figureId: FigureId): Figure {
+  const figure = FIGURES_BY_ID.get(figureId);
+  if (!figure) {
+    throw new Error(`No figure declared for id "${figureId}"`);
+  }
+  return figure;
+}
 
 /**
  * The sections belonging to one column, in DOM order. Built by filtering
@@ -105,7 +125,7 @@ export function RulesScreen({ onBack }: RulesScreenProps) {
   );
 }
 
-/** One section: its heading, body sentence and (placeholder, for now) figures. */
+/** One section: its heading, body sentence and figures. */
 function RulesSectionView({ section }: { readonly section: RulesSection }) {
   return (
     <section className="rules-screen__section">
@@ -113,15 +133,7 @@ function RulesSectionView({ section }: { readonly section: RulesSection }) {
       <p className="rules-screen__section-body">{section.body}</p>
       <div className="rules-screen__figures">
         {section.figureIds.map((figureId) => (
-          // Placeholder only - Step 6 replaces this with a real
-          // `RuleFigure`, driven by the same `figureId`. Marked
-          // `aria-hidden` because it carries no content of its own yet; the
-          // real figure will carry its own caption.
-          <div
-            key={figureId}
-            className="rules-screen__figure-placeholder"
-            aria-hidden="true"
-          />
+          <RuleFigure key={figureId} figure={getFigure(figureId)} />
         ))}
       </div>
     </section>

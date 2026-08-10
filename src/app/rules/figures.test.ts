@@ -258,66 +258,8 @@ describe("combat figures agree with resolveCombat", () => {
   }
 });
 
-const BOARD_FIGURE_IDS: readonly FigureId[] = [
-  "movement",
-  "slowedMovement",
-  "attackOrthogonal",
-  "attackDiagonal",
-];
-
-const NO_BOARD_FIGURE_IDS: readonly FigureId[] = [
-  "combatRank1Wins",
-  "combatRank3Loses",
-  "combatEqualRank",
-  "combatTower",
-  "combatRankUpAttack",
-  "combatRankUpDefend",
-];
-
-describe("figure presentation (board or no board)", () => {
-  it("declares a presentation on every figure", () => {
-    for (const figure of FIGURES) {
-      expect(["board", "noBoard"]).toContain(figure.presentation);
-    }
-  });
-
-  for (const id of BOARD_FIGURE_IDS) {
-    it(`figure "${id}" draws a board`, () => {
-      expect(figureById(id).presentation).toBe("board");
-    });
-  }
-
-  for (const id of NO_BOARD_FIGURE_IDS) {
-    it(`figure "${id}" draws no board`, () => {
-      expect(figureById(id).presentation).toBe("noBoard");
-    });
-  }
-
-  it("has exactly four board figures and six board-less figures", () => {
-    const boardFigures = FIGURES.filter((f) => f.presentation === "board");
-    const noBoardFigures = FIGURES.filter((f) => f.presentation === "noBoard");
-    expect(boardFigures).toHaveLength(4);
-    expect(noBoardFigures).toHaveLength(6);
-  });
-
-  it("draws every board-less figure with an attack marking that removes at least one piece (the board-less set is exactly the six combat figures)", () => {
-    const noBoardFigures = FIGURES.filter((f) => f.presentation === "noBoard");
-    expect(noBoardFigures.map((f) => f.id).sort()).toEqual(
-      [...NO_BOARD_FIGURE_IDS].sort(),
-    );
-    for (const figure of noBoardFigures) {
-      const marking = figure.marking;
-      expect(marking.kind).toBe("attack");
-      if (marking.kind !== "attack") {
-        throw new Error(
-          `expected figure "${figure.id}" to carry an attack marking`,
-        );
-      }
-      expect(marking.removed.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("checks every figure against the engine, board or not - the attack- and combat-figure id lists cover all ten", () => {
+describe("figure coverage", () => {
+  it("checks every figure against the engine - the move-, attack- and combat-figure id lists cover all ten", () => {
     const allIds = new Set(FIGURES.map((f) => f.id));
     const coveredByAttackCheck = new Set(ATTACK_FIGURE_IDS);
     const coveredByCombatCheck = new Set(COMBAT_FIGURES.map((c) => c.id));
@@ -330,12 +272,14 @@ describe("figure presentation (board or no board)", () => {
       ...coveredByCombatCheck,
       ...coveredByMoveCheck,
     ]);
+    // Every figure id `figures.ts` declares must be covered by at least one
+    // of the engine checks above - this is what stops a figure being
+    // silently exempted from verification.
     expect([...allIds].sort()).toEqual([...coveredByAny].sort());
-    // The board-less figures (all six combat figures) must be present in
-    // both the attack-figure and combat-figure id lists the tests above
-    // iterate over - nobody may later exempt a board-less figure from
-    // checking.
-    for (const id of NO_BOARD_FIGURE_IDS) {
+    // The six combat figures are attacks with an outcome, so each must
+    // appear in both the attack-figure and combat-figure id lists the tests
+    // above iterate over, not just one.
+    for (const { id } of COMBAT_FIGURES) {
       expect(coveredByAttackCheck.has(id)).toBe(true);
       expect(coveredByCombatCheck.has(id)).toBe(true);
     }
@@ -343,7 +287,7 @@ describe("figure presentation (board or no board)", () => {
 });
 
 describe('figure "combatRankUpDefend" (figure 10)', () => {
-  it("places the blue attacker on F4, the red defender on F3, and the supporting red piece on F2", () => {
+  it("places the blue attacker on F4, the red defender on F2, and the supporting red piece on F1, leaving F3 empty", () => {
     const figure = figureById("combatRankUpDefend");
     const bySquare = new Map(
       figure.pieces.map((piece) => [piece.square, piece]),
@@ -353,23 +297,23 @@ describe('figure "combatRankUpDefend" (figure 10)', () => {
       side: "black",
       pieceType: "champion",
     });
-    expect(bySquare.get("F3")).toEqual({
-      square: "F3",
-      side: "white",
-      pieceType: "knight",
-    });
     expect(bySquare.get("F2")).toEqual({
       square: "F2",
       side: "white",
       pieceType: "knight",
     });
+    expect(bySquare.get("F1")).toEqual({
+      square: "F1",
+      side: "white",
+      pieceType: "knight",
+    });
     expect(figure.pieces).toHaveLength(3);
+    expect(bySquare.has("F3")).toBe(false);
   });
 
   it("puts the supporting piece orthogonally adjacent to the defender and not adjacent to the attacker", () => {
-    const figure = figureById("combatRankUpDefend");
-    const supporter = squareFromKey("F2");
-    const defender = squareFromKey("F3");
+    const supporter = squareFromKey("F1");
+    const defender = squareFromKey("F2");
     const attacker = squareFromKey("F4");
     // Orthogonally adjacent to the defender: same column, one row apart.
     expect(supporter.column).toBe(defender.column);
@@ -385,7 +329,6 @@ describe('figure "combatRankUpDefend" (figure 10)', () => {
     // already confirm this placement gives the blue attacker exactly one
     // legal attack under all four diagonal-flag combinations and that the
     // fight still resolves to a two-piece removal.
-    expect(figure.presentation).toBe("noBoard");
   });
 });
 

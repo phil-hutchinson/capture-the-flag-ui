@@ -95,12 +95,3 @@
   flex-wrap: wrap;
   gap: 0.75rem;
 }
-
-/* Stands in for a real `RuleFigure` (Step 6) so the section and column
-   layout can be judged with realistic content before the pictures exist. */
-.rules-screen__figure-placeholder {
-  width: 9rem;
-  height: 7.5rem;
-  border: 1px dashed var(--ink);
-  opacity: 0.4;
-}

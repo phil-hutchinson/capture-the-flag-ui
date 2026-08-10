@@ -1,0 +1,71 @@
+/* One "How to play" picture (story 00000032, Step 6): a figure's pieces on
+   a 5x5 board cutout (story.md amendment 3 - every figure draws one, there
+   is no board-less presentation). No marker vocabulary yet (move rings,
+   attack arrows, removal marks) - Step 7 adds those on top of the layers
+   below.
+
+   Reuses only the app's shared design tokens (`--parchment`, `--ink`, the
+   side colors, from `src/index.css`) - never a class name or file from
+   `src/board/` (implementation plan, Decision 5 and "Out of bounds").
+
+   `--figure-square` is this module's own cell size, declared once on the
+   outer `.rule-figure` element so every descendant (the board patch, its
+   squares and its pieces) is drawn at the same scale - deliberately smaller
+   and more stable than the live board's own `--square` (`FullBoard.css`): a
+   figure sits inside a two-column page section, not a play surface. */
+
+.rule-figure {
+  --figure-square: clamp(22px, 4.5vmin, 34px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  max-width: 12rem;
+  text-align: center;
+}
+
+.rule-figure__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rule-figure__picture {
+  position: relative;
+  /* A crop of the real board, not a tiny complete board of its own: the
+     outer outline is 1px, deliberately thinner than the live board's 2px
+     `--board-border` (FullBoard.css). No lake, no board-edge treatment, no
+     coordinates. */
+  outline: 1px solid var(--ink);
+  background: var(--parchment);
+}
+
+.rule-figure__square {
+  position: absolute;
+  box-sizing: border-box;
+  width: var(--figure-square);
+  height: var(--figure-square);
+  background: var(--parchment);
+  /* Deliberately mirrors `FullBoard.css`'s `.full-board__square` faint
+     border literal (Decision 5) rather than sharing a class or file - free
+     to drift from it. */
+  border: 1px solid rgba(43, 33, 24, 0.2);
+}
+
+.rule-figure__piece {
+  position: absolute;
+  width: var(--figure-square);
+  height: var(--figure-square);
+}
+
+.rule-figure__piece-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.rule-figure__caption {
+  font-size: 0.85rem;
+}

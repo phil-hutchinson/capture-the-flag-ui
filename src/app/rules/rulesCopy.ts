@@ -111,7 +111,7 @@ export const RULES_CAPTIONS: Readonly<Record<FigureId, string>> = {
   movement: "Red's piece can move to any of the eight ringed squares.",
   slowedMovement:
     "With a blue piece diagonally beside it, red can reach only four squares.",
-  attackOrthogonal: "Red can attack the blue piece two squares ahead.",
+  attackOrthogonal: "Red can attack the blue piece one square ahead.",
   attackDiagonal: "Red can attack the blue piece diagonally beside it.",
   combatRank1Wins:
     "Red's rank 1 attacks blue's rank 2: the blue piece is removed.",
