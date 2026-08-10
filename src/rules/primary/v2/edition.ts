@@ -16,13 +16,24 @@
 // assume they do.
 //
 // This module is threaded through the rule engine and its consumers:
-// `board.ts`/`movement.ts`/`combat.ts`/`outcome.ts`/`placement.ts` take an
-// `Edition`'s resolved `BoardLayout`; `gameState.ts`'s game-state artifacts
-// carry the resolved `Edition`; `readRecord.ts` dispatches on the `Ruleset`
-// tag by looking it up in `EDITIONS` (every registered edition, readable
-// regardless of status); and `HotSeatGame.tsx`/`GameChoice.tsx` let the
-// player choose between the editions `playableEditions()` returns (active
-// editions only).
+// `board.ts`/`movement.ts`/`combat.ts`/`outcome.ts`/`placement.ts` take a
+// `RuleConfiguration`'s resolved `BoardLayout`; `gameState.ts`'s game-state
+// artifacts carry the resolved `RuleConfiguration`; `readRecord.ts`
+// dispatches on the `Ruleset` tag by looking its edition id up in `EDITIONS`
+// (every registered edition, readable regardless of status); and
+// `HotSeatGame.tsx`/`GameChoice.tsx` let the player choose between the games
+// `configuration.ts`/`games.ts` build (active editions only).
+//
+// Story 00000030 (Decision 1): `Edition` itself no longer carries a resolved
+// `boardLayout`/`army` - only the ids (`boardLayoutId`, `armyCompositionId`)
+// that name them. A `RuleConfiguration`'s resolved board and army
+// (`configuration.ts`) are the *only* place a board or a roster comes from,
+// because an edition's own ids are no longer necessarily the truth about the
+// game being played (a Clash configuration names `BATTLE_EDITION` but plays
+// on a different board and army entirely). Read `configuration.boardLayout`/
+// `configuration.army`, never `edition.boardLayout`/`edition.army` - the
+// latter two fields do not exist any more, precisely so that every old read
+// became a compile error and none could be missed.
 
 import {
   armySize,
@@ -66,10 +77,6 @@ export interface Edition {
   readonly armyCompositionId: ArmyCompositionId;
   readonly towerPlacement: TowerPlacement;
   readonly status: EditionStatus;
-  /** The resolved board geometry for this edition. */
-  readonly boardLayout: BoardLayout;
-  /** The resolved army roster for this edition. */
-  readonly army: ArmyRoster;
 }
 
 /** True if a roster's total piece count fits within a board layout's per-side home zone. */
@@ -116,8 +123,6 @@ export const BATTLE_EDITION: Edition = {
   armyCompositionId: "standard_battle",
   towerPlacement: "spacing_only",
   status: "active",
-  boardLayout: BOARD_LAYOUTS.standard_144,
-  army: ARMY_COMPOSITIONS.standard_battle.roster,
 };
 
 /**
@@ -138,8 +143,6 @@ export const SKIRMISH_EDITION: Edition = {
   armyCompositionId: "standard_skirmish",
   towerPlacement: "spacing_and_lanes",
   status: "active",
-  boardLayout: BOARD_LAYOUTS.standard_64,
-  army: ARMY_COMPOSITIONS.standard_skirmish.roster,
 };
 
 /**
@@ -147,8 +150,9 @@ export const SKIRMISH_EDITION: Edition = {
  * Historical table, story 00000025): the same board and army as
  * `SKIRMISH_EDITION`, but `spacing_only` Tower placement - towers were
  * allowed in front of a lane under this edition. Kept in `EDITIONS` so a
- * record naming it still reviews, but never returned by `playableEditions()`
- * and never offered by the picker. Exported separately (rather than only
+ * record naming it still reviews, but never offered by the picker (story
+ * 00000030's `games.ts` catalog never names it as a game's base edition).
+ * Exported separately (rather than only
  * reachable via `EDITIONS["2-0:SKIRMISH"]`) so tests that deliberately
  * exercise the historical path - as opposed to a fresh game, which always
  * means `SKIRMISH_EDITION` - can reach it without a map lookup, mirroring the
@@ -160,15 +164,14 @@ export const SUPERSEDED_SKIRMISH_EDITION: Edition = {
   armyCompositionId: "standard_skirmish",
   towerPlacement: "spacing_only",
   status: "superseded",
-  boardLayout: BOARD_LAYOUTS.standard_64,
-  army: ARMY_COMPOSITIONS.standard_skirmish.roster,
 };
 
 /**
  * Every defined edition, keyed by its id - what `readRecord.ts` resolves a
  * `Ruleset` tag against, so a record naming any of the three (including the
  * superseded `2-0:SKIRMISH`) still reviews. Not all are necessarily playable
- * - see `playableEditions`.
+ * - see `games.ts`'s `playableGames()`, which decides which *games* (not
+ * editions) are offered.
  */
 export const EDITIONS: Readonly<Record<EditionId, Edition>> = {
   "2-0:BATTLE": BATTLE_EDITION,
@@ -179,20 +182,4 @@ export const EDITIONS: Readonly<Record<EditionId, Edition>> = {
 /** Looks up an edition by its id. */
 export function editionById(id: EditionId): Edition {
   return EDITIONS[id];
-}
-
-/**
- * The editions actually offered for play: those that are `active` (rules.md
- * Appendix B's Active table - excludes the superseded `2-0:SKIRMISH`, which
- * stays readable but is never offered) *and* whose army fits their board's
- * home zone. The two active editions (`2-0:BATTLE`, `2-1:SKIRMISH`) are
- * designed to pass the fit check; it exists so an invalid pairing is simply
- * never offered, rather than needing to be rejected elsewhere.
- */
-export function playableEditions(): Edition[] {
-  return Object.values(EDITIONS).filter(
-    (edition) =>
-      edition.status === "active" &&
-      combinationFits(edition.boardLayoutId, edition.armyCompositionId),
-  );
 }

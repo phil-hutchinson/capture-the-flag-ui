@@ -4,14 +4,19 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { Edition } from "./primary/v2/edition.ts";
 import { EDITIONS } from "./primary/v2/edition.ts";
-import { columnLetter } from "./primary/v2/boardLayout.ts";
+import {
+  columnLetter,
+  DERIVED_BOARD_LAYOUT_ID,
+} from "./primary/v2/boardLayout.ts";
 import {
   configureRules,
   deviatingFlags,
   renderRulesetTag,
   STANDARD_BATTLE_CONFIGURATION,
+  STANDARD_SKIRMISH_CONFIGURATION,
   type RuleConfiguration,
 } from "./primary/v2/configuration.ts";
+import { buildGameConfiguration } from "./primary/v2/games.ts";
 import {
   renderPositionBlock,
   RULESET_TAG,
@@ -320,10 +325,8 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
       }
 
       expect(result.configuration.edition.id).toBe(id);
-      expect(result.configuration.edition.boardLayout.columnCount).toBe(
-        columnCount,
-      );
-      expect(result.configuration.edition.boardLayout.rowCount).toBe(rowCount);
+      expect(result.configuration.boardLayout.columnCount).toBe(columnCount);
+      expect(result.configuration.boardLayout.rowCount).toBe(rowCount);
     },
   );
 
@@ -341,11 +344,9 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
       return;
     }
 
-    expect(result.configuration.edition.boardLayout.lakeRows).toEqual([4, 5]);
+    expect(result.configuration.boardLayout.lakeRows).toEqual([4, 5]);
     expect(
-      result.configuration.edition.boardLayout.lakeColumnIndices.map(
-        columnLetter,
-      ),
+      result.configuration.boardLayout.lakeColumnIndices.map(columnLetter),
     ).toEqual(["B", "C", "F", "G"]);
   });
 
@@ -363,11 +364,9 @@ describe("readRecord - surfaces the record's own resolved Edition (Gate D defect
       return;
     }
 
-    expect(result.configuration.edition.boardLayout.lakeRows).toEqual([6, 7]);
+    expect(result.configuration.boardLayout.lakeRows).toEqual([6, 7]);
     expect(
-      result.configuration.edition.boardLayout.lakeColumnIndices.map(
-        columnLetter,
-      ),
+      result.configuration.boardLayout.lakeColumnIndices.map(columnLetter),
     ).toEqual(["B", "C", "F", "G", "J", "K"]);
   });
 });
@@ -1043,5 +1042,552 @@ describe("readRecord - the checked-in doc/samples/ diagonal-flag fixtures (story
     expect(result.record.tags.result).toBe("1-0");
     expect(result.record.tags.resultReason).toBe("Flag Captured");
     expect(result.record.positions).toHaveLength(2);
+  });
+});
+
+// Story 00000030, Step 7: closes the record loop for Clash - a Clash game's
+// Ruleset tag stamps the Battle edition id plus its two deviating
+// game-defining flags (`ARMY_COMPOSITION`/`BOARD_LAYOUT`), and this reader
+// must resolve that tag back to the Clash board and army, not Battle's own.
+// The played record below is driven through the real writer
+// (`startPlay`/`applyMove`/`renderGameRecord`) on a real Clash configuration
+// (`games.ts`'s `buildGameConfiguration("clash")`), exactly like the
+// checked-in `doc/samples/2-0-battle-clash-flag-capture.txt` fixture below.
+describe("readRecord - reads a Clash record (story 00000030, Step 7)", () => {
+  const CLASH_CONFIGURATION = buildGameConfiguration("clash");
+
+  function clashPlayedRecordText(): string {
+    const initial: InitialGameState = {
+      ruleset: renderRulesetTag(CLASH_CONFIGURATION),
+      configuration: CLASH_CONFIGURATION,
+      board: {
+        A1: { side: "white", pieceType: "flag" },
+        E5: { side: "white", pieceType: "champion" },
+        E6: { side: "black", pieceType: "flag" },
+      },
+    };
+    const state = startPlay(initial);
+    const { state: finished } = applyMove(
+      state,
+      { column: "E", row: 5 },
+      { column: "E", row: 6 },
+    );
+    return renderGameRecord(finished);
+  }
+
+  it("resolves a configuration whose board is asymmetric_100 and army is standard_clash, with no unrecognized tokens, and replays the whole move list", () => {
+    const text = clashPlayedRecordText();
+    expect(text).toContain(
+      '[Ruleset "2-0:BATTLE ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100"]',
+    );
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+
+    expect(result.configuration.boardLayout.id).toBe("asymmetric_100");
+    expect(result.configuration.flags.ARMY_COMPOSITION).toBe("standard_clash");
+    expect(result.configuration.army).toEqual(CLASH_CONFIGURATION.army);
+    expect(result.unrecognizedRuleTokens).toEqual([]);
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "ARMY_COMPOSITION",
+      "BOARD_LAYOUT",
+    ]);
+
+    expect(result.record.tags.result).toBe("1-0");
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
+    expect(result.record.positions).toHaveLength(2);
+    expect(result.record.moves).toHaveLength(1);
+    expect(result.record.positions[1]).toEqual({
+      A1: { side: "white", pieceType: "flag" },
+      E6: { side: "white", pieceType: "champion" },
+    });
+  });
+
+  it("composes with a deviating diagonal flag, appended after both game-defining tokens", () => {
+    const configuration = configureRules(EDITIONS["2-0:BATTLE"], {
+      ARMY_COMPOSITION: "standard_clash",
+      BOARD_LAYOUT: "asymmetric_100",
+      DIAGONAL_ATTACKABLE: "all",
+    });
+    const tag = renderRulesetTag(configuration);
+    expect(tag).toBe(
+      "2-0:BATTLE ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100 DIAGONAL_ATTACKABLE=all",
+    );
+
+    const initial: InitialGameState = {
+      ruleset: tag,
+      configuration,
+      board: { A1: { side: "white", pieceType: "flag" } },
+    };
+    const text = [`[Ruleset "${tag}"]`, renderPositionBlock(initial)].join(
+      "\n\n",
+    );
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(deviatingFlags(result.configuration)).toEqual([
+      "ARMY_COMPOSITION",
+      "BOARD_LAYOUT",
+      "DIAGONAL_ATTACKABLE",
+    ]);
+    expect(result.configuration.boardLayout.id).toBe("asymmetric_100");
+    expect(result.configuration.flags.DIAGONAL_ATTACKABLE).toBe("all");
+    expect(result.unrecognizedRuleTokens).toEqual([]);
+  });
+});
+
+// Story 00000030, Step 7: the canonicalization cases pinning story.md's
+// byte-identical requirement from the *reader's* side - `renderRulesetTag`'s
+// own canonicalization is already covered (configuration.test.ts), and
+// story 00000027's Step 6 already pins that a flag named at its resolved
+// value reads with no deviation; these add the two new flags to that same
+// guarantee, plus a direct pin that all three registered edition tags still
+// read bare, with no token, exactly as before this story.
+describe("readRecord - canonicalization: Battle/Skirmish tags stay byte-identical (story 00000030, Step 7)", () => {
+  it("a tag naming both new flags at Battle's own resolved values reads as the standard Battle configuration, with no deviation", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=standard_144 ARMY_COMPOSITION=standard_battle"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration).toEqual(STANDARD_BATTLE_CONFIGURATION);
+    expect(deviatingFlags(result.configuration)).toEqual([]);
+  });
+
+  it("the bare 2-0:BATTLE tag reads exactly as it does today - no tokens, no deviation", () => {
+    const result = readRecord(
+      ['[Ruleset "2-0:BATTLE"]', POSITION_BLOCK].join("\n\n"),
+    );
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration).toEqual(STANDARD_BATTLE_CONFIGURATION);
+    expect(deviatingFlags(result.configuration)).toEqual([]);
+  });
+
+  it("the bare 2-1:SKIRMISH tag reads exactly as it does today - no tokens, no deviation", () => {
+    const skirmishState: InitialGameState = {
+      ruleset: "2-1:SKIRMISH",
+      configuration: STANDARD_SKIRMISH_CONFIGURATION,
+      board: { A1: { side: "white", pieceType: "flag" } },
+    };
+    const text = [
+      '[Ruleset "2-1:SKIRMISH"]',
+      renderPositionBlock(skirmishState),
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration).toEqual(STANDARD_SKIRMISH_CONFIGURATION);
+    expect(deviatingFlags(result.configuration)).toEqual([]);
+  });
+
+  it("the bare superseded 2-0:SKIRMISH tag reads exactly as it does today - no tokens, no deviation", () => {
+    const superseded = EDITIONS["2-0:SKIRMISH"];
+    const text = [
+      '[Ruleset "2-0:SKIRMISH"]',
+      renderPositionBlock({
+        ruleset: "2-0:SKIRMISH",
+        configuration: configureRules(superseded),
+        board: { A1: { side: "white", pieceType: "flag" } },
+      }),
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.configuration).toEqual(configureRules(superseded));
+    expect(deviatingFlags(result.configuration)).toEqual([]);
+  });
+});
+
+// Story 00000030, Step 7: the checked-in `doc/samples/` Clash fixture, read
+// from disk exactly as a player's exported record would be. Its Ruleset tag
+// names the Battle edition id (there is no published Clash edition; see
+// `doc/samples/README.md`) plus its two deviating game-defining flags - this
+// pins that the reader resolves the *Clash* board and army from that tag,
+// not Battle's own, and replays the capture to the end.
+describe("readRecord - the checked-in doc/samples/2-0-battle-clash-flag-capture.txt fixture (story 00000030, Step 7)", () => {
+  const SAMPLE_PATH = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../doc/samples/2-0-battle-clash-flag-capture.txt",
+  );
+  const sampleText = readFileSync(SAMPLE_PATH, "utf8");
+
+  it("parses and replays the Clash flag-capture game to the end", () => {
+    const result = readRecord(sampleText);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+
+    expect(result.record.tags.ruleset).toBe(
+      "2-0:BATTLE ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100",
+    );
+    expect(result.configuration.boardLayout.id).toBe("asymmetric_100");
+    expect(result.configuration.flags.ARMY_COMPOSITION).toBe("standard_clash");
+    expect(result.unrecognizedRuleTokens).toEqual([]);
+    expect(result.record.tags.result).toBe("1-0");
+    expect(result.record.tags.resultReason).toBe("Flag Captured");
+    expect(result.record.positions).toHaveLength(2);
+    expect(result.record.moves).toHaveLength(1);
+    expect(result.record.positions[1]).toEqual({
+      A1: { side: "white", pieceType: "flag" },
+      E6: { side: "white", pieceType: "champion" },
+    });
+  });
+});
+
+// Story 00000030, Step 8: a record whose `Ruleset` tag names a `BOARD_LAYOUT`
+// value this app has no registered geometry for. Decisions 8 and 9: this is
+// never a rejection - the board is instead derived straight from the
+// record's own position block, and the record reviews in full.
+describe("readRecord - a record naming a board this app doesn't know (story 00000030, Step 8)", () => {
+  /** A board size and lake pattern matching none of the three catalog layouts (12x12, 8x8, 10x10). */
+  const UNKNOWN_ROW_COUNT = 14;
+  const UNKNOWN_COLUMN_COUNT = 14;
+  const UNKNOWN_LAKE_ROWS = [7, 8];
+  const UNKNOWN_LAKE_COLUMN_INDICES = [5, 9];
+
+  /**
+   * Builds a hand-written position block for the unknown 14x14 board above:
+   * a White Flag at A1 and a White Master-of-Arms at B1 (both movable, for
+   * the replay case), a Black Flag at the far corner, and `XXX` lakes at
+   * `UNKNOWN_LAKE_ROWS`/`UNKNOWN_LAKE_COLUMN_INDICES` - two cells nothing in
+   * the catalog produces. `includeLakes` lets the "lakeless board" case reuse
+   * this builder with no `XXX` cells at all.
+   */
+  function unknownBoardBlock(includeLakes: boolean): string {
+    const linesTopToBottom: string[] = [];
+    for (let row = UNKNOWN_ROW_COUNT; row >= 1; row -= 1) {
+      const cells: string[] = [];
+      for (
+        let columnIndex = 0;
+        columnIndex < UNKNOWN_COLUMN_COUNT;
+        columnIndex += 1
+      ) {
+        if (
+          includeLakes &&
+          UNKNOWN_LAKE_ROWS.includes(row) &&
+          UNKNOWN_LAKE_COLUMN_INDICES.includes(columnIndex)
+        ) {
+          cells.push("XXX");
+        } else if (row === 1 && columnIndex === 0) {
+          cells.push("[F]"); // White Flag
+        } else if (row === 1 && columnIndex === 1) {
+          cells.push("[1]"); // White Master-of-Arms
+        } else if (row === UNKNOWN_ROW_COUNT && columnIndex === 0) {
+          cells.push("*F*"); // Black Flag
+        } else {
+          cells.push("---");
+        }
+      }
+      linesTopToBottom.push(cells.join(" "));
+    }
+    return linesTopToBottom.join("\n");
+  }
+
+  it("parses and replays end to end, reports the token as unrecognized, and derives a board matching the block exactly", () => {
+    const moveToken = renderMoveToken({
+      from: { column: "B", row: 1 },
+      to: { column: "B", row: 2 },
+      fromRemoved: false,
+      toRemoved: false,
+    });
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=huge_400"]',
+      unknownBoardBlock(true),
+      `1. ${moveToken}`,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+
+    expect(result.unrecognizedRuleTokens).toEqual(["BOARD_LAYOUT=huge_400"]);
+    // The unresolved token never affects the configuration, which falls back
+    // to Battle's own board - exactly why `result.boardLayout`, not
+    // `result.configuration.boardLayout`, is what must be rendered.
+    expect(result.configuration.boardLayout.id).toBe("standard_144");
+
+    expect(result.boardLayout.id).toBe(DERIVED_BOARD_LAYOUT_ID);
+    expect(result.boardLayout.rowCount).toBe(UNKNOWN_ROW_COUNT);
+    expect(result.boardLayout.columnCount).toBe(UNKNOWN_COLUMN_COUNT);
+    expect(result.boardLayout.lakeRows).toEqual(UNKNOWN_LAKE_ROWS);
+    expect(result.boardLayout.lakeColumnIndices).toEqual(
+      UNKNOWN_LAKE_COLUMN_INDICES,
+    );
+
+    expect(result.record.positions).toHaveLength(2);
+    expect(result.record.moves).toHaveLength(1);
+    expect(result.record.positions[1]).toEqual({
+      A1: { side: "white", pieceType: "flag" },
+      B2: { side: "white", pieceType: "masterOfArms" },
+      A14: { side: "black", pieceType: "flag" },
+    });
+  });
+
+  it("carries `homeRowsPerSide: 0` and `hasBuffer: false` on the derived layout, and still replays completely", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=huge_400"]',
+      unknownBoardBlock(true),
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.boardLayout.homeRowsPerSide).toBe(0);
+    expect(result.boardLayout.hasBuffer).toBe(false);
+    expect(result.record.positions).toHaveLength(1);
+  });
+
+  it("derives a lakeless board when the block has no XXX cells at all, and still replays", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=huge_400"]',
+      unknownBoardBlock(false),
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.boardLayout.lakeRows).toEqual([]);
+    expect(result.boardLayout.lakeColumnIndices).toEqual([]);
+    expect(result.record.positions).toHaveLength(1);
+  });
+
+  it("derivation is total: a ragged block still surfaces the ordinary wrongCellCount PositionBlockError, no new error kind", () => {
+    const raggedBlock = unknownBoardBlock(true)
+      .split("\n")
+      .map((line, index) => (index === 3 ? line.slice(0, -4) : line))
+      .join("\n");
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=huge_400"]',
+      raggedBlock,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("error");
+    if (result.kind !== "error") {
+      return;
+    }
+    expect(result.error.kind).toBe("recordFile");
+    if (result.error.kind !== "recordFile") {
+      return;
+    }
+    expect(result.error.error.kind).toBe("positionBlock");
+    if (result.error.error.kind !== "positionBlock") {
+      return;
+    }
+    expect(result.error.error.error.kind).toBe("wrongCellCount");
+  });
+
+  it("the tag wins for a known board: the Clash board with a 12x12 (Battle-sized) block is still rejected, naming the expected size", () => {
+    const battleShapedBlock = renderPositionBlock({
+      ruleset: RULESET_TAG,
+      configuration: STANDARD_BATTLE_CONFIGURATION,
+      board: { A1: { side: "white", pieceType: "flag" } },
+    });
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=asymmetric_100"]',
+      battleShapedBlock,
+    ].join("\n\n");
+
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: {
+        kind: "recordFile",
+        error: {
+          kind: "positionBlock",
+          error: { kind: "wrongRowCount", rowCount: 12, expectedRowCount: 10 },
+        },
+      },
+    });
+  });
+
+  it("the tag wins for a known board: a right-sized block whose lakes sit in Battle-like positions is still rejected", () => {
+    // 10x10, but with lakes at columns B/C on rows 5-6 (a 2-wide, edge-clear
+    // pattern like Battle's, rather than asymmetric_100's own A/D/G/H/I) -
+    // wrong for the *named* board, even though it is the right size.
+    const lines: string[] = [];
+    for (let row = 10; row >= 1; row -= 1) {
+      const cells: string[] = [];
+      for (let columnIndex = 0; columnIndex < 10; columnIndex += 1) {
+        const isLakeRow = row === 5 || row === 6;
+        cells.push(
+          isLakeRow && (columnIndex === 1 || columnIndex === 2) ? "XXX" : "---",
+        );
+      }
+      lines.push(cells.join(" "));
+    }
+    const text = [
+      '[Ruleset "2-0:BATTLE BOARD_LAYOUT=asymmetric_100"]',
+      lines.join("\n"),
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("error");
+    if (result.kind !== "error") {
+      return;
+    }
+    expect(result.error.kind).toBe("recordFile");
+    if (result.error.kind !== "recordFile") {
+      return;
+    }
+    expect(result.error.error.kind).toBe("positionBlock");
+    if (result.error.error.kind !== "positionBlock") {
+      return;
+    }
+    // Column A, row 6 is asymmetric_100's own first lake square - not marked
+    // XXX here, so it is the first mismatch parsePositionBlock finds.
+    expect(result.error.error.error.kind).toBe("lakeSquareNotXxx");
+  });
+
+  it("a record naming an unresolvable ARMY_COMPOSITION (not BOARD_LAYOUT) still reviews on the tag's own known board, not a derived one", () => {
+    const text = [
+      '[Ruleset "2-0:BATTLE ARMY_COMPOSITION=something_else"]',
+      POSITION_BLOCK,
+    ].join("\n\n");
+
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.unrecognizedRuleTokens).toEqual([
+      "ARMY_COMPOSITION=something_else",
+    ]);
+    expect(result.boardLayout.id).toBe("standard_144");
+    expect(result.boardLayout).toBe(result.configuration.boardLayout);
+  });
+
+  it("still rejects an unknown edition id exactly as today - the derive path never applies before the edition id is known", () => {
+    const text = [
+      '[Ruleset "9-9:NOT_A_REAL_EDITION BOARD_LAYOUT=huge_400"]',
+      unknownBoardBlock(true),
+    ].join("\n\n");
+
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: { kind: "unknownRuleset", ruleset: "9-9:NOT_A_REAL_EDITION" },
+    });
+  });
+});
+
+// Story 00000030, Step 8: the regression guard against the derived path ever
+// leaking into the normal one - every record whose tag this app fully
+// understands (all four pre-existing checked-in `doc/samples/` fixtures plus
+// Step 7's Clash sample) must report `boardLayout` identical to
+// `configuration.boardLayout`, exactly as before this step existed.
+describe("readRecord - boardLayout matches configuration.boardLayout for every fully-understood tag (story 00000030, Step 8)", () => {
+  const SAMPLES_DIR = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../doc/samples",
+  );
+  const SAMPLE_FILES = [
+    "2-0-skirmish-tower-in-lane.txt",
+    "2-1-skirmish-diagonal-attack-path-open.txt",
+    "2-1-skirmish-diagonal-attackable-all.txt",
+    "2-1-skirmish-diagonal-both-flags.txt",
+    "2-0-battle-clash-flag-capture.txt",
+  ];
+
+  it.each(SAMPLE_FILES)("%s", (fileName) => {
+    const text = readFileSync(path.join(SAMPLES_DIR, fileName), "utf8");
+    const result = readRecord(text);
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.unrecognizedRuleTokens).toEqual([]);
+    expect(result.boardLayout).toBe(result.configuration.boardLayout);
+  });
+
+  it("also holds for the bare 2-0:BATTLE tag", () => {
+    const result = readRecord(
+      ['[Ruleset "2-0:BATTLE"]', POSITION_BLOCK].join("\n\n"),
+    );
+    expect(result.kind).toBe("parsed");
+    if (result.kind !== "parsed") {
+      return;
+    }
+    expect(result.boardLayout).toBe(result.configuration.boardLayout);
+  });
+});
+
+// Peer review #2 (story 00000030): the derive path must trigger only when the
+// `BOARD_LAYOUT` *flag* genuinely never resolved from any token, not merely
+// when *some* unrecognized token happens to mention the flag id. Both of
+// these tags carry an unrecognized token naming `BOARD_LAYOUT`, but in
+// neither case did the flag fail to resolve - so both must fall back to the
+// tag's own (edition-resolved) board, per Decision 8, and reject a
+// wrong-shaped block exactly as any other known-board mismatch does.
+describe("readRecord - a bad BOARD_LAYOUT token alongside a board this app does know (peer review #2)", () => {
+  const skirmish = EDITIONS["2-1:SKIRMISH"];
+  // Deliberately Battle-shaped (12x12), not Skirmish-shaped (8x8): proof the
+  // block is validated against Skirmish's own resolved board rather than
+  // derived from the block's own text.
+  const battleShapedBlock = renderPositionBlock({
+    ruleset: skirmish.id,
+    configuration: STANDARD_BATTLE_CONFIGURATION,
+    board: { A1: { side: "white", pieceType: "flag" } },
+  });
+
+  it("a conflicting duplicate BOARD_LAYOUT token: the first token already resolved the flag, so the tag's own board wins", () => {
+    const text = [
+      '[Ruleset "2-1:SKIRMISH BOARD_LAYOUT=standard_64 BOARD_LAYOUT=standard_144"]',
+      battleShapedBlock,
+    ].join("\n\n");
+
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: {
+        kind: "recordFile",
+        error: {
+          kind: "positionBlock",
+          error: { kind: "wrongRowCount", rowCount: 12, expectedRowCount: 8 },
+        },
+      },
+    });
+  });
+
+  it("a malformed BOARD_LAYOUT token with no value: the flag never resolved from it, so it falls back to the edition's own board rather than deriving", () => {
+    const text = [
+      '[Ruleset "2-1:SKIRMISH BOARD_LAYOUT"]',
+      battleShapedBlock,
+    ].join("\n\n");
+
+    expect(readRecord(text)).toEqual({
+      kind: "error",
+      error: {
+        kind: "recordFile",
+        error: {
+          kind: "positionBlock",
+          error: { kind: "wrongRowCount", rowCount: 12, expectedRowCount: 8 },
+        },
+      },
+    });
   });
 });

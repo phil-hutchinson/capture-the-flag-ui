@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  BATTLE_EDITION,
   combinationFits,
   editionById,
   EDITIONS,
-  playableEditions,
+  SKIRMISH_EDITION,
   SUPERSEDED_SKIRMISH_EDITION,
 } from "./edition.ts";
 
@@ -17,8 +18,6 @@ describe("2-0:BATTLE", () => {
   it("pairs the standard_144 board layout with the standard_battle army composition", () => {
     expect(edition.boardLayoutId).toBe("standard_144");
     expect(edition.armyCompositionId).toBe("standard_battle");
-    expect(edition.boardLayout.id).toBe("standard_144");
-    expect(edition.army).toBe(EDITIONS["2-0:BATTLE"].army);
   });
 
   it("is active, with spacing_only Tower placement", () => {
@@ -37,7 +36,6 @@ describe("2-1:SKIRMISH (the active Skirmish edition)", () => {
   it("pairs the standard_64 board layout with the standard_skirmish army composition", () => {
     expect(edition.boardLayoutId).toBe("standard_64");
     expect(edition.armyCompositionId).toBe("standard_skirmish");
-    expect(edition.boardLayout.id).toBe("standard_64");
   });
 
   it("is active, with spacing_and_lanes Tower placement", () => {
@@ -76,11 +74,27 @@ describe("combinationFits (does an army fit a board's home zone)", () => {
   });
 });
 
-describe("playableEditions", () => {
-  it("offers exactly the two active editions for play, never the superseded one", () => {
-    const ids = playableEditions()
-      .map((edition) => edition.id)
-      .sort();
-    expect(ids).toEqual(["2-0:BATTLE", "2-1:SKIRMISH"]);
-  });
+// `playableEditions()` was removed in story 00000030 (implementation plan
+// Decision 6/Step 5): with Clash sharing Battle's edition id, "which
+// editions are playable" is no longer the right question. `games.ts`'s
+// `playableGames()` is the replacement - see `games.test.ts`.
+
+// Story 00000030's implementation plan, Decision 1 and Step 4 verification:
+// `Edition` no longer carries a resolved board or roster at all - only the
+// three registered `Edition` objects, `EDITIONS`, `BATTLE_EDITION` and
+// `SKIRMISH_EDITION` names them all. `RuleConfiguration.boardLayout`/`.army`
+// (`configuration.ts`) are the only place a board or a roster comes from now.
+describe("no Edition object carries a resolved board or roster any more", () => {
+  it.each([
+    ["BATTLE_EDITION", BATTLE_EDITION],
+    ["SKIRMISH_EDITION", SKIRMISH_EDITION],
+    ["SUPERSEDED_SKIRMISH_EDITION", SUPERSEDED_SKIRMISH_EDITION],
+    ...Object.entries(EDITIONS),
+  ] as const)(
+    "%s has neither a boardLayout nor an army field",
+    (_name, edition) => {
+      expect(Object.hasOwn(edition, "boardLayout")).toBe(false);
+      expect(Object.hasOwn(edition, "army")).toBe(false);
+    },
+  );
 });

@@ -12,7 +12,7 @@ import {
   type PlacementState,
 } from "../rules/primary/v2/placement.ts";
 import { homeSquares } from "../rules/primary/v2/board.ts";
-import { BATTLE_EDITION } from "../rules/primary/v2/edition.ts";
+import { STANDARD_BATTLE_CONFIGURATION } from "../rules/primary/v2/configuration.ts";
 
 /**
  * `autoFill`, unwrapped (story 00000025's Step 8 changed its return type to
@@ -31,7 +31,7 @@ function autoFillOrThrow(state: PlacementState): PlacementState {
 
 describe("newSession", () => {
   it("starts with White active and both boards empty", () => {
-    const session = newSession(BATTLE_EDITION);
+    const session = newSession(STANDARD_BATTLE_CONFIGURATION);
     expect(session.active).toBe("white");
     expect(session.white.placements.size).toBe(0);
     expect(session.black.placements.size).toBe(0);
@@ -41,12 +41,12 @@ describe("newSession", () => {
 
 describe("activePlacement", () => {
   it("reads the active player's own placement", () => {
-    const session = newSession(BATTLE_EDITION);
+    const session = newSession(STANDARD_BATTLE_CONFIGURATION);
     expect(activePlacement(session)).toBe(session.white);
   });
 
   it("throws once the session is complete", () => {
-    let session = newSession(BATTLE_EDITION);
+    let session = newSession(STANDARD_BATTLE_CONFIGURATION);
     session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session); // White confirms, Black becomes active
     session = updateActivePlacement(session, autoFillOrThrow);
@@ -57,7 +57,7 @@ describe("activePlacement", () => {
 
 describe("updateActivePlacement", () => {
   it("only changes the active side's placement, never the inactive side's", () => {
-    const session = newSession(BATTLE_EDITION);
+    const session = newSession(STANDARD_BATTLE_CONFIGURATION);
     const square = homeSquares("white")[0];
     const next = updateActivePlacement(session, (state) =>
       place(state, square, "champion"),
@@ -67,7 +67,7 @@ describe("updateActivePlacement", () => {
   });
 
   it("throws once the session is complete", () => {
-    let session = newSession(BATTLE_EDITION);
+    let session = newSession(STANDARD_BATTLE_CONFIGURATION);
     session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session);
     session = updateActivePlacement(session, autoFillOrThrow);
@@ -78,12 +78,12 @@ describe("updateActivePlacement", () => {
 
 describe("confirmActive", () => {
   it("rejects confirming an incomplete army", () => {
-    const session = newSession(BATTLE_EDITION);
+    const session = newSession(STANDARD_BATTLE_CONFIGURATION);
     expect(() => confirmActive(session)).toThrow();
   });
 
   it("hands off from White to Black on White's confirm, leaving Black's board empty", () => {
-    let session = newSession(BATTLE_EDITION);
+    let session = newSession(STANDARD_BATTLE_CONFIGURATION);
     session = updateActivePlacement(session, autoFillOrThrow);
     const whiteFilled = session.white;
     session = confirmActive(session);
@@ -95,7 +95,7 @@ describe("confirmActive", () => {
   });
 
   it("completes the session (active becomes null) once Black also confirms", () => {
-    let session = newSession(BATTLE_EDITION);
+    let session = newSession(STANDARD_BATTLE_CONFIGURATION);
     session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session);
     session = updateActivePlacement(session, autoFillOrThrow);
@@ -106,7 +106,7 @@ describe("confirmActive", () => {
   });
 
   it("throws when confirming an already-complete session", () => {
-    let session = newSession(BATTLE_EDITION);
+    let session = newSession(STANDARD_BATTLE_CONFIGURATION);
     session = updateActivePlacement(session, autoFillOrThrow);
     session = confirmActive(session);
     session = updateActivePlacement(session, autoFillOrThrow);

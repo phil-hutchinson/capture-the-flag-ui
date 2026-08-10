@@ -72,6 +72,16 @@ export function moveLabel(ply: number, round: number, side: Side): string {
 function describePositionBlockError(error: PositionBlockError): string {
   switch (error.kind) {
     case "wrongRowCount":
+      // This sentence's "{n}x{n}" phrase is built from `expectedRowCount`
+      // alone, on the assumption that a board's row and column counts always
+      // match - true of every layout in `BOARD_LAYOUTS` (12x12, 8x8, 10x10),
+      // and true by construction of any layout `gameState.ts`'s
+      // `deriveBoardLayoutFromPositionBlock` derives (story 00000030's Step
+      // 8): a derived layout's `rowCount` is always exactly the block's own
+      // line count, so this exact case can never even be reached on a
+      // *derived* layout - it can only fire on a *known* layout (Decision 8),
+      // where the assumption already holds. Worth re-checking if a future
+      // layout is ever non-square.
       return `This file's starting position isn't a full ${error.expectedRowCount}x${error.expectedRowCount} board (it has ${error.rowCount} row${error.rowCount === 1 ? "" : "s"} instead of ${error.expectedRowCount}), so it can't be reviewed.`;
     case "wrongCellCount":
       return `This file's starting position has a row (row ${error.row}) that isn't ${error.expectedCellCount} squares wide, so it can't be reviewed.`;

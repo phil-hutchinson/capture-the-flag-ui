@@ -8,7 +8,7 @@ import {
   writeFlipBetweenTurns,
 } from "./flipBoardSetting.ts";
 import { FlipBoardToggle } from "./FlipBoardToggle.tsx";
-import { boardSizeDescription, gameName } from "./gameNames.ts";
+import { boardSizeDescription, gameNameForConfiguration } from "./gameNames.ts";
 import { GameChoice } from "./GameChoice.tsx";
 import { GameRecord } from "./GameRecord.tsx";
 import { GameResult } from "./GameResult.tsx";
@@ -463,7 +463,7 @@ export function HotSeatGame({
   function handleChooseGame(chosenConfiguration: RuleConfiguration) {
     onGameStarted(chosenConfiguration);
     setConfiguration(chosenConfiguration);
-    const freshSession = newSession(chosenConfiguration.edition);
+    const freshSession = newSession(chosenConfiguration);
     setSession(freshSession);
     const ruleSentences = nonStandardRuleSentences(chosenConfiguration);
     const ruleAnnouncement =
@@ -483,8 +483,18 @@ export function HotSeatGame({
       openingSide !== null
         ? ` ${describeHandOff(openingSide, progress(freshSession[openingSide]))}`
         : "";
+    // Story 00000030's Decision 7: an edition id no longer identifies a game
+    // one-to-one, so the announcement names the game via
+    // `gameNameForConfiguration` rather than `chosenConfiguration.edition`.
+    // The `?? "the game"` fallback is unreachable in practice -
+    // `chosenConfiguration` always comes straight from `GameChoice`, which
+    // only ever builds a configuration through `games.ts`'s
+    // `buildGameConfiguration`, so it always identifies as a real game - but
+    // is needed so this stays a plain `string`, not `string | null`.
+    const chosenGameName =
+      gameNameForConfiguration(chosenConfiguration) ?? "the game";
     setGameAnnouncement(
-      `You chose ${gameName(chosenConfiguration.edition)}. Placing on ${boardSizeDescription(chosenConfiguration.edition)}.${ruleAnnouncement}${turnAnnouncement}`,
+      `You chose ${chosenGameName}. Placing on ${boardSizeDescription(chosenConfiguration)}.${ruleAnnouncement}${turnAnnouncement}`,
     );
   }
 

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { armySize, BATTLE_ARMY } from "./armyComposition.ts";
 import { BATTLE_LAYOUT, homeSquares } from "./board.ts";
+import { DERIVED_BOARD_LAYOUT_ID } from "./boardLayout.ts";
 import {
   configureRules,
   STANDARD_BATTLE_CONFIGURATION,
   STANDARD_SKIRMISH_CONFIGURATION,
 } from "./configuration.ts";
 import { SKIRMISH_EDITION } from "./edition.ts";
+import { buildGameConfiguration } from "./games.ts";
 import { pieceCatalogEntries } from "./pieces.ts";
 import { autoFill, emptyPlacement, type PlacementState } from "./placement.ts";
 
@@ -14,6 +16,7 @@ import { autoFill, emptyPlacement, type PlacementState } from "./placement.ts";
 const ARMY_SIZE = armySize(BATTLE_ARMY);
 import {
   buildInitialGameState,
+  deriveBoardLayoutFromPositionBlock,
   parsePositionBlock,
   renderPositionBlock,
   RULESET_TAG,
@@ -74,11 +77,12 @@ describe("buildInitialGameState (ruleset major 2)", () => {
 
   it("tags the artifact with the given edition's id (Skirmish)", () => {
     const skirmish = SKIRMISH_EDITION;
+    const skirmishConfiguration = configureRules(skirmish);
     const white = autoFillOrThrow(
       emptyPlacement(
         "white",
-        skirmish.boardLayout,
-        skirmish.army,
+        skirmishConfiguration.boardLayout,
+        skirmishConfiguration.army,
         skirmish.towerPlacement,
       ),
       seededRandom(21),
@@ -86,8 +90,8 @@ describe("buildInitialGameState (ruleset major 2)", () => {
     const black = autoFillOrThrow(
       emptyPlacement(
         "black",
-        skirmish.boardLayout,
-        skirmish.army,
+        skirmishConfiguration.boardLayout,
+        skirmishConfiguration.army,
         skirmish.towerPlacement,
       ),
       seededRandom(22),
@@ -95,7 +99,7 @@ describe("buildInitialGameState (ruleset major 2)", () => {
     const gameState = buildInitialGameState(
       white,
       black,
-      configureRules(skirmish),
+      skirmishConfiguration,
     );
 
     expect(gameState.ruleset).toBe("2-1:SKIRMISH");
@@ -508,7 +512,10 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
     };
     const block = renderPositionBlock(gameState);
 
-    const result = parsePositionBlock(block, SKIRMISH_EDITION.boardLayout);
+    const result = parsePositionBlock(
+      block,
+      STANDARD_SKIRMISH_CONFIGURATION.boardLayout,
+    );
     expect(result.kind).toBe("parsed");
     expect((result as { kind: "parsed"; board: BoardState }).board).toEqual(
       board,
@@ -532,14 +539,14 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
   it("buildInitialGameState rejects placement states on a different board layout than the given edition", () => {
     const white = emptyPlacement(
       "white",
-      SKIRMISH_EDITION.boardLayout,
-      SKIRMISH_EDITION.army,
+      STANDARD_SKIRMISH_CONFIGURATION.boardLayout,
+      STANDARD_SKIRMISH_CONFIGURATION.army,
       SKIRMISH_EDITION.towerPlacement,
     );
     const black = emptyPlacement(
       "black",
-      SKIRMISH_EDITION.boardLayout,
-      SKIRMISH_EDITION.army,
+      STANDARD_SKIRMISH_CONFIGURATION.boardLayout,
+      STANDARD_SKIRMISH_CONFIGURATION.army,
       SKIRMISH_EDITION.towerPlacement,
     );
     // Battle passed against Skirmish-layout placement states: the mismatch is
@@ -552,14 +559,14 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
   it("rejects placement states whose TOWER_PLACEMENT variant disagrees with the given edition (story 00000025)", () => {
     const white = emptyPlacement(
       "white",
-      SKIRMISH_EDITION.boardLayout,
-      SKIRMISH_EDITION.army,
+      STANDARD_SKIRMISH_CONFIGURATION.boardLayout,
+      STANDARD_SKIRMISH_CONFIGURATION.army,
       "spacing_only", // SKIRMISH_EDITION (2-1:SKIRMISH) itself is spacing_and_lanes.
     );
     const black = emptyPlacement(
       "black",
-      SKIRMISH_EDITION.boardLayout,
-      SKIRMISH_EDITION.army,
+      STANDARD_SKIRMISH_CONFIGURATION.boardLayout,
+      STANDARD_SKIRMISH_CONFIGURATION.army,
       SKIRMISH_EDITION.towerPlacement,
     );
     // A placement built under the historical spacing_only variant, sealed
@@ -568,5 +575,145 @@ describe("position-block render/parse on the Skirmish edition (8x8)", () => {
     expect(() =>
       buildInitialGameState(white, black, STANDARD_SKIRMISH_CONFIGURATION),
     ).toThrow();
+  });
+});
+
+// Story 00000030, Step 7: closes the record loop for Clash through the real
+// writer - the Clash configuration (`asymmetric_100` / `standard_clash`,
+// built via `games.ts` exactly as the picker will build one) must stamp the
+// exact three-token `Ruleset` tag the Grounding facts specify, and its
+// position block must be sized and marked for the new 10x10 geometry.
+describe("Clash (asymmetric_100 / standard_clash) - story 00000030, Step 7", () => {
+  const CLASH_CONFIGURATION = buildGameConfiguration("clash");
+
+  function completeClashArmy(
+    side: "white" | "black",
+    seed: number,
+  ): PlacementState {
+    return autoFillOrThrow(
+      emptyPlacement(
+        side,
+        CLASH_CONFIGURATION.boardLayout,
+        CLASH_CONFIGURATION.army,
+        CLASH_CONFIGURATION.edition.towerPlacement,
+      ),
+      seededRandom(seed),
+    );
+  }
+
+  it("buildInitialGameState stamps the exact three-token Clash Ruleset tag", () => {
+    const white = completeClashArmy("white", 30);
+    const black = completeClashArmy("black", 31);
+    const gameState = buildInitialGameState(white, black, CLASH_CONFIGURATION);
+
+    expect(gameState.ruleset).toBe(
+      "2-0:BATTLE ARMY_COMPOSITION=standard_clash BOARD_LAYOUT=asymmetric_100",
+    );
+  });
+
+  it("renderPositionBlock is 10 rows of 10 cells, with XXX at columns A/D/G/H/I on rows 5 and 6 only", () => {
+    const white = completeClashArmy("white", 32);
+    const black = completeClashArmy("black", 33);
+    const gameState = buildInitialGameState(white, black, CLASH_CONFIGURATION);
+
+    const lines = renderPositionBlock(gameState).split("\n");
+    expect(lines).toHaveLength(10);
+    for (const line of lines) {
+      const cells = line.split(" ");
+      expect(cells).toHaveLength(10);
+      for (const cell of cells) {
+        expect(cell).toHaveLength(3);
+      }
+    }
+
+    // Rows 6 and 5 are the 5th and 6th lines from the top (row 10 is the
+    // first line, row 1 the last): row 6 -> index 4, row 5 -> index 5.
+    const lakeColumnIndexes = [0, 3, 6, 7, 8]; // A, D, G, H, I
+    const openColumnIndexes = [1, 2, 4, 5, 9]; // B, C, E, F, J
+    const row6 = lines[4].split(" ");
+    const row5 = lines[5].split(" ");
+    for (const index of lakeColumnIndexes) {
+      expect(row6[index]).toBe("XXX");
+      expect(row5[index]).toBe("XXX");
+    }
+    for (const index of openColumnIndexes) {
+      expect(row6[index]).not.toBe("XXX");
+      expect(row5[index]).not.toBe("XXX");
+    }
+
+    // No other row carries a lake cell.
+    for (const [lineIndex, line] of lines.entries()) {
+      if (lineIndex === 4 || lineIndex === 5) {
+        continue;
+      }
+      expect(line.split(" ")).not.toContain("XXX");
+    }
+  });
+});
+
+describe("deriveBoardLayoutFromPositionBlock - story 00000030, Step 8", () => {
+  it("derives dimensions and lake cells straight off a hand-built block, in the block's own bottom-up row numbering", () => {
+    // 3 rows x 4 columns. Top line (first) is row 3, bottom line (last) is
+    // row 1 - `renderPositionBlock`'s convention, this function's inverse.
+    const block = [
+      "--- XXX --- ---", // row 3: lake at column index 1
+      "--- --- --- ---", // row 2: no lake
+      "XXX --- --- XXX", // row 1: lake at column indices 0 and 3
+    ].join("\n");
+
+    const layout = deriveBoardLayoutFromPositionBlock(block);
+
+    expect(layout.id).toBe(DERIVED_BOARD_LAYOUT_ID);
+    expect(layout.rowCount).toBe(3);
+    expect(layout.columnCount).toBe(4);
+    expect(layout.homeRowsPerSide).toBe(0);
+    expect(layout.hasBuffer).toBe(false);
+    expect(layout.lakeRows).toEqual([1, 3]);
+    expect(layout.lakeColumnIndices).toEqual([0, 1, 3]);
+  });
+
+  it("derives a lakeless board when the block has no XXX cells at all", () => {
+    const block = ["--- --- ---", "--- --- ---"].join("\n");
+
+    const layout = deriveBoardLayoutFromPositionBlock(block);
+
+    expect(layout.rowCount).toBe(2);
+    expect(layout.columnCount).toBe(3);
+    expect(layout.lakeRows).toEqual([]);
+    expect(layout.lakeColumnIndices).toEqual([]);
+  });
+
+  it("is total: an empty block derives a degenerate 0x0 layout rather than throwing", () => {
+    expect(() => deriveBoardLayoutFromPositionBlock("")).not.toThrow();
+
+    const layout = deriveBoardLayoutFromPositionBlock("");
+    expect(layout.id).toBe(DERIVED_BOARD_LAYOUT_ID);
+    expect(layout.rowCount).toBe(0);
+    expect(layout.columnCount).toBe(0);
+    expect(layout.lakeRows).toEqual([]);
+    expect(layout.lakeColumnIndices).toEqual([]);
+  });
+
+  it("is total: a ragged block (rows of different widths) derives without throwing, column count from the first line only", () => {
+    const raggedBlock = ["--- --- ---", "--- ---", "XXX --- --- ---"].join(
+      "\n",
+    );
+
+    expect(() => deriveBoardLayoutFromPositionBlock(raggedBlock)).not.toThrow();
+
+    const layout = deriveBoardLayoutFromPositionBlock(raggedBlock);
+    expect(layout.rowCount).toBe(3);
+    expect(layout.columnCount).toBe(3);
+  });
+
+  it("tolerates CRLF line endings and leading/trailing whitespace, matching parsePositionBlock's own tolerance", () => {
+    const block = ["  XXX --- ---  ", " --- --- --- "].join("\r\n");
+
+    const layout = deriveBoardLayoutFromPositionBlock(block);
+
+    expect(layout.rowCount).toBe(2);
+    expect(layout.columnCount).toBe(3);
+    expect(layout.lakeRows).toEqual([2]);
+    expect(layout.lakeColumnIndices).toEqual([0]);
   });
 });

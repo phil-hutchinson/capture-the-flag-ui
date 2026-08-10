@@ -5,9 +5,12 @@ arranges an army — soldiers, knights, towers, and one all-important flag —
 then the armies are revealed and the battle begins. Pieces move and clash in
 full view until one side captures the other's flag.
 
-There are two games to choose from. **Skirmish** is the shorter one: sixteen
-pieces a side on a small board, and a good place to start. **Battle** is the
-full game: twenty-five pieces a side on a board more than twice the size.
+There are three games to choose from. **Skirmish** is the shortest one:
+sixteen pieces a side on a small board, and a good place to start. **Clash**
+is a mid-size game: twenty pieces a side on a bigger board with lakes laid
+out unevenly, so the two halves don't mirror each other. **Battle** is the
+full game: twenty-five pieces a side on a board more than twice the size of
+Skirmish's.
 
 This is the game's web app. It runs entirely in your browser — nothing to
 install, no account, no server. It opens on a start screen where you can play
@@ -16,8 +19,8 @@ unavailable while the computer player catches up with the latest rules.
 
 ## What you can do
 
-- **Set up a game with a friend** on the same device — pick Skirmish or
-  Battle, choose how you'd like diagonal attacks to work for this game, then
+- **Set up a game with a friend** on the same device — pick Skirmish, Clash,
+  or Battle, choose how you'd like diagonal attacks to work for this game, then
   take turns secretly choosing where on your side of the board to place your
   army (you won't fill every square), then hand off. In Skirmish, a tower
   can't stand directly in front of a lane, one of the open columns running
@@ -56,11 +59,11 @@ unavailable while the computer player catches up with the latest rules.
   the final move, works entirely from the keyboard, and reads well with a
   screen reader too.
 
-> **Status:** you can play a full game from start to finish — pick Skirmish or
-> Battle, place both armies, battle on the revealed board, and reach a real
-> result — and review a recorded game move by move. Playing against the
-> computer is paused for now, and saving a game you played here is still to
-> come.
+> **Status:** you can play a full game from start to finish — pick Skirmish,
+> Clash, or Battle, place both armies, battle on the revealed board, and reach
+> a real result — and review a recorded game move by move. Playing against
+> the computer is paused for now, and saving a game you played here is still
+> to come.
 
 ## The rules
 
@@ -71,13 +74,19 @@ source of truth:
 The game is still in active pre-release development, and the rules are
 evolving with it; a recorded game only plays back correctly in the ruleset
 version it was recorded under. The app has now moved to the latest rules —
-which brought the two games and diagonal attacks — so recordings made under
-the earlier rules can no longer be reviewed here.
+which brought the current games and diagonal attacks — so recordings made
+under the earlier rules can no longer be reviewed here.
 
 The two diagonal-attack settings on the new-game screen aren't official rules
 yet — they're proposals from the companion project's
 [proposed-variants.md](https://github.com/phil-hutchinson/capture-the-flag/blob/main/doc/ruleset/proposed-variants.md)
 sandbox, offered here so players can try them out before anything is decided.
+
+Clash's board and army aren't official rules yet either — they're a proposal
+from the same
+[proposed-variants.md](https://github.com/phil-hutchinson/capture-the-flag/blob/main/doc/ruleset/proposed-variants.md)
+sandbox, offered here on equal footing with Skirmish and Battle so the
+companion project can see it played before deciding whether to adopt it.
 
 ## Development
 

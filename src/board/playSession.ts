@@ -159,11 +159,11 @@ export function viewSide(session: PlaySession, flipBetweenTurns = true): Side {
  * 00000023, Step 7; story 00000027, Step 3): `session.play.configuration` -
  * `configuration` is required on `PlayState` (story 00000023's peer review,
  * finding #2), so there is no default to fall back to. Every
- * `legalDestinations`/`allSquares` call below is threaded with its
- * `edition.boardLayout`; every `legalAttacks` call is threaded with the
- * configuration itself - the defect observed live at story 00000023's Step
- * 6 Gate B was these calls staying on the `BATTLE_LAYOUT` default even once
- * a non-Battle board was reachable through the picker.
+ * `legalDestinations`/`allSquares` call below is threaded with its resolved
+ * `boardLayout` (story 00000030's Decision 1); every `legalAttacks` call is
+ * threaded with the configuration itself - the defect observed live at story
+ * 00000023's Step 6 Gate B was these calls staying on the `BATTLE_LAYOUT`
+ * default even once a non-Battle board was reachable through the picker.
  */
 function sessionConfiguration(session: PlaySession): RuleConfiguration {
   return session.play.configuration;
@@ -177,8 +177,9 @@ function sessionConfiguration(session: PlaySession): RuleConfiguration {
  * and pieces that are movable/able to attack in principle but currently
  * boxed in by lakes, friendly pieces, or (for movement) any piece at all.
  * `configuration` sizes the board's bounds and lake pattern (story 00000023,
- * Step 7) via its `edition.boardLayout`, and is passed to `legalAttacks`
- * whole (story 00000027, Step 3); see `sessionConfiguration`.
+ * Step 7) via its resolved `boardLayout` (story 00000030's Decision 1), and
+ * is passed to `legalAttacks` whole (story 00000027, Step 3); see
+ * `sessionConfiguration`.
  */
 function isOwnMovablePiece(
   board: BoardState,
@@ -190,8 +191,7 @@ function isOwnMovablePiece(
   return (
     piece !== undefined &&
     piece.side === side &&
-    (legalDestinations(board, square, configuration.edition.boardLayout)
-      .length > 0 ||
+    (legalDestinations(board, square, configuration.boardLayout).length > 0 ||
       legalAttacks(board, square, configuration).length > 0)
   );
 }
@@ -211,7 +211,7 @@ export function actionableSquares(session: PlaySession): Square[] {
   }
   const { play, selection } = session;
   const configuration = sessionConfiguration(session);
-  const layout = configuration.edition.boardLayout;
+  const layout = configuration.boardLayout;
   if (selection !== null) {
     return [
       ...legalDestinations(play.board, selection, layout),
@@ -269,7 +269,7 @@ export function activatableSquares(session: PlaySession): Square[] {
   }
   const { play, selection } = session;
   const configuration = sessionConfiguration(session);
-  const layout = configuration.edition.boardLayout;
+  const layout = configuration.boardLayout;
   const ownMovable = allSquares(layout).filter((square) =>
     isOwnMovablePiece(play.board, play.sideToMove, square, configuration),
   );
@@ -320,7 +320,7 @@ export function activateSquare(
 
   const { play, selection, lastOutcome, drawOffer } = session;
   const configuration = sessionConfiguration(session);
-  const layout = configuration.edition.boardLayout;
+  const layout = configuration.boardLayout;
 
   if (selection !== null) {
     if (squareKey(square) === squareKey(selection)) {

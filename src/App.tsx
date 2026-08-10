@@ -3,6 +3,7 @@ import { StartScreen } from "./app/StartScreen.tsx";
 import { HotSeatGame } from "./board/HotSeatGame.tsx";
 import { ImportScreen } from "./review/ImportScreen.tsx";
 import { ReviewScreen } from "./review/ReviewScreen.tsx";
+import type { BoardLayout } from "./rules/primary/v2/boardLayout.ts";
 import type { RuleConfiguration } from "./rules/primary/v2/configuration.ts";
 import type { ReplayedRecord } from "./rules/primary/v2/replay.ts";
 
@@ -49,6 +50,13 @@ type Screen =
       readonly record: ReplayedRecord;
       readonly configuration: RuleConfiguration;
       readonly unrecognizedRuleTokens: readonly string[];
+      /**
+       * The board the record must actually be rendered on (story 00000030's
+       * Step 8) - `readRecord.ts`'s `boardLayout` field, not necessarily
+       * `configuration.boardLayout` (the two differ only for a record naming
+       * a `BOARD_LAYOUT` value this app has no geometry for).
+       */
+      readonly boardLayout: BoardLayout;
     };
 
 export function App() {
@@ -138,12 +146,14 @@ export function App() {
           record: ReplayedRecord,
           configuration: RuleConfiguration,
           unrecognizedRuleTokens: readonly string[],
+          boardLayout: BoardLayout,
         ) =>
           setScreen({
             kind: "review",
             record,
             configuration,
             unrecognizedRuleTokens,
+            boardLayout,
           })
         }
       />
@@ -156,6 +166,7 @@ export function App() {
       record={screen.record}
       configuration={screen.configuration}
       unrecognizedRuleTokens={screen.unrecognizedRuleTokens}
+      boardLayout={screen.boardLayout}
       onBack={() => setScreen({ kind: "start" })}
     />
   );

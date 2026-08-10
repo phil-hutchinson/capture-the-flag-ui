@@ -18,7 +18,7 @@
 //
 // The position-block render/parse (`renderPositionBlock`/`parsePositionBlock`)
 // are sized to a `BoardLayout` rather than the fixed 12x12 grid:
-// `renderPositionBlock` reads it off `gameState.configuration.edition`
+// `renderPositionBlock` reads it off `gameState.configuration.boardLayout`
 // (required - see `InitialGameState`'s doc comment); `parsePositionBlock`
 // takes it as a parameter that defaults to Battle - that default is never
 // reachable from a live path (its one caller, `recordFile.ts`'s
@@ -34,7 +34,7 @@ import {
   type Side,
   type Square,
 } from "./board.ts";
-import type { BoardLayout } from "./boardLayout.ts";
+import { DERIVED_BOARD_LAYOUT_ID, type BoardLayout } from "./boardLayout.ts";
 import { armySize } from "./armyComposition.ts";
 import {
   renderRulesetTag,
@@ -109,10 +109,13 @@ export interface InitialGameState {
  * `Ruleset` record tag `renderGameRecord` (play.ts) writes (story 00000023's
  * Step 8, extended by story 00000027's Step 2). Rejects (throws) if either
  * state belongs to the wrong side, was placed on a different board layout
- * or `TOWER_PLACEMENT` value than `configuration.edition`'s (story 00000025's
- * Step 3 - a placement built for one edition must never be sealed into
- * another's game state), or is not a complete army for its own roster
- * (Battle 25 pieces, Skirmish 16) - by this point in the flow (both players
+ * than `configuration.boardLayout` or a different `TOWER_PLACEMENT` value
+ * than `configuration.edition.towerPlacement`'s (story 00000025's Step 3,
+ * updated by story 00000030's Decision 1 - a placement built for one
+ * configuration must never be sealed into another's game state; tower
+ * placement stays read off the edition per story 00000030's Decision 2), or
+ * is not a complete army for `configuration.army`'s own roster size (Battle
+ * 25 pieces, Skirmish 16, Clash 20) - by this point in the flow (both players
  * have confirmed) all three are structural invariants, not recoverable user
  * errors.
  */
@@ -121,7 +124,7 @@ export function buildInitialGameState(
   black: PlacementState,
   configuration: RuleConfiguration,
 ): InitialGameState {
-  const { edition } = configuration;
+  const { edition, boardLayout, army } = configuration;
   if (white.side !== "white") {
     throw new Error(
       "buildInitialGameState: `white` must be White's placement state.",
@@ -133,11 +136,11 @@ export function buildInitialGameState(
     );
   }
   if (
-    white.boardLayout.id !== edition.boardLayoutId ||
-    black.boardLayout.id !== edition.boardLayoutId
+    white.boardLayout.id !== boardLayout.id ||
+    black.boardLayout.id !== boardLayout.id
   ) {
     throw new Error(
-      `buildInitialGameState: both placement states must be on ${edition.boardLayoutId} for ${edition.id}.`,
+      `buildInitialGameState: both placement states must be on ${boardLayout.id} for ${edition.id}.`,
     );
   }
   if (
@@ -149,7 +152,7 @@ export function buildInitialGameState(
     );
   }
   if (!isComplete(white) || !isComplete(black)) {
-    const size = armySize(edition.army);
+    const size = armySize(army);
     throw new Error(
       `buildInitialGameState: both armies must be complete (${size}/${size} placed) before serializing.`,
     );
@@ -185,7 +188,7 @@ function positionBlockCell(
 
 /**
  * Renders the position-block text form of `gameState.board`: the full board
- * - sized to `gameState.configuration.edition`'s `BoardLayout` - in White's
+ * - sized to `gameState.configuration`'s resolved `BoardLayout` - in White's
  * absolute frame - highest row at top, row 1 at bottom, column A at left -
  * as one line per row of three-character cells separated by single spaces.
  * Cell encoding: White piece `[X]`, Black piece `*X*`, empty `---`, lake
@@ -193,7 +196,7 @@ function positionBlockCell(
  * `technical-notes.md`'s "Record file format" for the source of this format.
  */
 export function renderPositionBlock(gameState: InitialGameState): string {
-  const layout = gameState.configuration.edition.boardLayout;
+  const layout = gameState.configuration.boardLayout;
   const rowsTopToBottom = [...rowsOf(layout)].reverse();
   const columns = columnsOf(layout);
   return rowsTopToBottom
@@ -285,6 +288,79 @@ function parseCell(cell: string): ParsedCell | undefined {
     return { kind: "piece", side: "black", symbol: blackMatch[1] };
   }
   return undefined;
+}
+
+/**
+ * Derives a `BoardLayout` purely from a position block's own text - no
+ * `BOARD_LAYOUT` catalog lookup at all - for a record whose `Ruleset` tag
+ * names a board this app has no registered geometry for (story 00000030's
+ * Decisions 8 and 9, Step 8). The block is fully self-describing: its line
+ * count gives the row count, its cells-per-line give the column count, and
+ * every `XXX` cell marks a lake square - exactly the three things
+ * `parsePositionBlock` already reads off a `BoardLayout` - so nothing stops
+ * this app from drawing the board even without recognizing the tag's value.
+ * The block's own row numbering is bottom-up, matching
+ * `renderPositionBlock`'s "highest row at top, row 1 at bottom" convention
+ * (this function's inverse): the block's first (topmost) line is `rowCount`,
+ * its last (bottom) line is row 1.
+ *
+ * `homeRowsPerSide` is `0` and `hasBuffer` is `false` on the result: neither
+ * is recoverable from a position block alone (a review-only viewer does not
+ * need either - see `BoardLayout`'s doc comment and the implementation
+ * plan's Step 8), and no code path a *review* ever reads either field
+ * (`boardView.visibleRows`, the sole reader outside placement/movement, is
+ * the *placement* board's, which a derived layout is never used for).
+ * `0`/`false` are chosen deliberately over any plausible-looking guess: they
+ * make `homeZoneSize` zero and `homeSquares` empty, so any future code that
+ * wrongly reaches for them on a derived layout produces an obviously empty
+ * answer rather than a quietly wrong one.
+ *
+ * Total: this never fails and returns no error, however ragged, blank or
+ * malformed `text` is (an empty block derives a degenerate 0x0 layout with no
+ * lakes). Whatever it derives is handed straight to the ordinary
+ * `parsePositionBlock` pass that follows - the one and only validation path -
+ * so a ragged row still surfaces as `wrongCellCount`, for example, with no
+ * new error kind.
+ *
+ * No bound is placed on `columnCount` here (peer review #7), but
+ * `boardLayout.ts`'s `columnLetter` - which every square key on the derived
+ * layout ultimately goes through - is only valid up to 26 columns ("A".."Z",
+ * rules.md §2.1). A block wider than that derives a layout whose column
+ * letters run past "Z" into `[`, `\`, and so on; nothing here clamps or flags
+ * it, since no record any known writer produces is anywhere near that wide.
+ */
+export function deriveBoardLayoutFromPositionBlock(text: string): BoardLayout {
+  const linesTopToBottom = text
+    .split(/\r\n|\r|\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  const rowCount = linesTopToBottom.length;
+  const columnCount =
+    rowCount > 0 ? linesTopToBottom[0].split(/\s+/).length : 0;
+
+  const lakeRows = new Set<number>();
+  const lakeColumnIndices = new Set<number>();
+
+  linesTopToBottom.forEach((line, lineIndex) => {
+    const row = rowCount - lineIndex;
+    line.split(/\s+/).forEach((cell, columnIndex) => {
+      if (cell === "XXX") {
+        lakeRows.add(row);
+        lakeColumnIndices.add(columnIndex);
+      }
+    });
+  });
+
+  return {
+    id: DERIVED_BOARD_LAYOUT_ID,
+    columnCount,
+    rowCount,
+    homeRowsPerSide: 0,
+    hasBuffer: false,
+    lakeRows: [...lakeRows].sort((a, b) => a - b),
+    lakeColumnIndices: [...lakeColumnIndices].sort((a, b) => a - b),
+  };
 }
 
 /**

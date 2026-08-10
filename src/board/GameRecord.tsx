@@ -10,9 +10,15 @@
 // Step 8a) — re-rendered on every move via `play.ts`'s `renderGameRecord`
 // (Step 3). This is the foundation recorded-game replay will build on; it
 // does not implement replay itself.
+//
+// Story 00000030's Step 10: the hint line names the game (Battle/Skirmish/
+// Clash) right beside the `Ruleset` tag it already prints, via
+// `gameNames.ts`'s `gameNameForConfiguration` - the same naming
+// `ReviewScreen.tsx`'s "This is a Clash game..." line uses.
 
 import { useEffect, useMemo } from "react";
 import { renderGameRecord, type PlayState } from "../rules/primary/v2/play.ts";
+import { gameNameForConfiguration } from "./gameNames.ts";
 import { nonStandardRuleSentences } from "./ruleChoices.ts";
 import "./GameRecord.css";
 
@@ -27,6 +33,14 @@ export function GameRecord({ play }: GameRecordProps) {
   // before story 00000027 for any game played on the standard values
   // (`ruleChoices.ts`'s `nonStandardRuleSentences`, Step 9).
   const rulesSummary = nonStandardRuleSentences(play.configuration);
+  // Story 00000030's Step 10: the game name beside the tag that names it, per
+  // peer review #9 of story 00000027 ("the tag and its plain-language meaning
+  // belong together"). A live `PlayState` is always built from one of
+  // `games.ts`'s catalogued games (`GameChoice.tsx`'s only way to start a
+  // game), so `gameNameForConfiguration` can never actually return `null`
+  // here - the fallback exists only to keep this a plain `string` for the
+  // type checker, matching `HotSeatGame.tsx`'s "You chose ..." announcement.
+  const gameName = gameNameForConfiguration(play.configuration) ?? "the game";
 
   useEffect(() => {
     // Developer inspection path (the <details> dump below covers production).
@@ -40,7 +54,7 @@ export function GameRecord({ play }: GameRecordProps) {
     <details className="game-record">
       <summary>Developer: inspect game record</summary>
       <p className="game-record__hint">
-        Ruleset <code>{play.ruleset}</code>.
+        Ruleset <code>{play.ruleset}</code> ({gameName}).
         {rulesSummary.length > 0 && ` ${rulesSummary.join(" ")}`} Updated after
         every move; also logged to the browser console.
       </p>

@@ -32,10 +32,21 @@
 // by counting; both published editions pin their layout to their edition id,
 // so this is behaviorally equivalent for them today (see the deviation noted
 // in Step 8's Notes).
+//
+// Story 00000030's Step 8 adds the one other case: a `BOARD_LAYOUT` value
+// this app has no registered geometry for. There is nothing to validate
+// against then, so `readRecord.ts` passes `layoutSource: { kind: "derive" }`
+// instead of a known `BoardLayout`, and this module derives one from the
+// block's own text (`gameState.ts`'s `deriveBoardLayoutFromPositionBlock`)
+// before running the very same validation pass against it - see
+// `PositionBlockLayoutSource`'s doc comment. No new rejection, no new error
+// kind: a malformed block is still caught by the ordinary
+// `PositionBlockError` machinery either way.
 
 import type { Side } from "./board.ts";
 import type { BoardLayout } from "./boardLayout.ts";
 import {
+  deriveBoardLayoutFromPositionBlock,
   parsePositionBlock,
   type BoardState,
   type PositionBlockError,
@@ -122,9 +133,44 @@ export type RecordFileError =
       readonly token: string;
     };
 
-/** The result of parsing a record file: a `ParsedRecord`, or a structured error. Never throws. */
+/**
+ * Where `parseRecordFile` gets the `BoardLayout` to parse the position block
+ * against (story 00000030's Decisions 8 and 9, Step 8):
+ *
+ * - `"known"` - this app's own resolved geometry for the record's
+ *   `BOARD_LAYOUT` value (including the common case of no token at all, which
+ *   resolves to the edition's own value) - the block is *validated* against
+ *   it exactly as before a mismatch is the existing `PositionBlockError`
+ *   machinery, unchanged, with its existing wording.
+ * - `"derive"` - the tag names a `BOARD_LAYOUT` value this app has no
+ *   geometry for, so there is nothing to validate against: a `BoardLayout` is
+ *   instead derived from the block's own text
+ *   (`gameState.ts`'s `deriveBoardLayoutFromPositionBlock`), which then
+ *   becomes both the expectation and (barring a ragged/malformed block, still
+ *   caught the ordinary way) the result.
+ *
+ * `readRecord.ts` is the only caller that chooses between the two; every
+ * existing caller inside this codebase (fixtures, tests) always has a known
+ * layout in hand and uses `"known"`.
+ */
+export type PositionBlockLayoutSource =
+  | { readonly kind: "known"; readonly layout: BoardLayout }
+  | { readonly kind: "derive" };
+
+/**
+ * The result of parsing a record file: a `ParsedRecord` plus the
+ * `BoardLayout` its position block was actually read against - `layoutSource`'s
+ * own `layout` for `"known"`, or the layout `deriveBoardLayoutFromPositionBlock`
+ * produced for `"derive"` - so a caller never has to re-derive or re-resolve
+ * it (`readRecord.ts` carries this straight through as the geometry the
+ * record must be rendered on). Or a structured error. Never throws.
+ */
 export type RecordFileResult =
-  | { readonly kind: "parsed"; readonly record: ParsedRecord }
+  | {
+      readonly kind: "parsed";
+      readonly record: ParsedRecord;
+      readonly layout: BoardLayout;
+    }
   | { readonly kind: "error"; readonly error: RecordFileError };
 
 /** One header tag line: `[Name "value"]`, PGN-escaped (`\\`, `\"`) inside the value. */
@@ -307,18 +353,23 @@ function parseMoves(tokens: readonly string[]): MovesResult {
  * Parses a record file's text into a `ParsedRecord`, or a structured
  * `RecordFileError`. Tolerates LF or CRLF line endings, leading/trailing
  * blank lines, any number of blank lines between sections, trailing spaces on
- * any line, and a freely wrapped move sequence. `layout` (required - story
- * 00000023's peer review, finding #2: an omitted layout used to default
+ * any line, and a freely wrapped move sequence. `layoutSource` (required -
+ * story 00000023's peer review, finding #2: an omitted layout used to default
  * silently to Battle's, which is exactly the defect class found live at this
- * story's Gate D) is the `BoardLayout` the position block is expected to
- * describe - `readRecord.ts` resolves it from the file's own `Ruleset` tag
- * (the edition id) before calling here, so the position block's dimensions
- * and lake layout are read back against the *right* board rather than
- * assumed fixed at 12x12 (story 00000023's Step 8). Never throws.
+ * story's Gate D) says where the `BoardLayout` the position block is checked
+ * against comes from - `readRecord.ts` resolves it from the file's own
+ * `Ruleset` tag before calling here: a `"known"` layout (own doc comment) is
+ * *validated* against, exactly as story 00000023's Step 8 always has, so the
+ * position block's dimensions and lake layout are read back against the
+ * *right* board rather than assumed fixed at 12x12; `"derive"` instead reads
+ * a `BoardLayout` straight off the block's own text (story 00000030's
+ * Decisions 8 and 9, Step 8), for a tag naming a board this app has no
+ * geometry for. Either way, the layout actually used is returned alongside
+ * the parsed record. Never throws.
  */
 export function parseRecordFile(
   text: string,
-  layout: BoardLayout,
+  layoutSource: PositionBlockLayoutSource,
 ): RecordFileResult {
   const chunks = splitIntoChunks(text);
 
@@ -331,7 +382,13 @@ export function parseRecordFile(
     return { kind: "error", error: headerResult.error };
   }
 
-  const positionResult = parsePositionBlock(chunks[1].join("\n"), layout);
+  const positionBlockText = chunks[1].join("\n");
+  const layout =
+    layoutSource.kind === "known"
+      ? layoutSource.layout
+      : deriveBoardLayoutFromPositionBlock(positionBlockText);
+
+  const positionResult = parsePositionBlock(positionBlockText, layout);
   if (positionResult.kind === "error") {
     return {
       kind: "error",
@@ -359,5 +416,6 @@ export function parseRecordFile(
       startingBoard: positionResult.board,
       moves: movesResult.moves,
     },
+    layout,
   };
 }

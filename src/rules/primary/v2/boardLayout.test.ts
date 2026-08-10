@@ -109,6 +109,87 @@ describe("standard_64 (Skirmish board layout)", () => {
   });
 });
 
+describe("asymmetric_100 (Clash board layout)", () => {
+  const layout = BOARD_LAYOUTS.asymmetric_100;
+
+  it("keys itself by its own id", () => {
+    expect(layout.id).toBe("asymmetric_100");
+  });
+
+  it("is a 10x10 board", () => {
+    expect(layout.columnCount).toBe(10);
+    expect(layout.rowCount).toBe(10);
+  });
+
+  it("has a 30-square home zone per side (3 rows deep, 10 columns wide)", () => {
+    expect(layout.homeRowsPerSide).toBe(3);
+    expect(homeZoneSize(layout)).toBe(30);
+  });
+
+  it("has a neutral buffer", () => {
+    expect(layout.hasBuffer).toBe(true);
+  });
+
+  it("has exactly 10 lake cells at columns A, D, G, H, I on rows 5-6, and nowhere else", () => {
+    const cells = lakeCells(layout);
+    expect(cells).toHaveLength(10);
+
+    const letters = new Set(
+      cells.map((cell) => `${columnLetter(cell.columnIndex)}${cell.row}`),
+    );
+    for (const row of [5, 6]) {
+      for (const column of ["A", "D", "G", "H", "I"]) {
+        expect(letters.has(`${column}${row}`)).toBe(true);
+      }
+    }
+
+    // No lake cell on any row other than 5-6.
+    for (const cell of cells) {
+      expect([5, 6]).toContain(cell.row);
+    }
+  });
+
+  it("assigns rows 1-3 White home, row 4 buffer, rows 5-6 lake, row 7 buffer, rows 8-10 Black home", () => {
+    for (const row of [1, 2, 3]) {
+      expect(rowRegion(layout, row)).toBe("white-home");
+    }
+    expect(rowRegion(layout, 4)).toBe("buffer");
+    expect(rowRegion(layout, 5)).toBe("lake");
+    expect(rowRegion(layout, 6)).toBe("lake");
+    expect(rowRegion(layout, 7)).toBe("buffer");
+    for (const row of [8, 9, 10]) {
+      expect(rowRegion(layout, row)).toBe("black-home");
+    }
+  });
+
+  it("column J (the tenth letter) is open on both lake rows; column A is lake on both", () => {
+    expect(columnLetter(9)).toBe("J");
+    const lakeLetters = new Set(
+      lakeCells(layout).map(
+        (cell) => `${columnLetter(cell.columnIndex)}${cell.row}`,
+      ),
+    );
+    for (const row of [5, 6]) {
+      expect(lakeLetters.has(`J${row}`)).toBe(false);
+      expect(lakeLetters.has(`A${row}`)).toBe(true);
+    }
+  });
+
+  it("the lane columns are exactly B, C, E, F, J", () => {
+    const lakeColumnLetters = new Set(
+      layout.lakeColumnIndices.map((index) => columnLetter(index)),
+    );
+    const laneColumnLetters: string[] = [];
+    for (let index = 0; index < layout.columnCount; index++) {
+      const letter = columnLetter(index);
+      if (!lakeColumnLetters.has(letter)) {
+        laneColumnLetters.push(letter);
+      }
+    }
+    expect(laneColumnLetters).toEqual(["B", "C", "E", "F", "J"]);
+  });
+});
+
 describe("columnLetter", () => {
   it("converts 0-based column indices to letters starting at A", () => {
     expect(columnLetter(0)).toBe("A");

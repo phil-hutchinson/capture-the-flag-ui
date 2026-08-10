@@ -5,8 +5,9 @@ import {
   STANDARD_SKIRMISH_CONFIGURATION,
 } from "../rules/primary/v2/configuration.ts";
 import { SUPERSEDED_SKIRMISH_EDITION } from "../rules/primary/v2/edition.ts";
-import { RULE_FLAG_IDS } from "../rules/primary/v2/ruleFlags.ts";
+import { RULE_CHOICE_FLAG_IDS } from "../rules/primary/v2/ruleFlags.ts";
 import {
+  derivedBoardLayoutSentence,
   nonStandardRuleSentences,
   RULE_CHOICES,
   RULE_CHOICES_HEADING,
@@ -14,8 +15,17 @@ import {
 } from "./ruleChoices.ts";
 
 describe("RULE_CHOICES", () => {
-  it("has exactly one choice per known flag, in RULE_FLAG_IDS order", () => {
-    expect(RULE_CHOICES.map((choice) => choice.flagId)).toEqual(RULE_FLAG_IDS);
+  // Story 00000030: `BOARD_LAYOUT` and `ARMY_COMPOSITION` joined the flag
+  // catalog as game-defining flags, not rule choices - `RULE_CHOICES` must
+  // still hold exactly the two diagonal choices, not four.
+  it("has exactly one choice per rule-choice flag, in RULE_CHOICE_FLAG_IDS order", () => {
+    expect(RULE_CHOICES.map((choice) => choice.flagId)).toEqual(
+      RULE_CHOICE_FLAG_IDS,
+    );
+    expect(RULE_CHOICE_FLAG_IDS).toEqual([
+      "DIAGONAL_ATTACKABLE",
+      "DIAGONAL_ATTACK_PATH",
+    ]);
   });
 
   it("gives every choice a non-empty heading", () => {
@@ -69,6 +79,37 @@ describe("nonStandardRuleSentences", () => {
     expect(
       nonStandardRuleSentences(configureRules(SUPERSEDED_SKIRMISH_EDITION)),
     ).toEqual([]);
+  });
+
+  // Story 00000030, implementation plan Decision 5: a deviation on a
+  // game-defining flag (Clash's board and army) must never be described here
+  // - that would read as "Battle with two unusual settings", which story.md
+  // forbids. A Clash configuration whose *only* deviations are game-defining
+  // reports no sentences at all.
+  it("is empty for a Clash configuration whose only deviations are game-defining", () => {
+    const clashConfiguration = configureRules(
+      STANDARD_BATTLE_CONFIGURATION.edition,
+      { ARMY_COMPOSITION: "standard_clash", BOARD_LAYOUT: "asymmetric_100" },
+    );
+    expect(nonStandardRuleSentences(clashConfiguration)).toEqual([]);
+  });
+
+  it("still names a diagonal deviation on a Clash configuration, ignoring the game-defining deviations", () => {
+    const clashConfiguration = configureRules(
+      STANDARD_BATTLE_CONFIGURATION.edition,
+      {
+        ARMY_COMPOSITION: "standard_clash",
+        BOARD_LAYOUT: "asymmetric_100",
+        DIAGONAL_ATTACKABLE: "all",
+      },
+    );
+    const sentences = nonStandardRuleSentences(clashConfiguration);
+    expect(sentences).toHaveLength(1);
+    expect(sentences[0]).toBe(
+      RULE_CHOICES.find(
+        (choice) => choice.flagId === "DIAGONAL_ATTACKABLE",
+      )?.options.find((option) => option.value === "all")?.description,
+    );
   });
 
   it("names exactly one sentence when only DIAGONAL_ATTACKABLE deviates", () => {
@@ -158,6 +199,44 @@ describe("unrecognizedRuleSentence", () => {
     const sentence = unrecognizedRuleSentence("FOO=bar", true);
     expect(sentence).toBe(
       `This game also used a rule setting this app doesn't recognize ("FOO=bar"). The game can still be reviewed.`,
+    );
+  });
+});
+
+// Story 00000030, Step 8: describes a `BOARD_LAYOUT` token this app has no
+// registered geometry for - the record still reviews in full, drawn on a
+// board derived from its own position block (`readRecord.ts`'s `boardLayout`
+// field) - quoting the token back verbatim, exactly like
+// `unrecognizedRuleSentence`, but naming what actually happened to the board
+// rather than the generic "rule setting this app doesn't recognize" wording.
+describe("derivedBoardLayoutSentence", () => {
+  it("quotes the exact token back, verbatim", () => {
+    const sentence = derivedBoardLayoutSentence("BOARD_LAYOUT=huge_400");
+    expect(sentence).toContain("BOARD_LAYOUT=huge_400");
+  });
+
+  it("does not read as a refusal - the game can still be reviewed", () => {
+    const sentence = derivedBoardLayoutSentence("BOARD_LAYOUT=huge_400");
+    expect(sentence.toLowerCase()).not.toContain("can't be reviewed");
+    expect(sentence.toLowerCase()).not.toContain("cannot be reviewed");
+    expect(sentence.toLowerCase()).not.toContain("rejected");
+  });
+
+  it("says nothing about the game being able to resume, and uses no 'experimental' framing", () => {
+    const sentence = derivedBoardLayoutSentence("BOARD_LAYOUT=huge_400");
+    expect(sentence.toLowerCase()).not.toContain("resume");
+    expect(sentence.toLowerCase()).not.toContain("experimental");
+  });
+
+  it("never says 'ply'", () => {
+    expect(derivedBoardLayoutSentence("BOARD_LAYOUT=huge_400")).not.toMatch(
+      /\bply\b/i,
+    );
+  });
+
+  it("is a fixed sentence naming exactly the token given", () => {
+    expect(derivedBoardLayoutSentence("BOARD_LAYOUT=huge_400")).toBe(
+      `This game was played on a board this app doesn't know ("BOARD_LAYOUT=huge_400"), so the board below is drawn from the record's own starting position.`,
     );
   });
 });

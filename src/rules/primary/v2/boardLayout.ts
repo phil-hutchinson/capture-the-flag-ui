@@ -16,8 +16,35 @@
 // position block to it; and `readRecord.ts`/`HotSeatGame.tsx` thread it
 // through from the record and the picker respectively.
 
-/** Identifies one of the two published board geometries. */
-export type BoardLayoutId = "standard_144" | "standard_64";
+import type { RuleFlagValue } from "./ruleFlags.ts";
+
+/**
+ * Identifies a board geometry: the two published layouts
+ * (`standard_144`, `standard_64`), plus `asymmetric_100` - a proposed,
+ * unpublished layout from the companion project's
+ * `doc/ruleset/proposed-variants.md` sandbox (see `ASYMMETRIC_100` below).
+ * Derived from `ruleFlags.ts`'s `BOARD_LAYOUT` catalog entry (story
+ * 00000030's implementation plan, Decision 4) rather than declared
+ * separately, so a value renamed or added in the catalog produces a compile
+ * error in `BOARD_LAYOUTS` below rather than silent drift.
+ */
+export type BoardLayoutId = RuleFlagValue<"BOARD_LAYOUT">;
+
+/**
+ * The id of a `BoardLayout` derived from a record's own position block
+ * (`gameState.ts`'s `deriveBoardLayoutFromPositionBlock`, story 00000030's
+ * Step 8) rather than looked up in `BOARD_LAYOUTS` below - used when a
+ * record's `Ruleset` tag names a `BOARD_LAYOUT` value this app has no
+ * geometry for (Decisions 8 and 9: such a record is never rejected, it is
+ * reviewed on a board read straight off its own position block). Deliberately
+ * **not** a `BoardLayoutId` - a value this app never produces itself and can
+ * never be confused with a catalog value or a flag value - so `BOARD_LAYOUTS`
+ * below stays exhaustive over `BoardLayoutId` alone.
+ */
+export const DERIVED_BOARD_LAYOUT_ID = "derived_from_record" as const;
+
+/** The type of `DERIVED_BOARD_LAYOUT_ID`; see its own doc comment. */
+export type DerivedBoardLayoutId = typeof DERIVED_BOARD_LAYOUT_ID;
 
 /** Which region a row belongs to, from White's edge to Black's. */
 export type RowRegion = "white-home" | "black-home" | "buffer" | "lake";
@@ -29,7 +56,16 @@ export interface LakeCell {
 }
 
 export interface BoardLayout {
-  readonly id: BoardLayoutId;
+  /**
+   * A catalog `BoardLayoutId` for every layout `BOARD_LAYOUTS` below holds,
+   * or `DERIVED_BOARD_LAYOUT_ID` for a layout read straight off a record's
+   * own position block (story 00000030's Step 8) rather than looked up here -
+   * see `DerivedBoardLayoutId`'s doc comment. Nothing in `src/` switches
+   * exhaustively on this field (only equality checks - `gameState.ts`'s
+   * placement validation, and tests); confirm that stays true before adding
+   * one.
+   */
+  readonly id: BoardLayoutId | DerivedBoardLayoutId;
   /** Number of columns, lettered from "A" (up to 26, per rules.md §2.1). */
   readonly columnCount: number;
   /** Number of rows, numbered from 1. Row 1 is White's back rank, the highest row is Black's. */
@@ -114,8 +150,30 @@ const STANDARD_64: BoardLayout = {
   lakeColumnIndices: [1, 2, 5, 6], // B, C, F, G
 };
 
+/**
+ * Clash (`asymmetric_100`): a proposed, unpublished 10x10 board from the
+ * companion project's `doc/ruleset/proposed-variants.md` sandbox (its story
+ * 00000041) - not in `rules.md` Appendix A. Rows 1-3 White home, row 4
+ * buffer, rows 5-6 lake, row 7 buffer, rows 8-10 Black home. Unlike the two
+ * published layouts, the lake pattern is not mirror-symmetric: three lake
+ * blocks of widths 1 (A), 1 (D) and 3 (G-I), leaving a 2-wide lane at B-C, a
+ * 2-wide lane at E-F, and a 1-wide lane at the right edge (J). Column A - the
+ * left edge - has no lane at all, the first layout in the app with a lake
+ * hard against a board edge.
+ */
+const ASYMMETRIC_100: BoardLayout = {
+  id: "asymmetric_100",
+  columnCount: 10,
+  rowCount: 10,
+  homeRowsPerSide: 3,
+  hasBuffer: true,
+  lakeRows: [5, 6],
+  lakeColumnIndices: [0, 3, 6, 7, 8], // A, D, G, H, I
+};
+
 /** Every `BOARD_LAYOUT` value, keyed by its id. */
 export const BOARD_LAYOUTS: Readonly<Record<BoardLayoutId, BoardLayout>> = {
   standard_144: STANDARD_144,
   standard_64: STANDARD_64,
+  asymmetric_100: ASYMMETRIC_100,
 };

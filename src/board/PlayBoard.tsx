@@ -121,7 +121,7 @@ export function PlayBoard({
   // actually played on (story 00000023, Step 3; story 00000027, Step 3);
   // `configuration` is required on `PlayState` (story 00000023's peer
   // review, finding #2), so there is no default to fall back to.
-  const layout = session.play.configuration.edition.boardLayout;
+  const layout = session.play.configuration.boardLayout;
 
   return (
     <FullBoard

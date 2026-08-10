@@ -12,6 +12,7 @@ import {
   type Square,
 } from "./board.ts";
 import { BOARD_LAYOUTS } from "./boardLayout.ts";
+import { buildGameConfiguration } from "./games.ts";
 import {
   pieceCatalogEntries,
   PIECE_TYPES,
@@ -1286,5 +1287,120 @@ describe("autoFill from a partially hand-filled state (peer review finding #7)",
       expect(pieceAt(state, square)).toBe(type);
     }
     expect(placedCount(state)).toBe(nonTowerPlacements.length);
+  });
+});
+
+// Story 00000030, Step 6: Clash (`asymmetric_100`, 10x10 / `standard_clash`,
+// 20 pieces) plays by the same placement rules as Battle and Skirmish. This
+// suite proves the existing parametric engine already handles the new board
+// and roster - no production code was expected (or found) to need a change -
+// using a real Clash configuration from `games.ts` rather than hand-rolled
+// board/army data.
+describe("PlacementState on the Clash configuration (10x10 board, 20-piece army)", () => {
+  const CLASH_CONFIGURATION = buildGameConfiguration("clash");
+  const CLASH = CLASH_CONFIGURATION.boardLayout;
+  const CLASH_ARMY = CLASH_CONFIGURATION.army;
+  const CLASH_TOWER_PLACEMENT = CLASH_CONFIGURATION.edition.towerPlacement;
+
+  function emptyClash(side: "white" | "black") {
+    return emptyPlacement(side, CLASH, CLASH_ARMY, CLASH_TOWER_PLACEMENT);
+  }
+
+  it("starts with 20 pieces to place across 30 home squares per side, none placed", () => {
+    const state = emptyClash("white");
+    expect(progress(state)).toEqual({ placed: 0, total: 20 });
+    expect(homeSquares("white", CLASH)).toHaveLength(30);
+    expect(homeSquares("black", CLASH)).toHaveLength(30);
+    expect(remainingCount(state, "militia")).toBe(0);
+  });
+
+  it("is complete only once all 20 pieces are placed, leaving 10 of the 30 home squares empty", () => {
+    let state = emptyClash("white");
+    const home = homeSquares("white", CLASH);
+    let index = 0;
+    for (const entry of pieceCatalogEntries()) {
+      for (let i = 0; i < CLASH_ARMY[entry.id]; i += 1) {
+        state = place(state, home[index], entry.id);
+        index += 1;
+      }
+    }
+    expect(placedCount(state)).toBe(20);
+    expect(isComplete(state)).toBe(true);
+    const emptySquares = home.filter(
+      (square) => pieceAt(state, square) === undefined,
+    );
+    expect(emptySquares).toHaveLength(10);
+
+    // One short of a full army is not complete.
+    const almost = returnToTray(state, home[0]);
+    expect(isComplete(almost)).toBe(false);
+  });
+
+  it("rejects placing on a lake square, in either buffer row (4 and 7), or in the opponent's home zone", () => {
+    const state = emptyClash("white");
+    const illegalSquares: Square[] = [
+      { column: "A", row: 5 }, // lake
+      { column: "G", row: 6 }, // lake, the 3-wide block
+      { column: "B", row: 4 }, // buffer row - not placeable for either side
+      { column: "E", row: 7 }, // buffer row
+      { column: "A", row: 8 }, // Black's home zone, not White's
+    ];
+    for (const square of illegalSquares) {
+      expect(() => place(state, square, "champion")).toThrow();
+    }
+  });
+
+  describe("Tower placement: spacing_only, and nothing more (the buffer rows close the lane rule)", () => {
+    it("squaresClosedToTowers is empty for both sides - the buffer rows guarantee no home square faces a lane", () => {
+      expect(squaresClosedToTowers(emptyClash("white"))).toEqual([]);
+      expect(squaresClosedToTowers(emptyClash("black"))).toEqual([]);
+    });
+
+    it("accepts a Tower in row 3 directly in front of the B-C lane, the E-F lane, or the 1-wide J lane - unlike Skirmish", () => {
+      let state = emptyClash("white");
+      state = place(state, { column: "B", row: 3 }, "tower");
+      state = place(state, { column: "F", row: 3 }, "tower");
+      state = place(state, { column: "J", row: 3 }, "tower");
+      expect(towerPlacementLegality(state).legal).toBe(true);
+      for (const square of [
+        { column: "B", row: 3 },
+        { column: "F", row: 3 },
+        { column: "J", row: 3 },
+      ] as const) {
+        expect(towerLaneRefusesPlacement(state, square, "tower")).toBe(false);
+      }
+    });
+
+    it("still refuses two Towers orthogonally or diagonally adjacent to each other", () => {
+      let state = emptyClash("white");
+      state = place(state, { column: "B", row: 1 }, "tower");
+      state = place(state, { column: "B", row: 2 }, "tower");
+      const result = towerPlacementLegality(state);
+      expect(result.legal).toBe(false);
+      if (!result.legal) {
+        expect(result.rule).toBe("spacing");
+      }
+    });
+  });
+
+  it("autoFill completes a full 20-piece Clash army, Tower-legal, from an empty board", () => {
+    const filled = autoFillOrThrow(emptyClash("white"), seededRandom(1));
+    expect(isComplete(filled)).toBe(true);
+    for (const id of PIECE_TYPES) {
+      expect(remainingCount(filled, id)).toBe(0);
+    }
+    expect(towerPlacementLegality(filled).legal).toBe(true);
+    const towerSquares = homeSquares("white", CLASH).filter(
+      (square) => pieceAt(filled, square) === "tower",
+    );
+    expect(towerSquares).toHaveLength(4);
+  });
+
+  it("autoFill reliably completes the Clash army across many seeds (4 Towers in 30 squares)", () => {
+    for (const seed of [1, 2, 3, 4, 5, 42, 100, 900]) {
+      const filled = autoFillOrThrow(emptyClash("black"), seededRandom(seed));
+      expect(isComplete(filled)).toBe(true);
+      expect(towerPlacementLegality(filled).legal).toBe(true);
+    }
   });
 });

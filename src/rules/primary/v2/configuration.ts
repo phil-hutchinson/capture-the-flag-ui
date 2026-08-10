@@ -31,6 +31,8 @@
 // `src/board/ruleChoices.ts` for how an unrecognized token is described to a
 // reviewer instead of hidden or refused.
 
+import { ARMY_COMPOSITIONS, type ArmyRoster } from "./armyComposition.ts";
+import { BOARD_LAYOUTS, type BoardLayout } from "./boardLayout.ts";
 import { BATTLE_EDITION, SKIRMISH_EDITION, type Edition } from "./edition.ts";
 import {
   RULE_FLAG_CATALOG,
@@ -55,22 +57,53 @@ function isKnownFlagId(id: string): id is RuleFlagId {
 }
 
 /**
+ * The flag id a raw `Ruleset` tag token names, whether or not the token as a
+ * whole is one this app could resolve: the text before its first `=`, or the
+ * whole token if it has none. `parseRuleFlagTokens` above already does this
+ * split internally but never surfaces it; this is exported for a caller that
+ * needs to recognize a *specific* flag id among tokens this app could not
+ * resolve at all (`ParsedRuleFlagTokens.unrecognizedTokens`) without
+ * re-parsing anything about the token's value - story 00000030's Step 8:
+ * `readRecord.ts` uses it to tell an unresolvable `BOARD_LAYOUT` token apart
+ * from any other unrecognized token (Decision 8), and `ruleChoices.ts` uses
+ * it again to give that one token its own sentence instead of the generic
+ * unrecognized-token wording.
+ */
+export function rawTokenFlagId(token: string): string {
+  const separatorIndex = token.indexOf("=");
+  return separatorIndex === -1 ? token : token.slice(0, separatorIndex);
+}
+
+/**
  * What a game is set up, played, recorded and replayed under: a registered
- * `Edition` plus every rule flag's fully resolved value. Both fields are
- * plain, JSON-serializable data - no functions or `Map`s - so a
- * configuration can cross the `PlayState`/`searchWorker.ts` boundary once
- * Step 3 threads it there.
+ * `Edition` plus every rule flag's fully resolved value, plus the board and
+ * army those flags resolve to. All fields are plain, JSON-serializable data -
+ * no functions or `Map`s - so a configuration can cross the
+ * `PlayState`/`searchWorker.ts` boundary.
+ *
+ * `boardLayout` and `army` (story 00000030's implementation plan, Decision 1)
+ * are the resolved `BOARD_LAYOUT`/`ARMY_COMPOSITION` flag values looked up in
+ * `BOARD_LAYOUTS`/`ARMY_COMPOSITIONS` - **not** `edition.boardLayoutId`/
+ * `edition.armyCompositionId` read directly, because a configuration's board
+ * and army are not always its edition's own (a Clash configuration names
+ * `BATTLE_EDITION` as its edition but plays a different board and army
+ * entirely). `Edition` itself carries no resolved board or roster any more:
+ * these two fields on `RuleConfiguration` are the *only* place a board or a
+ * roster comes from, for every rule path, every play surface and every
+ * record. `configureRules` is the only place they are computed.
  */
 export interface RuleConfiguration {
   readonly edition: Edition;
   readonly flags: ResolvedRuleFlags;
+  readonly boardLayout: BoardLayout;
+  readonly army: ArmyRoster;
 }
 
 /**
  * Chosen values for zero or more flags, to be resolved against an edition by
- * `configureRules`. A flag absent here resolves to the edition's own value
- * (Decision 2: none of today's editions state one) or, failing that, the
- * flag's own default.
+ * `configureRules`. A flag absent here resolves to the edition's own value if
+ * it states one (`BOARD_LAYOUT` and `ARMY_COMPOSITION` always do; see
+ * `resolvedEditionValue`) or, failing that, the flag's own default.
  */
 export type RuleFlagOverrides = {
   readonly [Id in RuleFlagId]?: ResolvedRuleFlags[Id];
@@ -80,17 +113,29 @@ export type RuleFlagOverrides = {
  * Resolves `flagId`'s value for `edition`, absent any override chosen by a
  * caller of `configureRules`: the edition's own stated value if it has one,
  * otherwise the flag's own default (story.md's "Decisions resolved at plan
- * time", Decision 2). No registered `Edition` states a value for either
- * flag today, so this always yields the flag's default at present - but
- * this function is the single extension point for the day an edition does
- * state one (e.g. by reading a flag-value field this function would gain on
- * `Edition`, checked before falling back to the catalog default below).
+ * time", Decision 2).
+ *
+ * `BOARD_LAYOUT` and `ARMY_COMPOSITION` are the two flags every edition
+ * *does* state a value for today - they are exactly `edition.boardLayoutId`
+ * and `edition.armyCompositionId` (story 00000030's implementation plan,
+ * Decision 3). Every other flag has no per-edition value, so it keeps
+ * falling back to the catalog default. This is what keeps Battle's and
+ * Skirmish's records byte-identical to before this story: each edition
+ * resolves its own board and army, so neither ever deviates from itself and
+ * neither ever emits a token - while a configuration naming a *different*
+ * board or army than its edition's own (e.g. Clash, built on `BATTLE_EDITION`
+ * with both flags overridden) now genuinely deviates on both.
  */
 function resolvedEditionValue<Id extends RuleFlagId>(
   edition: Edition,
   flagId: Id,
 ): ResolvedRuleFlags[Id] {
-  void edition;
+  if (flagId === "BOARD_LAYOUT") {
+    return edition.boardLayoutId as ResolvedRuleFlags[Id];
+  }
+  if (flagId === "ARMY_COMPOSITION") {
+    return edition.armyCompositionId as ResolvedRuleFlags[Id];
+  }
   return RULE_FLAG_CATALOG[flagId].default as ResolvedRuleFlags[Id];
 }
 
@@ -111,9 +156,12 @@ export function configureRules(
   for (const flagId of RULE_FLAG_IDS) {
     flags[flagId] = overrides[flagId] ?? resolvedEditionValue(edition, flagId);
   }
+  const resolvedFlags = Object.freeze(flags) as ResolvedRuleFlags;
   return {
     edition,
-    flags: Object.freeze(flags) as ResolvedRuleFlags,
+    flags: resolvedFlags,
+    boardLayout: BOARD_LAYOUTS[resolvedFlags.BOARD_LAYOUT],
+    army: ARMY_COMPOSITIONS[resolvedFlags.ARMY_COMPOSITION].roster,
   };
 }
 
@@ -134,7 +182,17 @@ export function deviatingFlags(
   );
 }
 
-/** True if `configuration` deviates from its edition on no flag at all. */
+/**
+ * True if `configuration` deviates from its edition on no flag at all.
+ *
+ * Unlike `nonStandardRuleSentences` (`ruleChoices.ts`), this predicate does
+ * **not** apply Decision 5's game-defining-flag filter: it treats
+ * `ARMY_COMPOSITION`/`BOARD_LAYOUT` exactly like any other flag, so a Clash
+ * configuration - which deviates from `BATTLE_EDITION` on both of those by
+ * design (story.md's "messy stamp" policy) - is deliberately reported as
+ * non-standard here, even though a player never sees Clash described that
+ * way (peer review #5, story 00000030).
+ */
 export function isStandardConfiguration(
   configuration: RuleConfiguration,
 ): boolean {
@@ -170,6 +228,17 @@ export function renderRulesetTag(configuration: RuleConfiguration): string {
 export interface ParsedRuleFlagTokens {
   readonly configuration: RuleConfiguration;
   readonly unrecognizedTokens: readonly string[];
+  /**
+   * The flag ids whose resolved value in `configuration` came from an
+   * explicit token in this call, as opposed to `edition`'s own value or the
+   * flag's catalog default (story 00000030's peer review #2). A flag id can
+   * appear here even when a *later* token naming the same id was rejected as
+   * an unrecognized conflicting duplicate - the flag still genuinely
+   * resolved, from the earlier token, so `readRecord.ts` uses this (rather
+   * than `unrecognizedTokens` alone) to tell a flag that truly never
+   * resolved from one that resolved and was merely *also* named again badly.
+   */
+  readonly resolvedFromToken: readonly RuleFlagId[];
 }
 
 /**
@@ -256,6 +325,7 @@ export function parseRuleFlagTokens(
   return {
     configuration: configureRules(edition, overrides as RuleFlagOverrides),
     unrecognizedTokens,
+    resolvedFromToken: Object.keys(overrides) as RuleFlagId[],
   };
 }
 
