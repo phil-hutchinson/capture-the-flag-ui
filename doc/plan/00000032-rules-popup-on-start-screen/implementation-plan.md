@@ -1,20 +1,44 @@
-# Implementation Plan — Story 00000032: Rules popup on the start screen
+# Implementation Plan — Story 00000032: How-to-play rules page
 
 This plan adds a **"How to play"** button as the first choice on the start
-screen, and a single modal popup behind it: a full-width header, six short
-sections in two columns, and ten small illustrations drawn with the game's own
-piece artwork on 5×5 cutouts of a real board.
+screen, and a **rules page** behind it: a new member of `App.tsx`'s screen
+union carrying a full-width header, six short sections in two columns, and ten
+small illustrations drawn with the game's own piece artwork — four of them on
+5×5 cutouts of a real board, six of them as pieces on their own with a
+deliberate gap between attacker and defender.
 
 Read `story.md` in this folder **in full** before starting any step. Its
-**Policy (fixed by the owner)**, **The popup's content** (the copy is fixed),
-**In scope / Out of scope**, **Design decisions & constraints** and
-**Manual-verification gates** are settled and are not re-litigated here. This
-plan resolves story.md's **"Open items to resolve at plan time"** — the
+**Amendments**, **Policy (fixed by the owner)**, **The page's content** (the
+copy is fixed), **In scope / Out of scope**, **Design decisions & constraints**
+and **Manual-verification gates** are settled and are not re-litigated here.
+This plan resolves story.md's **"Open items to resolve at plan time"** — the
 resolutions are in "Decisions resolved at plan time" below, and every step is
 written assuming them.
 
 Every step is written for an implementer who has read `story.md`, this plan,
 and their own step, and nothing else.
+
+### Read this before Steps 1–3 confuse you
+
+This plan was **revised mid-flight**, after Steps 1, 2 and 3 were implemented
+and committed, because the owner changed direction on two things (story.md's
+**Amendments** section records both):
+
+1. The rules surface is a **page**, not a modal popup.
+2. The **six combat figures (5–10) are drawn without a board**.
+
+Steps 1–3 below are left **exactly as they were written and executed**,
+including their Status and Notes — they are the record of what was actually
+done, not instructions to follow again. They therefore talk about "the popup"
+and about a `<dialog>`, and Step 3's product (`RulesDialog.tsx` /
+`RulesDialog.css`) is a modal. **Step 4 converts that modal into a page**;
+everything from Step 4 onward is written for the amended direction. Where the
+older text and the newer text disagree, **the newer text wins** — the
+Decisions section below has likewise been rewritten for the page, and is
+current.
+
+The words "popup" and "dialog" appear only in Steps 1–3's frozen text. Nothing
+implemented from Step 4 onward is a popup.
 
 ---
 
@@ -24,12 +48,12 @@ and their own step, and nothing else.
 
 `doc/ruleset/rules.md` in the companion
 [capture-the-flag](https://github.com/phil-hutchinson/capture-the-flag)
-repository is the single source of truth. The popup's copy is a deliberate
+repository is the single source of truth. The page's copy is a deliberate
 **simplification** of §4.2 (movement) and §4.3 (attacks and combat), written
 for players. The copy in story.md is the copy; no step invents, extends or
 "corrects" a sentence of it.
 
-Player-facing vocabulary applies in full: the popup says **"move"**, never
+Player-facing vocabulary applies in full: the page says **"move"**, never
 "ply", and names pieces as the rules name them (**Tower**, **Flag**).
 
 ### There is no DOM/component test environment, and this story must not need one
@@ -43,29 +67,50 @@ stays a separate proposed story). Consequences that shape every step:
   this story is verified by a manual gate, exactly like every other component
   in this repo.
 - That is why Steps 1 and 2 pull everything that _can_ be data — the ten
-  figures, and the popup's copy — out into React-free `.ts` modules, leaving
-  the `.tsx` layer as thin rendering.
+  figures, and the page's copy — out into React-free `.ts` modules, leaving
+  the `.tsx` layer as thin rendering. Step 5 keeps that bargain when the
+  board-less presentation is added: the fact that a figure draws without a
+  board is **data**, and is asserted in `figures.test.ts`.
 
 ### Where the relevant code is today
 
-- `src/app/StartScreen.tsx` / `StartScreen.css` — the start screen. Three
-  choice buttons today (`Play a game`, `Play against the computer` — shown but
-  `aria-disabled`, `Review a game`), each a `<button class="start-screen__choice">`
-  with a bold `…__choice-title` span and a `…__choice-detail` span, inside a
-  `.start-screen__choices` flex-wrap row. The component holds **no state**. Its
+- `src/App.tsx` — the app shell. A `Screen` discriminated union held in
+  `useState` (`{ kind: "start" }`, `{ kind: "play" }`, `{ kind: "import" }`,
+  `{ kind: "review", … }`), a chain of `if (screen.kind === …)` returns
+  mounting one screen component each, and an app-wide keyboard-modality
+  `useEffect`. **No router and no URL routing** — both permanently out of
+  scope. `StartScreen` is mounted with callback props (`onPlayAGame`,
+  `onReviewAGame`) that do nothing but `setScreen({ … })`.
+- `src/app/StartScreen.tsx` / `StartScreen.css` — the start screen. Four
+  choice buttons today (`How to play` — added by Step 3, `Play a game`,
+  `Play against the computer` — shown but `aria-disabled`, `Review a game`),
+  each a `<button class="start-screen__choice">` with a bold
+  `…__choice-title` span and a `…__choice-detail` span, inside a
+  `.start-screen__choices` flex-wrap row. Its
   `<h1 class="app__title" tabIndex={-1}>` is focused on mount via `useEffect`.
-- `src/board/LeaveGameDialog.tsx` / `.css` — the repo's **only** dialog and the
-  pattern to follow: a native `<dialog>`, shown with `showModal()` from a
-  `useEffect` keyed on an `open` prop, named via `aria-labelledby`, focus set
-  explicitly on open, the native `cancel` event (Escape) `preventDefault()`ed
-  and routed through the same close callback so the caller's `open` state stays
-  the single source of truth. Focus returning to the control that opened it is
-  the browser's own doing — nothing extra is needed for that half.
+  Step 3 gave it one piece of state — a `rulesOpen` boolean — which Step 4
+  removes again.
+- `src/review/ImportScreen.tsx` / `ImportScreen.css` and
+  `src/review/ReviewScreen.tsx` / `ReviewScreen.css` — **the precedent this
+  story's page follows**. Each is a `<main className="app">` containing an
+  `<h1 className="app__title" tabIndex={-1}>` focused on mount, and a plain
+  `<button>` calling an `onBack` prop that the shell turns into
+  `setScreen({ kind: "start" })` — **no confirmation prompt**, because nothing
+  is lost by leaving. `ReviewScreen`'s button reads **"Back to start"** and
+  sits just below the heading; `ImportScreen`'s reads "Back" and sits at the
+  bottom. Both use the same button chrome (`font: inherit`,
+  `padding: 0.3rem 0.7rem`, `1px solid var(--ink)`, `border-radius: 4px`,
+  `background: var(--parchment)`, `color: var(--ink)`, `cursor: pointer`),
+  restated in each screen's own CSS rather than shared.
+- `src/app/rules/` — this story's own folder, as Steps 1–3 left it:
+  `figures.ts`, `figures.test.ts`, `rulesCopy.ts`, `rulesCopy.test.ts`,
+  `RulesDialog.tsx`, `RulesDialog.css`. Step 4 renames the last two.
 - `src/art/PieceIcon.tsx` — `PieceIcon` (draws one piece's symbol in a 64×64
   `viewBox` svg, colored `var(--side-a)`/`var(--side-b)` for white/black, with
   the piece's rank character `1`–`6`/`T`/`F` pinned in the top-left corner) and
   `PieceSpriteDefs` (mounts the symbol library, hidden; every screen that draws
-  pieces mounts its own copy).
+  pieces mounts its own copy — `ReviewScreen.tsx` does it as the first child of
+  its `<main>`).
 - `src/rules/primary/v2/pieces.ts` — `PIECE_CATALOG`. **Rank 1 is the
   strongest.** `masterOfArms` = rank 1, `champion` = 2, `knight` = 3,
   `halberdier` = 4, `footSoldier` = 5, `militia` = 6; `tower` and `flag` have
@@ -74,7 +119,8 @@ stays a separate proposed story). Consequences that shape every step:
   `legalDestinations(board, origin, layout?)` (empty-square moves; `layout`
   defaults to Battle) and `legalAttacks(board, origin, configuration)` — note
   the second takes a **required `RuleConfiguration`**, not a layout, and reads
-  its `boardLayout` and its two diagonal flags off it.
+  its `boardLayout` and its two diagonal flags off it. Both take `Square`
+  objects (`{ column, row }`), not square-key strings.
 - `src/rules/primary/v2/combat.ts` — `resolveCombat(board, from, to, layout?)`
   returning a `CombatOutcome` whose `result` is
   `"attackerWins" | "attackerLoses" | "mutualLoss"`.
@@ -91,11 +137,17 @@ stays a separate proposed story). Consequences that shape every step:
   `Readonly<Record<string, PlacedPiece>>` keyed by `squareKey` (`"F3"`), and
   `PlacedPiece` is `{ side, pieceType }`. Absent key = empty square. A
   hand-built `BoardState` object literal is a perfectly good test fixture; see
-  the `board(...)` helper at the top of `movement.test.ts`.
+  the `boardFromFigure` helper in `figures.test.ts`.
 - `src/board/sideNames.ts` — `sideColorName(side)` → `"Red"` / `"Blue"`. White
   is Red (`--side-a`, `#a13d2b`); Black is Blue (`--side-b`, `#33526b`).
 - `src/index.css` — the shared custom properties on `:root`: `--parchment`,
-  `--ink`, `--side-a`, `--side-b`, `--focus-ring`.
+  `--ink`, `--side-a`, `--side-b`, `--focus-ring`; and `body`'s background,
+  which is `var(--parchment)`. **The page's background is therefore the same
+  parchment the board's squares are painted in** — which is what lets a
+  board-less figure drop its squares and still look like part of the game.
+- `src/App.css` — `.app` (the shared screen shell: a centred flex column,
+  `gap: 1.5rem`, `padding: 2rem 1rem`) and `.app__title` with its
+  keyboard-modality-gated focus ring. Every screen in the app uses both.
 - `src/board/FullBoard.css` — the board's own square treatment, for reference
   only: `background: var(--parchment)`, `border: 1px solid rgba(43, 33, 24, 0.2)`,
   square size `clamp(28px, 6vmin, 64px)`.
@@ -106,7 +158,7 @@ stays a separate proposed story). Consequences that shape every step:
 
 - **`src/board/Board.tsx`, `src/board/FullBoard.tsx`, `src/board/PlayBoard.tsx`
   and `src/board/grid/AccessibleGrid.tsx` must not be modified**, and no prop,
-  mode or branch may be added to any of them to serve this popup. This is a
+  mode or branch may be added to any of them to serve this page. This is a
   hard constraint fixed by the owner. Their `.css` files must not be modified
   or imported by the new code either. If a step appears to need a change there,
   **stop and escalate** — it means the approach is wrong.
@@ -114,12 +166,19 @@ stays a separate proposed story). Consequences that shape every step:
   the game plays. The figures are checked _against_ the rule engine; the engine
   is never adjusted to suit a figure. If a figure disagrees with the engine, the
   **figure** is wrong.
-- **No new dependencies.** The dialog is the platform's native `<dialog>`.
-- **No new screen and no new route.** `App.tsx` is not touched at all; the
-  popup's open/closed boolean lives in `StartScreen.tsx`.
-- **No link out of the app** from the popup, including to the companion
+- **No new dependencies.**
+- **`App.tsx` _is_ touched — but only to add the new screen.** (This corrects
+  the original plan, which forbade touching `App.tsx` at all; story.md's
+  Amendment 1 changed that.) The permitted change is: one more member in the
+  `Screen` union, one more `if (screen.kind === …)` branch mounting the new
+  screen, and one more callback prop passed to `StartScreen`. Nothing else in
+  `App.tsx` changes — not the existing screens, not their props, not the
+  keyboard-modality effect, not `lastPlayedConfiguration`.
+- **Still no router and no URL.** The page is reached by the same
+  `setScreen({ … })` mechanism every other screen uses.
+- **No link out of the app** from the page, including to the companion
   rulebook.
-- The popup is reachable **only** from the start screen.
+- The page is reachable **only** from the start screen.
 - Do not touch `src/engine/**` or `src/encoding/eng-nn-1/**`.
 
 A cheap self-check at the end of every step:
@@ -128,8 +187,11 @@ A cheap self-check at the end of every step:
 git diff --stat
 ```
 
-If `Board.tsx`, `FullBoard.tsx`, `PlayBoard.tsx`, `AccessibleGrid.tsx`,
-`App.tsx` or anything under `src/rules/` appears, something has gone wrong.
+From Step 4 onward the expected footprint is `src/App.tsx`,
+`src/app/StartScreen.tsx`, `src/app/rules/**` and (in the last step)
+`README.md` — nothing else. If `Board.tsx`, `FullBoard.tsx`, `PlayBoard.tsx`,
+`AccessibleGrid.tsx` or anything under `src/rules/` appears, something has gone
+wrong.
 
 ### The check every step runs
 
@@ -150,51 +212,67 @@ restarted before observing anything.**
 
 ## Decisions resolved at plan time
 
-These resolve story.md's "Open items to resolve at plan time", in its order.
-Every step below assumes them.
+These resolve story.md's "Open items to resolve at plan time". Decisions 4, 8
+and 9 were **rewritten** when the story was amended (page, not popup);
+Decisions 2, 5, 6 and 7 were **amended** for the board-less figures; Decisions
+11 and 12 are **new**. Every step from 4 onward assumes them as they now
+stand.
 
 ### Decision 1 — Two marker shapes: a ring for a move, an arrowhead for an attack
 
-The popup carries no legend, and colour may not be the only carrier of meaning,
+The page carries no legend, and colour may not be the only carrier of meaning,
 so the two markers differ by **shape**:
 
 - **Move marker** — a thin `--ink` arrow from the moving piece's square to the
   reachable square, ending in an **open ring** (an unfilled circle outline)
   drawn on that square. One arrow per reachable square, as story.md's
   descriptions of pictures 1 and 2 ask ("arrows showing the eight squares it
-  can reach", "four arrows"). Used in figures 1 and 2 only.
-- **Attack marker** — a thicker `--ink` arrow from the attacking piece's square
-  to the attacked square, ending in a **solid filled triangular arrowhead**
-  whose tip reaches the **centre** of the attacked square. Used in figures 3–10.
+  can reach", "four arrows"). Used in figures 1 and 2 only — both of which are
+  board figures, so move markers only ever appear on a cutout.
+- **Attack marker** — a thicker `--ink` arrow from the attacking piece to the
+  attacked piece, ending in a **solid filled triangular arrowhead** whose tip
+  reaches the **centre of the attacked piece**. Used in figures 3–10. On the
+  two board figures that use it (3 and 4) the arrow spans one or two board
+  squares; on the six board-less figures it spans the gap Decision 11 opens,
+  which is what that gap is for.
 
 The two are additionally, redundantly distinguishable by their context: a move
-marker always lands on an empty square, an attack marker always lands on a
-square holding an enemy piece.
+marker always lands on an empty square, an attack marker always lands on an
+enemy piece.
 
 **Pictures 3 and 4 use the same arrow as pictures 5–10** — it is the same
 relationship ("this piece may attack that square"), so there is deliberately no
 second, near-identical "attackable" marking that would read as a distinction
-the popup never explains. story.md's related open item is settled that way.
+the page never explains. story.md's related open item is settled that way. The
+arrow is the same shape and weight whether or not the figure draws a board;
+only its length differs.
 
 Both arrows are drawn in `--ink` (never in a side colour), so colour carries
 nothing.
 
 Figure 1 draws eight arrows from one piece; the two-square arrows pass through
 the one-square destinations' rings. Draw the rings after (on top of) the
-shafts. If Step 5's Gate B finds eight overlapping arrows too cluttered to
+shafts. If Step 7's Gate B finds eight overlapping arrows too cluttered to
 read, the pre-approved fallback is **four arrows (one per direction, running
 the full two squares) plus a ring on each of the eight destinations** —
 record it as a deviation in the step's Notes if used.
 
-### Decision 2 — The defender's square: arrow under the piece, X and dimming over it
+### Decision 2 — Draw order: arrow under the pieces, X and dimming over them
 
-Per square, the draw order is: **square fill → arrow → piece → removal mark.**
+_(Amended for the board-less figures: the square that used to sit under the
+defender is gone in figures 5–10, so the ordering is stated per figure rather
+than per square. Everything else stands.)_
+
+A figure is drawn in four layers, back to front: **board squares (figures 1–4
+only) → arrows → pieces → removal marks.**
 
 - The arrow is drawn **behind** the pieces. Its head therefore terminates at the
-  attacked square's centre and visibly runs _under_ the defending piece, which
-  is what makes it read as "the attacker arrives on that square" rather than
-  "the attacker points at that square" (story.md's requirement that the arrow do
-  the double duty a single static cutout otherwise cannot).
+  attacked piece's centre and visibly runs _under_ that piece, which is what
+  makes it read as "the attacker arrives here" rather than "the attacker points
+  at that square" (story.md's requirement that the arrow do the double duty a
+  single static picture otherwise cannot). This works identically with or
+  without a board: what the head lands on is the defending **piece**, not the
+  square, and the piece is opaque enough to sit convincingly on top of it.
 - A **removed** piece is marked two ways, not one: it is **dimmed** (drawn at
   roughly 45% opacity) **and** overlaid with a **red X** — two straight strokes
   corner to corner, in the app's existing "this loses something" red
@@ -204,8 +282,12 @@ Per square, the draw order is: **square fill → arrow → piece → removal mar
   numeral in the piece's top-left corner. story.md's open question "whether the
   struck-out piece is dimmed as well as crossed" is settled: **yes** — the
   dimming is what carries the meaning for a reader who cannot pick the red out.
-- The X is the last thing drawn on its square, so it sits over both the piece
+- The X is the last thing drawn on its piece, so it sits over both the piece
   and the arrowhead.
+- **Without a board the halo matters more, not less.** On a cutout the X sits
+  on a parchment square; on a board-less figure it sits on the page's parchment
+  background, which is the same colour — so the halo is doing the same job
+  either way and needs no separate treatment.
 
 ### Decision 3 — Each figure carries a visible caption
 
@@ -213,11 +295,13 @@ Each figure is a `<figure>` containing the picture and a `<figcaption>` holding
 **one short sentence** naming the sides by colour and stating exactly what the
 picture shows. The caption is **visible to everyone**, not hidden for assistive
 technology only. Reasons: the owner must be able to review this copy at a gate
-(a hidden equivalent is invisible to review); the popup has no legend, so the
+(a hidden equivalent is invisible to review); the page has no legend, so the
 caption doubles as the key to the markers; and a visible caption is one piece of
 text serving both a sighted and a non-sighted reader rather than two that can
-drift apart. The cost — a slightly longer popup — is accepted, and is contained
-by keeping every caption to one clause-plus-clause sentence.
+drift apart. The cost — a slightly longer page — is accepted, and is contained
+by keeping every caption to one clause-plus-clause sentence. (story.md asks
+this open item be re-confirmed for a page rather than a popup: it holds, and
+the page has more room for it than the popup did.)
 
 The picture itself (the `<svg>`) is **`aria-hidden="true"`**, so the caption is
 the whole of the figure's accessible text: nothing announces twice, and no
@@ -225,7 +309,9 @@ picture can present itself as a table or a grid to be navigated (story.md's
 Gate D). The pictures are inert — no click handler, no focus, no animation.
 
 The ten captions are fixed here (they are new copy, so this plan settles them;
-everything else in the popup is story.md's fixed copy):
+everything else on the page is story.md's fixed copy). They live in
+`rulesCopy.ts`, which Step 2 committed; caption 10 is **amended by Decision
+12** and Step 5 makes that edit:
 
 1. "Red's piece can move to any of the eight ringed squares."
 2. "With a blue piece diagonally beside it, red can reach only four squares."
@@ -237,43 +323,62 @@ everything else in the popup is story.md's fixed copy):
 8. "Red's rank 4 attacks a blue Tower: both are removed."
 9. "Red's rank 3, with a red rank 3 beside it, attacks blue's rank 2: both are
    removed."
-10. "Blue's rank 2 attacks a red rank 3 that has a red rank 3 beside it: both
-    are removed."
+10. "Blue's rank 2 attacks a red rank 3 with another red rank 3 right behind
+    it: both are removed." — **amended** from the committed
+    "…that has a red rank 3 beside it…" by Decision 12, which moves that
+    supporting piece from beside the defender to directly behind it.
 
-### Decision 4 — The new code lives in `src/app/rules/`
+### Decision 4 — The page is a screen in `src/app/rules/`, named `RulesScreen`
 
-Six new files, all under `src/app/rules/`, beside `StartScreen.tsx`:
+The files under `src/app/rules/` after this story:
 
-| File                                  | Kind                | What it holds                                                         |
-| ------------------------------------- | ------------------- | --------------------------------------------------------------------- |
-| `figures.ts`                          | pure data, no React | the ten figures, the cutout window, the piece placements and markings |
-| `figures.test.ts`                     | test                | the figures-versus-engine agreement check                             |
-| `rulesCopy.ts`                        | pure data, no React | the header, the six sections, the ten captions                        |
-| `rulesCopy.test.ts`                   | test                | structural and vocabulary guards on the copy                          |
-| `RuleFigure.tsx` / `RuleFigure.css`   | thin render         | one figure's cutout                                                   |
-| `RulesDialog.tsx` / `RulesDialog.css` | thin render         | the popup shell, header, sections and layout                          |
+| File                                  | Kind                | What it holds                                                          |
+| ------------------------------------- | ------------------- | ---------------------------------------------------------------------- |
+| `figures.ts`                          | pure data, no React | the ten figures, the cutout window, placements, markings, presentation |
+| `figures.test.ts`                     | test                | the figures-versus-engine agreement check                              |
+| `rulesCopy.ts`                        | pure data, no React | the header, the six sections, the ten captions, the button copy        |
+| `rulesCopy.test.ts`                   | test                | structural and vocabulary guards on the copy                           |
+| `RuleFigure.tsx` / `RuleFigure.css`   | thin render         | one figure — cutout or board-less                                      |
+| `RulesScreen.tsx` / `RulesScreen.css` | thin render         | the page: header, "Back to start", sections, layout                    |
 
-`src/app/` rather than a folder under `src/board/` or a new top-level folder:
-the popup is a start-screen feature, opens from nowhere else, and putting it
-here makes the "no core board change" constraint physically obvious in the
-diff — nothing in `src/board/` is even in the neighbourhood.
+`RulesDialog.tsx` / `RulesDialog.css` (Step 3's modal) become
+`RulesScreen.tsx` / `RulesScreen.css` — **renamed with `git mv`** so the file
+history survives, then converted. The CSS class prefix goes from
+`rules-dialog` to `rules-screen`, matching the component name and the
+`review-screen__back` precedent.
+
+**Why `src/app/rules/` and not `src/review/`-style top-level folder.**
+`ImportScreen`/`ReviewScreen` live in `src/review/` because "reviewing a game"
+is a feature area with several components and modules of its own. The rules
+page is likewise a feature area, but it is reached only from the start screen
+and is conceptually part of the app's front door, so it stays in the folder
+`StartScreen.tsx` lives beside — as `src/app/rules/`, which Steps 1–3 already
+created and committed. Moving it now to a new top level (e.g.
+`src/howToPlay/`) would churn four committed files, break their history for no
+functional gain, and gain only a cosmetic separation from `src/app/`. The one
+real cost of the current location is that `src/rules/` (the rule engine) and
+`src/app/rules/` (the how-to-play page) are different things with the same
+folder name; that is accepted, and every module in `src/app/rules/` carries a
+header comment saying what it is, so a cold reader is not misled. **Do not
+rename the folder in this story.**
 
 **What the new code may import:** `src/art/PieceIcon.tsx` (`PieceIcon`,
 `PieceSpriteDefs`), anything under `src/rules/primary/v2/` (pure rule data and
 logic), `src/board/sideNames.ts` (the Red/Blue words — a two-line pure module,
-not a board component), and `src/appInfo.ts`. **What it must not import:** any
-component or CSS file under `src/board/` other than `sideNames.ts`.
+not a board component), `src/appInfo.ts` and `src/App.css` (the shared `.app`
+shell, which every screen imports). **What it must not import:** any component
+or CSS file under `src/board/` other than `sideNames.ts`.
 
-`PieceSpriteDefs` is mounted by `RulesDialog.tsx` itself, as a **sibling of the
-`<dialog>` element** (both inside one fragment), so the symbol library is never
-inside a `display: none` subtree and `StartScreen.tsx` needs no knowledge of it.
+`PieceSpriteDefs` is mounted by `RulesScreen.tsx` itself, as the first child of
+its `<main className="app">` — exactly where `ReviewScreen.tsx` mounts its own
+copy. `StartScreen.tsx` needs no knowledge of it.
 
 ### Decision 5 — Share the custom properties, share nothing else
 
 `RuleFigure.css` uses `var(--parchment)`, `var(--ink)`, `var(--side-a)` and
 `var(--side-b)` from `:root` (`src/index.css`) — those are the app's shared
 design tokens and reusing them is exactly right, and is what makes the cutouts
-look like the real board.
+look like the real board and the board-less pieces look like the real pieces.
 
 It does **not** reference, extend, `@import` or copy any `.board*` /
 `.full-board*` class name, and does not import `Board.css` or `FullBoard.css`.
@@ -281,19 +386,29 @@ Where it needs a value the board also uses — the faint square border
 `1px solid rgba(43, 33, 24, 0.2)` — it restates that literal with a comment
 saying it deliberately mirrors `FullBoard.css`'s and is free to drift.
 
-The figure declares its **own** square size, `--figure-square:
+The figure declares its **own** cell size, `--figure-square:
 clamp(22px, 4.5vmin, 34px)` — deliberately not the board's
-`clamp(28px, 6vmin, 64px)`. A figure inside a two-column dialog must stay small
-and stable; it is not a play surface.
+`clamp(28px, 6vmin, 64px)`. A figure inside a two-column page must stay small
+and stable; it is not a play surface. **The same cell size governs the
+board-less figures** (Decision 11), so a piece is drawn at exactly the same
+scale in all ten pictures, board or no board.
 
-The cutout is drawn as a plain 5×5 patch of squares with a thin `--ink` outline
-around the patch, reading as a crop of a board rather than as a tiny complete
-board (the real board's outer border is 2px; the cutout's is 1px). No lake, no
-buffer band, no rank/file labels, no board edge treatment.
+For the four figures that draw a board, the cutout is a plain 5×5 patch of
+squares with a thin `--ink` outline around the patch, reading as a crop of a
+board rather than as a tiny complete board (the real board's outer border is
+2px; the cutout's is 1px). No lake, no buffer band, no rank/file labels, no
+board edge treatment.
+
+For the six that do not, there is **no square fill, no square border and no
+patch outline at all** — the page's own parchment background shows through,
+which is the same colour the board's squares are painted in.
 
 ### Decision 6 — The cutout window: Battle, columns D–H × rows 1–5, centre F3
 
-All ten figures are 5×5 windows onto the **Battle board**
+_(Amended: the window still defines every figure's **squares**, for all ten
+figures; it is **drawn** only for figures 1–4. See Decision 11.)_
+
+All ten figures place their pieces in a 5×5 window onto the **Battle board**
 (`BOARD_LAYOUTS.standard_144`, 12×12), anchored at **D1**, i.e. columns D, E,
 F, G, H by rows 1, 2, 3, 4, 5. The window's centre square is **F3**.
 
@@ -309,53 +424,66 @@ F, G, H by rows 1, 2, 3, 4, 5. The window's centre square is **F3**.
   and no figure's claim depends on a square being off-board. Step 1's test
   pins that down by asserting that all eight of the centre's one- and two-away
   orthogonal squares exist on the board and are not lakes.
-- **Orientation.** The cutout is drawn in the absolute (White) frame the app
-  already uses for Red's view: **row 5 at the top, row 1 at the bottom; column D
-  at the left, column H at the right.** Red (= White = `--side-a`) therefore
+- **Orientation.** A figure is drawn in the absolute (White) frame the app
+  already uses for Red's view: **higher rows nearer the top, column D at the
+  left, column H at the right.** Red (= White = `--side-a`) therefore
   advances **up** the picture and Blue (= Black = `--side-b`) advances **down**,
-  which is what the game's own board shows.
+  which is what the game's own board shows. This holds for the board-less
+  figures too — they keep the same orientation, they simply do not draw the
+  grid.
 - **Sides.** Red is always the piece the reader is invited to identify with;
   Blue is always the enemy. In figure 10 — the only figure where the enemy is
   the attacker — Blue attacks downward, which is the direction Blue really
   advances.
 
 A figure names its pieces by **absolute square key** on that board (`"F3"`), and
-`RuleFigure.tsx` derives the window-relative row/column from the anchor. That is
-what makes the engine check meaningful: the test places exactly those pieces on
-an otherwise-empty Battle `BoardState` and asks the real `legalDestinations` /
-`legalAttacks` / `resolveCombat` what they say.
+`RuleFigure.tsx` derives the drawing position from the anchor. **Dropping the
+board does not drop the squares:** all ten figures keep real, engine-checkable
+square keys, because those squares are what `figures.test.ts` feeds to
+`legalDestinations` / `legalAttacks` / `resolveCombat`. A figure whose squares
+stopped being real would silently stop being checked. Only the _drawing_ of the
+grid is dropped, and only for figures 5–10.
 
-### Decision 7 — The ten figures (verified against the engine while writing this plan)
+### Decision 7 — The ten figures (verified against the engine while this plan was written)
 
 Piece types: rank 1 = `masterOfArms`, rank 2 = `champion`, rank 3 = `knight`,
 rank 4 = `halberdier`. Red = `"white"`, Blue = `"black"`.
 
-| #   | Section                               | Pieces                                       | Marked                                               |
-| --- | ------------------------------------- | -------------------------------------------- | ---------------------------------------------------- |
-| 1   | Movement                              | red R3 **F3**                                | move rings on D3, E3, F1, F2, F4, F5, G3, H3 (eight) |
-| 2   | Slowed movement                       | red R3 **F3**; blue R3 **E4**                | move rings on E3, F2, F4, G3 (four)                  |
-| 3   | Movement for attacks                  | red R3 **F3**; blue R3 **F5**                | attack arrow F3 → F5                                 |
-| 4   | Movement for attacks                  | red R3 **F3**; blue R3 **G4**                | attack arrow F3 → G4                                 |
-| 5   | Combat                                | red R1 **F2**; blue R2 **F3**                | attack arrow F2 → F3; X on F3                        |
-| 6   | Combat                                | red R3 **F2**; blue R2 **F3**                | attack arrow F2 → F3; X on F2                        |
-| 7   | Equal-ranked pieces and Tower attacks | red R4 **F2**; blue R4 **F3**                | attack arrow F2 → F3; X on F2 **and** F3             |
-| 8   | Equal-ranked pieces and Tower attacks | red R4 **F2**; blue **Tower F3**             | attack arrow F2 → F3; X on F2 **and** F3             |
-| 9   | Rank-up                               | red R3 **F2**; red R3 **E2**; blue R2 **F3** | attack arrow F2 → F3; X on F2 **and** F3             |
-| 10  | Rank-up                               | blue R2 **F4**; red R3 **F3**; red R3 **E2** | attack arrow F4 → F3; X on F4 **and** F3             |
+The **Board?** column is the amendment: it is data (Step 5 adds it to
+`figures.ts`), not a rendering flag invented in the `.tsx` layer.
+
+| #   | Section                               | Board? | Pieces                                       | Marked                                               |
+| --- | ------------------------------------- | ------ | -------------------------------------------- | ---------------------------------------------------- |
+| 1   | Movement                              | yes    | red R3 **F3**                                | move rings on D3, E3, F1, F2, F4, F5, G3, H3 (eight) |
+| 2   | Slowed movement                       | yes    | red R3 **F3**; blue R3 **E4**                | move rings on E3, F2, F4, G3 (four)                  |
+| 3   | Movement for attacks                  | yes    | red R3 **F3**; blue R3 **F5**                | attack arrow F3 → F5                                 |
+| 4   | Movement for attacks                  | yes    | red R3 **F3**; blue R3 **G4**                | attack arrow F3 → G4                                 |
+| 5   | Combat                                | no     | red R1 **F2**; blue R2 **F3**                | attack arrow F2 → F3; X on F3                        |
+| 6   | Combat                                | no     | red R3 **F2**; blue R2 **F3**                | attack arrow F2 → F3; X on F2                        |
+| 7   | Equal-ranked pieces and Tower attacks | no     | red R4 **F2**; blue R4 **F3**                | attack arrow F2 → F3; X on F2 **and** F3             |
+| 8   | Equal-ranked pieces and Tower attacks | no     | red R4 **F2**; blue **Tower F3**             | attack arrow F2 → F3; X on F2 **and** F3             |
+| 9   | Rank-up                               | no     | red R3 **F2**; red R3 **E2**; blue R2 **F3** | attack arrow F2 → F3; X on F2 **and** F3             |
+| 10  | Rank-up                               | no     | blue R2 **F4**; red R3 **F3**; red R3 **F2** | attack arrow F4 → F3; X on F4 **and** F3             |
+
+Figure 10's supporting red piece is **F2**, changed from the committed **E2**
+by Decision 12. Everything else in this table is exactly what `figures.ts`
+already holds.
 
 Every row above was checked against the real `legalDestinations`,
 `legalAttacks` and `resolveCombat` while this plan was written, under all four
-combinations of the two diagonal flags. In particular:
+combinations of the two diagonal flags — including figure 10's new F2
+placement, re-verified when this plan was revised. In particular:
 
 - Figure 2's four destinations are exactly `legalDestinations`' output with the
   diagonal enemy present; figure 1's eight are exactly its output without one.
 - Figures 3–10's marked attack squares are exactly `legalAttacks`' output, and
   in every one of the ten figures that output is **identical under all four
-  flag combinations** — so the popup never illustrates a rule the game does not
+  flag combinations** — so the page never illustrates a rule the game does not
   always have.
 - Figures 5–10 resolve to `attackerWins`, `attackerLoses`, `mutualLoss`,
   `mutualLoss`, `mutualLoss`, `mutualLoss` respectively, which is exactly the
-  set of struck-out pieces the table lists.
+  set of struck-out pieces the table lists. Figure 10 resolves to `mutualLoss`
+  with the supporter at F2 exactly as it did at E2.
 
 **Constraints from story.md that these placements encode, and which a later
 reader must not "tidy away":**
@@ -365,62 +493,110 @@ reader must not "tidy away":**
   `all`.
 - The squares flanking that diagonal (G3 and F4) are **empty** — true under
   `DIAGONAL_ATTACK_PATH=open_path` as well as `always`.
-- Figures 3 and 4 stay **two separate cutouts**. Combining them would make the
+- Figures 3 and 4 stay **two separate figures**. Combining them would make the
   two-square attack illegal, because the diagonal enemy slows the attacker.
 - Figure 8's Tower attack is **orthogonal**, never diagonal.
-- Figure 9's supporting red piece sits at **E2** (beside the attacker) and
-  figure 10's at **E2** (diagonally beside the defender, and _not_ adjacent to
-  the blue attacker at F4). Moving either one to a square adjacent to the enemy
-  attacker would hand that attacker a second legal attack and break the
-  figure's "one arrow" claim — Step 1's test catches exactly that.
+- Figure 9's supporting red piece sits at **E2** (orthogonally beside the
+  attacker) and figure 10's at **F2** (orthogonally behind the defender). Both
+  are deliberately **not** adjacent to the enemy attacker: moving either to a
+  square adjacent to it would hand that attacker a second legal attack and
+  break the figure's "one arrow" claim — `figures.test.ts` catches exactly
+  that. For figure 10 this leaves F2 as the **only** orthogonal neighbour of
+  the defender available: E3 and G3 are both diagonally adjacent to the blue
+  attacker at F4, and F4 is the attacker's own square.
 
-### Decision 8 — The popup's layout: one grid, DOM order = reading order
+### Decision 8 — The page's layout: full-width header, two columns, DOM order = reading order
 
-- The `<dialog>` is a flex column: a **non-scrolling header area** holding the
-  popup's `<h2>` title, the two header lines and the single **Close** button,
-  and below it a **scrolling region** (`overflow-y: auto`,
-  `overscroll-behavior: contain`) holding the six sections. The dialog is
-  `max-height: min(90vh, …)` and `max-width: min(64rem, 92vw)`, so it scrolls
-  internally rather than being clipped, keeps its heading and its close control
-  reachable at any scroll position, and does not scroll the page behind it.
+_(Rewritten for the page. The modal's non-scrolling header, internal scroll
+region, `max-height` and Close button are all gone.)_
+
+- `RulesScreen` renders a `<main className="app">` — the same shell every other
+  screen uses (`src/App.css`), so the page inherits the app's centred column,
+  padding and title styling for free and looks like the rest of the app.
+- Inside it, in DOM order: `PieceSpriteDefs`; the **header block** — an
+  `<h1 className="app__title" tabIndex={-1}>` carrying
+  `RULES_HEADER.title` ("Capture the Flag: Rules") and the two header lines
+  beneath it; the **"Back to start" button** (Decision 9); the **sections
+  region**; then the **second "Back to start" button**, outside the sections
+  region.
+- **The page scrolls as an ordinary page.** No `overflow` on any container, no
+  `max-height`, no `overscroll-behavior`, no scroll containment. If the content
+  is taller than the viewport the document scrolls, exactly as the start screen
+  does. This is the single biggest reason the story moved off the modal, and no
+  step may reintroduce an internal scroll region.
 - The sections region is a **CSS grid**, `repeat(2, minmax(0, 1fr))` above a
-  breakpoint (~48rem of dialog width, expressed as a viewport media query) and a
-  single column below it. **Not** CSS multi-column (`columns`), which would
+  ~48rem viewport breakpoint and a single column below it, with
+  `width: 100%; max-width: 64rem` so the two columns do not stretch to absurd
+  measure on a wide monitor. **Not** CSS multi-column (`columns`), which would
   split a section across columns and divorce visual order from DOM order.
-- **DOM order is: header, Movement, Slowed movement, Movement for attacks,
-  Combat, Equal-ranked pieces and Tower attacks, Rank-up.** With a two-column
-  grid filling row by row that does not by itself put the movement sections in
-  the left column, so the three movement sections are placed in column 1 and the
-  three combat sections in column 2 by **grid column assignment**
-  (`grid-column: 1` / `grid-column: 2` on the section wrappers, cleared at the
-  single-column breakpoint) — never by `order`, which would desynchronise
-  visual order from reading and tab order. Left-column sections precede
-  right-column sections in the DOM in every layout, which is exactly what
-  story.md's in-scope item 2 requires.
+- **The three left-column sections and the three right-column sections are each
+  grouped under their own wrapper element** (`.rules-screen__column`), built by
+  filtering `RULES_SECTIONS` on its `column` field. With exactly two wrapper
+  elements as the grid's direct children, the grid's own auto-placement puts
+  the first wrapper in column 1 and the second in column 2, both starting at
+  row 1. This is Step 3's post-gate fix and it carries over unchanged — do not
+  go back to per-section `grid-column`, which left the right column starting
+  partway down, and never use `order`, which desynchronises visual order from
+  reading and tab order.
+- **DOM order is: header, Back to start, Movement, Slowed movement, Movement
+  for attacks, Combat, Equal-ranked pieces and Tower attacks, Rank-up, Back to
+  start** — in every layout, which is exactly what story.md's in-scope item 2
+  requires. The closing "Back to start" sits outside the sections grid, after
+  it, so it is never drawn into a column.
 - Within a section, the one or two figures sit in a flex-wrap row: side by side
   when the column is wide enough, stacked when it is not.
-- Heading levels: the popup's title is an `<h2>` (the start screen's `<h1>` is
-  the app title); the six section headings are `<h3>`.
+- **Heading levels.** The page's title is the `<h1>` (it is the page's own
+  title, like "Reviewing a game" on the review screen — the app name is not
+  repeated here); the six section headings are `<h2>`. Note this is one level
+  shallower than the modal used, because there is no longer a start-screen
+  `<h1>` above it.
 
-### Decision 9 — Opening, closing and focus
+### Decision 9 — Arriving, leaving and focus
 
-- `StartScreen.tsx` gains exactly one piece of state: a boolean for whether the
-  popup is open. `App.tsx` is untouched.
-- `RulesDialog` follows `LeaveGameDialog.tsx` exactly: an `open` prop, a
-  `useEffect` that calls `showModal()` / `close()`, `aria-labelledby` pointing
-  at the title, and the native `cancel` event `preventDefault()`ed and routed
-  through the same `onClose` callback so the caller's boolean stays the single
-  source of truth.
-- **Focus on open goes to the popup's `<h2>` title**, using the `tabIndex={-1}`
-  heading pattern `StartScreen.tsx` and `GameResult.tsx` already use — so a
-  screen reader announces what the popup _is_ before it announces the way out.
-  (`LeaveGameDialog` focuses its Cancel button instead; that is right for a
-  two-choice confirmation and wrong here.)
-- Escape closes; focus returns to the "How to play" button, which the native
-  `<dialog>` does on its own.
-- There is exactly **one** Close button, in the non-scrolling header area, so
-  it is reachable at any scroll position without adding a second tab stop with
-  the same name.
+_(Rewritten for the page. No `showModal()`, no focus trap, no Escape-to-close,
+no Close button, no `::backdrop`, no confirmation prompt.)_
+
+- `App.tsx`'s `Screen` union gains a fifth member, `{ kind: "rules" }`, and a
+  branch mounting `<RulesScreen onBack={() => setScreen({ kind: "start" })} />`.
+  Follow the existing branches' shape exactly.
+- `StartScreen` gains an `onHowToPlay` callback prop, called by the "How to
+  play" button, doing nothing but asking the shell to switch screens — exactly
+  as `onReviewAGame` does. **`StartScreen` loses the `rulesOpen` state Step 3
+  gave it and renders no dialog**; it goes back to holding no state at all
+  besides its heading ref.
+- **Leaving is a "Back to start" button** calling `onBack`, with **no
+  confirmation prompt** — following `ImportScreen`/`ReviewScreen`'s precedent,
+  because nothing is lost by leaving a page of rules. Its label is
+  **"Back to start"** (`ReviewScreen`'s wording, which is the clearer of the
+  two existing ones).
+- **There are two of them** (the owner's decision at the revised plan's
+  approval gate): one in the header block, immediately after the two header
+  lines and before the sections, so a keyboard or screen-reader user meets the
+  way out early instead of after ten figures; and a second at the foot of the
+  page, after the last section, so a player who has read to the bottom of a
+  genuinely long page is not made to scroll back up to leave. Both call the
+  same `onBack` and carry the same label.
+  - The duplicate name is a deliberate, accepted cost. Mitigate it the cheap
+    way: the two buttons are the page's only controls, they are far apart in
+    reading order, and the foot one is the last thing on the page — so a
+    screen-reader user hearing "Back to start" twice is not left guessing which
+    is which. Do **not** disambiguate them with differing `aria-label`s that
+    contradict their visible text.
+  - Its chrome restates the `.review-screen__back` / `.import-screen__back`
+    declarations locally in `RulesScreen.css` (they are duplicated per screen in
+    this repo today; follow that, do not import another screen's CSS).
+- **Focus on arrival goes to the page's `<h1>`**, using the `tabIndex={-1}`
+  heading pattern focused in a `useEffect` on mount — the same pattern
+  `StartScreen.tsx`, `ImportScreen.tsx` and `ReviewScreen.tsx` all use — so a
+  screen-reader user landing there hears what the page is instead of being
+  stranded on `<body>`.
+- **Returning to the start screen re-mounts `StartScreen`**, whose own
+  mount effect focuses its heading. Focus therefore lands on the start screen's
+  title rather than back on the "How to play" button. That is the app's
+  existing, consistent behaviour for every back-to-start transition (import and
+  review both do it) and is deliberately not special-cased here.
+- **Escape does nothing**, and nothing traps focus: this is a page, and the
+  browser's own Tab order runs from the button through the document as normal.
 
 ### Decision 10 — "How to play" goes first, and nothing else gives
 
@@ -434,11 +610,111 @@ On a narrow screen the four buttons stack and "Play a game" moves down by about
 one button height. **Nothing gives:** the order is the owner's policy, the start
 screen is a normal scrolling page (not a fixed-height surface), and three
 choices below a short first button is not a fold problem worth trading the
-policy for. Step 3's Gate C looks at a phone-width viewport explicitly. If it
+policy for. Step 3's Gate C looked at a phone-width viewport explicitly. If it
 turns out to be genuinely bad, the pre-approved remedy is a narrow-width
 tightening of `.start-screen__choice`'s vertical padding via a media query
 **scoped to `StartScreen.css`** — record it as a deviation in the step's Notes
 if used.
+
+### Decision 11 — How a board-less figure is laid out (new)
+
+story.md's Amendment 2 removes the board from figures 5–10 and asks for "a
+deliberate gap between attacker and defender for the arrow to occupy". This
+decision fixes what that means geometrically, and it is fixed as a **rule
+derived from the figure's own squares** — never as per-figure hand-placed
+coordinates, so a change to `figures.ts` moves the picture automatically and
+cannot leave a stale drawing behind.
+
+1. **Same lattice, same scale.** A board-less figure uses the same cell pitch
+   as a cutout (`--figure-square`, Decision 5). A piece on square (column,
+   row) is placed at the same cell it would occupy in the 5×5 window: column
+   offset from the anchor's column, row offset counted downward from the top of
+   the window. Pieces are therefore the same size, and adjacent pieces sit edge
+   to edge, exactly as on a cutout.
+2. **Nothing is drawn but the pieces and the markers.** No square fill, no
+   square border, no patch outline, no background box. The page's parchment
+   shows through.
+3. **The two sides are pulled apart by exactly one cell.** Partition the
+   figure's pieces by side. The **defending side's** group (which in figures
+   5–9 is Blue and in figure 10 is Red) is translated **one whole cell along
+   the attack direction, away from the attacker**; the attacking side's group
+   does not move. All six board-less attacks are orthogonal today (five run
+   F2 → F3, one runs F4 → F3), so this is a one-cell translation up or down; a
+   hypothetical diagonal attack would translate one cell along each axis of the
+   attack vector. The result: attacker and defender centres are two cells
+   apart, leaving one clear cell of parchment — about one piece width — for the
+   arrow to cross.
+4. **Within a group nothing moves.** Two friendly pieces that are adjacent on
+   the real board are drawn touching. This is what makes Decision 12's
+   adjacency read: the supporting piece touches its partner while the arrow
+   crosses a full piece-width void.
+5. **Crop and centre.** The drawing area is the bounding box of the placed
+   pieces plus a half-cell margin on every side; the picture is centred in the
+   space its section gives it. The six board-less pictures therefore differ in
+   size (figure 5 is 1 × 3 cells, figure 10 is 1 × 4), which is fine — but give
+   the figure wrapper a common minimum height so two figures side by side in
+   one section align on their captions rather than jittering.
+6. **Nothing about the underlying squares changes.** The translation is a
+   drawing transform only. `figures.ts` continues to name real squares, and
+   `figures.test.ts` continues to check them against the engine (Decision 6).
+
+**Accepted consequence, per story.md:** a gap appears between two pieces that
+are, in the rules, on adjacent squares. The arrow spanning it is what carries
+the relationship, and the caption says so in words.
+
+### Decision 12 — Making "beside it" read in the rank-up figures (new)
+
+story.md flags figures 9 and 10 as the real risk of dropping the board: their
+rule condition is _adjacency_, which a board makes obvious and a void does not,
+and it asks that the supporting piece "sit visibly closer to its partner than
+the gap the arrow crosses".
+
+- **Figure 9 already reads.** Its supporting red piece is at E2, orthogonally
+  beside the attacker at F2, so under Decision 11 the two red pieces are drawn
+  **touching, side by side**, while the blue defender sits a clear cell above.
+  No change.
+- **Figure 10 does not, as committed.** Its supporting red piece is at E2,
+  _diagonally_ adjacent to the defender at F3 — a corner-to-corner touch, the
+  weakest adjacency cue there is. Worse, once Decision 11's one-cell gap is
+  opened the supporter sits about 1.41 cells from the defender while the
+  attacker sits 2 cells away: the supporter is barely closer than the thing the
+  arrow crosses, which is the opposite of the comfortable margin story.md asks
+  for. In a void that is exactly the ambiguity story.md warns against.
+- **Resolution: figure 10's supporting red piece moves from E2 to F2** —
+  directly behind the defender at F3, on the far side from the blue attacker at
+  F4. The two red pieces are then drawn **touching, stacked vertically**, with
+  the blue attacker one clear cell above the pair. Adjacency is unmistakable;
+  the arrow crosses the only gap in the picture.
+- **Why F2 and not another square.** The supporter must be adjacent to the
+  defender (the rule) and **not** adjacent to the blue attacker (or the
+  attacker gains a second legal attack and the figure's single-arrow claim
+  breaks). Of F3's four orthogonal neighbours, E3 and G3 are both diagonally
+  adjacent to F4 and F4 is the attacker itself — leaving F2 as the only
+  orthogonal option.
+- **Verified at plan time** against this repository's own
+  `legalAttacks`/`resolveCombat`: with red knights on F3 and F2 and a blue
+  champion on F4, `legalAttacks` from F4 is exactly `["F3"]` under all four
+  combinations of `DIAGONAL_ATTACKABLE` × `DIAGONAL_ATTACK_PATH`, and
+  `resolveCombat(F4 → F3)` is `mutualLoss` — identical to the committed E2
+  version. Step 5 makes the change and the existing generic assertions in
+  `figures.test.ts` re-verify it automatically.
+- **Caption 10 changes with it** (Decision 3, item 10): "beside it" becomes
+  "right behind it", because the picture now shows the supporter behind the
+  defender and the caption must describe the picture. The rule sentence above
+  it — story.md's fixed copy — already says "any of the eight squares
+  immediately surrounding it", so nothing about the rule's statement narrows.
+- **Escalation clause, per story.md.** If Step 7's Gate B still finds figure 9
+  or 10 ambiguous — a reader cannot tell that the two same-coloured pieces are
+  meant to be adjacent — **stop and escalate to the owner rather than shipping
+  an ambiguous picture.** Two remedies are worth putting to them, and both are
+  the owner's call, not the implementer's: (a) an alternative arrangement for
+  figure 10 in which the attack runs sideways — blue on E3 attacking red on F3
+  with the red supporter on G3, which makes the red pair a touching _horizontal_
+  pair and matches figure 9's shape; this was also verified at plan time to
+  give exactly one legal attack under all four flag combinations and a
+  `mutualLoss`; or (b) restoring a 5×5 cutout for figures 9 and 10 only, which
+  reverses part of story.md's Amendment 2 and therefore cannot be done without
+  the owner.
 
 ---
 
@@ -710,102 +986,305 @@ repository checks.
 
 ---
 
-## Step 4 — The board cutout: squares and pieces
+## Step 4 — Turn the popup into a screen
+
+Status: pending
+
+This is story.md's Amendment 1, and it is the only step that touches
+`App.tsx`. Nothing about the page's copy, its two-column layout or its figures
+changes here — only the surface it lives on. Read Decisions 4, 8 and 9 before
+starting; they are written for the page and supersede anything Step 3's frozen
+text says about a dialog.
+
+Four edits:
+
+1. **Rename, then convert.** `git mv src/app/rules/RulesDialog.tsx
+src/app/rules/RulesScreen.tsx` and likewise `RulesDialog.css` →
+   `RulesScreen.css` (renaming with `git mv` keeps the file history), then
+   convert the component from a modal into a screen:
+   - The `<dialog>` becomes `<main className="app">` (importing `../../App.css`
+     as every other screen does). Remove the `open` prop, the `useEffect` that
+     called `showModal()`/`close()`, the `onCancel` handler, the
+     `aria-labelledby` attribute, the Close button and the `::backdrop` rule —
+     none of them has any meaning on a page.
+   - The component's only prop becomes `onBack: () => void`.
+   - The `<h2>` title becomes the page's `<h1 className="app__title"
+tabIndex={-1}>`, still focused on mount via `useEffect` (Decision 9), still
+     carrying `RULES_HEADER.title`; the two header lines follow it; the six
+     section headings drop from `<h3>` to `<h2>`.
+   - Add **two "Back to start" buttons** (Decision 9), both calling `onBack`
+     and both carrying that same visible label: one immediately after the
+     header lines and before the sections region, and one after the sections
+     region, at the foot of the page and outside the sections grid. Their
+     chrome restates `.review-screen__back`'s declarations locally.
+   - **Remove every trace of the internal scroll region**: `overflow-y`,
+     `overscroll-behavior`, `max-height`, `flex: 1 1 auto` on the sections
+     region, and the dialog's `max-width`/`display: flex`/`[open]` rules. The
+     sections region keeps `width: 100%; max-width: 64rem` so the columns do
+     not stretch on a wide monitor, and the document does the scrolling.
+   - Rename the CSS class prefix `rules-dialog` → `rules-screen` throughout
+     both files.
+   - **Keep** the two-column wrapper structure exactly as Step 3's post-gate fix
+     left it (two `.rules-screen__column` wrappers built by filtering
+     `RULES_SECTIONS` on its `column` field, no `grid-column`, no `order`), the
+     48rem breakpoint, `PieceSpriteDefs` (now the first child of the `<main>`,
+     as `ReviewScreen.tsx` does it), and the `aria-hidden` figure placeholders —
+     Step 6 replaces those.
+2. **`src/App.tsx`** — add `{ readonly kind: "rules" }` to the `Screen` union
+   and an `if (screen.kind === "rules")` branch mounting
+   `<RulesScreen onBack={() => setScreen({ kind: "start" })} />`, in the same
+   shape as the existing branches. Extend the module's header comment to name
+   the new screen and say it is reached only from the start screen and returns
+   without prompting (the file's comment already narrates every screen; keep
+   that habit). Change nothing else in this file.
+3. **`src/app/StartScreen.tsx`** — add an `onHowToPlay: () => void` prop, call
+   it from the "How to play" button, and **delete** the `rulesOpen` state, the
+   `useState` import if it is now unused, and the rendered `<RulesDialog>`.
+   Update the component's header comment, which currently says the popup opens
+   from here and that `App.tsx` needs no new screen — it now does. Wire the new
+   prop up in `App.tsx`'s `<StartScreen …>`.
+4. Delete nothing else. `figures.ts`, `rulesCopy.ts` and both test files are
+   untouched in this step.
+
+Why it comes here: every remaining step draws into this page, and the direction
+change has to land before anything else is built on the old surface.
+
+Depends on: Step 3 (the component being converted).
+
+Verification (**manual**). Restart the dev server (`npm run dev`; this
+container has no file watching) and open `http://localhost:5173`. Then run the
+five repository checks.
+
+- **Gate A (first half, re-run for the page).** "How to play" is still the
+  **first** of the four start-screen choices; activating it **replaces** the
+  start screen with the rules page rather than opening anything over it. The
+  page's title reads "Capture the Flag: Rules", followed by **both** header
+  lines. All six section headings and their sentences are present and read
+  **word for word** as story.md's "The page's content" has them. "Back to
+  start" returns to the start screen with **no confirmation prompt**, the start
+  screen looks exactly as it did, and going back into the rules page works
+  again.
+- **No modal behaviour survives.** There is no Close button, no dimmed
+  backdrop, and pressing Escape on the rules page does nothing (it must not
+  navigate anywhere).
+- **Gate C (first pass, for a page).** At a comfortable desktop width the
+  header spans the full width and the two columns sit side by side, with
+  Movement / Slowed movement / Movement for attacks on the **left** and Combat
+  / Equal-ranked pieces and Tower attacks / Rank-up on the **right**. Narrowing
+  the window collapses them to one column with all three movement sections
+  still read before all three combat sections. On a short viewport and at phone
+  width the **page itself scrolls** — the whole document, top to bottom — and
+  nothing is clipped or trapped in an inner scrollbar. Scroll to the very
+  bottom and confirm the last section is fully visible.
+- **Nothing else in the shell moved.** From the start screen, "Play a game" and
+  "Review a game" still reach their screens and their own Back controls still
+  return to the start screen.
+- `git diff --stat` shows only `src/App.tsx`, `src/app/StartScreen.tsx` and
+  files under `src/app/rules/` — no forbidden file (see "Out of bounds").
+
+---
+
+## Step 5 — Figure data for the board-less direction
+
+Status: pending
+
+Two data changes, both in the modules Steps 1 and 2 committed, both verified by
+extending the existing automated tests. Read Decisions 6, 7, 11 and 12 first.
+
+1. **Say which figures draw a board.** Add one small, additive field to the
+   `Figure` type in `src/app/rules/figures.ts` recording each figure's
+   presentation — a board cutout, or pieces on their own. Set it to **board**
+   for figures 1–4 (`movement`, `slowedMovement`, `attackOrthogonal`,
+   `attackDiagonal`) and **no board** for figures 5–10 (`combatRank1Wins`,
+   `combatRank3Loses`, `combatEqualRank`, `combatTower`, `combatRankUpAttack`,
+   `combatRankUpDefend`), per story.md's Amendment 2 and Decision 7's table.
+   This belongs in the data, not in the renderer, because the repository has no
+   DOM test environment: anything expressed as data can be asserted, and a
+   renderer-side `if (figure.id === …)` list could silently drift from the
+   story. Update the module header comment to say that the presentation field
+   governs **drawing only**, and that **all ten figures keep real,
+   engine-checked squares** — a figure whose squares stopped being real would
+   silently stop being checked (Decision 6).
+2. **Move figure 10's supporting piece from E2 to F2**, and change its caption
+   in `src/app/rules/rulesCopy.ts` from "…that has a red rank 3 beside it…" to
+   "…with another red rank 3 right behind it…" (Decisions 3 and 12). This is
+   what makes "beside it" read once the board is gone: F2 is orthogonally
+   adjacent to the defender at F3 and on the far side from the blue attacker,
+   so the two red pieces are drawn touching. Record in the figure's comment why
+   F2 and not E3/G3 (both are diagonally adjacent to the blue attacker at F4
+   and would give it a second legal attack, breaking the figure's single-arrow
+   claim).
+
+**Nothing else in this step.** No component work; `RulesScreen.tsx` is not
+touched.
+
+Why it comes here: Step 6 draws the figures, and it must be told which ones
+draw a board and where figure 10's pieces stand before it starts; and doing the
+data change on its own keeps it under automated verification instead of
+riding along inside a manual gate.
+
+Depends on: Step 1 (`figures.ts`), Step 2 (`rulesCopy.ts`). Independent of Step 4.
+
+Verification (**automated**): extend `src/app/rules/figures.test.ts`, then run
+the five repository checks.
+
+- Every figure declares a presentation; figures 1–4 declare **board**, figures
+  5–10 declare **no board**, named explicitly by id so the assertion is a guard
+  against a silent edit rather than a restatement of the data.
+- The count is exactly four board figures and six board-less ones, and every
+  board-less figure carries an **attack** marking with a non-empty removal set
+  (i.e. the board-less set is exactly the six combat figures, not an arbitrary
+  subset).
+- **The engine checks still cover all ten figures.** The existing generic
+  assertions (placement sanity, `legalAttacks` under all four diagonal-flag
+  combinations, `resolveCombat` removal sets) already iterate over `FIGURES`
+  and must continue to include the board-less six — assert that the attack- and
+  combat-figure id lists the test iterates cover every figure, board or not, so
+  nobody can later exempt a board-less figure from checking.
+- Figure 10 specifically: its three pieces are the blue attacker on F4, the red
+  defender on F3 and a **red piece on F2**; the supporting piece is
+  orthogonally adjacent to the defender and **not** adjacent to the attacker;
+  and (via the existing generic assertions) the blue attacker still has exactly
+  one legal attack under all four flag combinations, and the fight still
+  resolves to a two-piece removal.
+- `rulesCopy.test.ts` still passes unchanged — every figure id still has
+  exactly one caption, and the vocabulary guards still hold over the amended
+  caption.
+
+---
+
+## Step 6 — Draw the figures: cutouts and board-less pieces, no markers yet
 
 Status: pending
 
 Create `src/app/rules/RuleFigure.tsx` and `RuleFigure.css`: a thin component
-that takes one figure from `figures.ts` and draws its 5×5 cutout — **squares and
-pieces only, no markers yet**.
+that takes one figure from `figures.ts` and draws it — **pieces only, no
+markers yet** — in whichever of the two presentations the figure declares.
+Read Decisions 5, 6 and 11 first.
 
-- The cutout is a 5 × 5 arrangement of `--figure-square`-sized squares with
-  `var(--parchment)` fill and the faint square border of Decision 5, and a 1px
-  `var(--ink)` outline around the patch. Rows run **top to bottom from row 5 to
-  row 1**, columns **left to right from D to H** (Decision 6).
-- Each piece is drawn with `PieceIcon` (`src/art/PieceIcon.tsx`) at its square,
-  passing the figure's own side and piece type — so the artwork, the side colour
-  and the corner rank numeral are the real board's, unmodified.
+- **Both presentations share one lattice.** A piece's position is derived from
+  its square key and the window anchor (Decision 6): column offset from D,
+  rows running downward from row 5 at the top to row 1 at the bottom, one
+  `--figure-square` cell each. No per-figure hand-placed coordinates anywhere.
+- **Figures that draw a board** (1–4) draw the full 5×5 patch: `var(--parchment)`
+  square fill, the faint square border of Decision 5, and a 1px `var(--ink)`
+  outline around the patch. No lake, no board edge treatment, no coordinates.
+- **Figures that do not** (5–10) draw no squares, no borders and no background
+  at all; the defending side's pieces are translated one whole cell along the
+  attack direction away from the attacker, opening a one-cell gap for Step 7's
+  arrow (Decision 11), and the drawing is cropped to the pieces' bounding box
+  plus a half-cell margin. Pieces on adjacent squares within one side are drawn
+  touching.
+- Each piece is drawn with `PieceIcon` (`src/art/PieceIcon.tsx`), passing the
+  figure's own side and piece type — so the artwork, the side colour and the
+  corner rank numeral are the real board's, unmodified, at the same size in all
+  ten figures.
 - The whole picture is `aria-hidden="true"`, has no click handler, is not
   focusable and animates nothing (story.md: illustrations, not a live board).
 - The component wraps the picture and its caption in a `<figure>` /
   `<figcaption>` (Decision 3), taking the caption text from `rulesCopy.ts`.
-- **Nothing in `src/board/` is imported, referenced or changed** (Decision 4 and
-  5, and the hard constraint in "Out of bounds"). The board's class names are
-  not reused; the custom properties are.
+  Give the picture area a common minimum height so two figures in one section
+  align on their captions (Decision 11, item 5).
+- **Nothing in `src/board/` is imported, referenced or changed** (Decisions 4
+  and 5, and the hard constraint in "Out of bounds"). The board's class names
+  are not reused; the custom properties are.
 
-Replace Step 3's placeholders in `RulesDialog.tsx` with real `RuleFigure`s,
-driven by each section's figure-id list.
+Replace Step 4's placeholders in `RulesScreen.tsx` with real `RuleFigure`s,
+driven by each section's figure-id list, and delete the placeholder CSS.
 
 Note for this step's gate: the captions describe markers that do not exist
-yet — that is expected here and is fixed in Step 5.
+yet — that is expected here and is fixed in Step 7.
 
 Why it comes here: geometry, scale and the piece artwork are one thing to get
-right and to look at; the marker vocabulary (Step 5) is another, and is where
+right and to look at; the marker vocabulary (Step 7) is another, and is where
 this story's hardest visual questions live. Splitting them keeps each gate to
 one judgement.
 
-Depends on: Step 3 (somewhere to render), Step 1 (the figure data), Step 2 (the
+Depends on: Step 4 (the page to render into), Step 5 (which figures draw a
+board, and figure 10's placement), Step 1 (the figure data), Step 2 (the
 captions).
 
-Verification (**manual**). Restart the dev server and open the popup. Then run
-the five repository checks.
+Verification (**manual**). Restart the dev server and open the rules page. Then
+run the five repository checks.
 
-- All **ten** cutouts appear, in the right sections and the right order:
+- All **ten** pictures appear, in the right sections and the right order:
   Movement 1; Slowed movement 1; Movement for attacks 2; Combat 2; Equal-ranked
   pieces and Tower attacks 2; Rank-up 2.
-- Each cutout shows exactly the pieces Decision 7's table lists, on the right
-  squares, with the right side colours (**red = the piece the reader identifies
-  with, blue = the enemy, in all ten**) and the right corner numerals — R1 in
-  figure 5, a Tower in figure 8, and so on. Red always advances **up** the
-  picture; the blue attacker in figure 10 attacks **down**.
-- The cutouts read as pieces of the real board — same artwork, same parchment,
-  same square grid — at a size that sits comfortably in a column without
-  dominating it. No lake, no board edge treatment, no coordinates.
-- Nothing in a cutout can be clicked, focused or arrowed into: press Tab
-  repeatedly through the open popup and confirm focus never lands inside a
-  picture.
-- Each figure has its caption below it.
+- Each picture shows exactly the pieces Decision 7's table lists, with the right
+  side colours (**red = the piece the reader identifies with, blue = the enemy,
+  in all ten**) and the right corner numerals — R1 in figure 5, a Tower in
+  figure 8, and so on. Red always advances **up** the picture; the blue
+  attacker in figure 10 attacks **down**.
+- **The first four** read as cutouts of the real board — same artwork, same
+  parchment, same square grid — at a size that sits comfortably in a column
+  without dominating it. No lake, no board edge treatment, no coordinates.
+- **The last six** show pieces on their own with **no squares, no grid lines and
+  no box around them**, at the same piece size as the cutouts, with a clear gap
+  of about one piece width between attacker and defender for the arrow to
+  occupy.
+- **Adjacency in the rank-up figures (9 and 10).** In both, the two red pieces
+  are visibly **touching**, and the gap between the attacking and defending
+  sides is visibly larger than the space between the two red pieces — so
+  "beside it" / "right behind it" reads without a board. If it does not,
+  Decision 12's escalation clause applies: raise it with the owner rather than
+  proceeding.
+- Nothing in a picture can be clicked, focused or arrowed into: press Tab
+  repeatedly through the page and confirm focus never lands inside a picture.
+- Each figure has its caption below it, and the amended caption 10 reads
+  "…with another red rank 3 right behind it…".
 - `git diff --stat` shows no forbidden file — in particular `FullBoard.tsx`,
   `Board.tsx`, `PlayBoard.tsx` and `AccessibleGrid.tsx` are untouched.
 
 ---
 
-## Step 5 — The markers: move rings, attack arrows, removals
+## Step 7 — The markers: move rings, attack arrows, removals
 
 Status: pending
 
 Add the marker vocabulary to `RuleFigure.tsx` / `RuleFigure.css`, per Decisions
 1 and 2:
 
-- **Move marker** — a thin `--ink` arrow from the moving piece's square to each
-  marked destination, ending in an **open ring** on that square. Figures 1 and 2.
-- **Attack marker** — a thicker `--ink` arrow from the attacker's square whose
-  **solid triangular head reaches the centre** of the attacked square. Figures
-  3–10. The same marking in figures 3 and 4 as in 5–10, deliberately.
+- **Move marker** — a thin `--ink` arrow from the moving piece to each marked
+  destination, ending in an **open ring** on that destination square. Figures 1
+  and 2 only (both board figures).
+- **Attack marker** — a thicker `--ink` arrow from the attacker whose **solid
+  triangular head reaches the centre of the attacked piece**. Figures 3–10 —
+  the same marking on the two board figures (3 and 4) as on the six board-less
+  ones, deliberately, differing only in length. On a board-less figure the
+  arrow spans the one-cell gap Step 6 opened, and its head lands under the
+  defending piece.
 - **Removal** — the removed piece is drawn **dimmed** and overlaid with a **red
   X** with a parchment halo. Figures 5–10.
-- Draw order per square: square fill → arrow → piece → X. The arrows run
+- Draw order: board squares (where drawn) → arrows → pieces → X. The arrows run
   **behind** the pieces; the X is on top of everything.
 
 All marker geometry is derived from the figure's own data (which squares, which
-direction) — no per-figure hand-tuned coordinates, so a figure that changes does
-not silently keep a stale arrow.
+direction) and from the same lattice and translation Step 6 established — no
+per-figure hand-tuned coordinates, so a figure that changes does not silently
+keep a stale arrow.
 
-Depends on: Step 4 (the cutout to draw on) and Step 1 (which squares are marked).
+Depends on: Step 6 (the pictures to draw on) and Steps 1 and 5 (which squares
+are marked, and which figures draw a board).
 
-Verification (**manual**). Restart the dev server and open the popup. Then run
-the five repository checks.
+Verification (**manual**). Restart the dev server and open the rules page. Then
+run the five repository checks.
 
 - **Gate B.** With the six sentences and the rules in view, read each section:
   - Figure 1 shows **eight** reachable squares, figure 2 **four**.
-  - Figures 3 and 4 each mark the enemy piece as attackable, with the same
-    marking figures 5–10 use — no second, near-identical marking that reads as
-    an unexplained distinction.
-  - Figures 5–10 each run an arrow from the attacker **onto** the defender's
-    square, and the arrow reads as the attacker **arriving on** that square
-    rather than merely pointing at it.
-  - Exactly the right pieces are struck out: **one** in figures 5 and 6, **both**
-    in 7, 8, 9 and 10.
+  - Figures 3 and 4 each mark the enemy piece as attackable **on a board
+    cutout**, with the same marking figures 5–10 use — no second,
+    near-identical marking that reads as an unexplained distinction.
+  - Figures 5–10 each run an arrow from the attacker **onto** the defending
+    piece, across the gap, and the arrow reads as the attacker **arriving at**
+    the defender rather than merely pointing at it.
+  - Exactly the right pieces are struck out: **one** in figures 5 and 6,
+    **both** in 7, 8, 9 and 10 — and in 9 and 10 the supporting red piece is
+    **not** struck out.
+  - In figures 9 and 10 the supporting piece still reads as standing beside (9)
+    or right behind (10) its partner despite there being no board, now that the
+    arrow is present to be compared against. If it does not, Decision 12's
+    escalation clause applies: **stop and raise it with the owner** rather than
+    shipping an ambiguous picture.
   - Nothing in any picture contradicts the sentence above it, and every caption
     says what its picture shows.
 - **Legibility.** The red X is legible over a red piece, over a blue piece, over
@@ -815,44 +1294,51 @@ the five repository checks.
   markers are still tellable apart by shape alone.
 - **Gate C (second pass).** With the real pictures in, re-check the layout at a
   comfortable desktop width, at a narrow width (single column, movement before
-  combat), on a short viewport and at phone width — internal scrolling, nothing
-  clipped, the page behind still not scrolling.
-- **Gate A (second half).** All ten pictures are present and the popup as a
-  whole reads as story.md describes it.
+  combat), on a short viewport and at phone width — the document scrolls
+  normally, nothing is clipped, and no inner scrollbar has crept back in.
+- **Gate A (second half).** All ten pictures are present and the page as a whole
+  reads as story.md describes it.
 - `git diff --stat` shows no forbidden file.
 
 ---
 
-## Step 6 — Keyboard and screen reader
+## Step 8 — Keyboard and screen reader
 
 Status: pending
 
-Work the popup over from the keyboard and with a screen reader, and fix what
+Work the page over from the keyboard and with a screen reader, and fix what
 that finds. Expected work in this step (do each, and adjust only
-`src/app/rules/*` and `src/app/StartScreen*`):
+`src/app/rules/*` and `src/app/StartScreen*`; `src/App.tsx` should not need to
+change again):
 
 - Confirm the focus contract of Decision 9 end to end and correct it if it is
-  not exactly right: Tab reaches "How to play" from the start screen; activating
-  it opens the popup and moves focus to the popup's `<h2>`; Tab cannot escape
-  behind the dialog; Escape closes it; focus returns to the "How to play"
-  button.
-- Confirm the popup's **scrolling region is keyboard-scrollable**. A scrollable
-  container that holds no focusable element is not reachable by keyboard in some
-  browsers; if the sections region turns out not to scroll from the keyboard,
-  give it `tabIndex={0}` with an accessible name, which is the standard remedy.
+  not exactly right: Tab reaches "How to play" from the start screen;
+  activating it navigates to the rules page and moves focus to the page's
+  `<h1>`; Tab from there reaches the header's "Back to start" and then runs
+  through the document in reading order (left column's three sections before
+  the right column's, in every layout), ending on the foot's "Back to start";
+  activating either returns to the start screen, whose own heading takes focus.
+  Confirm the two identically named buttons are not confusing in practice —
+  they are the page's only controls and sit at its two ends — and do **not**
+  paper over it with `aria-label`s that contradict the visible text.
+- Confirm the page **scrolls from the keyboard** with Page Down / arrow keys
+  from anywhere on it — a page, unlike the old modal's inner scroll container,
+  should need nothing special for this. If something has been given `overflow`
+  by accident, remove it rather than adding a `tabIndex` workaround.
 - Confirm every picture is `aria-hidden` and that **no** picture presents itself
   as a table, a grid or a list to be navigated; the caption is the whole of a
   figure's accessible text.
-- Confirm the popup announces itself (its accessible name comes from the `<h2>`
-  via `aria-labelledby`), that each of the six headings and sentences is read,
-  and that each caption conveys the same fact as its picture.
+- Confirm the heading structure reads sensibly: one `<h1>` (the page title) and
+  six `<h2>` section headings, in DOM order, with nothing skipped.
+- Confirm each of the six headings and sentences is read, and that each caption
+  conveys the same fact as its picture.
 - Confirm the visible focus indicator is clearly visible on the "How to play"
-  button and on the Close button.
+  button and on the "Back to start" button.
 
-Why it comes here: the popup's content and layout are settled, so this pass is
+Why it comes here: the page's content and layout are settled, so this pass is
 about interaction and semantics rather than chasing a moving target.
 
-Depends on: Step 5 (the finished popup).
+Depends on: Step 7 (the finished page).
 
 Verification (**manual**) — this is story.md's **Gate D**. With the mouse put
 away, walk the whole flow described above from the keyboard alone. Then repeat
@@ -863,38 +1349,46 @@ checks.
 
 ---
 
-## Step 7 — Nothing else moved, and the README
+## Step 9 — Nothing else moved, and the README
 
 Status: pending
 
 Two things:
 
-1. **Regression sweep.** Confirm the rest of the app is untouched by this story.
+1. **Regression sweep.** Confirm the rest of the app is untouched by this
+   story — with particular attention to the shell, since this story added a
+   screen to it.
 2. **`README.md`.** Update it to mention that the app now explains the basics
    itself — one short addition in the same plain, player-facing register as the
    surrounding text (the intro paragraph mentioning the start screen, and/or a
-   "What you can do" bullet). Keep the existing outbound link to the companion
-   rulebook exactly as it is: the README is where that link lives, and the popup
-   deliberately has none. Running `/update-readme` (which reviews the branch
-   diff) is the intended way to do this; review its output against this step's
-   requirements before accepting it.
+   "What you can do" bullet). Say **page**, not popup. Keep the existing
+   outbound link to the companion rulebook exactly as it is: the README is
+   where that link lives, and the rules page deliberately has none. Running
+   `/update-readme` (which reviews the branch diff) is the intended way to do
+   this; review its output against this step's requirements before accepting
+   it.
 
-Depends on: Step 6 (the story's behaviour is final).
+Depends on: Step 8 (the story's behaviour is final).
 
 Verification (**manual**) — this is story.md's **Gate E**, plus the README
 check the plan guide requires. Restart the dev server, then:
 
 - Play a **Skirmish** game, a **Clash** game and a **Battle** game far enough to
   confirm each still sets up (both placements), plays (a move, an attack) and
-  can be ended as before, with the popup nowhere reachable from inside a game.
+  can be ended as before, with the rules page nowhere reachable from inside a
+  game.
 - Open the **review** screen with one of the sample records in `doc/samples/`
   and confirm it is unchanged.
 - From a game in progress, use "Back to start" and confirm the existing "leave
   this game?" prompt still behaves as before, and that the start screen it
   returns to shows all four choices.
+- Confirm every screen transition still works in both directions: start →
+  play → start, start → review → import → review → start, and start → rules →
+  start.
 - Read the updated `README.md` end to end and confirm it is accurate, in
   register, and still carries the companion-rulebook link.
 - Run the five repository checks a final time, and confirm `git diff --stat`
   over the whole branch touches **no** file under `src/rules/`, and none of
-  `Board.tsx`, `FullBoard.tsx`, `PlayBoard.tsx`, `AccessibleGrid.tsx` or
-  `App.tsx`.
+  `Board.tsx`, `FullBoard.tsx`, `PlayBoard.tsx` or `AccessibleGrid.tsx` — and
+  that its changes to `src/App.tsx` are limited to the new screen (one union
+  member, one branch, one extra `StartScreen` prop, plus comment).
