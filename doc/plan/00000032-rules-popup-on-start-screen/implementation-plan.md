@@ -1423,7 +1423,7 @@ run the five repository checks.
 
 ## Step 7 — The markers: move rings, attack arrows, removals
 
-Status: implemented
+Status: committed
 
 Notes: Added the marker vocabulary to `RuleFigure.tsx`/`RuleFigure.css`,
 derived entirely from each figure's existing `marking` data (no changes to
@@ -1515,6 +1515,44 @@ was the concrete numbers (the 0.7 cell-unit combat-arrow length, the 45%
 head-length fraction), which aren't dictated by the plan and were chosen and
 confirmed by eye to satisfy "contained entirely within the empty square,
 touching neither piece" and "the arrowhead needs to be obviously a head."
+
+**Final tuning pass** (story.md amendment 7 and the plan's Decision 1, as
+settled at the gate after the resizing pass above): two numeric changes only,
+both confined to `Markers`' attack branch in `RuleFigure.tsx`; `figures.ts`,
+`rulesCopy.ts`, the move-ring branch and the removal-mark code are untouched,
+and this pass made no change to `RuleFigure.css` at all (its still-uncommitted
+diff from Step 6/7's earlier work was already in the tree before this pass
+started and is unrelated to it).
+(1) **The six combat figures' arrows now nudge forward** along the
+attacker-to-defender unit vector by a new `COMBAT_ARROW_FORWARD_OFFSET =
+0.1` cell units, computed generically from `unitX`/`unitY` (never from "up"
+vs "down" or a figure's id) and applied only when the arrow is in the
+"combat" size profile (`isAdjacentAttack` false) - figures 3 and 4 (the
+"stub" profile) are not offset. The offset is capped at
+`Math.max(0.5 - halfLength, 0)` before being applied, so the arrow's tip can
+never leave the empty square it is centred in - the offset came out to
+exactly 0.1 (uncapped) for all six combat figures at the current 0.7-unit
+arrow length, since the cap is 0.15. (2) **Figures 3 and 4's arrows shrink
+from two-thirds to half the span** between the two piece centres, by
+changing `STUB_LENGTH_FACTOR` from `2 / 3` to `1 / 2`; the centre point,
+width and the width-doubling factor are unchanged. Verified by reading the
+computed SVG marker geometry directly (via a transient Playwright script,
+browser cached under the OS scratchpad only - `package.json`/
+`package-lock.json` confirmed byte-identical by `git status`/checksum before
+and after) rather than by eye alone: for the five red combat figures the
+shaft/head coordinates work out to a 0.7-unit arrow centred at cell-unit
+y = 2.4 (0.1 above the empty square's own centre at y = 2.5, i.e. shifted
+toward the defender), spanning y = 2.05–2.75, fully inside the empty
+square's y = 2–3 bounds; figure 10's blue arrow is the mirror image,
+centred at y = 2.6 and spanning y = 2.25–2.95, also fully inside; figures 3
+and 4's arrows shrink to a total length of 0.5 cell units (previously
+0.667) still centred on the same midpoint, and a full-page screenshot
+confirms they now visibly clear both piece icons instead of grazing them.
+All five repository checks (typecheck, lint, test - 945 tests unchanged
+since no data changed, format:check after a `prettier --write` on
+`RuleFigure.tsx`, build) pass; `git diff --stat` for the whole of Step 6+7's
+still-uncommitted work continues to touch only `RuleFigure.tsx` and
+`RuleFigure.css`. No deviation from this pass's two instructions.
 
 Add the marker vocabulary to `RuleFigure.tsx` / `RuleFigure.css`, per Decisions
 1 and 2:
