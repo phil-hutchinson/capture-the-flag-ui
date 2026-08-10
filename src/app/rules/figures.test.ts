@@ -123,42 +123,39 @@ describe("placement sanity", () => {
   }
 });
 
-describe("movement figures agree with legalDestinations", () => {
-  it('figure "movement" marks exactly the eight squares legalDestinations gives an unencumbered piece', () => {
-    const figure = figureById("movement");
-    const marking = figure.marking;
-    if (marking.kind !== "move") {
-      throw new Error('expected figure "movement" to carry a move marking');
-    }
-    const destinations = legalDestinations(
-      boardFromFigure(figure),
-      squareFromKey(marking.origin),
-      FIGURE_WINDOW.layout,
-    );
-    expect(destinations).toHaveLength(8);
-    expect(sortedSquareKeys(destinations)).toEqual(
-      [...marking.destinations].sort(),
-    );
-  });
+/**
+ * The two move figures and how many destinations `legalDestinations` should
+ * give each - the single source both the loop below and the coverage check
+ * (`figure coverage`, further down) read from, so a figure can't be dropped
+ * from one without also dropping out of the other.
+ */
+const MOVE_FIGURES: readonly {
+  id: FigureId;
+  expectedDestinationCount: number;
+}[] = [
+  { id: "movement", expectedDestinationCount: 8 },
+  { id: "slowedMovement", expectedDestinationCount: 4 },
+];
 
-  it('figure "slowedMovement" marks exactly the four squares legalDestinations gives an encumbered piece', () => {
-    const figure = figureById("slowedMovement");
-    const marking = figure.marking;
-    if (marking.kind !== "move") {
-      throw new Error(
-        'expected figure "slowedMovement" to carry a move marking',
+describe("movement figures agree with legalDestinations", () => {
+  for (const { id, expectedDestinationCount } of MOVE_FIGURES) {
+    it(`figure "${id}" marks exactly the ${String(expectedDestinationCount)} squares legalDestinations gives it`, () => {
+      const figure = figureById(id);
+      const marking = figure.marking;
+      if (marking.kind !== "move") {
+        throw new Error(`expected figure "${id}" to carry a move marking`);
+      }
+      const destinations = legalDestinations(
+        boardFromFigure(figure),
+        squareFromKey(marking.origin),
+        FIGURE_WINDOW.layout,
       );
-    }
-    const destinations = legalDestinations(
-      boardFromFigure(figure),
-      squareFromKey(marking.origin),
-      FIGURE_WINDOW.layout,
-    );
-    expect(destinations).toHaveLength(4);
-    expect(sortedSquareKeys(destinations)).toEqual(
-      [...marking.destinations].sort(),
-    );
-  });
+      expect(destinations).toHaveLength(expectedDestinationCount);
+      expect(sortedSquareKeys(destinations)).toEqual(
+        [...marking.destinations].sort(),
+      );
+    });
+  }
 });
 
 const ATTACK_FIGURE_IDS: readonly FigureId[] = [
@@ -263,10 +260,7 @@ describe("figure coverage", () => {
     const allIds = new Set(FIGURES.map((f) => f.id));
     const coveredByAttackCheck = new Set(ATTACK_FIGURE_IDS);
     const coveredByCombatCheck = new Set(COMBAT_FIGURES.map((c) => c.id));
-    const coveredByMoveCheck = new Set<FigureId>([
-      "movement",
-      "slowedMovement",
-    ]);
+    const coveredByMoveCheck = new Set<FigureId>(MOVE_FIGURES.map((m) => m.id));
     const coveredByAny = new Set<FigureId>([
       ...coveredByAttackCheck,
       ...coveredByCombatCheck,
@@ -282,6 +276,30 @@ describe("figure coverage", () => {
     for (const { id } of COMBAT_FIGURES) {
       expect(coveredByAttackCheck.has(id)).toBe(true);
       expect(coveredByCombatCheck.has(id)).toBe(true);
+    }
+  });
+
+  it("derives the combat-figure list from the data itself - any figure whose marking carries a non-empty removal set must be one of COMBAT_FIGURES, and no other", () => {
+    // This is the data-shaped guard the id-only checks above can't give:
+    // adding a `removed` entry to any attack figure that isn't meant to be a
+    // combat figure (e.g. `attackOrthogonal` or `attackDiagonal`) would make
+    // `RuleFigure` draw a removal mark with nothing here to catch the claim
+    // going unverified.
+    const idsWithRemovals = FIGURES.filter(
+      (figure) =>
+        figure.marking.kind === "attack" && figure.marking.removed.length > 0,
+    ).map((figure) => figure.id);
+    expect([...idsWithRemovals].sort()).toEqual(
+      [...COMBAT_FIGURES.map((c) => c.id)].sort(),
+    );
+
+    for (const id of ["attackOrthogonal", "attackDiagonal"] as const) {
+      const figure = figureById(id);
+      const marking = figure.marking;
+      if (marking.kind !== "attack") {
+        throw new Error(`expected figure "${id}" to carry an attack marking`);
+      }
+      expect(marking.removed).toHaveLength(0);
     }
   });
 });

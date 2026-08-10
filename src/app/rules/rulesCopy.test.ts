@@ -3,11 +3,22 @@
 // fixed copy and against the figures/copy drifting apart - it is not a
 // transcription check (there is no way to assert "matches story.md" in
 // code), so reviewers must still eyeball the copy against story.md at
-// Step 3's manual gate.
+// Step 4's Gate A and Step 7's Gate B.
 
 import { describe, expect, it } from "vitest";
 import { FIGURES, type FigureId } from "./figures.ts";
-import { RULES_CAPTIONS, RULES_HEADER, RULES_SECTIONS } from "./rulesCopy.ts";
+import {
+  RULES_CAPTIONS,
+  RULES_HEADER,
+  RULES_SECTIONS,
+  type RulesSectionId,
+} from "./rulesCopy.ts";
+
+const EXPECTED_HEADER_TITLE = "Capture the Flag: Rules";
+const EXPECTED_HEADER_LINES: readonly [string, string] = [
+  "Capture the opponent's flag before they capture yours",
+  "Place your pieces in phase one; battle your opponent in phase two.",
+];
 
 const EXPECTED_HEADINGS_IN_ORDER: readonly string[] = [
   "Movement",
@@ -18,11 +29,41 @@ const EXPECTED_HEADINGS_IN_ORDER: readonly string[] = [
   "Rank-up",
 ];
 
+/** The six sections' fixed body sentences, in the same order as `RULES_SECTIONS`. */
+const EXPECTED_BODIES_IN_ORDER: readonly string[] = [
+  "Pieces may move up to two squares in any of the four cardinal directions.",
+  "Pieces may only move one square if any enemy (including Tower or Flag) is present in the immediate surrounding eight squares.",
+  "Pieces can attack other pieces with the same movements as regular movement, as well as on the immediate diagonal.",
+  "In combat, the stronger piece wins, regardless of which piece attacks which. The losing piece is removed from the board; in the case of an attacker win, the attacker moves to the destination square.",
+  "If a piece attacks another piece of equal rank, both are removed. This also occurs when attacking a Tower.",
+  "If a piece has a friendly piece of identical rank in any of the eight squares immediately surrounding it, it will draw against a piece one rank higher, both when attacking and when defending.",
+];
+
+/** Which figure ids each section is fixed to carry (implementation plan, Decision 7). */
+const EXPECTED_FIGURE_IDS_BY_SECTION: Readonly<
+  Record<RulesSectionId, readonly FigureId[]>
+> = {
+  movement: ["movement"],
+  slowedMovement: ["slowedMovement"],
+  movementForAttacks: ["attackOrthogonal", "attackDiagonal"],
+  combat: ["combatRank1Wins", "combatRank3Loses"],
+  equalRankAndTower: ["combatEqualRank", "combatTower"],
+  rankUp: ["combatRankUpAttack", "combatRankUpDefend"],
+};
+
 describe("the six sections", () => {
   it("are exactly six, in the fixed order, with the fixed headings", () => {
     expect(RULES_SECTIONS).toHaveLength(6);
     expect(RULES_SECTIONS.map((section) => section.heading)).toEqual(
       EXPECTED_HEADINGS_IN_ORDER,
+    );
+  });
+
+  it("has the fixed header lines and each section's fixed body sentence", () => {
+    expect(RULES_HEADER.title).toBe(EXPECTED_HEADER_TITLE);
+    expect(RULES_HEADER.lines).toEqual(EXPECTED_HEADER_LINES);
+    expect(RULES_SECTIONS.map((section) => section.body)).toEqual(
+      EXPECTED_BODIES_IN_ORDER,
     );
   });
 
@@ -62,6 +103,14 @@ describe("figure coverage", () => {
     }
   });
 
+  it("assigns each section exactly its fixed figure ids", () => {
+    for (const section of RULES_SECTIONS) {
+      expect(section.figureIds).toEqual(
+        EXPECTED_FIGURE_IDS_BY_SECTION[section.id],
+      );
+    }
+  });
+
   it("gives every figure id exactly one caption, and no caption for anything else", () => {
     const captionIds = Object.keys(RULES_CAPTIONS) as FigureId[];
     expect(captionIds.sort()).toEqual([...allFigureIds].sort());
@@ -72,7 +121,7 @@ describe("figure coverage", () => {
   });
 });
 
-/** Every string of visible copy in the popup - header, sections, captions. */
+/** Every string of visible copy on the page - header, sections, captions. */
 function allCopyStrings(): string[] {
   const strings: string[] = [RULES_HEADER.title, ...RULES_HEADER.lines];
   for (const section of RULES_SECTIONS) {
@@ -89,7 +138,7 @@ describe("vocabulary guards", () => {
     }
   });
 
-  it('never says "orthogonal" (the popup says "cardinal directions")', () => {
+  it('never says "orthogonal" (the page says "cardinal directions")', () => {
     for (const text of allCopyStrings()) {
       expect(text.toLowerCase()).not.toContain("orthogonal");
     }
@@ -118,7 +167,7 @@ describe("vocabulary guards", () => {
     }
   });
 
-  it("contains no URL, since the popup has no outbound link", () => {
+  it("contains no URL, since the page has no outbound link", () => {
     for (const text of allCopyStrings()) {
       expect(text.toLowerCase()).not.toContain("http");
     }

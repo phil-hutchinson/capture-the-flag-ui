@@ -27,8 +27,9 @@ What a player will notice:
 - **Pictures drawn with the game's own pieces**, on small cutouts of a board.
   They look like the real board because they are drawn with the real board's
   artwork.
-- **Nothing else changes.** A "Back to start" control returns the player to the
-  start screen exactly as they left it.
+- **Nothing else changes.** "Back to start" controls return the player to the
+  start screen exactly as they left it. (The page carries **two** of them, one
+  near the top and one at the foot — see Amendments.)
 
 ## Amendments
 
@@ -36,6 +37,9 @@ Recorded so the changes of direction stay visible, in the order they were made.
 All were decided by the owner on seeing the work running — amendments 1 and 2
 after Step 3, amendments 3 to 6 after Step 6, amendment 7 after Step 7. Amendment 3 reverses amendment 2,
 which is left in place rather than deleted because code was built to it.
+Amendment 8 is recorded last but was actually decided earlier than that, at
+the revised plan's approval gate — around the same time as amendments 1 and 2
+— because the plan wasn't written until after those were decided.
 
 1. **The rules surface is a page, not a modal popup.** It was originally
    specified as a single popup over the start screen. A page sizes itself
@@ -83,6 +87,14 @@ which is left in place rather than deleted because code was built to it.
      had leaned on that overlap to carry "the attacker moves to the destination
      square"; that now rests on the section's own sentence, and on an arrow
      emphatic enough that its target is not in doubt.
+8. **The page carries two "Back to start" controls, not one.** One sits just
+   after the header, before the sections, so a reader meets the way out early;
+   the other sits at the foot of the page, after the last section, so a reader
+   who has scrolled all the way down is not made to scroll back up to leave.
+   Both call the same handler and carry the same visible label. The duplicate
+   label is an accepted cost — the two controls are the page's only controls
+   and are far apart in reading order, so a screen-reader user hearing "Back
+   to start" twice is not left guessing which is which.
 
 The story folder and branch keep their original `…-rules-popup-on-start-screen`
 name; only the surface changed.
@@ -263,20 +275,21 @@ four corrections were applied to what was dictated:
 2. **The rules page itself** — a screen carrying the header and the six
    sections, in a full-width header plus two-column layout that collapses to a
    single column when there is not room for two, with the left column's
-   sections read before the right column's in every layout, and a "Back to
-   start" control that returns without prompting.
+   sections read before the right column's in every layout, and **two** "Back
+   to start" controls (see Amendments) that return without prompting.
 3. **The ten pictures**, drawn from the game's own piece artwork on small
    board cutouts, each accompanied by a text equivalent conveying the same fact
    in the same plain language.
 4. **A picture-drawing module that lives beside the core board code** and is
-   reusable across all ten figures — cutout geometry, a piece drawn with or
-   without a square under it, a move/attack marker, and the struck-out marking
-   for a removed piece — with no change to the core board components.
+   reusable across all ten figures — cutout geometry, ~~a piece drawn with or
+   without a square under it~~ (superseded by amendment 3 — every figure draws
+   a board cutout now), a move/attack marker, and the struck-out marking for a
+   removed piece — with no change to the core board components.
 5. **Automated agreement between the pictures and the rules.** Each figure's
    marked squares and each combat figure's outcome are stated as data and
    checked against `movement.ts` and `combat.ts`, so a picture cannot quietly
-   go stale when a rule changes — **including the six figures that no longer
-   draw a board**. See Design decisions.
+   go stale when a rule changes — ~~**including the six figures that no longer
+   draw a board**~~ (superseded by amendment 3). See Design decisions.
 6. **Keyboard and screen-reader parity** — reaching, reading and leaving the
    page works from the keyboard alone, and every picture's meaning is available
    non-visually.
@@ -373,8 +386,9 @@ four corrections were applied to what was dictated:
   - **Picture 8's attack on a Tower is orthogonal, never diagonal.** Under
     `DIAGONAL_ATTACKABLE=movable_only` — the default — a Tower cannot be
     attacked diagonally at all, so a diagonal version of that figure would
-    illustrate a rule the game does not always have. This still holds with the
-    board removed: the figure's underlying squares are still checked.
+    illustrate a rule the game does not always have. ~~This still holds with
+    the board removed~~ (superseded by amendment 3 — the board was never
+    removed after all): the figure's underlying squares are still checked.
   - The board cutouts show **no lakes and no board edge**: every 5×5 window
     sits in open board, so nothing in a picture depends on geometry the page
     never explains.

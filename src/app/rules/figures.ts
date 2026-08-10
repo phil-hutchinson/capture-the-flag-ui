@@ -1,4 +1,4 @@
-// The ten pictures the "How to play" popup draws (story 00000032), declared
+// The ten pictures the "How to play" page draws (story 00000032), declared
 // as plain data - no React, no JSX, no CSS.
 //
 // This module exists precisely so the figures can be unit-tested in this
@@ -40,7 +40,7 @@ import type { PieceTypeId } from "../../rules/primary/v2/pieces.ts";
  * (`BOARD_LAYOUTS.standard_144`), anchored at D1 - columns D-H by rows 1-5,
  * centred on F3 (implementation plan, Decision 6). Battle's lake rows (6-7)
  * are entirely outside this window, so nothing a figure marks depends on
- * board geometry the popup never explains; `figures.test.ts` pins that down.
+ * board geometry the page never explains; `figures.test.ts` pins that down.
  */
 export const FIGURE_WINDOW: {
   readonly layout: BoardLayout;
@@ -91,7 +91,7 @@ export type FigureMarking =
       readonly removed: readonly string[];
     };
 
-/** Stable ids for the ten figures, in the order they appear in the popup. */
+/** Stable ids for the ten figures, in the order they appear on the page. */
 export type FigureId =
   | "movement"
   | "slowedMovement"
@@ -116,9 +116,9 @@ export interface Figure {
 }
 
 /**
- * The ten figures (implementation plan, Decision 7), in popup order. Rank 1
+ * The ten figures (implementation plan, Decision 7), in page order. Rank 1
  * = `masterOfArms`, rank 2 = `champion`, rank 3 = `knight`, rank 4 =
- * `halberdier`. Red = `"white"`, Blue = `"black"` (the popup's fixed
+ * `halberdier`. Red = `"white"`, Blue = `"black"` (the page's fixed
  * friendly/enemy colour convention - see story.md, "Players and colors").
  */
 export const FIGURES: readonly Figure[] = [

@@ -60,6 +60,7 @@
 // figure's accessible text (Decision 3).
 
 import { PieceIcon } from "../../art/PieceIcon.tsx";
+import { columnIndexOf } from "../../rules/primary/v2/board.ts";
 import {
   FIGURE_WINDOW,
   type Figure,
@@ -75,7 +76,7 @@ function parseSquare(square: string): {
   readonly row: number;
 } {
   return {
-    column: square.charCodeAt(0) - "A".charCodeAt(0),
+    column: columnIndexOf(square.charAt(0)),
     row: Number(square.slice(1)),
   };
 }
@@ -374,8 +375,8 @@ function Markers({ marking }: { readonly marking: FigureMarking }) {
   const centerY = midpointY + unitY * forwardOffset;
 
   // The arrow is centred on that (possibly nudged) point and extends
-  // `length` cell units either side of it, so it stops short of both pieces
-  // rather than reaching either one.
+  // `halfLength` cell units either side of it, so it stops short of both
+  // pieces rather than reaching either one.
   const tipX = centerX + unitX * halfLength;
   const tipY = centerY + unitY * halfLength;
   const tailX = centerX - unitX * halfLength;

@@ -1,19 +1,20 @@
-// The "How to play" popup's entire text (story 00000032), declared as plain
+// The "How to play" page's entire text (story 00000032), declared as plain
 // data - no React, no JSX, no CSS - transcribed exactly from story.md's "The
-// popup's content", which is the copy of record. Nothing here re-words,
+// page's content", which is the copy of record. Nothing here re-words,
 // re-punctuates or "fixes" that copy; the four corrections story.md lists
 // under "Copy" are already folded into the sentences below.
 //
 // This module exists for the same reason `figures.ts` does (see that
 // module's header): the repository's Vitest environment has no DOM, so
 // anything that *can* be pure data is pulled out of the `.tsx` layer and
-// checked with plain assertions in `rulesCopy.test.ts`. `RulesDialog.tsx` (a
-// later step) is the thin renderer that reads this module and
-// `figures.ts`; nothing here knows about pixels, SVG or React.
+// checked with plain assertions in `rulesCopy.test.ts`. `RulesScreen.tsx` is
+// the thin renderer that reads this module and `figures.ts` to draw the
+// page; `RuleFigure.tsx` reads the ten captions specifically. Nothing here
+// knows about pixels, SVG or React.
 
 import type { FigureId } from "./figures.ts";
 
-/** The popup's full-width header: a title and two lines beneath it. */
+/** The page's full-width header: a title and two lines beneath it. */
 export const RULES_HEADER: {
   readonly title: string;
   readonly lines: readonly [string, string];
@@ -28,7 +29,7 @@ export const RULES_HEADER: {
 /** Which side of the two-column layout a section belongs to (Decision 8). */
 export type RulesSectionColumn = "left" | "right";
 
-/** Stable ids for the six sections, in the order they appear in the popup. */
+/** Stable ids for the six sections, in the order they appear on the page. */
 export type RulesSectionId =
   | "movement"
   | "slowedMovement"
@@ -38,7 +39,7 @@ export type RulesSectionId =
   | "rankUp";
 
 /**
- * One of the popup's six sections: a heading, a body sentence, which column
+ * One of the page's six sections: a heading, a body sentence, which column
  * it sits in, and the ids of the figures (from `figures.ts`) it carries.
  */
 export interface RulesSection {
@@ -50,7 +51,7 @@ export interface RulesSection {
 }
 
 /**
- * The six sections, in popup order: the three movement sections (left
+ * The six sections, in page order: the three movement sections (left
  * column) followed by the three combat sections (right column). This is the
  * DOM order Decision 8 requires - left-column sections precede right-column
  * sections regardless of layout.
@@ -114,15 +115,15 @@ export const RULES_CAPTIONS: Readonly<Record<FigureId, string>> = {
   attackOrthogonal: "Red can attack the blue piece one square ahead.",
   attackDiagonal: "Red can attack the blue piece diagonally beside it.",
   combatRank1Wins:
-    "Red's rank 1 attacks blue's rank 2: the blue piece is removed.",
+    "Red's rank 1 — the strongest rank — attacks blue's rank 2: the blue piece is removed.",
   combatRank3Loses:
     "Red's rank 3 attacks blue's rank 2: the red piece is removed.",
   combatEqualRank: "Red's rank 4 attacks blue's rank 4: both are removed.",
   combatTower: "Red's rank 4 attacks a blue Tower: both are removed.",
   combatRankUpAttack:
-    "Red's rank 3, with a red rank 3 beside it, attacks blue's rank 2: both are removed.",
+    "Red's rank 3, with a red rank 3 beside it, attacks blue's rank 2: the attacker and the defender are both removed.",
   combatRankUpDefend:
-    "Blue's rank 2 attacks a red rank 3 with another red rank 3 right behind it: both are removed.",
+    "Blue's rank 2 attacks a red rank 3 with another red rank 3 right behind it: the attacker and the defender are both removed.",
 };
 
 /** The "How to play" start-screen button's fixed copy. */

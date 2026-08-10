@@ -234,7 +234,7 @@ so the two markers differ by **shape**:
   can reach", "four arrows"). Used in figures 1 and 2 only.
 - **Attack marker** — a thicker `--ink` arrow from the attacking piece to the
   attacked piece, ending in a **solid filled triangular arrowhead** whose tip
-  ending in a **solid filled triangular arrowhead**. Used in figures 3–10.
+  stops short of the defending piece. Used in figures 3–10.
 
   **Its size and extent are fixed by story.md's amendment 7**, which the owner
   made after seeing Step 7's first attempt — the arrow was too long and too thin
@@ -363,14 +363,14 @@ everything else on the page is story.md's fixed copy). They live in
 
 The files under `src/app/rules/` after this story:
 
-| File                                  | Kind                | What it holds                                                          |
-| ------------------------------------- | ------------------- | ---------------------------------------------------------------------- |
-| `figures.ts`                          | pure data, no React | the ten figures, the cutout window, placements, markings, presentation |
-| `figures.test.ts`                     | test                | the figures-versus-engine agreement check                              |
-| `rulesCopy.ts`                        | pure data, no React | the header, the six sections, the ten captions, the button copy        |
-| `rulesCopy.test.ts`                   | test                | structural and vocabulary guards on the copy                           |
-| `RuleFigure.tsx` / `RuleFigure.css`   | thin render         | one figure, drawn on its board cutout                                  |
-| `RulesScreen.tsx` / `RulesScreen.css` | thin render         | the page: header, "Back to start", sections, layout                    |
+| File                                  | Kind                | What it holds                                                   |
+| ------------------------------------- | ------------------- | --------------------------------------------------------------- |
+| `figures.ts`                          | pure data, no React | the ten figures, the cutout window, placements, markings        |
+| `figures.test.ts`                     | test                | the figures-versus-engine agreement check                       |
+| `rulesCopy.ts`                        | pure data, no React | the header, the six sections, the ten captions, the button copy |
+| `rulesCopy.test.ts`                   | test                | structural and vocabulary guards on the copy                    |
+| `RuleFigure.tsx` / `RuleFigure.css`   | thin render         | one figure, drawn on its board cutout                           |
+| `RulesScreen.tsx` / `RulesScreen.css` | thin render         | the page: header, "Back to start", sections, layout             |
 
 `RulesDialog.tsx` / `RulesDialog.css` (Step 3's modal) become
 `RulesScreen.tsx` / `RulesScreen.css` — **renamed with `git mv`** so the file
@@ -429,14 +429,19 @@ board rather than as a tiny complete board (the real board's outer border is
 2px; the cutout's is 1px). No lake, no buffer band, no rank/file labels, no
 board edge treatment.
 
-For the six that do not, there is **no square fill, no square border and no
+~~For the six that do not, there is **no square fill, no square border and no
 patch outline at all** — the page's own parchment background shows through,
-which is the same colour the board's squares are painted in.
+which is the same colour the board's squares are painted in.~~ **Superseded
+by story.md's amendment 3**: there is no longer a "six that do not" — every
+figure draws the cutout described above.
 
 ### Decision 6 — The cutout window: Battle, columns D–H × rows 1–5, centre F3
 
-_(Amended: the window still defines every figure's **squares**, for all ten
-figures; it is **drawn** only for figures 1–4. See Decision 11.)_
+_(Amended twice. The window has always defined every figure's **squares**, for
+all ten figures — that never changed. Whether the window is **drawn** did:
+briefly limited to figures 1–4 under the now-superseded Decision 11, then
+restored to all ten figures by story.md's amendment 3. See Decision 11, marked
+superseded, and Decision 7's table, which is current.)_
 
 All ten figures place their pieces in a 5×5 window onto the **Battle board**
 (`BOARD_LAYOUTS.standard_144`, 12×12), anchored at **D1**, i.e. columns D, E,
@@ -465,12 +470,14 @@ F, G, H by rows 1, 2, 3, 4, 5. The window's centre square is **F3**.
   advances.
 
 A figure names its pieces by **absolute square key** on that board (`"F3"`), and
-`RuleFigure.tsx` derives the drawing position from the anchor. **Dropping the
-board does not drop the squares:** all ten figures keep real, engine-checkable
-square keys, because those squares are what `figures.test.ts` feeds to
-`legalDestinations` / `legalAttacks` / `resolveCombat`. A figure whose squares
-stopped being real would silently stop being checked. Only the _drawing_ of the
-grid is dropped, and only for figures 5–10.
+`RuleFigure.tsx` derives the drawing position from the anchor. **The squares
+are never dropped, whatever a figure draws:** all ten figures keep real,
+engine-checkable square keys, because those squares are what `figures.test.ts`
+feeds to `legalDestinations` / `legalAttacks` / `resolveCombat`. A figure whose
+squares stopped being real would silently stop being checked. (**Superseded
+detail:** an earlier round briefly dropped the grid's _drawing_, not its
+squares, for figures 5–10 under Decision 11; story.md's amendment 3 restored
+the drawing, and every figure now draws the grid too.)
 
 ### Decision 7 — The ten figures (verified against the engine while this plan was written)
 
@@ -677,12 +684,26 @@ figure still obeys: **piece positions are derived from the figure's own square
 data, never hand-placed per figure.** That is what keeps the drawing honest
 against the engine-checked squares.
 
-There is now **one** presentation. Every figure is drawn on the 5×5 cutout
+~~There is now **one** presentation. Every figure is drawn on the 5×5 cutout
 described in Decisions 5 and 6, and attacker and defender occupy adjacent cells
 exactly as they do in the rules — so the arrow spans one cell boundary, the same
-way it does in figures 3 and 4.
+way it does in figures 3 and 4.~~ **This paragraph is itself superseded**, by
+story.md's amendments 5 and 6: the six combat figures no longer sit adjacent —
+each leaves one empty square between attacker and defender for the arrow, and
+figure 3 attacks one square ahead rather than two. What survives is only the
+first sentence's shape (one presentation, the 5×5 cutout of Decisions 5 and 6);
+the adjacency claim does not. Decision 7's amended table and `figures.ts` are
+current.
 
-### Decision 12 — The rank-up figures, and why figure 10's supporter is at F2
+### Decision 12 — The rank-up figures, and why figure 10's supporter is at F1
+
+_(Amended by story.md's amendments 5 and 6, after this decision was first
+written: the six combat figures — including figure 10 — moved to a two-square
+attack with an empty square between attacker and defender, so figure 10's
+defender moved from F3 to **F2** and its supporter moved again, from F2 to
+**F1**, to stay directly behind it. Decision 7's amended table and `figures.ts`
+are current; the squares named below are updated to match, with the
+plan-time-only reasoning marked superseded rather than deleted.)_
 
 story.md flagged figures 9 and 10 as the real risk of dropping the board: their
 rule condition is _adjacency_, which a board makes obvious and a void does not.
@@ -692,27 +713,36 @@ eight surrounding squares, and the reader can count it.
 
 What survives from the board-less round, and why it should **not** be reverted:
 
-- **Figure 10's supporting red piece stays at F2**, where Step 5 moved it (it
-  was E2 as first committed). The move was made for the void, but it is at least
-  as good on a board: F2 is orthogonally behind the defender at F3, on the far
-  side from the blue attacker at F4, so the supporting pair reads as a column
-  and the attacker is unambiguously the odd one out. Reverting to E2 would churn
-  committed data and its caption for no gain.
-- **Why F2 and not another square.** The supporter must be adjacent to the
-  defender (the rule) and **not** adjacent to the blue attacker (or the attacker
-  gains a second legal attack and the figure's single-arrow claim breaks). Of
-  F3's four orthogonal neighbours, E3 and G3 are both diagonally adjacent to F4
-  and F4 is the attacker itself — leaving F2 as the only orthogonal option.
-- **Verified at plan time and again in Step 5** against this repository's own
-  `legalAttacks`/`resolveCombat`: with red knights on F3 and F2 and a blue
-  champion on F4, `legalAttacks` from F4 is exactly `["F3"]` under all four
+- **Figure 10's supporting red piece is at F1**, directly behind the defender
+  at F2 (E2 as first committed, then F2 for the board-less round — where Step
+  5 moved it — and now F1, because amendment 5 moved the defender itself from
+  F3 to F2 to open the empty F3 square for the arrow). F1 is at least as good
+  as F2 was: it sits orthogonally behind the defender, on the far side from the
+  blue attacker at F4, so the supporting pair still reads as a column and the
+  attacker is unambiguously the odd one out.
+- **Why F1 and not another square** (**superseded**): this bullet originally
+  argued F2 was the _only_ orthogonal neighbour of a defender at F3 that was
+  not also adjacent to the attacker. That argument doesn't carry over as-is —
+  the defender now sits at F2, not F3, and F2's own unencumbered orthogonal
+  neighbours are F1, E2 and G2, none of which are adjacent to the attacker at
+  F4, so F1 is not uniquely legal the way F2 once was. F1 was kept because it
+  continues the same "supporter directly behind the defender, away from the
+  attacker" pattern the earlier round used — see `figures.ts`'s own comment on
+  figure 10 for the current, accurate account, rather than reconstructing new
+  geometric reasoning here.
+- **Verified at plan time (for the F3/F2 pair) and again during the Step 6
+  amendment pass (for the current F2/F1 pair)** against this repository's own
+  `legalAttacks`/`resolveCombat`: with red knights on F2 and F1 and a blue
+  champion on F4, `legalAttacks` from F4 is exactly `["F2"]` under all four
   combinations of `DIAGONAL_ATTACKABLE` × `DIAGONAL_ATTACK_PATH`, and
-  `resolveCombat(F4 → F3)` is `mutualLoss`. The generic assertions in
-  `figures.test.ts` re-verify this on every run.
-- **Caption 10 keeps Step 5's wording** — "with another red rank 3 right behind
-  it" — because it describes the picture that is actually drawn. The rule
-  sentence above it, story.md's fixed copy, still says "any of the eight squares
-  immediately surrounding it", so nothing about the rule's statement narrows.
+  `resolveCombat(F4 → F2)` is `mutualLoss` (Step 6's Notes record this
+  re-verification). The generic assertions in `figures.test.ts` re-verify this
+  on every run.
+- **Caption 10 keeps its "right behind it" wording** because it describes the
+  picture that is actually drawn, whichever squares it currently sits on. The
+  rule sentence above it, story.md's fixed copy, still says "any of the eight
+  squares immediately surrounding it", so nothing about the rule's statement
+  narrows.
 - **Figure 9 is unchanged**: its supporting red piece is at E2, orthogonally
   beside the attacker at F2, and on a cutout the two red pieces sit side by side
   on adjacent squares.
