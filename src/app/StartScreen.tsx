@@ -1,9 +1,9 @@
 // The start screen: the app's entry point (story 00000014, Step 8). Offers
-// exactly the two things a player can do here - play a hot-seat game, or
-// review one that was recorded earlier - each labeled in plain language a
-// player understands without explanation. `App.tsx` mounts this whenever
-// `screen.kind === "start"`; the two active buttons only ask the shell to
-// switch screens, so this component carries no state of its own.
+// the things a player can do here - play a hot-seat game, or review one that
+// was recorded earlier - each labeled in plain language a player understands
+// without explanation. `App.tsx` mounts this whenever `screen.kind ===
+// "start"`; "Play a game" and "Review a game" only ask the shell to switch
+// screens.
 //
 // "Play against the computer" is shown but unavailable (story 00000023, Step
 // 9): the trained engine has to be respecified for the major-2 rules before
@@ -25,9 +25,18 @@
 // `useEffect`, the same pattern `GameResult.tsx` uses for its "New game"
 // button) so a keyboard or screen-reader user landing here - whether at
 // app start or after returning from a game - is not stranded on `<body>`.
+//
+// "How to play" (story 00000032) opens the popup below its own button, first
+// in the list of choices (Decision 10) - a player meeting the game for the
+// first time finds it before "Play a game". It is the one piece of state
+// this component carries: whether the popup is open. The popup itself is
+// only reachable from here (story.md's Policy), so `App.tsx` needs no new
+// screen and no new route for it.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { APP_NAME, TAGLINE } from "../appInfo.ts";
+import { HOW_TO_PLAY_BUTTON } from "./rules/rulesCopy.ts";
+import { RulesDialog } from "./rules/RulesDialog.tsx";
 import "../App.css";
 import "./StartScreen.css";
 
@@ -40,6 +49,7 @@ export interface StartScreenProps {
 
 export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -52,6 +62,20 @@ export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
       </h1>
       <p className="start-screen__tagline">{TAGLINE}</p>
       <div className="start-screen__choices">
+        <button
+          type="button"
+          className="start-screen__choice"
+          onClick={() => {
+            setRulesOpen(true);
+          }}
+        >
+          <span className="start-screen__choice-title">
+            {HOW_TO_PLAY_BUTTON.title}
+          </span>
+          <span className="start-screen__choice-detail">
+            {HOW_TO_PLAY_BUTTON.detail}
+          </span>
+        </button>
         <button
           type="button"
           className="start-screen__choice"
@@ -97,6 +121,12 @@ export function StartScreen({ onPlayAGame, onReviewAGame }: StartScreenProps) {
           </span>
         </button>
       </div>
+      <RulesDialog
+        open={rulesOpen}
+        onClose={() => {
+          setRulesOpen(false);
+        }}
+      />
     </main>
   );
 }

@@ -583,7 +583,73 @@ then run the five repository checks:
 
 ## Step 3 — The "How to play" button and the popup shell, text only
 
-Status: pending
+Status: committed
+
+Notes: Added the "How to play" button as the first child of
+`.start-screen__choices` in `StartScreen.tsx`, with one new `useState`
+boolean (`rulesOpen`) and a rendered `<RulesDialog>`; `App.tsx` untouched.
+Created `src/app/rules/RulesDialog.tsx` (native `<dialog>`, `showModal()`
+pattern copied from `LeaveGameDialog.tsx`, `aria-labelledby`, Escape routed
+through `onClose`, focus moved to the `tabIndex={-1}` `<h2>` title on open,
+one Close button in a non-scrolling header, `PieceSpriteDefs` mounted as a
+fragment sibling) and `RulesDialog.css` (flex-column dialog with a
+non-scrolling header and an internally scrolling sections grid, one column
+by default and two above a 48rem viewport breakpoint, left/right sections
+pinned via `[data-rules-column]` + `grid-column`, never `order`). Each
+section renders its heading and body sentence from `rulesCopy.ts` verbatim;
+each figure slot is a dashed, `aria-hidden` placeholder box (real
+`RuleFigure`s land in Step 4). All five repository checks (typecheck, lint,
+test, format:check, build) pass; `git diff --stat` touches only
+`src/app/StartScreen.tsx` (modified) and the two new `src/app/rules/`
+files — no forbidden file. No deviation from the plan; Decision 10's
+pre-approved padding remedy was not applied, since this step's manual gate
+(Gates A/C and Decision 10's check) is the owner's to run and judge.
+
+**Post-manual-gate fixes (two defects found at the owner's manual gate,
+fixed in the same files, no other step touched):**
+
+- **Defect 1 — popup content visible while closed.** Cause confirmed:
+  `.rules-dialog { display: flex; … }` in `RulesDialog.css` was
+  unconditional, and its specificity (one class) beats the user-agent rule
+  `dialog:not([open]) { display: none }` (one element + one attribute
+  selector inside `:not()`), so the dialog rendered as a visible flex box on
+  the page even while closed, overriding the native `<dialog>`'s own
+  `display: none`. Fixed by moving `display: flex` out into a separate
+  `.rules-dialog[open] { display: flex; }` rule, so the UA's `display: none`
+  governs while the `open` attribute is absent and this rule only takes over
+  once `showModal()`/`close()` have set it — the same effect
+  `LeaveGameDialog.css` gets "for free" by never setting `display` at all,
+  which the popup can't do here because it needs `flex-direction: column`
+  while open.
+- **Defect 2 — right column starting partway down.** Cause confirmed: each
+  `<section>` was pinned individually with `grid-column: 1` / `grid-column:
+2` (via `[data-rules-column]`) while row placement stayed automatic, so
+  with six `<section>` items in one grid the three `grid-column: 1` items
+  filled rows 1–3 before the first `grid-column: 2` item was placed, landing
+  it (and the rest of the right column) at row 3 or later instead of row 1.
+  Fixed using the plan's pre-approved wrapper alternative: `RulesDialog.tsx`
+  now groups sections into two DOM wrapper elements
+  (`<div className="rules-dialog__column">`), one per `rulesCopy.ts` column,
+  built by filtering `RULES_SECTIONS` on its `column` field (`sectionsInColumn`,
+  driven entirely by that field — no hardcoded section count). With exactly
+  two wrapper elements as the grid's direct children, the grid's own
+  row-by-row auto-placement puts the first wrapper in column 1 and the
+  second in column 2, both starting at row 1, with no explicit `grid-column`
+  or `grid-row` needed and no use of `order`. DOM order is unchanged (header,
+  then the left wrapper's three sections, then the right wrapper's three
+  sections), so reading/tab order and the single-column collapse are
+  unaffected; each wrapper is a `flex-direction: column` list, and the outer
+  `.rules-dialog__sections` grid still collapses to one column below the
+  48rem breakpoint, stacking the left wrapper's three sections above the
+  right wrapper's three, in the same order. Internal scrolling of the
+  sections region (`overflow-y: auto` on `.rules-dialog__sections`) was
+  unaffected by either fix and was re-confirmed by inspection of the
+  unchanged CSS property.
+- No other change. All five repository checks re-run clean after both
+  fixes: typecheck, lint, `test` (942 tests), `format:check` (after a
+  `prettier --write` on `RulesDialog.tsx`), and `build`. `git diff --stat`
+  / `git status --porcelain` still show only `StartScreen.tsx` (modified)
+  and the two new `src/app/rules/` files — no forbidden file.
 
 Two things, which together are the first thing a player can actually see:
 
