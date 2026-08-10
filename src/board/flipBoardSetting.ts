@@ -12,8 +12,15 @@
 
 const STORAGE_KEY = "ctf:flip-board-between-turns";
 
-/** Default value when nothing is stored, or the setting cannot be read: flipping on. */
-const DEFAULT_FLIP_BETWEEN_TURNS = true;
+/**
+ * Default value when nothing is stored, or the setting cannot be read:
+ * flipping off (story 00000034). Most people looking at this app are
+ * driving both sides themselves, and a board that spins between turns is
+ * disorienting in that case; two players sharing one device can still turn
+ * flipping on via the toggle, and a device with a stored preference keeps
+ * that preference regardless of this default.
+ */
+const DEFAULT_FLIP_BETWEEN_TURNS = false;
 
 /**
  * Reads the persisted "flip board between turns" setting. Returns

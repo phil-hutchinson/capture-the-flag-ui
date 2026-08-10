@@ -22,7 +22,7 @@ export const RULES_HEADER: {
   title: "Capture the Flag: Rules",
   lines: [
     "Capture the opponent's flag before they capture yours",
-    "Place your pieces in phase one; battle your opponent in phase two.",
+    "Place your pieces in phase one — battle your opponent in phase two",
   ],
 };
 

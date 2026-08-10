@@ -1,8 +1,24 @@
-/* The start screen: app name, tagline and the three entry choices (Step 8).
+/* The start screen: app name, tagline and its choices (story 00000014,
+   Step 8). How many choices are rendered - and which ones - is decided
+   elsewhere (`startScreenChoices.ts`, `../featureVisibility.ts`); this file
+   just lays out whatever `.start-screen__choice` buttons are in the DOM.
    `.start-screen__choice[aria-disabled="true"]` mirrors the pre-existing
    `:disabled` rule so "Play against the computer" keeps the same dimmed
    visual treatment now that it uses `aria-disabled` instead of the native
-   attribute (story 00000002, Step 8). */
+   attribute (story 00000002, Step 8).
+
+   `.start-screen__choice` is a fixed width (story 00000034, Step 2 owner
+   feedback at Gate A) rather than sized to its own content: with only
+   `min-width`, each button hugged its own title/detail text, so "How to
+   play" (the longest visible copy) came out visibly wider than "Play a
+   game". A shared `width` makes every button the same size regardless of
+   how many are shown - two today, up to four once the hidden choices in
+   `startScreenChoices.ts` return - because it does not depend on content
+   length the way `min-width` did; the button's own text still wraps onto
+   more lines rather than overflowing if it does not fit (see the detail and
+   note spans below, neither of which is `white-space: nowrap`). The row
+   itself is still `flex-wrap: wrap`, so on a narrow viewport buttons drop to
+   their own line exactly as before. */
 
 .start-screen__tagline {
   max-width: 32rem;
@@ -29,7 +45,8 @@
   background: var(--parchment);
   color: var(--ink);
   cursor: pointer;
-  min-width: 12rem;
+  box-sizing: border-box;
+  width: 16rem;
 }
 
 .start-screen__choice-title {

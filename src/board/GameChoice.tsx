@@ -13,10 +13,13 @@
 // toggles which is currently chosen) plus one explicit "Play" action that
 // starts placement for whichever is currently selected - unlike
 // `EngineSideChoice`'s side buttons (which both choose and start in one
-// click), a single "Play <Game>" button here reads naturally once a game is
-// already highlighted as selected, and keeps the description of the
-// currently-selected game in one settled place rather than repeating it on
-// several directly-actionable buttons.
+// click), a single "Play" button here reads naturally once a game is already
+// highlighted as selected - its name shown as pressed directly above - and
+// keeps the description of the currently-selected game in one settled place
+// rather than repeating it on several directly-actionable buttons. (Story
+// 00000034 shortened the button's own label from "Play <Game>" to plain
+// "Play", for the same reason - the selected game is already shown above
+// it.)
 //
 // Which game starts pre-selected (owner feedback at the Step 7 manual gate,
 // 2026-08-01): Skirmish on the first game of a session (`lastPlayed` is
@@ -33,7 +36,7 @@
 //
 // Story 00000027's implementation plan, Decision 8: the two diagonal-attack
 // rule choices sit in one new section between the selected game's
-// description and the "Play <Game>" button, offered identically for every
+// description and the "Play" button, offered identically for every
 // game and unaffected by which one is currently selected. Each choice is
 // rendered from `ruleChoices.ts`'s `RULE_CHOICES` as the same `aria-pressed`
 // two-button group the game buttons above use, with the selected option's
@@ -91,20 +94,19 @@ export interface GameChoiceProps {
  * Clash pass it today). `GAME_DETAIL` itself is exhaustive over `GameId` (a
  * fourth game fails to compile here until it has a description), mirroring
  * the property the old edition-keyed `PICKABLE_GAME_IDS` stand-in held before
- * this step replaced it. Story 00000025, Step 7: Skirmish's description
- * gains a clause about the tower/lane restriction, so a player meets the
- * rule before it ever refuses them at placement. Story 00000030's Step 9:
- * Clash's description says what a player cannot infer from a size - the
- * uneven lakes and the missing lane at the left edge - in the same plain
- * language, with no "experimental"/"proposed"/"pre-release" framing
- * (story.md's Policy).
+ * this step replaced it.
+ *
+ * Story 00000034 shortened these three descriptions to one or two plain
+ * sentences apiece for a first-time viewer: Skirmish's clause about the
+ * tower/lane restriction (story 00000025, Step 7) and Clash's fuller lake
+ * explanation (story 00000030, Step 9) are both dropped here, deliberately -
+ * the tower/lane rule is now explained only where it is actually enforced, at
+ * placement time (`towerPlacementMessages.ts`).
  */
 const GAME_DETAIL: Readonly<Record<GameId, string>> = {
-  skirmish:
-    "A smaller game, recommended if this is your first time playing: an 8x8 board with a 16-piece army, and the armies start closer together. A Tower can't be placed directly in front of a lane, one of the open columns running through the middle of the board.",
-  clash:
-    "A mid-size game: a 10x10 board with a 20-piece army. Its lakes are uneven — one sits hard against the left edge, with no lane beside it, and the widest blocks three columns — so the two halves of the board don't mirror each other.",
-  battle: "The full game: a 12x12 board with a 25-piece army.",
+  skirmish: "Play on an 8x8 board with a 16-piece army.",
+  clash: "Play on a 10x10 board with a 20-piece army. Irregular lakes.",
+  battle: "Play on a 12x12 board with a 25-piece army.",
 };
 
 /**
@@ -182,7 +184,7 @@ export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
   // strings, rather than the rules engine's own `RuleChoiceOverrides`,
   // because a button's `value` is read generically off `RuleChoiceDescriptor`
   // here and cannot carry each flag's own literal-value type - the one cast
-  // this component needs, at the "Play <Game>" button below, mirrors
+  // this component needs, at the "Play" button below, mirrors
   // `ruleChoices.ts`'s own `buildRuleChoice`/`nonStandardRuleSentences` casts
   // for the same reason.
   //
@@ -303,7 +305,7 @@ export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
         })}
       </div>
       <button type="button" className="game-choice__start" onClick={handlePlay}>
-        Play {gameName(choice)}
+        Play
       </button>
     </div>
   );

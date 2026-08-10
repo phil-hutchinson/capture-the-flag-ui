@@ -60,21 +60,30 @@ describe("flipBoardSetting", () => {
     expect(readFlipBetweenTurns()).toBe(true);
   });
 
-  it("defaults to true when nothing is stored", () => {
+  it("defaults to false when nothing is stored", () => {
     globalThis.localStorage = inMemoryLocalStorage();
-    expect(readFlipBetweenTurns()).toBe(true);
+    expect(readFlipBetweenTurns()).toBe(false);
   });
 
-  it("defaults to true and does not throw when localStorage is undefined", () => {
+  it("defaults to false and does not throw when localStorage is undefined", () => {
     // @ts-expect-error - deleting a global that may or may not exist.
     delete globalThis.localStorage;
-    expect(readFlipBetweenTurns()).toBe(true);
+    expect(readFlipBetweenTurns()).toBe(false);
     expect(() => writeFlipBetweenTurns(false)).not.toThrow();
   });
 
-  it("defaults to true and does not throw when localStorage throws", () => {
+  it("defaults to false and does not throw when localStorage throws", () => {
     globalThis.localStorage = throwingLocalStorage();
-    expect(readFlipBetweenTurns()).toBe(true);
+    expect(readFlipBetweenTurns()).toBe(false);
     expect(() => writeFlipBetweenTurns(false)).not.toThrow();
+  });
+
+  it("a stored preference outranks the new default", () => {
+    // Seeds storage directly, as a device that stored `true` before the
+    // default flipped to `false` would already have it - `STORAGE_KEY` is
+    // module-private, so the literal is required here.
+    globalThis.localStorage = inMemoryLocalStorage();
+    globalThis.localStorage.setItem("ctf:flip-board-between-turns", "true");
+    expect(readFlipBetweenTurns()).toBe(true);
   });
 });

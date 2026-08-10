@@ -17,7 +17,7 @@ import {
 const EXPECTED_HEADER_TITLE = "Capture the Flag: Rules";
 const EXPECTED_HEADER_LINES: readonly [string, string] = [
   "Capture the opponent's flag before they capture yours",
-  "Place your pieces in phase one; battle your opponent in phase two.",
+  "Place your pieces in phase one — battle your opponent in phase two",
 ];
 
 const EXPECTED_HEADINGS_IN_ORDER: readonly string[] = [

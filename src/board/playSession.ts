@@ -125,10 +125,14 @@ function isInert(session: PlaySession): boolean {
  * move (story 00000006, Step 13).
  *
  * `flipBetweenTurns` (story 00000012, Step 2) is the player's "Flip board
- * between turns" setting, defaulting to `true` so existing callers keep
- * today's behavior unchanged:
+ * between turns" setting. This parameter defaults to `true` so existing
+ * callers keep today's behavior unchanged if they omit it - that is only
+ * this function's own default, not the app's: the app-level default is now
+ * `false` (`DEFAULT_FLIP_BETWEEN_TURNS`, story 00000034), and every
+ * production caller (`PlayBoard.tsx`) passes the setting explicitly rather
+ * than relying on this parameter default.
  *
- * - **`true`** (flipping on, the default): ordinarily this is
+ * - **`true`** (flipping on): ordinarily this is
  *   `play.sideToMove` - the active player sees their own home edge nearest
  *   them, and the board flips at each hand-off. The exception is a **pending
  *   draw offer**. An offer does not change `sideToMove` (the turn remains the
