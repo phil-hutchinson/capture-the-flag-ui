@@ -32,7 +32,13 @@ import {
   describeDrawOffer,
   describeResult,
 } from "./playAnnouncement.ts";
-import { describeActivation as describeDemotionActivation } from "./v3PlayAnnouncement.ts";
+import {
+  describeActivation as describeDemotionActivation,
+  describeDrawAccepted as describeDemotionDrawAccepted,
+  describeDrawDecline as describeDemotionDrawDecline,
+  describeDrawOffer as describeDemotionDrawOffer,
+  describeResignation as describeDemotionResignation,
+} from "./v3PlayAnnouncement.ts";
 import {
   describeAutoFillCompleted,
   describeBoardCleared,
@@ -67,7 +73,11 @@ import { computeCountdownWarnings } from "./playWarnings.ts";
 import { PlayWarnings } from "./PlayWarnings.tsx";
 import { Tray } from "./Tray.tsx";
 import {
+  acceptDraw as acceptDemotionDraw,
   activateSquare as activateDemotionSquare,
+  declineDraw as declineDemotionDraw,
+  offerDraw as offerDemotionDraw,
+  resign as resignDemotion,
   startSession as startDemotionSession,
   type PlaySession as DemotionPlaySession,
 } from "./v3PlaySession.ts";
@@ -622,16 +632,61 @@ export function HotSeatGame({
     // `handlePlayActivate` below for major 2; this component only turns a
     // grid activation into that one call (plus deriving the live-region
     // announcement for it via `v3PlayAnnouncement.ts`'s `describeActivation`).
-    // Nothing about endings, the result panel, the draw offer or resignation
-    // is wired here (Step 15's scope boundary) - once the game ends the
-    // session goes inert on its own (`v3PlaySession.ts`'s `isInert`) and the
-    // board simply stops responding; Step 16 adds the presentation for that.
+    //
+    // Step 16: every ending - the draw offer (offer/accept/decline) and
+    // resignation, alongside the endings already detected automatically by
+    // `describeDemotionActivation` after a game-ending ply - is wired here,
+    // mirroring `handleOfferDraw`/`handleAcceptDraw`/`handleDeclineDraw`
+    // below for major 2 exactly, and pushes its sentence into the same
+    // `demotionAnnouncement` live region the ply narrative already uses, so
+    // nothing is ever announced twice from two different regions.
+    // `handleDemotionResign` is only ever called by `ResignControl` *after*
+    // its own two-step confirmation - resigning itself needs no acceptance
+    // and cannot be declined (rules.md §5.5).
     const handleDemotionActivate = (square: DemotionSquare) => {
       const next = activateDemotionSquare(demotionSession, square);
       setDemotionSession(next);
       setDemotionAnnouncement(
         describeDemotionActivation(demotionSession, next, square),
       );
+    };
+
+    // Story 00000036's implementation plan, Step 16: a full reset, exactly
+    // like major-2's `handleNewGame` below - back to the "Choose a game"
+    // screen, which pre-selects Demotion again since `lastPlayed` was
+    // already recorded, via `onGameStarted`, when this game began
+    // (`handleChooseDemotion` above).
+    const handleDemotionNewGame = () => {
+      setDemotionSession(null);
+      setDemotionAnnouncement("");
+      setGameAnnouncement("");
+    };
+
+    const handleDemotionOfferDraw = () => {
+      const offeringSide = demotionSession.play.sideToMove;
+      setDemotionSession(offerDemotionDraw(demotionSession));
+      setDemotionAnnouncement(describeDemotionDrawOffer(offeringSide));
+    };
+
+    const handleDemotionAcceptDraw = () => {
+      const next = acceptDemotionDraw(demotionSession);
+      setDemotionSession(next);
+      setDemotionAnnouncement(describeDemotionDrawAccepted(next.play.result));
+    };
+
+    const handleDemotionDeclineDraw = () => {
+      const { drawOffer } = demotionSession;
+      if (drawOffer === null) {
+        return;
+      }
+      setDemotionSession(declineDemotionDraw(demotionSession));
+      setDemotionAnnouncement(describeDemotionDrawDecline(drawOffer));
+    };
+
+    const handleDemotionResign = () => {
+      const next = resignDemotion(demotionSession);
+      setDemotionSession(next);
+      setDemotionAnnouncement(describeDemotionResignation(next.play.result));
     };
 
     return (
@@ -659,6 +714,11 @@ export function HotSeatGame({
           onFlipBetweenTurnsChange={handleFlipBetweenTurnsChange}
           onActivate={handleDemotionActivate}
           announcement={demotionAnnouncement}
+          onNewGame={handleDemotionNewGame}
+          onOfferDraw={handleDemotionOfferDraw}
+          onAcceptDraw={handleDemotionAcceptDraw}
+          onDeclineDraw={handleDemotionDeclineDraw}
+          onResign={handleDemotionResign}
         />
       </main>
     );

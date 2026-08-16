@@ -1643,7 +1643,47 @@ Also run the five repository checks.
 
 ## Step 16 — Every ending: results, resignation, and the countdown at 40
 
-Status: pending
+Status: committed
+
+Notes: `DemotionGame.tsx` now branches on `session.play.result.kind`: while
+ongoing it renders `PlayStatus`, `PlayWarnings` (via the already-parameterized
+`computeCountdownWarnings`, against v3's own `INACTIVITY_LIMIT` = 40), the
+shared `DrawOffer` (wired to `v3PlaySession.ts`'s `offerDraw`/`acceptDraw`/
+`declineDraw`), and the new `ResignControl` (hidden while `session.drawOffer
+!== null`, per Decision 9); once finished it renders `GameResult` instead,
+fed by `v3PlayAnnouncement.ts`'s `describeResult`. `FlipBoardToggle` and
+`FullBoard` are unconditional, so the final position stays visible and
+inert. All five new handlers
+(`handleDemotionNewGame`/`handleDemotionOfferDraw`/`handleDemotionAcceptDraw`/
+`handleDemotionDeclineDraw`/`handleDemotionResign`) live in `HotSeatGame.tsx`,
+mirroring the major-2 Phase-2 branch's own handlers one-for-one, and push
+their sentences into the same `demotionAnnouncement` live region
+`describeDemotionActivation` already writes to (Decision 5's six sentences
+were already produced and tested by Step 13's `v3PlayAnnouncement.test.ts`;
+this step wires them to the panel rather than re-deriving them).
+`handleDemotionNewGame` resets `demotionSession`/`demotionAnnouncement`/
+`gameAnnouncement`, returning to the picker, which pre-selects Demotion
+because `onGameStarted` already recorded the selection when the game began
+(Step 14) - no new plumbing needed there. New `ResignControl.tsx` +
+`ResignControl.css` (a two-step confirmation mirroring `DrawOffer.tsx`'s and
+`LeaveGameDialog.tsx`'s established shape and focus-on-Cancel precedent
+exactly) sit on top of a new, small, pure module, `resignControl.ts`
+(`ResignConfirmState`, its two transitions, and
+`describeResignConfirmation` - Decision 9's exact wording, naming the
+_opponent_ who would win and never phrased as an offer), added because the
+project has no component-testing setup (no `.tsx` test exists anywhere in
+the repo, confirmed by search) - `resignControl.ts` is where the step's
+"pure logic behind the resign control's two-step state" lives and is
+unit-tested (`resignControl.test.ts`, 6 cases, including that the
+confirmation sentence never contains "accept", "decline" or "offer"). No
+deviation from the plan otherwise: `ResignControl` is imported and rendered
+only by `DemotionGame.tsx` (confirmed by a repo-wide grep), so it is
+unreachable from a Battle/Skirmish/Clash game. All five checks pass
+(typecheck, lint, 1239 tests - up from 1233, +6 new in
+`resignControl.test.ts` - format:check, build); `git status --short` shows
+no modification under `src/rules/primary/v2/` or `src/rules/primary/v3/`.
+Gate G (including playing the inactivity draw out to 40 in the running app)
+is the owner's manual pass, not exercised by this agent.
 
 Complete `DemotionGame`:
 
