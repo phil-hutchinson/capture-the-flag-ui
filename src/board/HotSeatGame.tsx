@@ -32,6 +32,7 @@ import {
   describeDrawOffer,
   describeResult,
 } from "./playAnnouncement.ts";
+import { describeActivation as describeDemotionActivation } from "./v3PlayAnnouncement.ts";
 import {
   describeAutoFillCompleted,
   describeBoardCleared,
@@ -66,10 +67,12 @@ import { computeCountdownWarnings } from "./playWarnings.ts";
 import { PlayWarnings } from "./PlayWarnings.tsx";
 import { Tray } from "./Tray.tsx";
 import {
+  activateSquare as activateDemotionSquare,
   startSession as startDemotionSession,
   type PlaySession as DemotionPlaySession,
 } from "./v3PlaySession.ts";
 import { squareKey, type Square } from "../rules/primary/v2/board.ts";
+import type { Square as DemotionSquare } from "../rules/primary/v3/board.ts";
 import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
 import { INACTIVITY_LIMIT } from "../rules/primary/v2/outcome.ts";
@@ -391,6 +394,13 @@ export function HotSeatGame({
   // rather than by `PlayStatus` (a plain visual indicator) so it is never
   // announced twice from two different live regions.
   const [playAnnouncement, setPlayAnnouncement] = useState("");
+  // Story 00000036's implementation plan, Step 15: the Demotion branch's own
+  // counterpart of `playAnnouncement` above - text pushed into `DemotionGame`'s
+  // board live region, derived from `demotionSession` immediately before and
+  // after each activation via `v3PlayAnnouncement.ts`'s `describeActivation`
+  // (aliased `describeDemotionActivation` above to avoid colliding with major
+  // 2's own import of the same name).
+  const [demotionAnnouncement, setDemotionAnnouncement] = useState("");
   // Story 00000012, Step 4: the "Flip board between turns" setting. It is a
   // device setting, not part of any game, so it is initialized once from
   // local storage (lazy initializer, defaulting to on when nothing is
@@ -604,10 +614,26 @@ export function HotSeatGame({
     // below - same shell, same element order (sprite defs, heading, back
     // button, leave dialog, announcement region, then content), so React
     // keeps the persistent `<h1>` node and `role="status"` region across this
-    // branch change exactly as it does across the other three. No
-    // interaction is wired yet (Step 15) - `DemotionGame` renders the turn
-    // indicator, the flip-board toggle, and the board itself, with no
-    // activatable square.
+    // branch change exactly as it does across the other three.
+    //
+    // Step 15: all interaction - selecting a piece, moving it, attacking, and
+    // the turn hand-off (including any demotion) - flows through
+    // `v3PlaySession.ts`'s `activateSquare`, exactly mirroring
+    // `handlePlayActivate` below for major 2; this component only turns a
+    // grid activation into that one call (plus deriving the live-region
+    // announcement for it via `v3PlayAnnouncement.ts`'s `describeActivation`).
+    // Nothing about endings, the result panel, the draw offer or resignation
+    // is wired here (Step 15's scope boundary) - once the game ends the
+    // session goes inert on its own (`v3PlaySession.ts`'s `isInert`) and the
+    // board simply stops responding; Step 16 adds the presentation for that.
+    const handleDemotionActivate = (square: DemotionSquare) => {
+      const next = activateDemotionSquare(demotionSession, square);
+      setDemotionSession(next);
+      setDemotionAnnouncement(
+        describeDemotionActivation(demotionSession, next, square),
+      );
+    };
+
     return (
       <main className="app">
         <PieceSpriteDefs />
@@ -631,6 +657,8 @@ export function HotSeatGame({
           session={demotionSession}
           flipBetweenTurns={flipBetweenTurns}
           onFlipBetweenTurnsChange={handleFlipBetweenTurnsChange}
+          onActivate={handleDemotionActivate}
+          announcement={demotionAnnouncement}
         />
       </main>
     );

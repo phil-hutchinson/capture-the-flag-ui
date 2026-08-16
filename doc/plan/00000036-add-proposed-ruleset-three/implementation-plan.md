@@ -1569,7 +1569,35 @@ Also run the five repository checks.
 
 ## Step 15 — Playing a Demotion game
 
-Status: pending
+Status: committed
+
+Notes: Extended `DemotionGame.tsx` to accept `onActivate`/`announcement`
+props and derive `selected`/`destinationSquares`/`attackSquares`/
+`activatableSquares` from `session` via `v3PlaySession.ts`'s
+`actionableSquares`/`attackTargets`/`activatableSquares`, mirroring
+`PlayBoard.tsx`'s own derivation for major 2 one-for-one (including its
+policy of leaving an unselected board's own-movable-piece squares
+unhighlighted). `HotSeatGame.tsx`'s Demotion branch gained
+`handleDemotionActivate` (calling `v3PlaySession.ts`'s `activateSquare`,
+aliased `activateDemotionSquare` to avoid colliding with major 2's own
+`activateSquare` import) and a new `demotionAnnouncement` state slot fed by
+`v3PlayAnnouncement.ts`'s `describeActivation` (aliased
+`describeDemotionActivation` for the same reason), both wired straight into
+`DemotionGame`. No change was needed to `boardViewAdapterV3.ts`:
+`boardPositionForDemotion` already reads each piece's live `rank` off the
+board on every call, so a demoted piece's artwork and corner numeral (and its
+accessible label, "{Rank name}, rank {N}") update automatically the moment
+`activateSquare` writes the demotion into `session.play.board` - nothing new
+to key off `(major, rank)` here, Step 10/14 already did that work. The
+heading-refocus effect and `gameChosen`/`gameInProgress` booleans from Step
+14 were left untouched, exactly as instructed - `handleDemotionActivate`
+replaces `demotionSession` with a new object every ply, and the effect's
+`[gameChosen]` dependency (a primitive boolean, not the session) never
+re-fires because of it. No deviation from the plan. All five checks pass
+(typecheck, lint, 1233 tests - unchanged from Step 14, since this step is
+pure wiring with no new pure logic to unit-test - format:check, build);
+`git status --short` shows only `DemotionGame.tsx` and `HotSeatGame.tsx`
+modified, nothing under `src/rules/primary/v2/` or `src/rules/primary/v3/`.
 
 Wire interaction into `DemotionGame`: square activation through the v3 session
 (Step 13), highlighted destinations and attack targets, the activatable set
