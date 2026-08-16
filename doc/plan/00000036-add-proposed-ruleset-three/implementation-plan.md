@@ -749,7 +749,31 @@ Run the five repository checks.
 
 ## Step 6 — Diagonal attacks, with the open-path rule
 
-Status: pending
+Status: committed
+
+Notes: Extended `legalAttacks` in `src/rules/primary/v3/movement.ts` with a
+diagonal pass built on two new private helpers, `diagonalComponents`
+(direction → its two orthogonal components, following the existing
+`encumberingDirections` switch-based style so a non-diagonal direction throws
+rather than silently returning nothing) and `hasOpenDiagonalPath` (open-path
+check per §4.4). `legalDestinations` is untouched — diagonal is attack-only.
+One correction to a Step 5 test: "no diagonal destination or attack is ever
+produced" asserted no diagonal result of any kind, which was only ever true
+because Step 5 didn't implement diagonal attacks yet; it is now split into an
+unchanged `legalDestinations`-only assertion (diagonal destinations are still
+never produced) plus a full new `describe("diagonal attacks", …)` block
+covering every item in this step's verification list (legal with one/both
+flanks empty; refused with two friendly, two enemy, and one-of-each
+blockers; Flag capturable diagonally and blocked when packed on all four
+sides; no diagonal attack on an empty square; no two-square diagonal; an
+encumbered piece's diagonal attacks are unaffected; and board-edge/corner
+cases with fewer than four diagonal neighbours). This is a deviation from a
+literal "extend `movement.test.ts`" reading only in that one existing test
+was corrected rather than purely extended — necessary because it encoded a
+Step-5-only invariant that Step 6 deliberately supersedes. All five checks
+pass (1084 tests, up from 1025); `grep -rn "primary/v2" src/rules/primary/v3/`
+is zero hits; `git status --short` shows only `movement.ts` and
+`movement.test.ts` modified, nothing under `src/rules/primary/v2/`.
 
 Extend `src/rules/primary/v3/movement.ts` with `reference/rules.md` §4.4: a
 piece may attack an enemy on any of its immediate diagonal squares — **any

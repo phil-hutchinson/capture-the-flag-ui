@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { ORTHOGONAL_DIRECTIONS, type Direction, type Square } from "./board.ts";
 import { isEncumbered, legalAttacks, legalDestinations } from "./movement.ts";
-import { EMPTY_POSITION, placePiece, type NumberedPiece } from "./position.ts";
+import {
+  EMPTY_POSITION,
+  placePiece,
+  type FlagPiece,
+  type NumberedPiece,
+} from "./position.ts";
 import { generateStartPosition, type RandomSource } from "./startPosition.ts";
 
 /**
@@ -28,6 +33,7 @@ const blackNumbered = (rank: 1 | 2 | 3 | 4 | 5): NumberedPiece => ({
   kind: "numbered",
   rank,
 });
+const blackFlag: FlagPiece = { side: "black", kind: "flag" };
 
 const D4: Square = { column: "D", row: 4 };
 const D5: Square = { column: "D", row: 5 };
@@ -229,7 +235,11 @@ describe("movement (ruleset major 3): orthogonal steps and direction-relative en
       expect(legalAttacks(position, D4)).toEqual([]);
     });
 
-    it("no diagonal destination or attack is ever produced", () => {
+    it("no diagonal destination is ever produced, even with enemies open on every diagonal", () => {
+      // Step 6 adds diagonal *attacks* to `legalAttacks` (covered in its own
+      // describe block below) - `legalDestinations` never gains a diagonal
+      // result under any circumstances, since a piece may never step
+      // diagonally onto an empty square (rules.md §4.2, §4.4).
       let position = placePiece(EMPTY_POSITION, D4, whiteNumbered(3));
       for (const diagonal of [
         "northeast",
@@ -245,10 +255,7 @@ describe("movement (ruleset major 3): orthogonal steps and direction-relative en
       }
       const isDiagonalFromOrigin = (square: Square) =>
         square.column !== D4.column && square.row !== D4.row;
-      for (const square of [
-        ...legalDestinations(position, D4),
-        ...legalAttacks(position, D4),
-      ]) {
+      for (const square of legalDestinations(position, D4)) {
         expect(isDiagonalFromOrigin(square)).toBe(false);
       }
     });
@@ -268,6 +275,162 @@ describe("movement (ruleset major 3): orthogonal steps and direction-relative en
       position = placePiece(position, D6, blackNumbered(1));
       expect(legalAttacks(position, D4, true)).not.toContainEqual(D6);
       expect(legalAttacks(position, D4, false)).toContainEqual(D6);
+    });
+  });
+
+  describe("diagonal attacks (rules.md §4.4, the open-path rule)", () => {
+    // Attacking from D4 to E5 (northeast): the two squares orthogonally
+    // adjacent to both squares - "flanking" the diagonal, per the rules'
+    // own C3-attacking-D4 example - are D5 (north of D4) and E4 (east of
+    // D4).
+    it("is legal when exactly one flanking square is empty", () => {
+      let position = placePiece(EMPTY_POSITION, D4, whiteNumbered(3));
+      position = placePiece(position, E5, blackNumbered(1));
+      position = placePiece(position, D5, blackNumbered(2)); // flanking, occupied
+      // E4 (the other flank) is left empty.
+      expect(legalAttacks(position, D4)).toContainEqual(E5);
+    });
+
+    it("is legal when both flanking squares are empty", () => {
+      let position = placePiece(EMPTY_POSITION, D4, whiteNumbered(3));
+      position = placePiece(position, E5, blackNumbered(1));
+      expect(legalAttacks(position, D4)).toContainEqual(E5);
+    });
+
+    it("is refused when both flanking squares are occupied by friendly pieces", () => {
+      let position = placePiece(EMPTY_POSITION, D4, whiteNumbered(3));
+      position = placePiece(position, E5, blackNumbered(1));
+      position = placePiece(position, D5, whiteNumbered(2));
+      position = placePiece(position, E4, whiteNumbered(2));
+      expect(legalAttacks(position, D4)).not.toContainEqual(E5);
+    });
+
+    it("is refused when both flanking squares are occupied by enemy pieces", () => {
+      let position = placePiece(EMPTY_POSITION, D4, whiteNumbered(3));
+      position = placePiece(position, E5, blackNumbered(1));
+      position = placePiece(position, D5, blackNumbered(2));
+      position = placePiece(position, E4, blackNumbered(2));
+      expect(legalAttacks(position, D4)).not.toContainEqual(E5);
+    });
+
+    it("is refused when both flanking squares are occupied, one friendly and one enemy", () => {
+      let position = placePiece(EMPTY_POSITION, D4, whiteNumbered(3));
+      position = placePiece(position, E5, blackNumbered(1));
+      position = placePiece(position, D5, whiteNumbered(2));
+      position = placePiece(position, E4, blackNumbered(2));
+      expect(legalAttacks(position, D4)).not.toContainEqual(E5);
+
+      // And the reverse assignment of friendly/enemy to the two flanks.
+      let swapped = placePiece(EMPTY_POSITION, D4, whiteNumbered(3));
+      swapped = placePiece(swapped, E5, blackNumbered(1));
+      swapped = placePiece(swapped, D5, blackNumbered(2));
+      swapped = placePiece(swapped, E4, whiteNumbered(2));
+      expect(legalAttacks(swapped, D4)).not.toContainEqual(E5);
+    });
+
+    it("the Flag can be attacked diagonally when a path is open", () => {
+      let position = placePiece(EMPTY_POSITION, D4, whiteNumbered(3));
+      position = placePiece(position, E5, blackFlag);
+      expect(legalAttacks(position, D4)).toContainEqual(E5);
+    });
+
+    it("the Flag cannot be attacked diagonally when both its flanking squares are occupied", () => {
+      let position = placePiece(EMPTY_POSITION, D4, whiteNumbered(3));
+      position = placePiece(position, E5, blackFlag);
+      position = placePiece(position, D5, blackNumbered(1));
+      position = placePiece(position, E4, blackNumbered(1));
+      expect(legalAttacks(position, D4)).not.toContainEqual(E5);
+    });
+
+    it("a Flag packed orthogonally on all four sides is unreachable from every diagonal", () => {
+      // The Flag stands on D4, with all four of its orthogonal neighbors
+      // occupied - the rules' own stated consequence of the open-path rule.
+      let position = placePiece(EMPTY_POSITION, D4, blackFlag);
+      position = placePiece(position, D5, blackNumbered(1)); // north
+      position = placePiece(position, D3, blackNumbered(1)); // south
+      position = placePiece(position, C4, blackNumbered(1)); // west
+      position = placePiece(position, E4, blackNumbered(1)); // east
+
+      const attackerSquares: readonly Square[] = [C5, E5, C3, E3]; // every diagonal neighbor of D4
+      for (const attackerSquare of attackerSquares) {
+        const withAttacker = placePiece(
+          position,
+          attackerSquare,
+          whiteNumbered(5),
+        );
+        expect(legalAttacks(withAttacker, attackerSquare)).not.toContainEqual(
+          D4,
+        );
+      }
+    });
+
+    it("no diagonal attack is ever produced against an empty square, even with a fully open path", () => {
+      const position = placePiece(EMPTY_POSITION, D4, whiteNumbered(3));
+      // Every diagonal neighbor of D4 is empty and every flanking square is
+      // empty too, so the path is open in all four diagonal directions - the
+      // only thing withholding an attack is that there is nothing to attack.
+      for (const diagonalTarget of [C5, E5, C3, E3]) {
+        expect(legalAttacks(position, D4)).not.toContainEqual(diagonalTarget);
+      }
+    });
+
+    it("there is no two-square diagonal attack, even with every intervening square open", () => {
+      const twoAwayNortheast: Square = { column: "F", row: 6 }; // D4 + 2 diagonal steps
+      let position = placePiece(EMPTY_POSITION, D4, whiteNumbered(5));
+      position = placePiece(position, twoAwayNortheast, blackNumbered(1));
+      expect(legalAttacks(position, D4)).not.toContainEqual(twoAwayNortheast);
+      expect(legalDestinations(position, D4)).not.toContainEqual(
+        twoAwayNortheast,
+      );
+    });
+
+    it("an encumbered piece still has all of its legal diagonal attacks", () => {
+      let position = placePiece(EMPTY_POSITION, D4, whiteNumbered(3));
+      // An enemy to the west encumbers northward travel (isEncumbered's own
+      // test above), blocking the two-square move to D6 - but has no bearing
+      // on a diagonal attack, which is never subject to encumbrance.
+      position = placePiece(position, C4, blackNumbered(2));
+      position = placePiece(position, E5, blackNumbered(1)); // open diagonal target
+      expect(isEncumbered(position, D4, "white", "north")).toBe(true);
+      expect(legalDestinations(position, D4)).toContainEqual(D5);
+      expect(legalDestinations(position, D4)).not.toContainEqual(D6);
+      expect(legalAttacks(position, D4)).toContainEqual(E5);
+    });
+
+    it("has fewer diagonal neighbors at the board's corners and edges", () => {
+      // A1: bottom-left corner - only one diagonal neighbor exists, B2 (the
+      // other three would fall off the board).
+      const corner: Square = { column: "A", row: 1 };
+      const cornerDiagonal: Square = { column: "B", row: 2 };
+      let cornerPosition = placePiece(EMPTY_POSITION, corner, whiteNumbered(3));
+      cornerPosition = placePiece(
+        cornerPosition,
+        cornerDiagonal,
+        blackNumbered(1),
+      );
+      expect(legalAttacks(cornerPosition, corner)).toEqual([cornerDiagonal]);
+
+      // D1: bottom edge (not a corner) - two diagonal neighbors exist, C2
+      // and E2 (the other two, off the south edge, do not).
+      const edge: Square = { column: "D", row: 1 };
+      const edgeDiagonalWest: Square = { column: "C", row: 2 };
+      const edgeDiagonalEast: Square = { column: "E", row: 2 };
+      let edgePosition = placePiece(EMPTY_POSITION, edge, whiteNumbered(3));
+      edgePosition = placePiece(
+        edgePosition,
+        edgeDiagonalWest,
+        blackNumbered(1),
+      );
+      edgePosition = placePiece(
+        edgePosition,
+        edgeDiagonalEast,
+        blackNumbered(1),
+      );
+      const edgeAttacks = legalAttacks(edgePosition, edge);
+      expect(edgeAttacks).toHaveLength(2);
+      expect(edgeAttacks).toEqual(
+        expect.arrayContaining([edgeDiagonalWest, edgeDiagonalEast]),
+      );
     });
   });
 
