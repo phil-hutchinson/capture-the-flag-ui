@@ -463,7 +463,22 @@ checks.
 
 ## Step 2 — The major-3 position: rank as mutable game state
 
-Status: pending
+Status: committed
+
+Notes: Created `src/rules/primary/v3/position.ts` and `position.test.ts`.
+`PlacedPiece` is a discriminated union (`NumberedPiece` carrying a mutable
+`rank`, or `FlagPiece` with none), stored in a plain `PositionState` record
+keyed by `squareKey` (JSON-serializable, matching major 2's `BoardState`
+shape). Implemented `pieceAt`, `placePiece`, `removePiece`, `relocatePiece`,
+`piecesOf`, `numberedPieceCount`, `findFlag`, `reduceRank` (clamped at rank 1,
+exported for reuse by Step 7's `combat.ts`) and `demotePiece`. One addition
+beyond the plan's explicit list: `squareFromKey`, a private inverse of
+`board.ts`'s `squareKey`, needed so `piecesOf`/`findFlag` can return real
+`Square`s from the record's string keys without duplicating that logic at
+each call site or editing `board.ts` (out of scope for this step) — a small,
+private implementation detail, not a new public surface. All five checks
+pass; grep of `src/rules/primary/v3/` for `primary/v2` is zero hits; `git
+status` shows no modification under `src/rules/primary/v2/`.
 
 Add `src/rules/primary/v3/position.ts`: the board-state model in which **a
 piece on the board is a side plus a _current_ rank**, not a fixed token
