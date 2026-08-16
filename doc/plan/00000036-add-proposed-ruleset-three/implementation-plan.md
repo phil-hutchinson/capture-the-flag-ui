@@ -519,7 +519,24 @@ unchanged. Run the five repository checks.
 
 ## Step 3 — The position ID: encode, decode, validate — as a string
 
-Status: pending
+Status: committed
+
+Notes: Created `src/rules/primary/v3/positionId.ts` and `positionId.test.ts`.
+`encodePositionId`/`decodePositionId` use `board.ts`'s `homeSquares("white")`
+directly for the fixed row-1-then-row-2 order (its iteration order already
+matches the spec exactly, so no new ordering logic was needed); decoding
+throws only on the wrong length or a digit with no meaning at this major (the
+reserved `6`-`E` range), while `isValidPositionId` is the separate, stricter
+check (length, exact rank/Flag counts, Flag in the first eight characters),
+per the plan's "decoding and validating are different operations." One
+deviation, matching the precedent Step 1 already set: to get a true zero-hit
+grep for `Number(`/`parseInt`/`parseFloat`/`BigInt`, the module comment
+explains the "never a `Number`" rule in prose without spelling those
+identifiers literally (e.g. "never converts a code to a number, a big
+integer, or anything else numeric") rather than quoting them as banned
+tokens. All five checks pass; the `Number(`/`parseInt`/`parseFloat`/`BigInt`
+grep and the `primary/v2` grep are both zero hits; `git status` shows no
+modification under `src/rules/primary/v2/`.
 
 Add `src/rules/primary/v3/positionId.ts`, implementing
 `reference/start-position.md` §5.
