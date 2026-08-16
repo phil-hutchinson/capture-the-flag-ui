@@ -661,7 +661,36 @@ Run the five repository checks.
 
 ## Step 5 — Movement: orthogonal steps, the two-square move, direction-relative encumbrance, and White's first move
 
-Status: pending
+Status: committed
+
+Notes: Created `src/rules/primary/v3/movement.ts` and `movement.test.ts`,
+covering only the orthogonal half of §4.2 and the §4.1 first-move
+restriction, exactly as scoped (diagonal attacks are left to Step 6).
+`legalDestinations`/`legalAttacks` take an explicit `firstMoveRestricted`
+boolean parameter, per the plan. Encumbrance is implemented as
+`isEncumbered(position, origin, side, direction)`, driven by a private
+`encumberingDirections` switch built directly from the rules' own
+description (own direction + its two neighboring diagonals + the two
+perpendicular orthogonals); it is exported since later steps' combat
+formation-bonus logic and `play.ts` are expected to need it too. Tests
+independently restate the five-direction encumbering sets (not by importing
+the module's own table) and exercise all 4 travel directions x 8 neighbor
+placements (32 cases) plus the full verification list: open-ground and
+corner move counts, enemy-behind-does-not-encumber, blocked pass-through by
+friendly and by enemy, two-square attack vs. destination disjointness,
+Flag immobility, no landing on a friendly piece, no diagonal result ever
+produced, the first-move flag on `legalDestinations` and `legalAttacks`, and
+White's exactly-8-one-square opening moves across 10 generated starting
+positions. One correction made while writing the "free one way / restricted
+another" test: an enemy directly behind (south, for a northward move) also
+falls in south's, east's and west's own ahead-or-beside sets (the two
+perpendicular directions are "beside" for every direction of travel, not
+just the one named in the rules' own north example), so that test asserts
+north free and south/east/west all encumbered by a single southern enemy,
+rather than the originally-drafted (and incorrect) north/east-encumbered,
+south/west-free split. No other deviations. All five checks pass; the
+`primary/v2` grep under `src/rules/primary/v3/` is zero hits; `git status`
+shows no modification under `src/rules/primary/v2/`.
 
 Add `src/rules/primary/v3/movement.ts` with the **orthogonal** half of
 `reference/rules.md` §4.2 and the first-move restriction of §4.1:
