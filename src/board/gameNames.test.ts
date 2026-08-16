@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { GameSelection } from "../games/gameCatalog.ts";
 import {
   configureRules,
   STANDARD_BATTLE_CONFIGURATION,
@@ -16,6 +17,17 @@ import {
   gameNameForConfiguration,
   reviewedGameLine,
 } from "./gameNames.ts";
+
+/** A minimal `GameSelection` for `defaultGameId`'s tests - the rule choices are irrelevant to which game it returns. */
+function selectionOf(gameId: GameSelection["gameId"]): GameSelection {
+  return {
+    gameId,
+    ruleChoices: {
+      DIAGONAL_ATTACKABLE: "movable_only",
+      DIAGONAL_ATTACK_PATH: "always",
+    },
+  };
+}
 
 describe("gameName", () => {
   it("names battle as Battle", () => {
@@ -90,21 +102,19 @@ describe("defaultGameId (which game GameChoice pre-selects)", () => {
   });
 
   it("is battle after a Battle game was just played", () => {
-    expect(defaultGameId(STANDARD_BATTLE_CONFIGURATION)).toBe("battle");
+    expect(defaultGameId(selectionOf("battle"))).toBe("battle");
   });
 
   it("is skirmish after a Skirmish game was just played", () => {
-    expect(defaultGameId(STANDARD_SKIRMISH_CONFIGURATION)).toBe("skirmish");
-  });
-
-  it("is skirmish after a superseded-Skirmish game was just played, for completeness of the mapping", () => {
-    expect(defaultGameId(configureRules(SUPERSEDED_SKIRMISH_EDITION))).toBe(
-      "skirmish",
-    );
+    expect(defaultGameId(selectionOf("skirmish"))).toBe("skirmish");
   });
 
   it("is clash after a Clash game was just played", () => {
-    expect(defaultGameId(buildGameConfiguration("clash"))).toBe("clash");
+    expect(defaultGameId(selectionOf("clash"))).toBe("clash");
+  });
+
+  it("is demotion after a Demotion game was just played, holding across a major boundary (story 00000036, Step 12)", () => {
+    expect(defaultGameId(selectionOf("demotion"))).toBe("demotion");
   });
 });
 

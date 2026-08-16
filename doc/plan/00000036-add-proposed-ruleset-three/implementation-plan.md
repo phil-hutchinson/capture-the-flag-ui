@@ -1272,7 +1272,40 @@ hidden reviewer and engine screens still compile.
 
 ## Step 12 — An app-level game catalog spanning majors
 
-Status: pending
+Status: committed
+
+Notes: Added `src/games/gameCatalog.ts` (`AppGameId`, `GAME_CATALOG` as an
+exhaustive `Record<AppGameId, GameCatalogEntry>` with a discriminated
+`source` field, `offeredGames()`, `GameSelection`,
+`ruleChoicesFromConfiguration`) and `src/games/gameCatalog.test.ts`. The
+three major-2 entries' `name`/`description` are copied verbatim from the old
+`GameChoice.tsx` `GAME_DETAIL` and `gameNames.ts` `GAME_NAME` records
+(confirmed byte-for-byte against `git show HEAD`); Demotion's entry carries
+story.md's fixed copy, `order: 3` (last), and is excluded from
+`offeredGames()` by a `source.major === 3` check with a comment pointing to
+Step 14. `gameNames.ts`'s `gameName`/`defaultGameId` are re-pointed at the
+catalog/`GameSelection`; `gameNameForConfiguration` now calls `gameName`
+instead of keeping a second, duplicate major-2 name record (same output,
+avoids drift) — `boardSizeDescription` and `reviewedGameLine` are untouched.
+`GameChoice.tsx`'s `choice` state is now an `AppGameId`, its buttons/order
+come from `offeredGames()`/`GAME_CATALOG`, and `onChoose` reports both a
+`GameSelection` and the `RuleConfiguration` built via
+`buildGameConfiguration` after narrowing the chosen entry's `source` to
+major 2 (an early return, unreachable this step since Demotion is never
+offered yet). `HotSeatGame`'s `lastPlayed`/`onGameStarted` props and
+`App.tsx`'s session-memory state now carry `GameSelection | null`; the
+`RuleConfiguration` `GameChoice` also reports is still what
+`HotSeatGame.handleChooseGame` uses to start placement, unchanged. One small
+deviation beyond the plan's literal text: `App.tsx`'s state variable was
+renamed from `lastPlayedConfiguration` to `lastPlayedSelection` to match its
+new type (not requested explicitly, but the plan's own Grounding facts
+describe it by the old name as something Step 12 changes; the rename is
+purely cosmetic and every use site was updated). All five checks pass
+(typecheck, lint, 1189 tests, format:check, build); `git diff --stat` for
+`src/rules/primary/v2/` is empty; the picker's three visible name/description
+strings are unchanged (verified both by `gameCatalog.test.ts`'s
+character-for-character assertions and by diffing against the pre-step
+`GAME_DETAIL`/`GAME_NAME` records).
 
 Introduce the identity layer of Decision 3, **without yet adding Demotion** —
 the picker must look and behave exactly as it does today after this step.

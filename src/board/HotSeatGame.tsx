@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { APP_NAME } from "../appInfo.ts";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
+import type { GameSelection } from "../games/gameCatalog.ts";
 import { Board } from "./Board.tsx";
 import { DrawOffer } from "./DrawOffer.tsx";
 import {
@@ -247,19 +248,21 @@ type Selection =
 
 export interface HotSeatGameProps {
   /**
-   * The configuration (game plus both diagonal-attack rule choices, story
-   * 00000027) most recently started this app session, or `null` if none has
-   * been. `GameChoice` pre-selects the game and both flags from it; `null`
-   * falls back to Skirmish and the standard values. Held by `App` so it
-   * survives this component's unmount (peer review, finding #17).
+   * The app-level game selection (`AppGameId` plus both diagonal-attack rule
+   * choices - story 00000036's implementation plan, Step 12; previously a
+   * bare `RuleConfiguration`) most recently started this app session, or
+   * `null` if none has been. `GameChoice` pre-selects the game and both
+   * flags from it; `null` falls back to Skirmish and the standard values.
+   * Held by `App` so it survives this component's unmount (peer review,
+   * finding #17).
    */
-  readonly lastPlayed: RuleConfiguration | null;
+  readonly lastPlayed: GameSelection | null;
   /**
-   * Reports the configuration the player has just chosen, so it becomes the
+   * Reports the selection the player has just chosen, so it becomes the
    * next choice screen's pre-selection - including after a game is abandoned
    * part way through, since it was still the last one played.
    */
-  readonly onGameStarted: (configuration: RuleConfiguration) => void;
+  readonly onGameStarted: (selection: GameSelection) => void;
   /**
    * Returns to the start screen. Called directly once the game has ended;
    * while the game is in progress (placing or playing), called only after
@@ -460,8 +463,18 @@ export function HotSeatGame({
   // region. The choice is reported to `App` here, as the game starts rather
   // than as it ends, so a game abandoned part way through still counts as the
   // one played most recently.
-  function handleChooseGame(chosenConfiguration: RuleConfiguration) {
-    onGameStarted(chosenConfiguration);
+  //
+  // Story 00000036's Step 12: `GameChoice` now reports its app-level
+  // `GameSelection` alongside the `RuleConfiguration` it built (only
+  // major-2 games are reachable from `GameChoice` at this step, so
+  // `chosenConfiguration` is always what actually starts placement below) -
+  // `onGameStarted` is given `selection`, and everything else in this
+  // handler is unchanged.
+  function handleChooseGame(
+    selection: GameSelection,
+    chosenConfiguration: RuleConfiguration,
+  ) {
+    onGameStarted(selection);
     setConfiguration(chosenConfiguration);
     const freshSession = newSession(chosenConfiguration);
     setSession(freshSession);
