@@ -551,9 +551,10 @@ export function EngineGame({ onBack }: EngineGameProps) {
           </>
         ) : (
           <GameResult
-            result={result}
+            outcomeKind={result.kind === "win" ? "win" : "draw"}
+            winner={result.kind === "win" ? result.winner : null}
+            summary={describeResult(result, perspective)}
             onNewGame={handleNewGame}
-            perspective={perspective}
           />
         )}
         <PlayBoard

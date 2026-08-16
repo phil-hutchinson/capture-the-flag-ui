@@ -1130,7 +1130,81 @@ existing sprite-sheet test already parses it). Run the five repository checks.
 
 ## Step 11 — A major-agnostic board view, with major 2 adapted onto it
 
-Status: pending
+Status: committed
+
+Notes: Created `src/board/view/viewModel.ts` (`ViewSide`, `ViewSquare`,
+`viewSquareKey`, `BoardGeometry`, `BoardToken`, `BoardPosition` — imports
+only `PieceArt` from `src/art/pieceArt.ts`, nothing from `src/rules/`) and
+`src/board/view/boardOrientation.ts` (`fullBoardRows`, `visibleColumns`,
+`fullBoardDisplayPosition`, `movePathSquares`, restated over `BoardGeometry`
+with their own local `columnLetter`/`columnIndexOf`, not imported from
+anywhere). `FullBoard.tsx` now takes `position`/`side`/`geometry` plus the
+existing square-set/announcement/animated-move props, reads occupant names
+off `BoardToken.label` (combined with `sideColorName(token.side)` exactly as
+before) and terrain off `geometry.impassableSquares`, with its CSS classes
+("full-board__square--lake" etc.) and label wording ("lake") left byte-
+identical. Added `src/board/boardViewAdapter.ts` (`boardGeometryFor`,
+`boardPositionFor`) as the major-2 adapter, using Step 10's
+`pieceArtForType` and `PIECE_CATALOG`'s `displayName`; routed `PlayBoard.tsx`
+and `ReviewScreen.tsx` through it (`EngineGame.tsx` picks it up transitively
+via `PlayBoard`, unchanged). `PlayStatus.tsx`, `DrawOffer.tsx` and
+`sideNames.ts` switched to `ViewSide` (type-only; every existing call site
+passes a structurally-identical major-2 `Side` unchanged). `GameResult.tsx`
+now takes `outcomeKind`/`winner`/`summary` instead of a major-2
+`GameOutcome`; `HotSeatGame.tsx` and `EngineGame.tsx` compute
+`outcomeKind`/`winner` inline from the already-narrowed `FinishedOutcome` and
+pass `describeResult(result[, perspective])`'s output as `summary`, so the
+rendered words and the focus-on-mount behaviour are unchanged.
+
+One deviation, explained and scoped narrowly: `boardView.ts`'s `visibleColumns`
+was **not** deleted, even though the plan's bullet list names "columns
+left-to-right for a side" among the four orientation helpers to move.
+`Board.tsx` (the Phase-1 placement board, explicitly out of scope for this
+story's UI work per Decision 1's "untouched and major-2-only" list) also
+calls `boardView.ts`'s `visibleColumns` for its own cropped view, and
+`fullBoardRows`/`fullBoardDisplayPosition`/`movePathSquares` have no such
+second caller. Deleting `visibleColumns` from `boardView.ts` would have
+forced an edit to `Board.tsx` that this step's own text never lists as a
+target. Instead, `boardView.ts` keeps its own `visibleColumns(side, layout)`
+unchanged for `Board.tsx`, and `view/boardOrientation.ts` restates an
+independent `visibleColumns(side, geometry)` for `FullBoard` — a second,
+small instance of exactly the "cheaper to restate than to hoist" reasoning
+Decision 1 already applies to `Side`/`Square`. `boardView.ts`'s and
+`boardView.test.ts`'s module comments now say so explicitly.
+
+Tests that moved or changed shape, all explained: `boardView.test.ts`'s
+`fullBoardRows`/`fullBoardDisplayPosition`/`movePathSquares` describe blocks
+moved verbatim (parameterised on hand-built `BoardGeometry` literals instead
+of `BOARD_LAYOUTS`, so the new test file stays major-agnostic like the code
+it covers) to new `src/board/view/boardOrientation.test.ts`, which also adds
+explicit 8x8-geometry cases previously covered by `boardView.test.ts`'s
+separate "on the Skirmish layout" describe blocks for those same three
+functions (now redundant and removed from `boardView.test.ts`, since
+`boardView.ts` no longer exports them) — no coverage was dropped, only
+relocated and reparametrised. `boardView.test.ts`'s own `visibleRows`/
+`visibleColumns` coverage is untouched. Added new
+`src/board/view/viewModel.test.ts` (2 cases for `viewSquareKey`) and
+`src/board/boardViewAdapter.test.ts` (5 cases for the new major-2 adapter) —
+neither existed before this step.
+
+All five repository checks pass (typecheck, lint, 1175 tests — up from
+1166 — format:check, build). `git status` shows no modification under
+`src/rules/primary/v2/`; `grep -rn "primary/v2" src/board/view/` finds only
+prose mentions inside `viewModel.ts`'s own module comment (explaining the
+structural-coincidence rationale), no import statements — confirmed
+separately by grepping for `^import` in `src/board/view/*.ts`, which shows
+only `vitest`, sibling `./viewModel.ts`/`./boardOrientation.ts` imports, and
+`../../art/pieceArt.ts`.
+
+Manual verification (story.md's Gate A) is the owner's to run; not exercised
+by this agent. Places to look hardest, since nothing here should be visible
+to a player: `FullBoard.tsx`'s square label wording (the literal string
+"lake" is now sourced generically from any impassable square rather than a
+major-2-specific `isLake` check, though for major 2 today the two sets of
+squares are identical by construction) and `GameResult`'s `data-outcome`/
+`data-winner` attributes (their _values_ are unchanged — "win"/"draw" and a
+side or `undefined` — only how they're computed changed, from reading a
+`GameOutcome` object to being passed in pre-narrowed by each caller).
 
 The story's central technical step, per Decision 1. **Major 2's behaviour and
 appearance must not change in any way.**

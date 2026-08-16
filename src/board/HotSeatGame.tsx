@@ -624,7 +624,12 @@ export function HotSeatGame({
             />
           </>
         ) : (
-          <GameResult result={result} onNewGame={handleNewGame} />
+          <GameResult
+            outcomeKind={result.kind === "win" ? "win" : "draw"}
+            winner={result.kind === "win" ? result.winner : null}
+            summary={describeResult(result)}
+            onNewGame={handleNewGame}
+          />
         )}
         <FlipBoardToggle
           flipBetweenTurns={flipBetweenTurns}

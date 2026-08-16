@@ -34,8 +34,16 @@
 // picking up a piece, deselecting it, and switching to a different own piece
 // are all reachable by mouse and keyboard even though an unselected movable
 // piece shows no highlight.
+//
+// Story 00000036, Step 11: `FullBoard` no longer takes a major-2
+// `BoardState`/`BoardLayout` directly (two ruleset majors render through it
+// now), so this module routes `session.play.board`/`.boardLayout` through
+// `boardViewAdapter.ts`'s `boardPositionFor`/`boardGeometryFor` first. Every
+// other prop below (`Side`, `Square`) is unchanged - passed straight through
+// to `FullBoard`'s structurally-identical `ViewSide`/`ViewSquare` props.
 
 import type { Side, Square } from "../rules/primary/v2/board.ts";
+import { boardGeometryFor, boardPositionFor } from "./boardViewAdapter.ts";
 import { FullBoard } from "./FullBoard.tsx";
 import {
   actionableSquares,
@@ -125,9 +133,9 @@ export function PlayBoard({
 
   return (
     <FullBoard
-      board={session.play.board}
+      position={boardPositionFor(session.play.board)}
       side={side}
-      layout={layout}
+      geometry={boardGeometryFor(layout)}
       selected={disabled ? undefined : (session.selection ?? undefined)}
       // Only a selected piece's legal destinations are highlighted; with
       // nothing selected `actionableSquares` returns own movable pieces,

@@ -1,12 +1,19 @@
 // End-of-game presentation (story 00000006, Step 9).
 //
-// Once `playSession.play.result.kind !== "ongoing"`, `App.tsx` renders this
-// panel **instead of** `PlayStatus`, in that same status-bar slot above the
-// board - a finished game has no "whose turn" to show. It renders the
-// result-and-reason sentence in player-facing terms (who won, red or blue,
-// or that it is a draw, and why), reusing `describeResult`
-// (`playAnnouncement.ts`) so the visual wording matches, word for word, what
-// the board's live region already announced when the game ended.
+// Once a play session's result is no longer "ongoing", the caller renders
+// this panel **instead of** `PlayStatus`, in that same status-bar slot above
+// the board - a finished game has no "whose turn" to show.
+//
+// Story 00000036, Step 11 (implementation plan Decision 5): this component
+// is now purely presentational. It used to call major 2's own
+// `describeResult` itself; it now takes an already-composed **summary
+// sentence** plus the outcome kind and the winning side (for its `data-`
+// attributes and styling) - so no shared union of both ruleset majors' end
+// reasons has to be invented here, and each major's own announcement module
+// stays the one place that knows how to word its own endings. Major 2's
+// callers (`HotSeatGame.tsx`, `EngineGame.tsx`) pass `playAnnouncement.ts`'s
+// `describeResult(...)` output straight through, so the panel's words are
+// word-for-word unchanged from before this step.
 //
 // Deliberately **visual only** - no live region of its own. The result is
 // already announced exactly once, through the board's existing polite live
@@ -25,57 +32,50 @@
 // announcement, for the same reason the result sentence above has none: a
 // screen-reader user tabbing to a button hears its name and role from the
 // button itself.
-//
-// The optional `perspective` prop (story 00000019, Step 6) is the
-// against-the-computer mode's only addition: passed straight through to
-// `describeResult` so the computer is named "the computer (color)" rather
-// than by color alone. Omitted by hot-seat, which is unaffected.
 
 import { useEffect, useRef } from "react";
-import type { GameOutcome } from "../rules/primary/v2/outcome.ts";
-import { describeResult, type ResultPerspective } from "./playAnnouncement.ts";
+import type { ViewSide } from "./view/viewModel.ts";
 import "./GameResult.css";
 
-/** A finished `GameOutcome` - callers only render this panel once the game has ended. */
-type FinishedOutcome = Exclude<GameOutcome, { readonly kind: "ongoing" }>;
-
 export interface GameResultProps {
-  readonly result: FinishedOutcome;
+  /** Whether the finished game was a win for `winner`, or a draw. */
+  readonly outcomeKind: "win" | "draw";
+  /** The winning side, or `null` for a draw. */
+  readonly winner: ViewSide | null;
+  /**
+   * The already-composed, player-facing result sentence (e.g. "Red wins —
+   * Flag captured."), from the caller's own major's announcement module -
+   * `playAnnouncement.ts`'s `describeResult` for major 2. This panel renders
+   * it verbatim; it does not compose or interpret it.
+   */
+  readonly summary: string;
   /** Starts a fresh game: empty Phase-1 placement for both players. */
   readonly onNewGame: () => void;
-  /**
-   * Names whichever side is not the human as "the computer" (story
-   * 00000019, Step 6), passed straight through to `describeResult` so this
-   * panel's visible summary matches, word for word, whatever the board's
-   * live region already announced when the game ended. Omitted by hot-seat
-   * and the reviewer, which leaves both sides named by color as before.
-   */
-  readonly perspective?: ResultPerspective;
 }
 
 /** The end-of-game panel: the result and reason, replacing `PlayStatus` once the game is over. */
 export function GameResult({
-  result,
+  outcomeKind,
+  winner,
+  summary,
   onNewGame,
-  perspective,
 }: GameResultProps) {
-  const winner = result.kind === "win" ? result.winner : null;
   const newGameRef = useRef<HTMLButtonElement>(null);
 
   // Peer-review fix (Major 2), with the owner's Gate-F decision on where
-  // focus should land. `App.tsx` only ever renders `GameResult` once the game
-  // has just ended, so this component mounts exactly once per ending. Accepting
-  // a draw unmounts the Accept button that had focus, which would otherwise
-  // strand focus on `<body>` and make the next Tab restart from the top of the
-  // document; focus therefore moves here on mount.
+  // focus should land. The caller only ever renders `GameResult` once the
+  // game has just ended, so this component mounts exactly once per ending.
+  // Accepting a draw unmounts the Accept button that had focus, which would
+  // otherwise strand focus on `<body>` and make the next Tab restart from the
+  // top of the document; focus therefore moves here on mount.
   //
   // The target is the **New game button**, deliberately *not* the result
   // sentence: the result is already announced through the board's live region
   // (see this module's header), and focusing an element carrying that same
   // sentence would make a screen reader speak the result twice - which is
-  // exactly what Step 16 ruled out. A button announces only its own name and
-  // role ("New game, button"), so the result is heard once. Nothing is trapped:
-  // Tab/Shift+Tab move on from here as normal.
+  // exactly what Step 16 (story 00000006) ruled out. A button announces only
+  // its own name and role ("New game, button"), so the result is heard once.
+  // Nothing is trapped: Tab/Shift+Tab move on from here as normal.
   useEffect(() => {
     newGameRef.current?.focus();
   }, []);
@@ -83,12 +83,10 @@ export function GameResult({
   return (
     <div
       className="game-result"
-      data-outcome={result.kind}
+      data-outcome={outcomeKind}
       data-winner={winner ?? undefined}
     >
-      <span className="game-result__summary">
-        {describeResult(result, perspective)}
-      </span>
+      <span className="game-result__summary">{summary}</span>
       <button
         type="button"
         className="game-result__new-game"
