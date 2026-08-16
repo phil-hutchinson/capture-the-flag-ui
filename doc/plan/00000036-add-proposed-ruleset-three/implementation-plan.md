@@ -1846,7 +1846,51 @@ Also run the five repository checks.
 
 ## Step 18 — README check
 
-Status: pending
+Status: committed
+
+Orchestrator correction before the gate: the draft glossed Demotion's
+attrition as a special case of major 2's "no legal move" ending. They are
+different rules — at major 3 "no legal move" never occurs (`reference/rules.md`
+§4.1: a player with at least one numbered piece always has a legal move), and
+attrition is checked after **every** move rather than at the start of a turn,
+so a player loses the instant their last numbered piece goes. story.md says
+outright that attrition _replaces_ "no legal move". The passage now separates
+the two and keeps the "loses on the spot, without waiting for their turn"
+distinction.
+
+Left deliberately unchanged, with the owner's agreement: the README's opening
+paragraph still describes the classic premise (secretly arranging an army with
+towers), which is true of three games but not of Demotion. Rewriting it to be
+neutral across all four would make it vaguer for the three it does describe.
+
+Notes: Updated `README.md` only (no other file touched). Changed "There are
+three games" to four and added a short Demotion clause to the intro
+paragraph (8x8 board, both armies already set out, fresh arrangement every
+game). Reworked the "Set up a game with a friend" bullet so placement is
+described only for the first three games, with a sentence for Demotion
+skipping straight to play with no army to place and no hand-off. Added a
+sentence to "Move, attack, and capture" naming Demotion's rank-reduction
+twist and its reversed numbering (rank 5 strongest). Reworked "Win, lose, or
+draw" to note the "no legal move" ending covers being worn down to the flag
+alone in Demotion, split the inactivity-draw figure (fifty for the first
+three, forty for Demotion), and added resignation as a Demotion-only way to
+lose. Also lightly adjusted the Status blockquote (four games, placement
+described as optional for Demotion) and the "Play without a mouse" bullet
+(said "from placing your army through to the final move", which doesn't hold
+for Demotion; changed to "from choosing a game and placing your army") since
+leaving them as literally read would have misdescribed Demotion even though
+the plan's list of four wrong passages didn't name them individually — both
+changes are the minimal wording needed for accuracy, not new content. Added
+a fourth "aren't official rules yet" paragraph to "The rules", following the
+existing Clash/diagonal-attack paragraphs' structure and tone, noting
+Demotion is a whole separate rulebook rather than a setting, and linking to
+the companion repository's `doc/ruleset/proposed-3/rules.md` (not this
+story's `reference/` snapshot). Verified no edition id, flag identifier,
+value token, position ID or the word "ply" appears anywhere (grep clean).
+All five checks pass: typecheck clean, lint clean, 1239 tests passed (56
+files, unchanged from Step 17 since this is a docs-only step), format:check
+clean, build clean (138 modules). `git status --short` shows only
+`README.md` modified. No deviation from the plan's six requirements.
 
 Verify `README.md` is still accurate given this story's changes, and update it
 if it is not. It currently says **"There are three games to choose from"** and
