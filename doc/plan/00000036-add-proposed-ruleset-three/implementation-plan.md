@@ -906,7 +906,22 @@ Run the five repository checks.
 
 ## Step 8 — Endings: Flag capture, attrition, mutual attrition, inactivity at 40
 
-Status: pending
+Status: committed
+
+Notes: Created `src/rules/primary/v3/outcome.ts` and `outcome.test.ts`.
+`computeOutcome` takes a `PositionState`, the active side and the shared
+inactivity counter (no `PlayState` dependency, matching Step 7's pattern), and
+evaluates Flag capture, then mutual attrition, then single-side attrition,
+then inactivity, in that order - the ordering is called out explicitly in the
+doc comment and exercised by a dedicated test asserting mutual attrition holds
+regardless of which side is passed as `activeSide`. `GameEndReason` includes
+`resignation` and `agreement` as reachable union members per the plan, though
+`computeOutcome` itself never produces them. `INACTIVITY_LIMIT = 40` is
+exported with a comment distinguishing it from major 2's 50. No deviations
+from the plan. All five repository checks pass; `grep -rn "primary/v2"
+src/rules/primary/v3/` is zero hits; `git status --short` shows only
+`outcome.ts` and `outcome.test.ts` added, nothing under
+`src/rules/primary/v2/`.
 
 Add `src/rules/primary/v3/outcome.ts`, implementing the **detected** endings
 of `reference/rules.md` §5 — those settled by the position itself — plus the
