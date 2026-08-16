@@ -1062,7 +1062,35 @@ modification under `src/rules/primary/v2/`**.
 
 ## Step 10 — Piece art keyed by `(major, glyph)`
 
-Status: pending
+Status: committed
+
+Notes: Added `src/art/pieceArt.ts` (the `PieceArt` discriminated union on
+`major`, the per-major glyph unions, and the two-level sprite table);
+`PieceIcon` now takes a `PieceArt` plus a locally-declared `PieceArtSide`
+(`"white" | "black"`, restated rather than imported so `PieceIcon` imports
+nothing from `src/rules/`) and draws `art.glyph` as the corner numeral.
+Two adapters, both in `src/board/` per the plan: `pieceArtByType.ts` (an
+exhaustive `Record<PieceTypeId, Major2Glyph>` for major 2, whose values equal
+`PIECE_CATALOG[...].symbol`) and `pieceArtByRank.ts` (an exhaustive
+`Record<Rank | "flag", Major3Glyph>` for major 3). One placement decision
+beyond the plan's literal text: the major-3 mapping was placed in its own new
+adapter file (`pieceArtByRank.ts`), not inlined into `pieceArt.ts`, mirroring
+`pieceArtByType.ts`'s shape and keeping `pieceArt.ts` itself free of any
+rule-layer type (`Rank`) even though nothing consumes this adapter yet
+(Step 14 builds the full major-3 board adapter) — an explicit alternative the
+plan itself offers ("next to the v3 adapter work, or in `pieceArt.ts`
+itself"). All five call sites updated to go through the appropriate adapter:
+`FullBoard.tsx`, `Board.tsx`, `Tray.tsx`, `PlacementControls.tsx` (all via
+`pieceArtByType.ts`) and `src/app/rules/RuleFigure.tsx` (the sole permitted
+edit in `src/app/rules/` for this whole story — one import line, one prop
+change, no copy or figure change). New `src/art/pieceArt.test.ts` asserts all
+eight major-2 (glyph, sprite) pairs and all six major-3 pairs explicitly
+against the Grounding facts' table, that every numeric glyph `1`-`5` resolves
+to a different sprite in the two majors and `F` is the only shared glyph, and
+that every referenced sprite id exists in `pieceSprites.svg`. All five
+repository checks pass (1166 tests, up from 1135); `git status` shows no
+modification under `src/rules/primary/v2/`; `PieceIcon.tsx` has no import
+from `src/rules/`.
 
 Re-key the artwork, per Decision 2. **No visual change to major 2.**
 

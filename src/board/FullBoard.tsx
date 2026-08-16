@@ -71,6 +71,7 @@ import {
 import type { BoardLayout } from "../rules/primary/v2/boardLayout.ts";
 import type { BoardState, PlacedPiece } from "../rules/primary/v2/gameState.ts";
 import { PIECE_CATALOG } from "../rules/primary/v2/pieces.ts";
+import { pieceArtForType } from "./pieceArtByType.ts";
 import {
   AccessibleGrid,
   type GridCellDescriptor,
@@ -387,7 +388,7 @@ export function FullBoard({
           aria-hidden="true"
         >
           <PieceIcon
-            type={slidingPiece.pieceType}
+            art={pieceArtForType(slidingPiece.pieceType)}
             side={slidingPiece.side}
             className="full-board__slide-piece-icon"
           />
@@ -456,7 +457,7 @@ function FullBoardCell({
         )}
         {piece && (
           <PieceIcon
-            type={piece.pieceType}
+            art={pieceArtForType(piece.pieceType)}
             side={piece.side}
             className="full-board__piece-icon"
           />

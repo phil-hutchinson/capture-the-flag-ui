@@ -61,6 +61,7 @@
 
 import { PieceIcon } from "../../art/PieceIcon.tsx";
 import { columnIndexOf } from "../../rules/primary/v2/board.ts";
+import { pieceArtForType } from "../../board/pieceArtByType.ts";
 import {
   FIGURE_WINDOW,
   type Figure,
@@ -158,7 +159,7 @@ export function RuleFigure({ figure }: RuleFigureProps) {
                 }}
               >
                 <PieceIcon
-                  type={piece.pieceType}
+                  art={pieceArtForType(piece.pieceType)}
                   side={piece.side}
                   className={
                     removed

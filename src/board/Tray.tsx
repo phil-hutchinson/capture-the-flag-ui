@@ -38,6 +38,7 @@ import {
   type Inventory,
   type PieceTypeId,
 } from "../rules/primary/v2/pieces.ts";
+import { pieceArtForType } from "./pieceArtByType.ts";
 import { trayEntryLabel } from "./placementAnnouncement.ts";
 import "./Tray.css";
 
@@ -94,7 +95,7 @@ export function Tray({
               }}
             >
               <PieceIcon
-                type={entry.id}
+                art={pieceArtForType(entry.id)}
                 side={side}
                 className="tray__item-icon"
               />

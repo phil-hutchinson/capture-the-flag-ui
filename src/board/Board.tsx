@@ -60,6 +60,7 @@ import {
 import type { BoardLayout } from "../rules/primary/v2/boardLayout.ts";
 import { pieceAt, type PlacementState } from "../rules/primary/v2/placement.ts";
 import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
+import { pieceArtForType } from "./pieceArtByType.ts";
 import { visibleColumns, visibleRows, type RowBand } from "./boardView.ts";
 import {
   AccessibleGrid,
@@ -261,7 +262,7 @@ function BoardSquareCell({
         )}
         {pieceType && (
           <PieceIcon
-            type={pieceType}
+            art={pieceArtForType(pieceType)}
             side={side}
             className="board-square__piece-icon"
           />
