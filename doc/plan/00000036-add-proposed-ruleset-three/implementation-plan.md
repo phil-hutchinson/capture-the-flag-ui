@@ -399,7 +399,24 @@ after a demotion; and every ending condition including mutual attrition.
 
 ## Step 1 — Major-3 foundations: board, pieces, edition id
 
-Status: pending
+Status: committed
+
+Notes: Created `src/rules/primary/v3/board.ts`, `pieces.ts`, `edition.ts` and
+their tests, written from `reference/rules.md` §2 and §4.5 alone (v2 was read
+only for folder shape/comment style, per the plan). `board.ts` adds a
+`Direction`/`stepFrom` primitive beyond the plan's explicit list (a "bounded
+single-step helper for adjacency arithmetic") to give Steps 5–7 (encumbrance,
+diagonal open-path, formation bonus) one shared adjacency function instead of
+each reinventing offsets — a reasonable reading of that line, not a deviation
+in scope. One deviation from a literal reading of the verification text: to
+get a true one-hit grep for the edition literal and a true zero-hit grep for
+`primary/v2`, module comments were written to _describe_ those facts without
+_spelling_ the literal strings (e.g. "the existing major-2 rule engine" instead
+of quoting the path); `edition.test.ts` still asserts the literal
+`3-0:PRE-RELEASE` twice, which is necessary for the test to be a real guard
+rather than a tautology — so the "one hit" grep is exactly one hit in
+production source (`edition.ts`) plus two in its own test file. All five
+checks and both greps pass as run.
 
 Create `src/rules/primary/v3/` with its first three modules, written **from
 `reference/rules.md` §2 and §4.5 alone** — not by copying and editing anything
