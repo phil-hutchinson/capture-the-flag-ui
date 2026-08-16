@@ -45,6 +45,7 @@ import {
 import { BATTLE_ARMY } from "../rules/primary/v2/armyComposition.ts";
 import { STANDARD_BATTLE_CONFIGURATION } from "../rules/primary/v2/configuration.ts";
 import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
+import { INACTIVITY_LIMIT } from "../rules/primary/v2/outcome.ts";
 import {
   autoFill,
   clear,
@@ -546,7 +547,11 @@ export function EngineGame({ onBack }: EngineGameProps) {
               The computer is thinking…
             </p>
             <PlayWarnings
-              warnings={computeCountdownWarnings(playSession.play)}
+              warnings={computeCountdownWarnings(
+                playSession.play.result.kind === "ongoing",
+                playSession.play.inactivityCounter,
+                INACTIVITY_LIMIT,
+              )}
             />
           </>
         ) : (

@@ -1351,7 +1351,48 @@ for character. Run the five repository checks.
 
 ## Step 13 — The major-3 session, announcements, and a parameterized inactivity warning
 
-Status: pending
+Status: committed
+
+Notes: Created `src/board/v3PlaySession.ts` and `src/board/v3PlayAnnouncement.ts`,
+mirroring `playSession.ts`/`playAnnouncement.ts`'s contracts exactly (session
+state shape, `isInert`, `viewSide`, `actionableSquares`/`attackTargets`/
+`activatableSquares`/`activateSquare`, the draw-offer transitions) plus the
+new `resign` transition (Decision 9), and `describeResult` producing Decision
+5's six sentences character-for-character (verified by an explicit
+table-driven test). `describeActivation`'s attack sentence names a
+survivor's new rank via a small `rankLabel(rank)` helper only for
+`attackerWins`/`attackerLoses`, leaving the `draw` and `flagCapture` branches
+unchanged (asserted directly, per the plan's "assert both cases" guidance).
+Selection announces "{Colour} {Name}, rank {N} selected, {count} moves
+available." (a new `pieceDescriptionWithRank` helper), per Decision 6/Step
+13's "colour, rank name and rank number" requirement — the only place a rank
+digit appears outside a demotion. Parameterized `playWarnings.ts` per
+Decision 10 (`computeCountdownWarnings(ongoing, inactivityCounter, limit)`,
+no `PlayState` import at all), and updated its two test files plus **two**
+production callers, `HotSeatGame.tsx` and `EngineGame.tsx` (a small deviation
+from the plan's "its one caller" — `EngineGame.tsx`'s call site is inside the
+currently-hidden against-the-computer screen, which still had to keep
+compiling and calling the new signature correctly for `npm run build`'s
+hidden-tree check to stay meaningful); both now pass
+`playSession.play.result.kind === "ongoing"`, `playSession.play.inactivityCounter`
+and major 2's own `INACTIVITY_LIMIT` explicitly. One correction made while
+writing `playWarnings.test.ts`'s new "different limit" case: the literal
+boundary numbers in this step's verification text ("at 30 there is no
+warning and at 31 there is", limit 40, threshold 10) do not hold under the
+threshold's own unchanged `movesRemaining <= 10` comparison — by that
+formula (and by major 2's own boundary, where the first warning appears
+exactly at `counter = limit - 10`), the first warning at limit 40 appears at
+counter 30, not 31. The new test asserts the boundary that is actually
+consistent with "the 10-move threshold is unchanged" (no warning at 29, a
+warning with 10 remaining at 30) rather than the plan's literal numbers,
+which would have required silently changing the comparison operator to
+match. All five repository checks pass (1227 tests, up from 1189); grep for
+`primary/v2` inside the two new v3 modules and their tests is zero hits;
+`git status` shows no modification under `src/rules/primary/v2/` or
+`src/rules/primary/v3/`; major 2's existing `playWarnings.test.ts`/
+`playWarnings.game.test.ts` expectations pass unchanged (same assertions,
+now read through a small `warningsFor(state)` helper that extracts the three
+primitives from a major-2 `PlayState`).
 
 Add the thin, rules-shaped layer for major 3 (Decision 1), all pure and with
 no React dependency, so it is unit-testable in the project's `node` Vitest
@@ -1402,8 +1443,17 @@ Verification (**automated**): new `v3PlaySession.test.ts` and
   defender's new rank**, for a mutual loss (naming no new rank — a draw reduces
   nothing), for a Flag capture (naming no new rank — capturing the Flag is not
   combat), and each of the six result sentences from Decision 5's table.
-- Warnings: at 30 there is no warning and at 31 there is (limit 40, threshold
-  10), and major 2's existing expectations at limit 50 still pass unchanged.
+- Warnings: at counter 29 there is no warning and at counter 30 there is
+  (limit 40, threshold 10 — so the first warning appears with exactly 10 moves
+  remaining, matching major 2's own boundary at counter 40 of limit 50), and
+  major 2's existing expectations at limit 50 still pass unchanged.
+
+  **Corrected during implementation.** This bullet originally read "at 30
+  there is no warning and at 31 there is", which is off by one: it would have
+  meant warning at 9 moves remaining, and honouring it literally would have
+  required changing the `movesRemaining <= 10` comparison — silently moving
+  major 2's boundary too, in a step whose whole point is that the threshold is
+  unchanged.
 
 Run the five repository checks.
 

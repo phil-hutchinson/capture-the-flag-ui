@@ -67,6 +67,7 @@ import { Tray } from "./Tray.tsx";
 import { squareKey, type Square } from "../rules/primary/v2/board.ts";
 import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
+import { INACTIVITY_LIMIT } from "../rules/primary/v2/outcome.ts";
 import {
   autoFill,
   clear,
@@ -627,7 +628,11 @@ export function HotSeatGame({
               drawOfferPending={playSession.drawOffer !== null}
             />
             <PlayWarnings
-              warnings={computeCountdownWarnings(playSession.play)}
+              warnings={computeCountdownWarnings(
+                playSession.play.result.kind === "ongoing",
+                playSession.play.inactivityCounter,
+                INACTIVITY_LIMIT,
+              )}
             />
             <DrawOffer
               drawOffer={playSession.drawOffer}

@@ -62,6 +62,21 @@ function play(state: PlayState, ply: string): PlayState {
     .state;
 }
 
+/**
+ * `computeCountdownWarnings` (story 00000036, Step 13) takes whether the
+ * game is ongoing, the counter, and the limit rather than a `PlayState`
+ * directly - this reads those three off a major-2 `PlayState`, exactly as
+ * `HotSeatGame.tsx`/`EngineGame.tsx` do, so the game-driven fixtures below
+ * are unchanged from before that step.
+ */
+function warningsFor(state: PlayState) {
+  return computeCountdownWarnings(
+    state.result.kind === "ongoing",
+    state.inactivityCounter,
+    INACTIVITY_LIMIT,
+  );
+}
+
 describe("countdown warning over a real game", () => {
   describe("both sides shuffling (the shared inactivity draw)", () => {
     /**
@@ -98,29 +113,23 @@ describe("countdown warning over a real game", () => {
     }
 
     it("shows no warning early in the game", () => {
-      const warnings = computeCountdownWarnings(stallFor(10));
+      const warnings = warningsFor(stallFor(10));
       expect(warnings.inactivity).toBeNull();
     });
 
     it("first warns with 10 combined moves remaining, at ply 40", () => {
-      expect(computeCountdownWarnings(stallFor(39)).inactivity).toBeNull();
+      expect(warningsFor(stallFor(39)).inactivity).toBeNull();
 
-      const warning = computeCountdownWarnings(stallFor(40)).inactivity;
+      const warning = warningsFor(stallFor(40)).inactivity;
       expect(warning?.movesRemaining).toBe(10);
       expect(warning?.message).toContain("10 moves remain");
       expect(warning?.message).toContain("draw");
     });
 
     it("counts the warning down by one with each further move", () => {
-      expect(
-        computeCountdownWarnings(stallFor(41)).inactivity?.movesRemaining,
-      ).toBe(9);
-      expect(
-        computeCountdownWarnings(stallFor(45)).inactivity?.movesRemaining,
-      ).toBe(5);
-      expect(
-        computeCountdownWarnings(stallFor(49)).inactivity?.movesRemaining,
-      ).toBe(1);
+      expect(warningsFor(stallFor(41)).inactivity?.movesRemaining).toBe(9);
+      expect(warningsFor(stallFor(45)).inactivity?.movesRemaining).toBe(5);
+      expect(warningsFor(stallFor(49)).inactivity?.movesRemaining).toBe(1);
     });
 
     it("ends in a shared inactivity draw once the limit is reached", () => {
@@ -130,7 +139,7 @@ describe("countdown warning over a real game", () => {
     });
 
     it("shows no warning at all once the game has ended", () => {
-      const warnings = computeCountdownWarnings(stallFor(INACTIVITY_LIMIT));
+      const warnings = warningsFor(stallFor(INACTIVITY_LIMIT));
       expect(warnings.inactivity).toBeNull();
     });
   });
@@ -192,7 +201,7 @@ describe("countdown warning over a real game", () => {
     it("resets the counter to 0 at the capture, clearing any warning", () => {
       const afterCapture = stallWithCaptureFor(CAPTURE_PLY);
       expect(afterCapture.inactivityCounter).toBe(0);
-      expect(computeCountdownWarnings(afterCapture).inactivity).toBeNull();
+      expect(warningsFor(afterCapture).inactivity).toBeNull();
     });
 
     it("counts back up from the reset toward a new warning", () => {
@@ -200,9 +209,7 @@ describe("countdown warning over a real game", () => {
       // the warning threshold (10 remaining).
       const state = stallWithCaptureFor(CAPTURE_PLY + 40);
       expect(state.inactivityCounter).toBe(40);
-      expect(computeCountdownWarnings(state).inactivity?.movesRemaining).toBe(
-        10,
-      );
+      expect(warningsFor(state).inactivity?.movesRemaining).toBe(10);
     });
 
     it("eventually ends in a shared inactivity draw, counted from the reset", () => {

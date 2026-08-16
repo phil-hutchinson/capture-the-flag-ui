@@ -47,20 +47,36 @@ function ongoingState(): PlayState {
   );
 }
 
+/**
+ * `computeCountdownWarnings` (story 00000036, Step 13) no longer takes a
+ * `PlayState` directly - it takes whether the game is ongoing, the counter,
+ * and the limit, so the same module serves both majors. This helper reads
+ * those three primitives off a major-2 `PlayState`, matching how
+ * `HotSeatGame.tsx`/`EngineGame.tsx` call it, so the fixtures below (and
+ * their expectations) are unchanged from before that step.
+ */
+function warningsFor(state: PlayState) {
+  return computeCountdownWarnings(
+    state.result.kind === "ongoing",
+    state.inactivityCounter,
+    INACTIVITY_LIMIT,
+  );
+}
+
 describe("computeCountdownWarnings", () => {
   it("shows no warning at the start of a game", () => {
-    const warnings = computeCountdownWarnings(ongoingState());
+    const warnings = warningsFor(ongoingState());
     expect(warnings.inactivity).toBeNull();
   });
 
   it("does not warn at 11 combined moves remaining (39 used)", () => {
     const state: PlayState = { ...ongoingState(), inactivityCounter: 39 };
-    expect(computeCountdownWarnings(state).inactivity).toBeNull();
+    expect(warningsFor(state).inactivity).toBeNull();
   });
 
   it("warns at 10 combined moves remaining (40 used)", () => {
     const state: PlayState = { ...ongoingState(), inactivityCounter: 40 };
-    const warning = computeCountdownWarnings(state).inactivity;
+    const warning = warningsFor(state).inactivity;
     expect(warning).not.toBeNull();
     expect(warning?.movesRemaining).toBe(10);
   });
@@ -76,8 +92,8 @@ describe("computeCountdownWarnings", () => {
       sideToMove: "black",
       inactivityCounter: 40,
     };
-    expect(computeCountdownWarnings(white).inactivity).not.toBeNull();
-    expect(computeCountdownWarnings(black).inactivity).not.toBeNull();
+    expect(warningsFor(white).inactivity).not.toBeNull();
+    expect(warningsFor(black).inactivity).not.toBeNull();
   });
 
   it.each([
@@ -88,7 +104,7 @@ describe("computeCountdownWarnings", () => {
     "reports %i moves used as %i moves remaining",
     (used, expectedRemaining) => {
       const state: PlayState = { ...ongoingState(), inactivityCounter: used };
-      expect(computeCountdownWarnings(state).inactivity?.movesRemaining).toBe(
+      expect(warningsFor(state).inactivity?.movesRemaining).toBe(
         expectedRemaining,
       );
     },
@@ -96,7 +112,7 @@ describe("computeCountdownWarnings", () => {
 
   it("names the remaining count and that removing a piece resets it, without naming a side", () => {
     const state: PlayState = { ...ongoingState(), inactivityCounter: 45 };
-    const warning = computeCountdownWarnings(state).inactivity;
+    const warning = warningsFor(state).inactivity;
     expect(warning?.message).toContain("5");
     expect(warning?.message.toLowerCase()).toContain("removing a piece");
     expect(warning?.message).not.toContain("Red");
@@ -108,7 +124,7 @@ describe("computeCountdownWarnings", () => {
       ...ongoingState(),
       inactivityCounter: INACTIVITY_LIMIT - 1,
     };
-    expect(computeCountdownWarnings(state).inactivity?.movesRemaining).toBe(1);
+    expect(warningsFor(state).inactivity?.movesRemaining).toBe(1);
   });
 
   it("shows no warning at all once the game is over, even with the counter deep in range", () => {
@@ -117,7 +133,19 @@ describe("computeCountdownWarnings", () => {
       inactivityCounter: INACTIVITY_LIMIT - 1,
       result: { kind: "win", winner: "black", reason: "flagCapture" },
     };
-    const warnings = computeCountdownWarnings(state);
+    const warnings = warningsFor(state);
     expect(warnings.inactivity).toBeNull();
+  });
+
+  it("warns against a different limit when one is passed, per Decision 10", () => {
+    // A Demotion game passes v3's own limit (40) rather than major 2's (50).
+    // The 10-move threshold is unchanged, so the boundary shifts with the
+    // limit exactly as it does at major 2 (there, the first warning appears
+    // at counter 40 = limit 50 - 10): here, at counter 29 (11 remaining)
+    // there is no warning, and at counter 30 (10 remaining) there is.
+    expect(computeCountdownWarnings(true, 29, 40).inactivity).toBeNull();
+    const warning = computeCountdownWarnings(true, 30, 40).inactivity;
+    expect(warning).not.toBeNull();
+    expect(warning?.movesRemaining).toBe(10);
   });
 });
