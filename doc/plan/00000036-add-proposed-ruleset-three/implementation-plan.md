@@ -1735,7 +1735,71 @@ pre-selected. Also run the five repository checks.
 
 ## Step 17 — Cross-major sweep: nothing leaks, everything is reachable
 
-Status: pending
+Status: committed
+
+Gate note (owner, at the manual gate): Gates A and H pass. **Gate I passes
+only in part, and the distinction is recorded deliberately rather than
+rounded up.** The keyboard half — choosing Demotion, playing a full game to a
+Flag capture and resigning a second game, mouse away entirely — was verified
+by the owner and passes. The **screen-reader half is structurally verified
+but not audibly confirmed**: no assistive technology was available to anyone
+who worked on this story. What was checked is the markup and the wording (one
+persistent shared live region, labels always naming a piece's _current_ rank,
+the demotion sentence naming the survivor's new rank). What nobody has
+confirmed is whether those updates are actually announced, in what order, or
+whether NVDA/VoiceOver live-region timing interferes.
+
+**Story.md's in-scope item 12 is therefore only partly met**, and the peer
+review and sign-off should treat it that way. A real screen-reader pass needs
+someone with the tooling and is the natural follow-up.
+
+Notes: All three sweeps came back clean; no fix was needed anywhere, and
+neither `src/rules/primary/v3/` nor `src/rules/primary/v2/` was touched.
+**Copy sweep**: grepped `GameChoice.tsx`, `HotSeatGame.tsx`, `DemotionGame.tsx`,
+`v3PlayAnnouncement.ts`, `resignControl.ts`, `ResignControl.tsx` and
+`gameCatalog.ts` for `ply`, `edition`, `PRE-RELEASE`, `3-0:` and `White`/`Black`
+(case-insensitive); every hit is inside a `//` or `/** */` comment (or, in one
+case in `HotSeatGame.tsx`, the pre-existing major-2-only property names
+`next.white`/`next.black` on placement session state, not a rendered string) -
+zero hits in any rendered JSX text, template literal passed to an
+announcement/description function, or object literal consumed by the UI.
+Read every rendered string in those seven files by hand: piece names come
+from `RANK_CATALOG`/`FLAG_DISPLAY_NAME` (Master-of-Arms, Champion, Foot
+Soldier, Militia, Peasant, Flag) and sides always render through
+`sideColorName`/`sideNames.ts` as "Red"/"Blue"; Demotion's catalog entry
+copy, the opening announcement, the six result sentences and the resign
+confirmation all match story.md/the plan's fixed wording character for
+character. **Version-wall check**: `grep -rn "primary/v2" src/rules/primary/v3/`
+and `grep -rn "v3" src/rules/primary/v2/` are both zero hits (confirmed by
+exit code, not just eyeballing); `git diff --stat main...HEAD -- src/rules/primary/v2/
+src/rules/readRecord.ts src/rules/readRecord.test.ts src/engine/ src/encoding/`
+produces empty output, and a whole-branch `git diff --stat main...HEAD | grep
+-i "readRecord\|src/rules/primary/v2\|src/engine/\|src/encoding/"` also
+produces zero hits - so no file under any of those four trees is touched
+anywhere in the branch, not just in this step's own diff. **Accessibility
+pass**: verified structurally (markup and wording only - no screen reader is
+available in this environment, per Step 14's own gate note) that (a) a rank
+change is conveyed three ways - the attack sentence names the survivor's new
+rank in words via `v3PlayAnnouncement.ts`'s `describeAttack`/`rankLabel`
+("... and is demoted to Foot Soldier, rank 3."), the corner numeral and
+artwork update automatically because `boardViewAdapterV3.ts` reads each
+piece's _current_ rank on every render, and the square's own accessible
+label (`FullBoard.tsx`'s `squareLabel`) always reads "{square}, {colour}
+{rank name}, rank {N}" so re-reading a square after a demotion confirms it
+without depending on having heard the attack sentence; and (b) a game that
+begins already in progress is oriented by `handleChooseDemotion` setting
+Decision 11's fixed sentence into the same persistent `role="status"`
+`aria-live="polite"` region (`gameAnnouncementRegion`) every other branch
+uses, mounted empty before any game is chosen and never unmounted across
+branch changes (same element order in all four branches, per Step 14's own
+note), with the heading-refocus effect firing for Demotion via the
+`gameChosen` boolean exactly as it does for the other three games. What this
+confirms is the markup shape and the wording, not that a real screen reader
+actually speaks it - that is Gate I, the owner's manual pass. No rules-layer
+defect was found; no fix was needed in `src/rules/primary/v3/` and none was
+made. All five checks pass: typecheck clean, lint clean, 1239 tests passed
+(56 files), format:check clean, build clean (138 modules, hidden
+engine/reviewer trees included).
 
 No new feature. A deliberate pass over the seam, with the fixes it turns up:
 
