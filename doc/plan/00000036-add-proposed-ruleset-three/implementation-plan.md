@@ -963,7 +963,39 @@ the five repository checks.
 
 ## Step 9 — Notation and the major-3 play state
 
-Status: pending
+Status: committed
+
+Notes: Created `src/rules/primary/v3/notation.ts` (a render-only module —
+major 3 has no record reader, so unlike v2's `notation.ts` there is no
+parser) and `src/rules/primary/v3/play.ts` (`PlayState`, `startPlay`,
+`applyMove`, `resign`, `agreeDraw`), plus `notation.test.ts` and
+`play.test.ts`. `renderMoveToken(from, to, combat: CombatResult | null)`
+derives each square's mark straight from `combat.ts`'s own
+`outcome`/`survivorRank`/`kind` fields, so the five notation forms and the
+one-mark-per-square invariant fall out structurally rather than needing a
+separate encoding; `notation.test.ts` still asserts the invariant with a
+property sweep over all 5×5 rank pairings × both sides' formation-bonus
+presence (100 combats) plus dedicated Flag-capture and quiet-move cases.
+`play.ts`'s `applyMove` mirrors v2's shape (legality re-checked against
+`legalDestinations`/`legalAttacks`, `firstMoveRestricted` computed as
+`state.moves.length === 0` since White always moves first, counter
+reset-on-any-removal, outcome recomputed every ply); `resign` and
+`agreeDraw` end the game without appending a move, matching §5.5/§5.6.
+One deviation from a literal reading of the step's verification text: the
+"scripted full game" test builds its board by hand (`placePiece`, as
+`movement.test.ts`/`combat.test.ts` already do) rather than literally
+threading a `generateStartPosition(seededRandom(...))` board through the
+five hand-chosen plies — a real generated arrangement's piece ranks and
+squares are random-but-deterministic, not chosen, so there is no tractable
+way to know in advance which squares will produce an attacker win, an
+attacker loss, a mutual loss and a Flag capture in a short, legal sequence;
+a separate "starting a game" test does exercise `startPlay` directly against
+a real `generateStartPosition(seededRandom(...))` output, covering the
+"generated position" half of the requirement. All five repository checks
+pass (typecheck, lint, 1135 tests including the new 9 + 14, format:check,
+build); `grep -rn "primary/v2" src/rules/primary/v3/` is zero hits; `git
+status --short` shows only `notation.ts`, `notation.test.ts`, `play.ts` and
+`play.test.ts` added, nothing under `src/rules/primary/v2/`.
 
 Add `src/rules/primary/v3/notation.ts` and `src/rules/primary/v3/play.ts`.
 
