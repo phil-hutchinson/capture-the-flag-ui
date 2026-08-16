@@ -64,13 +64,13 @@ describe("GAME_CATALOG", () => {
 });
 
 describe("offeredGames", () => {
-  it("offers exactly Skirmish, Clash and Battle, in that order - Demotion is catalogued but not yet offered (Step 14 adds it)", () => {
-    expect(offeredGames()).toEqual(["skirmish", "clash", "battle"]);
+  it("offers exactly Skirmish, Clash, Battle, then Demotion last (story 00000036, Step 14)", () => {
+    expect(offeredGames()).toEqual(["skirmish", "clash", "battle", "demotion"]);
   });
 
-  it("never includes demotion at this step", () => {
+  it("always includes demotion, regardless of games.ts's playableGames() floor - it has no combination to fail", () => {
     const offered: readonly AppGameId[] = offeredGames();
-    expect(offered).not.toContain("demotion");
+    expect(offered).toContain("demotion");
   });
 });
 

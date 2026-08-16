@@ -1461,7 +1461,55 @@ Run the five repository checks.
 
 ## Step 14 — Demotion appears in the picker and starts a game
 
-Status: pending
+Status: committed
+
+Gate note (owner, at the manual gate): Gates B and C pass. The opening
+announcement was **not** confirmed audibly — the owner has no screen reader
+available — so it is verified by code inspection only: the `role="status"`
+region is a single element rendered at the same position in all four
+branches, mounted and empty before `handleChooseDemotion` sets its text, and
+`sr-only` by CSS, so there is nothing to observe without assistive tech.
+**Gate I (Step 17) is where the accessibility claim gets its real pass**;
+until then this story's screen-reader behaviour is unverified, not verified.
+
+Notes: `gameCatalog.ts`'s `OFFERED_GAME_IDS` filter now includes every
+major-3 entry unconditionally (Demotion has no `combinationFits`-style floor
+to fail), so `offeredGames()` returns Skirmish, Clash, Battle, Demotion.
+`GameChoice.tsx`'s `onChoose` (and `HotSeatGame`'s `handleChooseGame`) now
+take `RuleConfiguration | null` — `null` for a major-3 selection — and the
+"Diagonal attacks" section is wrapped in `showRuleChoices`
+(`GAME_CATALOG[choice].source.major === 2`), so it disappears for Demotion
+without touching `flagOverrides`
+(the state Gate B's "previous selections intact" depends on). Added
+`src/board/DemotionGame.tsx` (turn indicator, flip toggle, `FullBoard` with
+no activatable squares) and `src/board/boardViewAdapterV3.ts`
+(`boardGeometryForDemotion` — fixed 8x8, empty `impassableSquares` —
+and `boardPositionForDemotion`, whose numbered-piece labels read
+"{Rank name}, rank {N}" so a re-read always names the piece's _current_
+rank, per Decision 6). `HotSeatGame.tsx` gained a fourth branch
+(`demotionSession !== null`) with the same element order as the other three,
+and a new `handleChooseDemotion` that calls `generateStartPosition()` (the
+default `Math.random` source), starts a v3 `PlaySession` (aliased
+`DemotionPlaySession`/`startDemotionSession` to avoid colliding with major
+2's own `PlaySession`/`startSession`), and sets Decision 11's exact opening
+announcement into the existing `gameAnnouncementRegion`. One deviation from
+a literal reading of the plan, recorded because it touches the shared shell:
+the heading-refocus effect and `gameInProgress` were rewritten to depend on
+a derived `gameChosen` boolean (`configuration !== null || demotionSession
+!== null`) rather than depending on `demotionSession` directly — a literal
+`[configuration, demotionSession]` dependency array would refire the effect
+and steal focus back to the heading on _every_ move once Step 15 starts
+replacing `demotionSession` with a new object on each ply (a new object
+reference re-triggers a `useEffect`, unlike the primitive boolean); the
+plan's own text only requires "the heading-refocus effect must fire for this
+branch too," which the boolean still satisfies exactly, without setting up a
+one-step-later regression. Added `boardViewAdapterV3.test.ts` (geometry has
+no impassable squares; occupied-square art/label mapping including a
+generated 32-piece position) and updated `gameCatalog.test.ts`'s
+`offeredGames` tests for the new fourth entry. All five checks pass
+(typecheck, lint, 1233 tests, format:check, build); `src/rules/primary/v2/`
+is untouched (`git status --short` empty for that path) and
+`src/rules/primary/v3/` needed no change, per the constraints.
 
 Make Demotion reachable and show its generated starting position. **No
 interaction yet** — the board draws, and nothing responds.

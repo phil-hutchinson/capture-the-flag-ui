@@ -11,12 +11,11 @@
 // other's. This module is that identity, sitting *above* both majors.
 //
 // `AppGameId` names every game this app can ever offer - Skirmish, Clash and
-// Battle (major 2) plus Demotion (major 3) - and is present in full from this
-// step onward, even though `offeredGames()` does not yet include Demotion
-// (see below). `GAME_CATALOG` is an exhaustive `Record<AppGameId, ...>`, so a
-// fifth game fails to compile here until it has an entry, mirroring the
-// exhaustiveness `GameChoice.tsx`'s old `GAME_DETAIL`/`gameOrderRank` and
-// `gameNames.ts`'s old `GAME_NAME` were written for. Each entry carries its
+// Battle (major 2) plus Demotion (major 3). `GAME_CATALOG` is an exhaustive
+// `Record<AppGameId, ...>`, so a fifth game fails to compile here until it
+// has an entry, mirroring the exhaustiveness `GameChoice.tsx`'s old
+// `GAME_DETAIL`/`gameOrderRank` and `gameNames.ts`'s old `GAME_NAME` were
+// written for. Each entry carries its
 // player-facing name and description (the three major-2 entries' copy is
 // moved verbatim from those old records - not reworded - so the picker's
 // visible text is unchanged by this migration), its display order, a
@@ -134,19 +133,15 @@ export const GAME_CATALOG: Readonly<Record<AppGameId, GameCatalogEntry>> = {
  * The games actually offered for play, in display order. Every catalogued
  * major-2 game whose source `GameId` is in `games.ts`'s `playableGames()`
  * (the existing `combinationFits` floor, unchanged - see that module's own
- * comment), plus Demotion.
- *
- * **Demotion is deliberately excluded here, for this step only.** `AppGameId`
- * and `GAME_CATALOG` carry it from the start (this module's own header), but
- * offering it - making it reachable and playable - is Step 14. Until then
- * this function's result is exactly the three major-2 games, in the same
- * order the picker has always shown them, so this step is a pure identity-
- * layer migration with no visible change.
+ * comment), plus Demotion, which is **always** offered - major 3 has no
+ * `combinationFits`-style floor to fail (story 00000036's implementation
+ * plan, Step 14): it is a single, fixed board and army, so there is nothing
+ * about it that could ever stop fitting.
  */
 const OFFERED_GAME_IDS: readonly AppGameId[] = APP_GAME_IDS.filter((id) => {
   const entry = GAME_CATALOG[id];
   if (entry.source.major === 3) {
-    return false;
+    return true;
   }
   return playableGames().includes(entry.source.gameId);
 }).sort((a, b) => GAME_CATALOG[a].order - GAME_CATALOG[b].order);
