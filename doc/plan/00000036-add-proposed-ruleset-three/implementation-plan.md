@@ -576,7 +576,29 @@ repository checks.
 
 ## Step 4 — Generating a starting position, and the derived strength rule
 
-Status: pending
+Status: committed
+
+Notes: Created `src/rules/primary/v3/startPosition.ts` and
+`startPosition.test.ts`. `generateWhiteArrangement` places the Flag via a
+uniform column draw on row 1, then Fisher-Yates-shuffles the 15-piece rank
+multiset into the remaining squares, both driven by an injectable
+`RandomSource` (default `Math.random`); `deriveBlackArrangement` takes
+White's arrangement alone (no randomness) and computes the branch via
+`isHalfTurn`, whose comparison (`S * NUMBERED_PIECE_COUNT_PER_SIDE >
+PIECES_IN_FLAG_HALF * TOTAL_RANK`) is built from `pieces.ts`/`board.ts`
+constants rather than a literal `22`; `generateStartPosition` composes the
+two and encodes White's arrangement into the position ID. Mirror-equivalence
+is not referenced or acted on anywhere in the module, per §4. Test file
+declares a small `mulberry32`-style seeded `RandomSource` (no dependency
+added) and covers shape, uniformity (flag on all 8 row-1 columns and every
+rank on all 16 White squares over a 4000-sample draw), the exact `S = 21`/`S
+= 22` boundary via hand-built arrangements (with full square-by-square
+mapping checks for both branches), an independent recomputation of the
+threshold from the army data (asserted to equal 21), both branches occurring
+over a sample, the 8-piece-on-row-2 opening invariant, and a position-ID
+sanity check. No deviations from the plan. All five checks pass; the
+`primary/v2` grep under `src/rules/primary/v3/` is zero hits; `git status`
+shows no modification under `src/rules/primary/v2/`.
 
 Add `src/rules/primary/v3/startPosition.ts`, implementing
 `reference/rules.md` §3 and `reference/start-position.md` §§1–3.
