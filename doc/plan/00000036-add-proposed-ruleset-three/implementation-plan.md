@@ -812,7 +812,43 @@ Run the five repository checks.
 
 ## Step 7 — Combat: rank, the formation bonus, rank reduction, and Flag capture
 
-Status: pending
+Status: committed
+
+Notes: Created `src/rules/primary/v3/combat.ts` and `combat.test.ts`.
+`resolveCombat` is a single pure function taking the pre-resolution position
+plus origin/target and returning a discriminated `CombatResult` (`kind:
+"combat"` with a three-way `outcome` and a nullable `survivorRank`, or `kind:
+"flagCapture"` with no rank field, since capture is not combat) together with
+the already-resolved position — this both matches the plan's literal list of
+fields ("both combatants as they were before resolution, the attacked
+square, which of the three results occurred, whether the Flag was captured
+... the surviving piece's new rank") and gives Step 9's `play.ts` a
+ready-to-use board without re-deriving it from the outcome. The formation
+bonus is a private `hasFormationBonus` helper checked fresh against the
+pre-resolution position for both attacker (at its origin) and defender (at
+its target) — never cached — reusing `board.ts`'s `stepFrom` over all eight
+surrounding directions. Sacrificial attacks needed no special-casing: a
+weaker piece attacking a stronger one simply falls out of the same
+rank-comparison logic as `attackerLoses` (complete sacrifice) or, with the
+formation bonus, `draw` (partial sacrifice), exactly as the module comment
+explains. One test-design decision beyond the plan's literal verification
+list: the "rank reduction never yields a rank below 1, even if a rank 1 is
+forced to survive" bullet is, on inspection, unreachable through
+`resolveCombat` under these rules — a rank 1 attacker can never outrank a
+defender (all ranks are >= 1, and equal rank always draws regardless of the
+formation bonus, which only ever converts a loss into a draw, never into a
+win) — exactly what rules.md §4.3 itself argues. Rather than assert
+something impossible, `combat.test.ts` includes an exhaustive sweep over
+every rank pairing and every formation-bonus combination confirming a rank 1
+attacker never produces `"attackerWins"` and a rank 1 defender never
+produces `"attackerLoses"`, i.e. that the implementation actually upholds
+the rules' own argument rather than merely assuming it; the clamp itself
+(`reduceRank(1) === 1`) is already directly tested in `position.test.ts`
+(Step 2), and `combat.ts` reuses that function rather than reimplementing
+it. All five repository checks pass; `grep -rn "primary/v2"
+src/rules/primary/v3/` is zero hits; `git status --short` shows only
+`combat.ts` and `combat.test.ts` added, nothing under
+`src/rules/primary/v2/`.
 
 Add `src/rules/primary/v3/combat.ts`, resolving `reference/rules.md` §4.3:
 higher rank wins and the loser is removed; equal ranks draw and both are
