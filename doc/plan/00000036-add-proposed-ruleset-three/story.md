@@ -611,3 +611,34 @@ rank number, which is what actually governs.
   the v3 board and pieces first, then generation and the position ID, then
   movement, combat and outcome, then the shared view layer, then the picker
   and the play surfaces.
+
+## Addendum — dev container file watching
+
+Added after the story's work was complete, and carried on the same branch
+because it is a one-line development-environment fix with no bearing on the
+app that ships.
+
+Manual-verification gates for this story were run with the dev server never
+picking up an edit on its own: every check meant restarting Vite by hand. The
+cause is the dev container's mount rather than anything in this repository.
+The workspace is passed through from the Windows drive over 9p/drvfs, and that
+filesystem does not implement **recursive** inotify — a flat, single-directory
+watch works, but a recursive one silently reports nothing at all, which reads
+as the feature being switched off rather than failing. Vite 7 no longer uses
+chokidar (which walked the tree itself and set one flat watch per directory);
+it calls `fs.watch(..., { recursive: true })` directly, so it lands squarely on
+the one primitive the mount does not provide.
+
+`vite.config.ts` now sets `server.watch.usePolling`, which was confirmed to
+restore HMR on this mount. Two things worth recording for whoever meets this
+next:
+
+- **It fixes Vite only.** `npm run test:watch` and any other tooling that
+  watches the tree — including the assistant's own detection of files changed
+  outside its edits — go through the same missing primitive and are not
+  covered by this change.
+- **The structural fix is to move the working copy off 9p**, either onto
+  WSL2's own ext4 or into a container volume, which would make the workaround
+  unnecessary and speed up file I/O generally. That was considered and
+  deliberately declined: the owner wants the repository to stay reachable from
+  Windows at an ordinary path.
