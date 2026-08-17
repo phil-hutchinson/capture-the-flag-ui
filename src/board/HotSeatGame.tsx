@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { APP_NAME } from "../appInfo.ts";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
-import type { GameSelection } from "../games/gameCatalog.ts";
+import { GAME_CATALOG, type GameSelection } from "../games/gameCatalog.ts";
 import { Board } from "./Board.tsx";
 import { DemotionGame } from "./DemotionGame.tsx";
 import { DrawOffer } from "./DrawOffer.tsx";
@@ -82,7 +82,11 @@ import {
   type PlaySession as DemotionPlaySession,
 } from "./v3PlaySession.ts";
 import { squareKey, type Square } from "../rules/primary/v2/board.ts";
-import type { Square as DemotionSquare } from "../rules/primary/v3/board.ts";
+import {
+  squareKey as demotionSquareKey,
+  type Square as DemotionSquare,
+} from "../rules/primary/v3/board.ts";
+import { findFlag } from "../rules/primary/v3/position.ts";
 import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
 import { INACTIVITY_LIMIT } from "../rules/primary/v2/outcome.ts";
@@ -584,16 +588,37 @@ export function HotSeatGame({
   // handler that starts the game, exactly as `handleChooseGame` sets its own
   // announcement above - into the same already-registered live region
   // (`gameAnnouncementRegion`, below), so nothing about it depends on that
-  // region's first mount.
+  // region's first mount. Two deviations from a literal reading of Decision
+  // 11, both peer-review fixes: the board-size clause is composed from
+  // `gameCatalog.ts`'s `GAME_CATALOG.demotion.boardSizePhrase` rather than
+  // hard-coded, so the two cannot drift apart; and the sentence now names
+  // Red's own Flag square, read live off the generated position, giving a
+  // screen-reader player one concrete orienting fact about the board they
+  // did not arrange themselves (see implementation-plan.md's Step 14 Notes
+  // for the wording change on record).
   function handleChooseDemotion() {
     const generated = generateStartPosition();
     setDemotionSession(startDemotionSession(generated));
+    const flagSquare = findFlag(generated.position, "white");
+    if (flagSquare === undefined) {
+      throw new Error(
+        "HotSeatGame.tsx: handleChooseDemotion: generated position has no White Flag.",
+      );
+    }
     setGameAnnouncement(
-      "You chose Demotion. Playing on an 8x8 board. Both armies are already on the board — there is nothing to place. Red to move.",
+      `You chose Demotion. Playing on ${GAME_CATALOG.demotion.boardSizePhrase}. Both armies are already on the board — there is nothing to place. Your Flag is on ${demotionSquareKey(flagSquare)}. Red to move.`,
     );
   }
 
   if (configuration === null && demotionSession === null) {
+    // Element-order invariant (peer review, Minor 7): this `<main>` shell -
+    // sprite defs, `<h1>`, "Back to start", `LeaveGameDialog`, announcement
+    // region, then branch content - must stay in the same order in this
+    // file's other three `<main className="app">` copies (the Demotion
+    // branch and the Phase 2 major-2 play branch below, and the placement
+    // branch further down still), so React keeps the persistent `<h1>` node
+    // and `role="status"` region mounted across every branch change rather
+    // than remounting them and losing focus or dropping an announcement.
     return (
       <main className="app">
         <PieceSpriteDefs />
@@ -624,7 +649,11 @@ export function HotSeatGame({
     // below - same shell, same element order (sprite defs, heading, back
     // button, leave dialog, announcement region, then content), so React
     // keeps the persistent `<h1>` node and `role="status"` region across this
-    // branch change exactly as it does across the other three.
+    // branch change exactly as it does across the other three. Element-order
+    // invariant (peer review, Minor 7): this copy of the `<main
+    // className="app">` shell must be kept in the same order as the other
+    // three in this file - the game-choice screen above, the Phase 2 major-2
+    // play branch below, and the placement branch further down still.
     //
     // Step 15: all interaction - selecting a piece, moving it, attacking, and
     // the turn hand-off (including any demotion) - flows through
@@ -789,6 +818,13 @@ export function HotSeatGame({
 
     const { result } = playSession.play;
 
+    // Element-order invariant (peer review, Minor 7): this `<main>` shell -
+    // sprite defs, `<h1>`, "Back to start", `LeaveGameDialog`, announcement
+    // region, then branch content - must stay in the same order as this
+    // file's other three `<main className="app">` copies (the game-choice
+    // screen and the Demotion branch above, and the placement branch
+    // further down), so React keeps the persistent `<h1>` node and
+    // `role="status"` region mounted across every branch change.
     return (
       <main className="app">
         <PieceSpriteDefs />
@@ -1241,6 +1277,13 @@ export function HotSeatGame({
     legality: placementComplete ? legality : { legal: true },
   });
 
+  // Element-order invariant (peer review, Minor 7): this `<main>` shell -
+  // sprite defs, `<h1>`, "Back to start", `LeaveGameDialog`, announcement
+  // region, then branch content - must stay in the same order as this
+  // file's other three `<main className="app">` copies (the game-choice
+  // screen, the Demotion branch, and the Phase 2 major-2 play branch, all
+  // above), so React keeps the persistent `<h1>` node and `role="status"`
+  // region mounted across every branch change.
   return (
     <main className="app">
       <PieceSpriteDefs />

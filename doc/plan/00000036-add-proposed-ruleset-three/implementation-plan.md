@@ -416,7 +416,11 @@ of quoting the path); `edition.test.ts` still asserts the literal
 `3-0:PRE-RELEASE` twice, which is necessary for the test to be a real guard
 rather than a tautology — so the "one hit" grep is exactly one hit in
 production source (`edition.ts`) plus two in its own test file. All five
-checks and both greps pass as run.
+checks and both greps pass as run. This commit also added
+`doc/plan/*/reference/` to `.prettierignore`: the pinned verbatim snapshot
+added alongside this step (`reference/rules.md`, `reference/start-position.md`
+and friends) must never be reformatted by `npm run format:check`, or it stops
+being a faithful, byte-for-byte copy of the companion repository's proposal.
 
 Create `src/rules/primary/v3/` with its first three modules, written **from
 `reference/rules.md` §2 and §4.5 alone** — not by copying and editing anything
@@ -1510,6 +1514,17 @@ generated 32-piece position) and updated `gameCatalog.test.ts`'s
 (typecheck, lint, 1233 tests, format:check, build); `src/rules/primary/v2/`
 is untouched (`git status --short` empty for that path) and
 `src/rules/primary/v3/` needed no change, per the constraints.
+
+Peer-review fixes (Minors 4 and 8): `handleChooseDemotion`'s opening
+announcement no longer hard-codes "Playing on an 8x8 board." — it composes
+that clause from `gameCatalog.ts`'s `GAME_CATALOG.demotion.boardSizePhrase`,
+so the catalog stays the one source of truth for the phrase. Separately, the
+sentence now names Red's own Flag square (`findFlag(generated.position,
+"white")`, formatted with `board.ts`'s `squareKey`), e.g. "Your Flag is on
+D1.", giving a screen-reader player one concrete fact about a position they
+did not arrange themselves — this is a deviation from Decision 11's exact
+wording, not just from a literal reading of it, made because Decision 11's
+sentence said only _that_ a position exists and never _where_ anything is.
 
 Make Demotion reachable and show its generated starting position. **No
 interaction yet** — the board draws, and nothing responds.

@@ -32,8 +32,23 @@
 // offer is pending an answer (Decision 9: "hidden while a draw offer is
 // awaiting an answer" - the board is already inert in that state, and the
 // pending offer is itself already a decision in progress).
+//
+// The confirmation prompt gets a `useId`-generated `id`, referenced by both
+// **Resign** and **Cancel** via `aria-describedby`, mirroring
+// `LeaveGameDialog.tsx`'s `aria-labelledby`/`aria-describedby` precedent -
+// this is deliberately a local, per-button description rather than a live
+// region announcement, so the sentence is spoken once, when the button that
+// reads it receives focus, and not a second time as an unrequested
+// interruption.
+//
+// `resigningSide` is supplied fresh from `session.play.sideToMove` on every
+// render, so the prompt closes itself (see the `useEffect` keyed on
+// `resigningSide` below) the instant the side to move changes - otherwise a
+// prompt left open across a turn change would silently re-attribute itself
+// to whoever is now to move, and a stray Enter from the player who never
+// opened it could resign their game instead.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Side } from "../rules/primary/v3/board.ts";
 import {
   cancelResignConfirmation,
@@ -56,6 +71,7 @@ export function ResignControl({ resigningSide, onResign }: ResignControlProps) {
   const resignButtonRef = useRef<HTMLButtonElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const previousConfirming = useRef<boolean | undefined>(undefined);
+  const promptId = useId();
 
   useEffect(() => {
     const previous = previousConfirming.current;
@@ -72,6 +88,16 @@ export function ResignControl({ resigningSide, onResign }: ResignControlProps) {
     }
   }, [state.confirming]);
 
+  // The confirmation is this component's own guard, not game state (see
+  // module comment) - but `resigningSide` is supplied fresh from
+  // `session.play.sideToMove` on every render, so if the prompt were left
+  // open across a turn change it would silently re-attribute itself to
+  // whoever is now to move. Closing it the instant `resigningSide` changes
+  // means the prompt can never outlive the turn it was opened on.
+  useEffect(() => {
+    setState(initialResignConfirmState());
+  }, [resigningSide]);
+
   if (!state.confirming) {
     return (
       <button
@@ -87,12 +113,13 @@ export function ResignControl({ resigningSide, onResign }: ResignControlProps) {
 
   return (
     <div className="resign-control-prompt">
-      <span className="resign-control-prompt__text">
+      <span id={promptId} className="resign-control-prompt__text">
         {describeResignConfirmation(resigningSide)}
       </span>
       <button
         type="button"
         className="resign-control-prompt__resign"
+        aria-describedby={promptId}
         onClick={onResign}
       >
         Resign
@@ -100,6 +127,7 @@ export function ResignControl({ resigningSide, onResign }: ResignControlProps) {
       <button
         type="button"
         className="resign-control-prompt__cancel"
+        aria-describedby={promptId}
         onClick={() => setState(cancelResignConfirmation())}
         ref={cancelButtonRef}
       >

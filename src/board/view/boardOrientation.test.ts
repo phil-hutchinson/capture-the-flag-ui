@@ -3,7 +3,7 @@ import {
   fullBoardDisplayPosition,
   fullBoardRows,
   movePathSquares,
-  visibleColumns,
+  fullBoardColumns,
 } from "./boardOrientation.ts";
 import type { BoardGeometry } from "./viewModel.ts";
 
@@ -50,10 +50,10 @@ describe("fullBoardRows", () => {
     }
   });
 
-  it("covers all 144 squares exactly once when paired with visibleColumns, per side", () => {
+  it("covers all 144 squares exactly once when paired with fullBoardColumns, per side", () => {
     for (const side of ["white", "black"] as const) {
       const rows = fullBoardRows(side, BATTLE_GEOMETRY);
-      const columns = visibleColumns(side, BATTLE_GEOMETRY);
+      const columns = fullBoardColumns(side, BATTLE_GEOMETRY);
       const keys = new Set<string>();
       for (const row of rows) {
         for (const column of columns) {
@@ -77,9 +77,9 @@ describe("fullBoardRows", () => {
   });
 });
 
-describe("visibleColumns", () => {
+describe("fullBoardColumns", () => {
   it("runs left-to-right A...L for White (un-rotated)", () => {
-    expect(visibleColumns("white", BATTLE_GEOMETRY)).toEqual([
+    expect(fullBoardColumns("white", BATTLE_GEOMETRY)).toEqual([
       "A",
       "B",
       "C",
@@ -96,7 +96,7 @@ describe("visibleColumns", () => {
   });
 
   it("runs left-to-right L...A for Black (180 degree rotation)", () => {
-    expect(visibleColumns("black", BATTLE_GEOMETRY)).toEqual([
+    expect(fullBoardColumns("black", BATTLE_GEOMETRY)).toEqual([
       "L",
       "K",
       "J",
@@ -113,7 +113,7 @@ describe("visibleColumns", () => {
   });
 
   it("runs left-to-right A...H for White on an 8x8 geometry", () => {
-    expect(visibleColumns("white", SKIRMISH_GEOMETRY)).toEqual([
+    expect(fullBoardColumns("white", SKIRMISH_GEOMETRY)).toEqual([
       "A",
       "B",
       "C",
@@ -126,7 +126,7 @@ describe("visibleColumns", () => {
   });
 
   it("runs left-to-right H...A for Black on an 8x8 geometry", () => {
-    expect(visibleColumns("black", SKIRMISH_GEOMETRY)).toEqual([
+    expect(fullBoardColumns("black", SKIRMISH_GEOMETRY)).toEqual([
       "H",
       "G",
       "F",
@@ -180,7 +180,7 @@ describe("fullBoardDisplayPosition", () => {
     ).toEqual({ row: 0, column: 11 });
   });
 
-  it("agrees with fullBoardRows/visibleColumns for an arbitrary square, both sides", () => {
+  it("agrees with fullBoardRows/fullBoardColumns for an arbitrary square, both sides", () => {
     const square = { column: "F", row: 7 } as const;
     for (const side of ["white", "black"] as const) {
       const position = fullBoardDisplayPosition(side, square, BATTLE_GEOMETRY);
@@ -188,7 +188,7 @@ describe("fullBoardDisplayPosition", () => {
         fullBoardRows(side, BATTLE_GEOMETRY).indexOf(square.row),
       );
       expect(position.column).toBe(
-        visibleColumns(side, BATTLE_GEOMETRY).indexOf(square.column),
+        fullBoardColumns(side, BATTLE_GEOMETRY).indexOf(square.column),
       );
     }
   });

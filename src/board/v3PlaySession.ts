@@ -44,6 +44,15 @@
 // board is already inert). It is a declaration, not a ply: no move is
 // appended, and the side to move is unaffected until the game-ended check
 // (`isInert`) takes over.
+//
+// Keep in step with `playSession.ts` (peer review, Minor 6): aside from the
+// legality argument (this module's `firstMoveRestricted` where major 2's
+// takes a `configuration`/`layout`) and the extra `resign` transition above,
+// this is a near-verbatim duplicate of that module - same select/deselect/
+// switch/apply grammar, same inert rules, same `viewSide` and draw-offer
+// transitions. A behavioural fix to one of the two almost certainly belongs
+// in both; nothing currently enforces that, so check the other module by
+// hand.
 
 import {
   allSquares,

@@ -50,16 +50,17 @@ a game or read a quick guide to how the game works.
   the other three games — rank 5 is the strongest piece there, not rank 1.
 - **Win, lose, or draw** — capture your opponent's flag and the game is
   yours. In Skirmish, Clash, and Battle you can also win if your opponent is
-  left with no legal move at all. Demotion ends that situation sooner and more
-  bluntly: a player worn down to nothing but their flag has no army left and
-  loses on the spot, without waiting for their turn. A game
-  can end in a draw too: by agreement, or if too many moves go by in a row
-  with no piece captured — you'll see a warning as that point gets close,
-  fifty moves for Skirmish, Clash, and Battle, forty for Demotion. Demotion
-  also offers one more way to lose: a player can resign at any point, which
-  ends the game immediately in the opponent's favor. However it ends, the
-  app tells you who won and why, leaves the final position on screen, and
-  offers you a new game.
+  left with no legal move at all; Demotion replaces that rule with its own: a
+  player worn down to nothing but their flag has no army left and loses on
+  the spot, without waiting for their turn. Very occasionally in Demotion a
+  single move wipes out both players' armies at the same time — when that
+  happens, nobody wins; the game is a draw. Any game can end in a draw by
+  agreement, too, or if too many moves go by in a row with no piece captured —
+  you'll see a warning as that point gets close, fifty moves for Skirmish,
+  Clash, and Battle, forty for Demotion. Demotion also offers one more way to
+  lose: a player can resign at any point, which ends the game immediately in
+  the opponent's favor. However it ends, the app tells you who won and why,
+  leaves the final position on screen, and offers you a new game.
 - **Play without a mouse** — the whole game, from choosing a game and placing
   your army through to the final move, works entirely from the keyboard, and
   reads well with a screen reader too.

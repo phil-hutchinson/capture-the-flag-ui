@@ -81,10 +81,10 @@ import {
 } from "./grid/AccessibleGrid.tsx";
 import type { GridPosition } from "./grid/gridNavigation.ts";
 import {
+  fullBoardColumns,
   fullBoardDisplayPosition,
   fullBoardRows,
   movePathSquares,
-  visibleColumns,
 } from "./view/boardOrientation.ts";
 import {
   viewSquareKey,
@@ -263,7 +263,7 @@ export function FullBoard({
   animatedMove,
 }: FullBoardProps) {
   const rows = fullBoardRows(side, geometry);
-  const columns = visibleColumns(side, geometry);
+  const columns = fullBoardColumns(side, geometry);
   const attackKeys = new Set(attackSquares.map(viewSquareKey));
   // A square that is both a plain-move destination and an attack target (in
   // practice never the case - a square is one or the other - but kept as an

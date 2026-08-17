@@ -46,6 +46,15 @@
 // and `activatableSquares` are empty and `activateSquare` is a no-op - via
 // the private `isInert` helper, so no new "disabled" flag threads through
 // the UI. A pending offer never changes `play.sideToMove`.
+//
+// Keep in step with `v3PlaySession.ts` (story 00000036, peer review, Minor
+// 6): that module is ruleset major 3's counterpart of this one, deliberately
+// duplicated rather than sharing an abstraction (Decision 1 there) - aside
+// from its legality argument and its extra `resign` transition, it is a
+// near-verbatim copy of this state machine's select/deselect/switch/apply
+// grammar, inert rules, `viewSide` and draw-offer transitions. A behavioural
+// fix made here almost certainly belongs there too; nothing currently
+// enforces that, so check the other module by hand.
 
 import {
   allSquares,

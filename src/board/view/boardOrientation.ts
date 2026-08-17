@@ -8,12 +8,14 @@
 // `BoardGeometry`/`ViewSquare` onto what a single player sees on screen,
 // major-agnostic by construction.
 //
-// `visibleColumns` here is a deliberate near-duplicate of `boardView.ts`'s
-// own `visibleColumns(side, layout)`, not a replacement for it:
-// `boardView.ts`'s copy keeps serving `Board.tsx`'s cropped placement view
-// (major-2-only, untouched by this story), while this one serves the full
-// board both majors render through. Restating four lines of column
-// arithmetic here is exactly the "cheaper to restate than to hoist"
+// `fullBoardColumns` here is a deliberate near-duplicate of `boardView.ts`'s
+// own `visibleColumns(side, layout)`, not a replacement for it - and is
+// named differently from that sibling (a peer-review fix) precisely because
+// same-name/different-signature functions living in one folder are an easy
+// import mistake: `boardView.ts`'s copy keeps serving `Board.tsx`'s cropped
+// placement view (major-2-only, untouched by this story), while this one
+// serves the full board both majors render through. Restating four lines of
+// column arithmetic here is exactly the "cheaper to restate than to hoist"
 // structural coincidence the plan's Decision 1 calls out for `Side`/`Square`
 // - the same reasoning applies to this small a helper.
 //
@@ -64,7 +66,7 @@ export function fullBoardRows(
  * is un-rotated ("A" first); Black's 180 degree rotation reverses column
  * order too.
  */
-export function visibleColumns(
+export function fullBoardColumns(
   side: ViewSide,
   geometry: BoardGeometry,
 ): readonly string[] {
@@ -81,11 +83,11 @@ export interface FullBoardDisplayPosition {
 /**
  * Where `square` lands on screen for `side`'s full-board view of `geometry`
  * (story 00000019, Step 9's move-slide overlay): the zero-based index into
- * `fullBoardRows(side, geometry)`/`visibleColumns(side, geometry)`, i.e. the
- * same square is a different cell index for a red vs. a blue human, so this
- * always goes through those two functions rather than assuming an absolute
- * coordinate. `square` is always one of `geometry`'s on-board squares, so
- * both indices are always found (never -1).
+ * `fullBoardRows(side, geometry)`/`fullBoardColumns(side, geometry)`, i.e.
+ * the same square is a different cell index for a red vs. a blue human, so
+ * this always goes through those two functions rather than assuming an
+ * absolute coordinate. `square` is always one of `geometry`'s on-board
+ * squares, so both indices are always found (never -1).
  */
 export function fullBoardDisplayPosition(
   side: ViewSide,
@@ -94,7 +96,7 @@ export function fullBoardDisplayPosition(
 ): FullBoardDisplayPosition {
   return {
     row: fullBoardRows(side, geometry).indexOf(square.row),
-    column: visibleColumns(side, geometry).indexOf(square.column),
+    column: fullBoardColumns(side, geometry).indexOf(square.column),
   };
 }
 
