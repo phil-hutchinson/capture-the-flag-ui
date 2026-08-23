@@ -31,6 +31,7 @@
 import { PieceIcon } from "../art/PieceIcon.tsx";
 import type { Side } from "../rules/primary/v2/board.ts";
 import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v2/pieces.ts";
+import { pieceArtForType } from "./pieceArtByType.ts";
 import "./PlacementControls.css";
 
 export interface PlacementControlsProps {
@@ -69,7 +70,7 @@ export function PlacementControls({
       {selectedPieceType !== undefined ? (
         <div className="placement-controls__selection">
           <PieceIcon
-            type={selectedPieceType}
+            art={pieceArtForType(selectedPieceType)}
             side={side}
             className="placement-controls__icon"
           />

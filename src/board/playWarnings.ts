@@ -1,28 +1,40 @@
-// Countdown warning for the single shared inactivity clock (rules.md §5.3).
+// Countdown warning for a shared inactivity clock (rules.md §5.3 at major 2;
+// `reference/rules.md` §5 at major 3).
 //
-// `PlayState` (play.ts) already carries the shared inactivity counter;
-// `outcome.ts` already knows the limit at which it ends the game as a draw
-// (`INACTIVITY_LIMIT` = 50). This module adds nothing to rule state or rule
+// A play state (either major's `PlayState`) already carries the shared
+// inactivity counter, and each major's own `outcome.ts` already knows the
+// limit at which it ends the game as a draw (`INACTIVITY_LIMIT` - 50 at
+// major 2, 40 at major 3). This module adds nothing to rule state or rule
 // logic - it is a thin, pure, presentation-only layer that decides *when*
 // the counter is close enough to warn about and *what to say*, so the UI
 // (`PlayWarnings.tsx`) only has to render text it does not have to compose,
 // and so the wording is unit-testable in this project's `node` Vitest
 // environment.
 //
-// The warning is **side-agnostic**: major 2 has no per-player inactivity loss
-// (that mechanic is gone with ruleset 1.1), only the single shared draw, so
-// the warning is shown identically to both players regardless of whose turn
-// it is, once **10 or fewer** combined moves remain before the shared
-// 50-move inactivity draw (the counter at 40 or above) - it must state how
-// many moves remain and that any move that removes a piece resets it.
+// Story 00000036, Step 13: this module stopped taking a major-2 `PlayState`
+// directly - taking one would mean either importing major 2's type from a
+// major-3 caller or duplicating this whole module for major 3, and the
+// wording and the 10-move threshold are identical at both majors. Instead it
+// takes exactly the three primitives it needs: whether the game is ongoing,
+// the current inactivity counter, and the **limit** the counter is being
+// measured against. Neither major's `PlayState` is imported here. Major 2's
+// callers pass `INACTIVITY_LIMIT` from `rules/primary/v2/outcome.ts` (50); a
+// Demotion game passes v3's own `INACTIVITY_LIMIT` (40) from
+// `rules/primary/v3/outcome.ts`. One wording, two limits, no duplicated
+// sentence.
 //
-// The warning disappears the moment the game is over (`play.result.kind !==
-// "ongoing"`) or the counter resets (any move that removes a piece).
+// The warning is **side-agnostic**: neither major has a per-player
+// inactivity loss, only a single shared draw, so the warning is shown
+// identically to both players regardless of whose turn it is, once **10 or
+// fewer** combined moves remain before the shared inactivity draw (the
+// counter within 10 of the limit) - it must state how many moves remain and
+// that any move that removes a piece resets it.
 //
-// No React dependency - pure over `PlayState` (play.ts).
-
-import { INACTIVITY_LIMIT } from "../rules/primary/v2/outcome.ts";
-import type { PlayState } from "../rules/primary/v2/play.ts";
+// The warning disappears the moment the game is over (`ongoing` is `false`)
+// or the counter resets (any move that removes a piece).
+//
+// No React dependency - pure over primitive values, so it has no dependency
+// on either major's rule layer.
 
 /** How many combined moves may remain before the inactivity warning appears (story-fixed). */
 const INACTIVITY_WARNING_THRESHOLD = 10;
@@ -30,7 +42,7 @@ const INACTIVITY_WARNING_THRESHOLD = 10;
 /**
  * The inactivity countdown warning (rules.md §5.3), shown to both players
  * alike once 10 or fewer combined moves remain before the shared counter
- * reaches `INACTIVITY_LIMIT` and the game is a draw.
+ * reaches the caller's inactivity limit and the game is a draw.
  */
 export interface InactivityWarning {
   readonly kind: "inactivity";
@@ -40,22 +52,33 @@ export interface InactivityWarning {
   readonly message: string;
 }
 
-/** Zero or one countdown warning currently in effect for `play`. */
+/** Zero or one countdown warning currently in effect. */
 export interface CountdownWarnings {
   readonly inactivity: InactivityWarning | null;
 }
 
 /**
- * Computes the countdown warning currently in effect for `play`. Returns
- * `{ inactivity: null }` once the game has ended (`play.result.kind !==
- * "ongoing"`) - a finished game has no clock left to warn about.
+ * Computes the countdown warning currently in effect. Returns
+ * `{ inactivity: null }` once the game has ended (`ongoing` is `false`) - a
+ * finished game has no clock left to warn about.
+ *
+ * @param ongoing Whether the game is still in progress (`play.result.kind
+ *   === "ongoing"`, for whichever major's `PlayState` the caller holds).
+ * @param inactivityCounter The play state's current shared inactivity
+ *   counter.
+ * @param limit The counter value at which the game becomes a draw by
+ *   inactivity - major 2's `INACTIVITY_LIMIT` (50) or major 3's (40).
  */
-export function computeCountdownWarnings(play: PlayState): CountdownWarnings {
-  if (play.result.kind !== "ongoing") {
+export function computeCountdownWarnings(
+  ongoing: boolean,
+  inactivityCounter: number,
+  limit: number,
+): CountdownWarnings {
+  if (!ongoing) {
     return { inactivity: null };
   }
 
-  const movesRemaining = INACTIVITY_LIMIT - play.inactivityCounter;
+  const movesRemaining = limit - inactivityCounter;
   const inactivity: InactivityWarning | null =
     movesRemaining <= INACTIVITY_WARNING_THRESHOLD
       ? {

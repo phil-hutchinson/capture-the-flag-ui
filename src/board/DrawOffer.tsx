@@ -8,8 +8,9 @@
 // to the board grid's activation grammar (`playSession.ts`'s
 // `activatableSquares` deliberately never includes it).
 //
-// Two mutually exclusive faces, driven by `drawOffer` (`Side | null`, from
-// `PlaySession.drawOffer`):
+// Two mutually exclusive faces, driven by `drawOffer` (`ViewSide | null`,
+// from `PlaySession.drawOffer` - a type-only widening, story 00000036's Step
+// 11):
 //
 //  - **no offer pending**: a plain "Offer a draw" button. `App.tsx` only
 //    renders this component while the game is ongoing, so the action is
@@ -49,13 +50,13 @@
 // exactly as normal from here. See the effect below.
 
 import { useEffect, useRef } from "react";
-import type { Side } from "../rules/primary/v2/board.ts";
 import { describeDrawOffer } from "./playAnnouncement.ts";
+import type { ViewSide } from "./view/viewModel.ts";
 import "./DrawOffer.css";
 
 export interface DrawOfferProps {
   /** The side that has offered a draw and is awaiting an answer, or `null` if none is pending. */
-  readonly drawOffer: Side | null;
+  readonly drawOffer: ViewSide | null;
   /** Offers a draw on behalf of the current side to move. */
   readonly onOffer: () => void;
   /** Accepts the pending offer, ending the game immediately as an agreed draw. */
@@ -77,7 +78,7 @@ export function DrawOffer({
 }: DrawOfferProps) {
   const offerButtonRef = useRef<HTMLButtonElement>(null);
   const declineButtonRef = useRef<HTMLButtonElement>(null);
-  const previousDrawOffer = useRef<Side | null | undefined>(undefined);
+  const previousDrawOffer = useRef<ViewSide | null | undefined>(undefined);
 
   // Focus targets are the owner's Gate-F decision, and are deliberately
   // *buttons* rather than the prompt sentence: `App.tsx` already pushes that

@@ -34,31 +34,56 @@
 // (Battle and Clash) share an edition id, so "the playable editions" is no
 // longer a meaningful question to ask here - `playableGames()` is.
 //
+// Story 00000036's implementation plan, Step 12: the button list, each
+// game's description and their display order now come from
+// `../games/gameCatalog.ts`'s `GAME_CATALOG`/`offeredGames()` - the
+// app-level identity that spans both ruleset majors - rather than this
+// module's own private `GAME_DETAIL`/`gameOrderRank` records keyed by major
+// 2's `GameId`; `choice` is now an `AppGameId`.
+//
+// Story 00000036's implementation plan, Step 14: `offeredGames()` now
+// includes Demotion (major 3), last. Selecting it hides the "Diagonal
+// attacks" section entirely (below) - major 3 publishes no rule settings, so
+// neither diagonal-attack choice applies to it - while the four game buttons
+// stay visible so a player can switch back; selecting any other game brings
+// the section straight back with its previous selections intact, since
+// `flagOverrides` (below) lives in this component's own state regardless of
+// whether the section is currently rendered. "Play" now builds a major-2
+// `RuleConfiguration` only when the chosen entry's `source` is major 2; for
+// Demotion it reports `null` instead (`onChoose`'s second parameter), since
+// major 3 has no `RuleConfiguration` at all.
+//
 // Story 00000027's implementation plan, Decision 8: the two diagonal-attack
 // rule choices sit in one new section between the selected game's
 // description and the "Play" button, offered identically for every
-// game and unaffected by which one is currently selected. Each choice is
-// rendered from `ruleChoices.ts`'s `RULE_CHOICES` as the same `aria-pressed`
-// two-button group the game buttons above use, with the selected option's
-// one-sentence description shown beneath it - no form controls, no
-// "experimental"/"variant" framing, no per-game variation. `onChoose` now
-// reports a full `RuleConfiguration` (the chosen game plus both chosen flag
-// values) rather than a bare `Edition`; `lastPlayed` widens the same way, so
-// this screen pre-selects the game *and* both flag values just played
-// (Decision 9), falling back to the standard value of each flag (via each
-// choice's own "standard" option, from `RULE_CHOICE_COPY`) when there is
-// none.
+// major-2 game and unaffected by which one is currently selected. Each
+// choice is rendered from `ruleChoices.ts`'s `RULE_CHOICES` as the same
+// `aria-pressed` two-button group the game buttons above use, with the
+// selected option's one-sentence description shown beneath it - no form
+// controls, no "experimental"/"variant" framing, no per-game variation.
+// `onChoose` reports the chosen game's app-level `GameSelection` alongside
+// the `RuleConfiguration` it built (story 00000036's implementation plan,
+// Step 12 - see above); `lastPlayed` widens the same way, so this screen
+// pre-selects the game *and* both flag values just played (Decision 9),
+// falling back to the standard value of each flag (via each choice's own
+// "standard" option, from `RULE_CHOICE_COPY`) when there is none.
 //
 // `HotSeatGame.tsx` renders this in place of its own placement UI until a
 // game is chosen; nothing is lost by choosing (or re-choosing, after "New
 // game") since this is always the very first screen of a fresh hot-seat game.
 
 import { useState } from "react";
+import {
+  GAME_CATALOG,
+  offeredGames,
+  ruleChoicesFromConfiguration,
+  type AppGameId,
+  type GameRuleChoices,
+  type GameSelection,
+} from "../games/gameCatalog.ts";
 import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import {
   buildGameConfiguration,
-  playableGames,
-  type GameId,
   type RuleChoiceOverrides,
 } from "../rules/primary/v2/games.ts";
 import {
@@ -74,59 +99,23 @@ import {
 import "./GameChoice.css";
 
 export interface GameChoiceProps {
-  /** Starts placement for the chosen configuration. */
-  readonly onChoose: (configuration: RuleConfiguration) => void;
   /**
-   * The configuration most recently played this session, if any - pre-selects
+   * Starts play for the chosen game: its app-level `GameSelection` (Step
+   * 12), and the major-2 `RuleConfiguration` built for it - `null` for a
+   * major-3 game (Demotion, Step 14), which has no `RuleConfiguration` at
+   * all (major 3 publishes no rule settings).
+   */
+  readonly onChoose: (
+    selection: GameSelection,
+    configuration: RuleConfiguration | null,
+  ) => void;
+  /**
+   * The selection most recently played this session, if any - pre-selects
    * that game and both diagonal-attack rule choices from it. `null` on the
    * first game of a session, when Skirmish and the standard value of each
    * choice stay pre-selected (story.md).
    */
-  readonly lastPlayed: RuleConfiguration | null;
-}
-
-/**
- * One selectable game's plain-language description, keyed by its `GameId`.
- * Story 00000030's implementation plan, Decision 6 and Step 9: the picker
- * offers *games*, not editions - `playableGames()` (`games.ts`, used below)
- * is the list of games actually offered, filtered from the full `GameId`
- * catalog by `combinationFits` as a floor (all three of Battle, Skirmish and
- * Clash pass it today). `GAME_DETAIL` itself is exhaustive over `GameId` (a
- * fourth game fails to compile here until it has a description), mirroring
- * the property the old edition-keyed `PICKABLE_GAME_IDS` stand-in held before
- * this step replaced it.
- *
- * Story 00000034 shortened these three descriptions to one or two plain
- * sentences apiece for a first-time viewer: Skirmish's clause about the
- * tower/lane restriction (story 00000025, Step 7) and Clash's fuller lake
- * explanation (story 00000030, Step 9) are both dropped here, deliberately -
- * the tower/lane rule is now explained only where it is actually enforced, at
- * placement time (`towerPlacementMessages.ts`).
- */
-const GAME_DETAIL: Readonly<Record<GameId, string>> = {
-  skirmish: "Play on an 8x8 board with a 16-piece army.",
-  clash: "Play on a 10x10 board with a 20-piece army. Irregular lakes.",
-  battle: "Play on a 12x12 board with a 25-piece army.",
-};
-
-/**
- * Skirmish listed first (and selected below by default) per story.md: "the
- * recommended game for a new player" - the gentler introduction with a
- * smaller board and a smaller army. Then Clash, then Battle - "the natural
- * middle position, by size" (story.md's Policy). The list itself always
- * comes from `playableGames()` above, never a hardcoded list, so a game
- * `combinationFits` would reject can never be offered here; this only
- * decides *display order* among whatever that list names.
- */
-function gameOrderRank(id: GameId): number {
-  switch (id) {
-    case "skirmish":
-      return 0;
-    case "clash":
-      return 1;
-    case "battle":
-      return 2;
-  }
+  readonly lastPlayed: GameSelection | null;
 }
 
 /**
@@ -173,7 +162,9 @@ function selectedRuleValue(
  * the first game of a session.
  */
 export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
-  const [choice, setChoice] = useState<GameId>(() => defaultGameId(lastPlayed));
+  const [choice, setChoice] = useState<AppGameId>(() =>
+    defaultGameId(lastPlayed),
+  );
   // Story 00000027, Step 8: only the flags the player has actually chosen a
   // value for this session are recorded here - initialized from
   // `lastPlayed`'s own resolved flags when there is one, so a returning
@@ -190,7 +181,7 @@ export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
   //
   // Story 00000030's Step 9: seeded from only the *rule-choice* flags
   // (`RULE_CHOICE_FLAG_IDS` - today, the two diagonal flags), not every flag
-  // in `lastPlayed.flags`. This narrows peer review #6's documented coupling
+  // in `lastPlayed`. This narrows peer review #6's documented coupling
   // (below) to the two rule-choice flags only, and it fixes a real bug the
   // old "seed from every flag" behaviour would otherwise have on this
   // screen now that `BOARD_LAYOUT`/`ARMY_COMPOSITION` are flags too
@@ -199,10 +190,16 @@ export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
   // Clash, returning here, and then picking Battle would silently build a
   // Battle-edition game still playing Clash's board and army. Game-defining
   // flags are chosen by choosing a game (`choice`, above) and come from
-  // `games.ts`'s own catalog entry, never from this state.
+  // `games.ts`'s own catalog entry, never from this state. Story 00000036's
+  // Step 12: seeded from `lastPlayed.ruleChoices` (a `GameSelection`) rather
+  // than a `RuleConfiguration`'s own `flags` - the same two values, just
+  // carried in the app-level session memory now, including when the last
+  // game played was Demotion (whose own rules ignore them, but whose
+  // `GameSelection` still carries whatever the picker showed at the time -
+  // `gameCatalog.ts`'s own header comment).
   //
   // Peer review #6 (owner decision: document only, no behaviour change).
-  // Seeding from *every rule-choice flag* in `lastPlayed.flags` converts a
+  // Seeding from *every rule-choice flag* in `lastPlayed` converts a
   // value that was merely *resolved* for the previously-played edition into
   // an explicit *override* for whatever edition is chosen next. That's the
   // same coupling `selectedRuleValue` above has: harmless today (no
@@ -223,23 +220,57 @@ export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
     }
     const seeded: Partial<Record<RuleChoiceFlagId, string>> = {};
     for (const flagId of RULE_CHOICE_FLAG_IDS) {
-      seeded[flagId] = lastPlayed.flags[flagId];
+      seeded[flagId] = lastPlayed.ruleChoices[flagId];
     }
     return seeded;
   });
-  const games = [...playableGames()].sort(
-    (a, b) => gameOrderRank(a) - gameOrderRank(b),
-  );
+  const games = offeredGames();
 
   function handleChooseFlag(flagId: RuleChoiceFlagId, value: string) {
     setFlagOverrides((current) => ({ ...current, [flagId]: value }));
   }
 
   function handlePlay() {
+    const entry = GAME_CATALOG[choice];
+    if (entry.source.major !== 2) {
+      // Demotion (major 3, Step 14): there is no `RuleConfiguration` to
+      // build - major 3 publishes no rule settings at all. `ruleChoices`
+      // still carries whatever this screen is currently showing for the two
+      // diagonal-attack flags (`selectedRuleValue`, the same resolution the
+      // now-hidden "Diagonal attacks" section itself would render from), even
+      // though Demotion's own rules ignore them entirely - that is what lets
+      // the section come back with its previous selections intact after
+      // switching from Demotion back to a major-2 game
+      // (`gameCatalog.ts`'s own header comment on `GameSelection`).
+      const ruleChoices = Object.fromEntries(
+        RULE_CHOICES.map((ruleChoice) => [
+          ruleChoice.flagId,
+          selectedRuleValue(ruleChoice, flagOverrides),
+        ]),
+      ) as GameRuleChoices;
+      onChoose({ gameId: choice, ruleChoices }, null);
+      return;
+    }
+    const configuration = buildGameConfiguration(
+      entry.source.gameId,
+      flagOverrides as RuleChoiceOverrides,
+    );
     onChoose(
-      buildGameConfiguration(choice, flagOverrides as RuleChoiceOverrides),
+      {
+        gameId: choice,
+        ruleChoices: ruleChoicesFromConfiguration(configuration),
+      },
+      configuration,
     );
   }
+
+  // Step 14: major 3 (Demotion) has no rule settings, so the "Diagonal
+  // attacks" section applies only to a major-2 game and is omitted entirely
+  // while Demotion is the current selection - the state it reads from
+  // (`flagOverrides`) is untouched either way, so it comes back with its
+  // previous selections intact the moment a major-2 game is chosen again
+  // (Gate B).
+  const showRuleChoices = GAME_CATALOG[choice].source.major === 2;
 
   return (
     <div className="game-choice">
@@ -262,48 +293,50 @@ export function GameChoice({ onChoose, lastPlayed }: GameChoiceProps) {
           </button>
         ))}
       </div>
-      <p className="game-choice__detail">{GAME_DETAIL[choice]}</p>
-      <div className="game-choice__rules">
-        <h3 className="game-choice__rules-heading">{RULE_CHOICES_HEADING}</h3>
-        {RULE_CHOICES.map((ruleChoice) => {
-          const selectedValue = selectedRuleValue(ruleChoice, flagOverrides);
-          const selectedOption = ruleChoice.options.find(
-            (option) => option.value === selectedValue,
-          );
-          const headingId = `game-choice__rule-heading--${ruleChoice.flagId}`;
-          return (
-            <div key={ruleChoice.flagId} className="game-choice__rule">
-              <h4 id={headingId} className="game-choice__rule-heading">
-                {ruleChoice.heading}
-              </h4>
-              <div
-                className="game-choice__options"
-                role="group"
-                aria-labelledby={headingId}
-              >
-                {ruleChoice.options.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className="game-choice__option"
-                    aria-pressed={selectedValue === option.value}
-                    onClick={() =>
-                      handleChooseFlag(ruleChoice.flagId, option.value)
-                    }
-                  >
-                    {option.label}
-                  </button>
-                ))}
+      <p className="game-choice__detail">{GAME_CATALOG[choice].description}</p>
+      {showRuleChoices ? (
+        <div className="game-choice__rules">
+          <h3 className="game-choice__rules-heading">{RULE_CHOICES_HEADING}</h3>
+          {RULE_CHOICES.map((ruleChoice) => {
+            const selectedValue = selectedRuleValue(ruleChoice, flagOverrides);
+            const selectedOption = ruleChoice.options.find(
+              (option) => option.value === selectedValue,
+            );
+            const headingId = `game-choice__rule-heading--${ruleChoice.flagId}`;
+            return (
+              <div key={ruleChoice.flagId} className="game-choice__rule">
+                <h4 id={headingId} className="game-choice__rule-heading">
+                  {ruleChoice.heading}
+                </h4>
+                <div
+                  className="game-choice__options"
+                  role="group"
+                  aria-labelledby={headingId}
+                >
+                  {ruleChoice.options.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className="game-choice__option"
+                      aria-pressed={selectedValue === option.value}
+                      onClick={() =>
+                        handleChooseFlag(ruleChoice.flagId, option.value)
+                      }
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {selectedOption ? (
+                  <p className="game-choice__detail">
+                    {selectedOption.description}
+                  </p>
+                ) : null}
               </div>
-              {selectedOption ? (
-                <p className="game-choice__detail">
-                  {selectedOption.description}
-                </p>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : null}
       <button type="button" className="game-choice__start" onClick={handlePlay}>
         Play
       </button>

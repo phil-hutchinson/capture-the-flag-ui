@@ -1,5 +1,5 @@
-// Player-facing naming for the three games (story 00000023, Step 7; extended
-// to a third game by story 00000030's Step 9).
+// Player-facing naming for the games (story 00000023, Step 7; extended to a
+// third game by story 00000030's Step 9).
 //
 // Mirrors `sideNames.ts`'s single-home-for-a-mapping precedent: both
 // `GameChoice.tsx` and `HotSeatGame.tsx`'s post-choice announcement need the
@@ -10,35 +10,37 @@
 // Story 00000030's implementation plan, Decision 7: an edition id no longer
 // identifies a game one-to-one (`2-0:BATTLE` now names both Battle and
 // Clash, depending on its flags), so naming follows the *game* -
-// `games.ts`'s `GameId` - rather than the edition. `gameName` below is
-// exhaustive over `GameId` (a fourth game fails to compile here until it has
-// a name); `gameNameForConfiguration` is the `RuleConfiguration`-taking
-// variant, built on `games.ts`'s `identifyGame`, for a caller that only has a
-// configuration in hand (a live game, or a record being reviewed) and needs
-// to know which game it actually is.
+// `games.ts`'s `GameId` - rather than the edition. `gameNameForConfiguration`
+// is the `RuleConfiguration`-taking variant, built on `games.ts`'s
+// `identifyGame`, for a caller that only has a configuration in hand (a live
+// game, or a record being reviewed) and needs to know which game it actually
+// is. This function stays major-2-only (story 00000036's implementation
+// plan, Step 12: the reviewer and the placement announcement are both
+// major-2-only concerns), so it still speaks `games.ts`'s own `GameId`, not
+// the app-level `AppGameId`.
+//
+// Story 00000036's implementation plan, Step 12: `gameName` and
+// `defaultGameId` below are re-pointed at `../games/gameCatalog.ts`'s
+// `AppGameId`/`GAME_CATALOG`/`GameSelection` - the identity layer that spans
+// both ruleset majors - rather than major 2's own `GameId`. Every major-2
+// `GameId` string is also a valid `AppGameId` string (the three literals are
+// identical), so `gameNameForConfiguration` below simply calls `gameName`
+// with the `GameId` `identifyGame` returns, rather than keeping a second,
+// duplicate name record here.
 //
 // Step 10 adds `reviewedGameLine`, the pure helper behind `ReviewScreen.tsx`'s
 // "This is a Clash game, on a 10x10 board." line (Decision 11): it decides
 // whether that line should be shown at all, given a record can carry a
 // `Ruleset` tag token this app could not resolve at all.
 
+import type { AppGameId, GameSelection } from "../games/gameCatalog.ts";
+import { GAME_CATALOG } from "../games/gameCatalog.ts";
 import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
-import { identifyGame, type GameId } from "../rules/primary/v2/games.ts";
+import { identifyGame } from "../rules/primary/v2/games.ts";
 
-/**
- * Per-`GameId` player-facing name. Deliberate and exhaustive (rather than
- * "Battle if ..., else Skirmish") so a fourth game fails to compile here
- * instead of silently falling into the wrong name.
- */
-const GAME_NAME: Readonly<Record<GameId, string>> = {
-  battle: "Battle",
-  skirmish: "Skirmish",
-  clash: "Clash",
-};
-
-/** The player-facing game name - "Battle", "Skirmish" or "Clash" - never the internal `GameId` or an edition id. */
-export function gameName(id: GameId): string {
-  return GAME_NAME[id];
+/** The player-facing game name - "Skirmish", "Clash", "Battle" or "Demotion" - never the internal `AppGameId` or an edition id. */
+export function gameName(id: AppGameId): string {
+  return GAME_CATALOG[id].name;
 }
 
 /**
@@ -48,13 +50,14 @@ export function gameName(id: GameId): string {
  * falls back to its edition's own rather than naming a real game (see
  * `readRecord.ts`, story 00000030's Step 8). Matches by `identifyGame`'s own
  * `(BOARD_LAYOUT, ARMY_COMPOSITION)` comparison, so both Skirmish editions
- * (active and superseded) name the same game, "Skirmish".
+ * (active and superseded) name the same game, "Skirmish". Major-2-only; see
+ * the module header.
  */
 export function gameNameForConfiguration(
   configuration: RuleConfiguration,
 ): string | null {
   const id = identifyGame(configuration);
-  return id === null ? null : GAME_NAME[id];
+  return id === null ? null : gameName(id);
 }
 
 /**
@@ -80,17 +83,20 @@ export function boardSizeDescription(configuration: RuleConfiguration): string {
  * is `null` and Skirmish stays pre-selected, per story.md's "recommended
  * first game" - but after a finished game and "New game" (which returns to
  * this picker), the picker should default to whichever game was just played,
- * not reset to Skirmish every time. Story 00000030's Decision 7: takes the
- * last-played *configuration* rather than a bare edition, and identifies its
- * game with `identifyGame` (falling back to Skirmish on the practically
- * unreachable case of a configuration matching no catalogued game, so this
- * function is still total).
+ * not reset to Skirmish every time.
+ *
+ * Story 00000036's implementation plan, Step 12: takes a `GameSelection`
+ * (the app-level identity, above both majors) rather than a `RuleConfiguration`,
+ * and simply returns its `gameId` - `GameSelection` already names the game
+ * directly, so there is no lookup to fall back from, and this holds across a
+ * major boundary without any special-casing: it returns Demotion just as
+ * readily as it returns Battle, Skirmish or Clash.
  */
-export function defaultGameId(lastPlayed: RuleConfiguration | null): GameId {
+export function defaultGameId(lastPlayed: GameSelection | null): AppGameId {
   if (lastPlayed === null) {
     return "skirmish";
   }
-  return identifyGame(lastPlayed) ?? "skirmish";
+  return lastPlayed.gameId;
 }
 
 /**

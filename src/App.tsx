@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { StartScreen } from "./app/StartScreen.tsx";
 import { RulesScreen } from "./app/rules/RulesScreen.tsx";
 import { HotSeatGame } from "./board/HotSeatGame.tsx";
+import type { GameSelection } from "./games/gameCatalog.ts";
 import { ImportScreen } from "./review/ImportScreen.tsx";
 import { ReviewScreen } from "./review/ReviewScreen.tsx";
 import type { BoardLayout } from "./rules/primary/v2/boardLayout.ts";
@@ -17,7 +18,7 @@ import type { ReplayedRecord } from "./rules/primary/v2/replay.ts";
 // fresh game and unmounting it discards whatever was in progress, and
 // likewise a fresh import screen begins import cleanly every time "Review a
 // game" is chosen. The one thing that outlives those unmounts is
-// `lastPlayedConfiguration` below, which is why it is held here.
+// `lastPlayedSelection` below, which is why it is held here.
 //
 // Every non-`start` screen can lead back to `start`: `ImportScreen` and
 // `ReviewScreen`'s own "Back" controls (Step 9) never prompt, since nothing
@@ -70,18 +71,22 @@ type Screen =
 
 export function App() {
   const [screen, setScreen] = useState<Screen>({ kind: "start" });
-  // The configuration (Battle or Skirmish, plus both diagonal-attack rule
-  // choices - story 00000027, Step 8) most recently started this app
-  // session, or `null` before the first one. `HotSeatGame` records it the
-  // moment a game is chosen and pre-selects it on its own choice screen; it
-  // lives here, rather than inside `HotSeatGame`, because that component is
-  // unmounted on every return to the start screen, which used to discard the
-  // memory the story asks to keep for the whole session (story 00000023's
-  // peer review, finding #17). Deliberately not persisted across reloads -
-  // "this session" is exactly the scope story.md's amended Policy bullet
-  // describes.
-  const [lastPlayedConfiguration, setLastPlayedConfiguration] =
-    useState<RuleConfiguration | null>(null);
+  // The app-level game selection (an `AppGameId` - Skirmish, Clash, Battle,
+  // or, since story 00000036's Step 14, Demotion - plus both diagonal-attack
+  // rule choices; story 00000036's implementation plan, Step 12) most
+  // recently started this app session, or `null` before the first one.
+  // `HotSeatGame` records it the moment a game is chosen and pre-selects it
+  // on its own choice screen; it lives here, rather than inside
+  // `HotSeatGame`, because that component is unmounted on every return to
+  // the start screen, which used to discard the memory the story asks to
+  // keep for the whole session (story 00000023's peer review, finding #17).
+  // Deliberately not persisted across reloads - "this session" is exactly
+  // the scope story.md's amended Policy bullet describes. Was a bare
+  // `RuleConfiguration` (and named `lastPlayedConfiguration`) before Step 12
+  // widened it to a `GameSelection` and renamed it to match, so it can name
+  // a game independent of which ruleset major it belongs to.
+  const [lastPlayedSelection, setLastPlayedSelection] =
+    useState<GameSelection | null>(null);
 
   // Track keyboard-vs-pointer modality on `<html>` (story 00000002, Step 9
   // Gate A polish, second pass). The placement heading (`.app__title`) is
@@ -145,8 +150,8 @@ export function App() {
   if (screen.kind === "play") {
     return (
       <HotSeatGame
-        lastPlayed={lastPlayedConfiguration}
-        onGameStarted={setLastPlayedConfiguration}
+        lastPlayed={lastPlayedSelection}
+        onGameStarted={setLastPlayedSelection}
         onBack={() => setScreen({ kind: "start" })}
       />
     );

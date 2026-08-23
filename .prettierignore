@@ -6,3 +6,9 @@ dist/
 
 # Generated lockfile
 package-lock.json
+
+# Pinned reference snapshots of companion-repository proposals
+# (doc/plan/<story>/reference/). These are verbatim copies, recorded with the
+# source commit in their SNAPSHOT.md, and must never be reformatted or edited
+# — reformatting one would make it no longer a faithful snapshot.
+doc/plan/*/reference/

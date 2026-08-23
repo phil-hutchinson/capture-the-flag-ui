@@ -82,6 +82,10 @@ import { useEffect, useRef, useState } from "react";
 import "../App.css";
 import "./ReviewScreen.css";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
+import {
+  boardGeometryFor,
+  boardPositionFor,
+} from "../board/boardViewAdapter.ts";
 import { FullBoard } from "../board/FullBoard.tsx";
 import { reviewedGameLine } from "../board/gameNames.ts";
 import {
@@ -257,9 +261,9 @@ export function ReviewScreen({
       <div className="app__layout">
         <div className="app__board-column">
           <FullBoard
-            board={currentBoard(session)}
+            position={boardPositionFor(currentBoard(session))}
             side="white"
-            layout={boardLayout}
+            geometry={boardGeometryFor(boardLayout)}
             lastMove={
               move === null
                 ? undefined

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { APP_NAME } from "../appInfo.ts";
 import { PieceSpriteDefs } from "../art/PieceIcon.tsx";
+import { GAME_CATALOG, type GameSelection } from "../games/gameCatalog.ts";
 import { Board } from "./Board.tsx";
+import { DemotionGame } from "./DemotionGame.tsx";
 import { DrawOffer } from "./DrawOffer.tsx";
 import {
   readFlipBetweenTurns,
@@ -30,6 +32,13 @@ import {
   describeDrawOffer,
   describeResult,
 } from "./playAnnouncement.ts";
+import {
+  describeActivation as describeDemotionActivation,
+  describeDrawAccepted as describeDemotionDrawAccepted,
+  describeDrawDecline as describeDemotionDrawDecline,
+  describeDrawOffer as describeDemotionDrawOffer,
+  describeResignation as describeDemotionResignation,
+} from "./v3PlayAnnouncement.ts";
 import {
   describeAutoFillCompleted,
   describeBoardCleared,
@@ -63,9 +72,24 @@ import { PlayStatus } from "./PlayStatus.tsx";
 import { computeCountdownWarnings } from "./playWarnings.ts";
 import { PlayWarnings } from "./PlayWarnings.tsx";
 import { Tray } from "./Tray.tsx";
+import {
+  acceptDraw as acceptDemotionDraw,
+  activateSquare as activateDemotionSquare,
+  declineDraw as declineDemotionDraw,
+  offerDraw as offerDemotionDraw,
+  resign as resignDemotion,
+  startSession as startDemotionSession,
+  type PlaySession as DemotionPlaySession,
+} from "./v3PlaySession.ts";
 import { squareKey, type Square } from "../rules/primary/v2/board.ts";
+import {
+  squareKey as demotionSquareKey,
+  type Square as DemotionSquare,
+} from "../rules/primary/v3/board.ts";
+import { findFlag } from "../rules/primary/v3/position.ts";
 import type { RuleConfiguration } from "../rules/primary/v2/configuration.ts";
 import { buildInitialGameState } from "../rules/primary/v2/gameState.ts";
+import { INACTIVITY_LIMIT } from "../rules/primary/v2/outcome.ts";
 import {
   autoFill,
   clear,
@@ -82,6 +106,7 @@ import {
   towerPlacementLegality,
 } from "../rules/primary/v2/placement.ts";
 import type { PieceTypeId } from "../rules/primary/v2/pieces.ts";
+import { generateStartPosition } from "../rules/primary/v3/startPosition.ts";
 import "../App.css";
 import "./HotSeatGame.css";
 
@@ -247,19 +272,21 @@ type Selection =
 
 export interface HotSeatGameProps {
   /**
-   * The configuration (game plus both diagonal-attack rule choices, story
-   * 00000027) most recently started this app session, or `null` if none has
-   * been. `GameChoice` pre-selects the game and both flags from it; `null`
-   * falls back to Skirmish and the standard values. Held by `App` so it
-   * survives this component's unmount (peer review, finding #17).
+   * The app-level game selection (`AppGameId` plus both diagonal-attack rule
+   * choices - story 00000036's implementation plan, Step 12; previously a
+   * bare `RuleConfiguration`) most recently started this app session, or
+   * `null` if none has been. `GameChoice` pre-selects the game and both
+   * flags from it; `null` falls back to Skirmish and the standard values.
+   * Held by `App` so it survives this component's unmount (peer review,
+   * finding #17).
    */
-  readonly lastPlayed: RuleConfiguration | null;
+  readonly lastPlayed: GameSelection | null;
   /**
-   * Reports the configuration the player has just chosen, so it becomes the
+   * Reports the selection the player has just chosen, so it becomes the
    * next choice screen's pre-selection - including after a game is abandoned
    * part way through, since it was still the last one played.
    */
-  readonly onGameStarted: (configuration: RuleConfiguration) => void;
+  readonly onGameStarted: (selection: GameSelection) => void;
   /**
    * Returns to the start screen. Called directly once the game has ended;
    * while the game is in progress (placing or playing), called only after
@@ -282,6 +309,16 @@ export function HotSeatGame({
     null,
   );
   const [session, setSession] = useState<PlacementSession | null>(null);
+  // Story 00000036's implementation plan, Step 14: the major-3 (Demotion)
+  // counterpart of `playSession`/`configuration` above - `null` until the
+  // player chooses Demotion on `GameChoice`, at which point
+  // `handleChooseGame` sets it directly (there is no placement phase to
+  // pass through first, unlike the major-2 branch's `configuration` ->
+  // `session` -> `playSession` progression). Mutually exclusive with
+  // `configuration`: exactly one of the two is non-`null` once a game has
+  // been chosen.
+  const [demotionSession, setDemotionSession] =
+    useState<DemotionPlaySession | null>(null);
   // Text pushed into `gameAnnouncementRegion`'s (below) polite live region
   // the moment a game is chosen (`handleChooseGame`, below) - names the game
   // and its board size to assistive tech. Story 00000002, Step 5 (peer review
@@ -371,6 +408,13 @@ export function HotSeatGame({
   // rather than by `PlayStatus` (a plain visual indicator) so it is never
   // announced twice from two different live regions.
   const [playAnnouncement, setPlayAnnouncement] = useState("");
+  // Story 00000036's implementation plan, Step 15: the Demotion branch's own
+  // counterpart of `playAnnouncement` above - text pushed into `DemotionGame`'s
+  // board live region, derived from `demotionSession` immediately before and
+  // after each activation via `v3PlayAnnouncement.ts`'s `describeActivation`
+  // (aliased `describeDemotionActivation` above to avoid colliding with major
+  // 2's own import of the same name).
+  const [demotionAnnouncement, setDemotionAnnouncement] = useState("");
   // Story 00000012, Step 4: the "Flip board between turns" setting. It is a
   // device setting, not part of any game, so it is initialized once from
   // local storage (lazy initializer, defaulting to on when nothing is
@@ -397,34 +441,53 @@ export function HotSeatGame({
     headingRef.current?.focus();
   }, []);
 
+  // Story 00000036's implementation plan, Step 14: whether *some* game has
+  // been chosen, regardless of which of the two ruleset majors it belongs
+  // to - `true` for the rest of a major-2 game's lifetime once
+  // `configuration` is set (unchanged from before this step), and, per
+  // Decision 11, equally `true` for the rest of a Demotion game's lifetime
+  // once `demotionSession` is set. A plain boolean rather than checking
+  // `demotionSession !== null` directly in the effect below matters once
+  // Step 15 starts replacing `demotionSession` with a new object on every
+  // ply: this value stays `true` across every one of those replacements (it
+  // only ever flips at the moment a game is chosen, or reset to `false` by
+  // "New game"/returning to the choice screen), so the effect's own
+  // dependency below never re-fires mid-game and steals focus back to the
+  // heading on every move - exactly the property `configuration` alone
+  // already has, since it is likewise set once and never replaced mid-game.
+  const gameChosen = configuration !== null || demotionSession !== null;
+
   // Story 00000002, Step 7 (story 00000023 finding #10, re-located):
   // choosing a game unmounts `GameChoice` - including the focused
   // "Play <Game>" button - without moving focus anywhere, which used to drop
   // a keyboard user onto `<body>` right at the start of placement. The `<h1>`
   // above sits at the same position in every one of this component's
-  // branches (game choice, placement, Phase 2), so React keeps one DOM node
-  // mounted across the whole game's lifetime - this effect only needs to
-  // refocus it, not remount it. Depending on `configuration` (rather than
-  // running unconditionally, or with an empty array like the effect above)
-  // means it fires exactly when a game is freshly chosen (`null` ->
-  // non-`null`) and never again on an unrelated render - in particular, never
-  // while a piece is being selected or placed, which would otherwise steal
-  // focus mid-placement.
+  // branches (game choice, placement, Phase 2, and - story 00000036's Step
+  // 14 - Demotion), so React keeps one DOM node mounted across the whole
+  // game's lifetime - this effect only needs to refocus it, not remount it.
+  // Depending on `gameChosen` (rather than running unconditionally, or with
+  // an empty array like the effect above) means it fires exactly when a game
+  // is freshly chosen (`false` -> `true`) and never again on an unrelated
+  // render - in particular, never while a piece is being selected or placed,
+  // which would otherwise steal focus mid-placement.
   useEffect(() => {
-    if (configuration !== null) {
+    if (gameChosen) {
       headingRef.current?.focus();
     }
-  }, [configuration]);
+  }, [gameChosen]);
 
-  // Story 00000014, Step 15 (extended by Step 7 of story 00000023): true once
-  // a game has been chosen and throughout placement (`playSession` is
-  // `null`) and throughout an ongoing Phase-2 game, false while the
-  // Battle/Skirmish choice is still showing (nothing is yet at stake) and
+  // Story 00000014, Step 15 (extended by Step 7 of story 00000023, and by
+  // story 00000036's Step 14 for Demotion): true once a game has been chosen
+  // and throughout placement (`playSession` is `null`) and throughout an
+  // ongoing Phase-2 game, or throughout an ongoing Demotion game, false
+  // while the game choice is still showing (nothing is yet at stake) and
   // once the game has ended - i.e. exactly the condition under which leaving
   // would lose something.
   const gameInProgress =
-    configuration !== null &&
-    (playSession === null || playSession.play.result.kind === "ongoing");
+    (configuration !== null &&
+      (playSession === null || playSession.play.result.kind === "ongoing")) ||
+    (demotionSession !== null &&
+      demotionSession.play.result.kind === "ongoing");
 
   function handleBackToStart() {
     if (gameInProgress) {
@@ -460,8 +523,26 @@ export function HotSeatGame({
   // region. The choice is reported to `App` here, as the game starts rather
   // than as it ends, so a game abandoned part way through still counts as the
   // one played most recently.
-  function handleChooseGame(chosenConfiguration: RuleConfiguration) {
-    onGameStarted(chosenConfiguration);
+  //
+  // Story 00000036's Step 12: `GameChoice` now reports its app-level
+  // `GameSelection` alongside the `RuleConfiguration` it built.
+  //
+  // Story 00000036's Step 14: `chosenConfiguration` is now `null` for a
+  // major-3 game (Demotion) - `GameChoice` only ever builds a
+  // `RuleConfiguration` for a major-2 game (see its own `handlePlay`). That
+  // case is handled first and returns early, via `handleChooseDemotion`
+  // below; everything from here down is unchanged and only ever runs for a
+  // major-2 game, so `chosenConfiguration` is non-null for the rest of this
+  // function.
+  function handleChooseGame(
+    selection: GameSelection,
+    chosenConfiguration: RuleConfiguration | null,
+  ) {
+    onGameStarted(selection);
+    if (chosenConfiguration === null) {
+      handleChooseDemotion();
+      return;
+    }
     setConfiguration(chosenConfiguration);
     const freshSession = newSession(chosenConfiguration);
     setSession(freshSession);
@@ -498,7 +579,46 @@ export function HotSeatGame({
     );
   }
 
-  if (configuration === null) {
+  // Story 00000036's implementation plan, Step 14 (Decision 11): Demotion has
+  // no placement phase and no `RuleConfiguration` to place under - choosing
+  // it goes straight to play, from a freshly generated starting position
+  // (`startPosition.ts`'s `generateStartPosition`, defaulting to
+  // `Math.random` so every game's arrangement is fresh). The opening
+  // announcement is Decision 11's fixed wording, set here - in the same
+  // handler that starts the game, exactly as `handleChooseGame` sets its own
+  // announcement above - into the same already-registered live region
+  // (`gameAnnouncementRegion`, below), so nothing about it depends on that
+  // region's first mount. Two deviations from a literal reading of Decision
+  // 11, both peer-review fixes: the board-size clause is composed from
+  // `gameCatalog.ts`'s `GAME_CATALOG.demotion.boardSizePhrase` rather than
+  // hard-coded, so the two cannot drift apart; and the sentence now names
+  // Red's own Flag square, read live off the generated position, giving a
+  // screen-reader player one concrete orienting fact about the board they
+  // did not arrange themselves (see implementation-plan.md's Step 14 Notes
+  // for the wording change on record).
+  function handleChooseDemotion() {
+    const generated = generateStartPosition();
+    setDemotionSession(startDemotionSession(generated));
+    const flagSquare = findFlag(generated.position, "white");
+    if (flagSquare === undefined) {
+      throw new Error(
+        "HotSeatGame.tsx: handleChooseDemotion: generated position has no White Flag.",
+      );
+    }
+    setGameAnnouncement(
+      `You chose Demotion. Playing on ${GAME_CATALOG.demotion.boardSizePhrase}. Both armies are already on the board — there is nothing to place. Your Flag is on ${demotionSquareKey(flagSquare)}. Red to move.`,
+    );
+  }
+
+  if (configuration === null && demotionSession === null) {
+    // Element-order invariant (peer review, Minor 7): this `<main>` shell -
+    // sprite defs, `<h1>`, "Back to start", `LeaveGameDialog`, announcement
+    // region, then branch content - must stay in the same order in this
+    // file's other three `<main className="app">` copies (the Demotion
+    // branch and the Phase 2 major-2 play branch below, and the placement
+    // branch further down still), so React keeps the persistent `<h1>` node
+    // and `role="status"` region mounted across every branch change rather
+    // than remounting them and losing focus or dropping an announcement.
     return (
       <main className="app">
         <PieceSpriteDefs />
@@ -519,6 +639,116 @@ export function HotSeatGame({
         />
         {gameAnnouncementRegion}
         <GameChoice onChoose={handleChooseGame} lastPlayed={lastPlayed} />
+      </main>
+    );
+  }
+
+  if (demotionSession !== null) {
+    // Story 00000036's implementation plan, Step 14 (Decision 11): the
+    // fourth branch, alongside game choice / placement / Phase 2 above and
+    // below - same shell, same element order (sprite defs, heading, back
+    // button, leave dialog, announcement region, then content), so React
+    // keeps the persistent `<h1>` node and `role="status"` region across this
+    // branch change exactly as it does across the other three. Element-order
+    // invariant (peer review, Minor 7): this copy of the `<main
+    // className="app">` shell must be kept in the same order as the other
+    // three in this file - the game-choice screen above, the Phase 2 major-2
+    // play branch below, and the placement branch further down still.
+    //
+    // Step 15: all interaction - selecting a piece, moving it, attacking, and
+    // the turn hand-off (including any demotion) - flows through
+    // `v3PlaySession.ts`'s `activateSquare`, exactly mirroring
+    // `handlePlayActivate` below for major 2; this component only turns a
+    // grid activation into that one call (plus deriving the live-region
+    // announcement for it via `v3PlayAnnouncement.ts`'s `describeActivation`).
+    //
+    // Step 16: every ending - the draw offer (offer/accept/decline) and
+    // resignation, alongside the endings already detected automatically by
+    // `describeDemotionActivation` after a game-ending ply - is wired here,
+    // mirroring `handleOfferDraw`/`handleAcceptDraw`/`handleDeclineDraw`
+    // below for major 2 exactly, and pushes its sentence into the same
+    // `demotionAnnouncement` live region the ply narrative already uses, so
+    // nothing is ever announced twice from two different regions.
+    // `handleDemotionResign` is only ever called by `ResignControl` *after*
+    // its own two-step confirmation - resigning itself needs no acceptance
+    // and cannot be declined (rules.md §5.5).
+    const handleDemotionActivate = (square: DemotionSquare) => {
+      const next = activateDemotionSquare(demotionSession, square);
+      setDemotionSession(next);
+      setDemotionAnnouncement(
+        describeDemotionActivation(demotionSession, next, square),
+      );
+    };
+
+    // Story 00000036's implementation plan, Step 16: a full reset, exactly
+    // like major-2's `handleNewGame` below - back to the "Choose a game"
+    // screen, which pre-selects Demotion again since `lastPlayed` was
+    // already recorded, via `onGameStarted`, when this game began
+    // (`handleChooseDemotion` above).
+    const handleDemotionNewGame = () => {
+      setDemotionSession(null);
+      setDemotionAnnouncement("");
+      setGameAnnouncement("");
+    };
+
+    const handleDemotionOfferDraw = () => {
+      const offeringSide = demotionSession.play.sideToMove;
+      setDemotionSession(offerDemotionDraw(demotionSession));
+      setDemotionAnnouncement(describeDemotionDrawOffer(offeringSide));
+    };
+
+    const handleDemotionAcceptDraw = () => {
+      const next = acceptDemotionDraw(demotionSession);
+      setDemotionSession(next);
+      setDemotionAnnouncement(describeDemotionDrawAccepted(next.play.result));
+    };
+
+    const handleDemotionDeclineDraw = () => {
+      const { drawOffer } = demotionSession;
+      if (drawOffer === null) {
+        return;
+      }
+      setDemotionSession(declineDemotionDraw(demotionSession));
+      setDemotionAnnouncement(describeDemotionDrawDecline(drawOffer));
+    };
+
+    const handleDemotionResign = () => {
+      const next = resignDemotion(demotionSession);
+      setDemotionSession(next);
+      setDemotionAnnouncement(describeDemotionResignation(next.play.result));
+    };
+
+    return (
+      <main className="app">
+        <PieceSpriteDefs />
+        <h1 className="app__title" tabIndex={-1} ref={headingRef}>
+          {APP_NAME}
+        </h1>
+        <button
+          type="button"
+          className="hot-seat-game__back"
+          onClick={handleBackToStart}
+        >
+          Back to start
+        </button>
+        <LeaveGameDialog
+          open={confirmingLeave}
+          onConfirm={onBack}
+          onCancel={() => setConfirmingLeave(false)}
+        />
+        {gameAnnouncementRegion}
+        <DemotionGame
+          session={demotionSession}
+          flipBetweenTurns={flipBetweenTurns}
+          onFlipBetweenTurnsChange={handleFlipBetweenTurnsChange}
+          onActivate={handleDemotionActivate}
+          announcement={demotionAnnouncement}
+          onNewGame={handleDemotionNewGame}
+          onOfferDraw={handleDemotionOfferDraw}
+          onAcceptDraw={handleDemotionAcceptDraw}
+          onDeclineDraw={handleDemotionDeclineDraw}
+          onResign={handleDemotionResign}
+        />
       </main>
     );
   }
@@ -588,6 +818,13 @@ export function HotSeatGame({
 
     const { result } = playSession.play;
 
+    // Element-order invariant (peer review, Minor 7): this `<main>` shell -
+    // sprite defs, `<h1>`, "Back to start", `LeaveGameDialog`, announcement
+    // region, then branch content - must stay in the same order as this
+    // file's other three `<main className="app">` copies (the game-choice
+    // screen and the Demotion branch above, and the placement branch
+    // further down), so React keeps the persistent `<h1>` node and
+    // `role="status"` region mounted across every branch change.
     return (
       <main className="app">
         <PieceSpriteDefs />
@@ -614,7 +851,11 @@ export function HotSeatGame({
               drawOfferPending={playSession.drawOffer !== null}
             />
             <PlayWarnings
-              warnings={computeCountdownWarnings(playSession.play)}
+              warnings={computeCountdownWarnings(
+                playSession.play.result.kind === "ongoing",
+                playSession.play.inactivityCounter,
+                INACTIVITY_LIMIT,
+              )}
             />
             <DrawOffer
               drawOffer={playSession.drawOffer}
@@ -624,7 +865,12 @@ export function HotSeatGame({
             />
           </>
         ) : (
-          <GameResult result={result} onNewGame={handleNewGame} />
+          <GameResult
+            outcomeKind={result.kind === "win" ? "win" : "draw"}
+            winner={result.kind === "win" ? result.winner : null}
+            summary={describeResult(result)}
+            onNewGame={handleNewGame}
+          />
         )}
         <FlipBoardToggle
           flipBetweenTurns={flipBetweenTurns}
@@ -1031,6 +1277,13 @@ export function HotSeatGame({
     legality: placementComplete ? legality : { legal: true },
   });
 
+  // Element-order invariant (peer review, Minor 7): this `<main>` shell -
+  // sprite defs, `<h1>`, "Back to start", `LeaveGameDialog`, announcement
+  // region, then branch content - must stay in the same order as this
+  // file's other three `<main className="app">` copies (the game-choice
+  // screen, the Demotion branch, and the Phase 2 major-2 play branch, all
+  // above), so React keeps the persistent `<h1>` node and `role="status"`
+  // region mounted across every branch change.
   return (
     <main className="app">
       <PieceSpriteDefs />

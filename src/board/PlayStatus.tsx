@@ -13,13 +13,13 @@
 // flipped board the responder is looking at, so while an offer is pending
 // this adds "- draw offer pending" rather than hiding the turn information.
 
-import type { Side } from "../rules/primary/v2/board.ts";
 import { sideColorName } from "./sideNames.ts";
+import type { ViewSide } from "./view/viewModel.ts";
 import "./PlayStatus.css";
 
 export interface PlayStatusProps {
   /** The side whose turn it currently is to move. */
-  readonly sideToMove: Side;
+  readonly sideToMove: ViewSide;
   /** True while a draw offer is pending an answer (rules.md §6.6). */
   readonly drawOfferPending?: boolean;
 }

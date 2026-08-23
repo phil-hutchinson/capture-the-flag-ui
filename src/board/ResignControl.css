@@ -1,0 +1,43 @@
+/* Resign control and its inline confirmation (story 00000036, Step 16).
+   Mirrors DrawOffer.css's chrome exactly - the plain "Resign" button reuses
+   the same button styling as "Offer a draw", and the confirmation prompt
+   reuses the same panel chrome as the draw-offer prompt, since both are the
+   same kind of turn-level control living in the same status area. No left
+   accent border here: unlike the draw-offer prompt, the confirmation never
+   names a side that needs to answer - only the resigning player is involved. */
+
+.resign-control__resign {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.resign-control-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+}
+
+.resign-control-prompt__text {
+  font-weight: bold;
+}
+
+.resign-control-prompt button {
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  cursor: pointer;
+}

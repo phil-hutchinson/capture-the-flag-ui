@@ -10,13 +10,25 @@
 // (story 00000004, Step 5), so it is keyboard-operable and screen-reader-
 // perceivable regardless of caller.
 //
+// Story 00000036, Step 11: this component takes the major-agnostic view
+// model (`src/board/view/`) - a `BoardGeometry`, a `BoardPosition`, and
+// `ViewSide`/`ViewSquare` - rather than a major-2 `BoardState`/`BoardLayout`,
+// so both ruleset majors can render through the same board. It imports
+// nothing from `src/rules/`; each caller goes through its own major's
+// adapter first (`src/board/boardViewAdapter.ts` for major 2) to turn its
+// own rule-layer types into this component's props. Nothing about its
+// square labels, lake icon, highlighting policy, activation gate or live
+// region changed - it now reads the occupant's name off the token
+// (`BoardPosition`) instead of the major-2 piece catalog, and terrain off
+// the geometry's impassable-square set instead of major 2's own `isLake`.
+//
 // This component knows nothing about whose turn it is or the move grammar
-// (select/deselect/move): it only draws a `BoardState` from a given `side`'s
-// perspective, renders whichever squares its caller marks as selected / a
-// plain-move destination / an attack target / the last move made, and
-// reports raw square activations up to the caller via `onActivate` for
-// whichever squares the caller marks `activatableSquares`. The caller owns
-// all of the domain meaning.
+// (select/deselect/move): it only draws a `BoardPosition` from a given
+// side's perspective, renders whichever squares its caller marks as
+// selected / a plain-move destination / an attack target / the last move
+// made, and reports raw square activations up to the caller via
+// `onActivate` for whichever squares the caller marks `activatableSquares`.
+// The caller owns all of the domain meaning.
 //
 // Visual highlighting is deliberately minimal (Gate D revision, story
 // 00000004): the only square-fill highlights are for an *in-progress
@@ -45,12 +57,13 @@
 // path of the computer's move while it slides: whenever `animatedMove` is
 // set, every square that move's path touches - its `from`, its `to`, and (for
 // a two-square move) the single square passed over between them, from
-// `movePathSquares` (`boardView.ts`) - is marked with the same amber fill a
-// human's own legal plain-move destinations use, so the path reads clearly on
-// the small board. It is never an attack-style highlight (the computer's own
-// move never reads as one of the human's own attack targets), and it appears
-// only while `animatedMove` is set - the human's own turn, hot-seat, and
-// review are all unaffected, since none of them ever pass `animatedMove`.
+// `movePathSquares` (`view/boardOrientation.ts`) - is marked with the same
+// amber fill a human's own legal plain-move destinations use, so the path
+// reads clearly on the small board. It is never an attack-style highlight
+// (the computer's own move never reads as one of the human's own attack
+// targets), and it appears only while `animatedMove` is set - the human's own
+// turn, hot-seat, and review are all unaffected, since none of them ever pass
+// `animatedMove`.
 //
 // That visual set is strictly smaller than the set of squares that actually
 // *respond* to activation: the accessible grid's activation gate
@@ -63,25 +76,24 @@
 import type { CSSProperties } from "react";
 import { PieceIcon, LAKE_SYMBOL_ID } from "../art/PieceIcon.tsx";
 import {
-  isLake,
-  squareKey,
-  type Side,
-  type Square,
-} from "../rules/primary/v2/board.ts";
-import type { BoardLayout } from "../rules/primary/v2/boardLayout.ts";
-import type { BoardState, PlacedPiece } from "../rules/primary/v2/gameState.ts";
-import { PIECE_CATALOG } from "../rules/primary/v2/pieces.ts";
-import {
   AccessibleGrid,
   type GridCellDescriptor,
 } from "./grid/AccessibleGrid.tsx";
 import type { GridPosition } from "./grid/gridNavigation.ts";
 import {
+  fullBoardColumns,
   fullBoardDisplayPosition,
   fullBoardRows,
   movePathSquares,
-  visibleColumns,
-} from "./boardView.ts";
+} from "./view/boardOrientation.ts";
+import {
+  viewSquareKey,
+  type BoardGeometry,
+  type BoardPosition,
+  type BoardToken,
+  type ViewSide,
+  type ViewSquare,
+} from "./view/viewModel.ts";
 import { sideColorName } from "./sideNames.ts";
 import "./FullBoard.css";
 
@@ -109,10 +121,10 @@ interface SlideStyle extends CSSProperties {
 
 /**
  * Inline style carrying the board's own grid size (story 00000023, Step 6),
- * sized to `layout`. Set on `.full-board__stage` (not `.full-board` itself)
- * so plain CSS custom-property inheritance carries it down through
- * `AccessibleGrid`'s own wrapper, exactly as `--square`/`--board-border`
- * already do (see that element's own comment).
+ * sized to the board geometry. Set on `.full-board__stage` (not
+ * `.full-board` itself) so plain CSS custom-property inheritance carries it
+ * down through `AccessibleGrid`'s own wrapper, exactly as
+ * `--square`/`--board-border` already do (see that element's own comment).
  */
 interface StageStyle extends CSSProperties {
   readonly "--columns": number;
@@ -132,24 +144,22 @@ interface StageStyle extends CSSProperties {
  * technology, not just shown.
  */
 function squareLabel(
-  square: Square,
-  piece: PlacedPiece | undefined,
-  lake: boolean,
+  square: ViewSquare,
+  token: BoardToken | undefined,
+  impassable: boolean,
   selected: boolean,
   attack: boolean,
   lastMove: boolean,
 ): string {
-  const name = squareKey(square);
+  const name = viewSquareKey(square);
   const suffix = lastMove ? ", last move" : "";
-  if (lake) {
+  if (impassable) {
     return `${name}, lake${suffix}`;
   }
-  if (piece === undefined) {
+  if (token === undefined) {
     return `${name}, empty${suffix}`;
   }
-  const occupant = `${sideColorName(piece.side)} ${
-    PIECE_CATALOG[piece.pieceType].displayName
-  }`;
+  const occupant = `${sideColorName(token.side)} ${token.label}`;
   if (attack) {
     return `${name}, attack ${occupant}${suffix}`;
   }
@@ -160,61 +170,62 @@ function squareLabel(
 
 export interface FullBoardProps {
   /** The position to draw. */
-  readonly board: BoardState;
-  /** The side whose perspective the board is drawn from (see `boardView.ts`). */
-  readonly side: Side;
+  readonly position: BoardPosition;
+  /** The side whose perspective the board is drawn from (see `view/boardOrientation.ts`). */
+  readonly side: ViewSide;
   /**
-   * The board layout to render (story 00000023, Step 6; required since the
-   * peer review's finding #2 - an omitted layout used to default silently to
-   * Battle's, the same defect class found live at this story's Gate B/D).
-   * `PlayBoard.tsx` passes the session's own resolved edition's layout;
-   * `ReviewScreen.tsx` passes the replayed record's own edition's layout.
+   * The board's fixed shape (story 00000036, Step 11 - major-agnostic,
+   * replacing the major-2 `BoardLayout` this prop used to take). Required,
+   * no default: an omitted geometry used to default silently to Battle's,
+   * the same defect class found live at story 00000023's Gate B/D.
+   * `PlayBoard.tsx`/`ReviewScreen.tsx` derive it from their own major's
+   * board via that major's adapter.
    */
-  readonly layout: BoardLayout;
+  readonly geometry: BoardGeometry;
   /** The square of a piece currently picked up, if any (hot-seat only). */
-  readonly selected?: Square;
+  readonly selected?: ViewSquare;
   /**
    * Legal plain-move destinations for the selected piece (hot-seat only).
    * Rendered with `--destination`'s amber fill; a square that is also in
    * `attackSquares` is rendered as an attack instead (see `attackSquares`).
    */
-  readonly destinationSquares?: readonly Square[];
+  readonly destinationSquares?: readonly ViewSquare[];
   /**
    * Legal attack targets for the selected piece (hot-seat only). Rendered
    * with `--attack`'s red fill/border, taking priority over
    * `destinationSquares` for any square in both.
    */
-  readonly attackSquares?: readonly Square[];
+  readonly attackSquares?: readonly ViewSquare[];
   /**
    * The squares the most recently made move touched - its source and
    * destination - so the board can mark "the last move made" (story
    * 00000014's review screen). Left `undefined` by the hot-seat game.
    */
-  readonly lastMove?: { readonly from: Square; readonly to: Square };
+  readonly lastMove?: { readonly from: ViewSquare; readonly to: ViewSquare };
   /**
    * Squares that respond to activation (click, or Enter/Space when
    * focused). Every square stays focusable and readable regardless; an
    * empty/undefined set (a fully inert board, as in review) simply makes
    * every square a no-op when activated.
    */
-  readonly activatableSquares?: readonly Square[];
+  readonly activatableSquares?: readonly ViewSquare[];
   /**
    * Called with the domain square of an actionable cell when it is
    * activated. Omit for a fully inert board (review).
    */
-  readonly onActivate?: (square: Square) => void;
+  readonly onActivate?: (square: ViewSquare) => void;
   /** Text pushed into the board's polite live region. */
   readonly announcement?: string;
   /**
    * The computer's just-applied move, mid-slide (story 00000019, Step 9).
-   * `board` already reflects the move (the moved piece sits at `to`); while
-   * this is set, `FullBoard` suppresses the real piece drawn at `to` and
-   * instead renders a single `aria-hidden` sliding `PieceIcon` overlay that
-   * travels from `from`'s display cell to `to`'s over
+   * `position` already reflects the move (the moved piece sits at `to`);
+   * while this is set, `FullBoard` suppresses the real piece drawn at `to`
+   * and instead renders a single `aria-hidden` sliding `PieceIcon` overlay
+   * that travels from `from`'s display cell to `to`'s over
    * `MOVE_SLIDE_DURATION_MS`, landing exactly at rest so no jump is visible
    * once it settles. It also marks every square the move's path touches
    * (`from`, `to`, and, for a two-square move, the square passed over between
-   * them - `movePathSquares`, `boardView.ts`) with the same amber
+   * them - `movePathSquares`, `view/boardOrientation.ts`) with the same amber
    * `--destination` fill a human's own legal plain-move destinations use, so
    * the `to` square shows that fill underneath the arriving piece. Purely
    * visual - the move is already announced through the live region elsewhere
@@ -226,19 +237,22 @@ export interface FullBoardProps {
    * set this prop at all when the user prefers reduced motion, so the board
    * is never needlessly held inert for a slide nobody will see.
    */
-  readonly animatedMove?: { readonly from: Square; readonly to: Square };
+  readonly animatedMove?: {
+    readonly from: ViewSquare;
+    readonly to: ViewSquare;
+  };
 }
 
 /**
- * The full board (12x12 for Battle, 8x8 for Skirmish - see `layout`),
- * oriented to `side`, drawn through the accessible grid (story 00000004,
- * Step 5). See the module comment above for the highlighting and activation
- * contract.
+ * The full board (12x12 for Battle, 8x8 for Skirmish and Demotion - see
+ * `geometry`), oriented to `side`, drawn through the accessible grid (story
+ * 00000004, Step 5). See the module comment above for the highlighting and
+ * activation contract.
  */
 export function FullBoard({
-  board,
+  position,
   side,
-  layout,
+  geometry,
   selected,
   destinationSquares = [],
   attackSquares = [],
@@ -248,32 +262,31 @@ export function FullBoard({
   announcement,
   animatedMove,
 }: FullBoardProps) {
-  const rows = fullBoardRows(side, layout);
-  const columns = visibleColumns(side, layout);
-  const attackKeys = new Set(attackSquares.map((square) => squareKey(square)));
+  const rows = fullBoardRows(side, geometry);
+  const columns = fullBoardColumns(side, geometry);
+  const attackKeys = new Set(attackSquares.map(viewSquareKey));
   // A square that is both a plain-move destination and an attack target (in
   // practice never the case - a square is one or the other - but kept as an
   // explicit precedence rather than an assumption) renders as an attack.
   const destinationKeys = new Set(
-    destinationSquares
-      .map((square) => squareKey(square))
-      .filter((key) => !attackKeys.has(key)),
+    destinationSquares.map(viewSquareKey).filter((key) => !attackKeys.has(key)),
   );
-  const activatableKeys = new Set(
-    activatableSquares.map((square) => squareKey(square)),
-  );
-  const selectedKey = selected ? squareKey(selected) : undefined;
+  const activatableKeys = new Set(activatableSquares.map(viewSquareKey));
+  const selectedKey = selected ? viewSquareKey(selected) : undefined;
   const lastMoveKeys = lastMove
-    ? new Set([squareKey(lastMove.from), squareKey(lastMove.to)])
+    ? new Set([viewSquareKey(lastMove.from), viewSquareKey(lastMove.to)])
     : undefined;
   // The moved piece is suppressed at its real square (`to`) while it's drawn
   // instead as the sliding overlay below, so the two are never both visible
-  // at once (story 00000019, Step 9). `board` already reflects the move (it
-  // was applied before the slide begins - see `EngineGame.tsx`), so the piece
-  // to slide is read from `board[to]`, not from anything about `from`.
-  const animatedToKey = animatedMove ? squareKey(animatedMove.to) : undefined;
-  const slidingPiece = animatedMove
-    ? board[squareKey(animatedMove.to)]
+  // at once (story 00000019, Step 9). `position` already reflects the move
+  // (it was applied before the slide begins - see `EngineGame.tsx`), so the
+  // token to slide is read from `position.tokens[to]`, not from anything
+  // about `from`.
+  const animatedToKey = animatedMove
+    ? viewSquareKey(animatedMove.to)
+    : undefined;
+  const slidingToken = animatedMove
+    ? position.tokens[viewSquareKey(animatedMove.to)]
     : undefined;
   // The path the computer's move is sliding along - `from`, `to`, and (for a
   // two-square move) the square passed over between them - marked with the
@@ -282,29 +295,29 @@ export function FullBoard({
   // comment and this component's own `animatedMove` doc comment above).
   const animatedPathKeys = animatedMove
     ? new Set(
-        movePathSquares(animatedMove.from, animatedMove.to).map(squareKey),
+        movePathSquares(animatedMove.from, animatedMove.to).map(viewSquareKey),
       )
     : undefined;
 
   const cellRows: GridCellDescriptor[][] = rows.map((row) =>
     columns.map((column) => {
-      const square: Square = { column, row };
-      const key = squareKey(square);
-      const lake = isLake(square, layout);
-      const piece = board[key];
+      const square: ViewSquare = { column, row };
+      const key = viewSquareKey(square);
+      const impassable = geometry.impassableSquares.has(key);
+      const token = position.tokens[key];
       const isSelected = key === selectedKey;
       const isAttack = attackKeys.has(key);
       const isDestination =
         destinationKeys.has(key) || (animatedPathKeys?.has(key) ?? false);
       const isLastMove = lastMoveKeys?.has(key) ?? false;
       const activatable = activatableKeys.has(key);
-      const hidePiece = key === animatedToKey;
+      const hideToken = key === animatedToKey;
 
       return {
         content: (
           <FullBoardCell
-            piece={hidePiece ? undefined : piece}
-            lake={lake}
+            token={hideToken ? undefined : token}
+            impassable={impassable}
             selected={isSelected}
             destination={isDestination}
             attack={isAttack}
@@ -318,8 +331,8 @@ export function FullBoard({
         // it either way.
         label: squareLabel(
           square,
-          piece,
-          lake,
+          token,
+          impassable,
           isSelected,
           isAttack,
           isLastMove,
@@ -331,14 +344,14 @@ export function FullBoard({
   );
 
   const slideStyle: SlideStyle | undefined =
-    animatedMove && slidingPiece
+    animatedMove && slidingToken
       ? (() => {
           const from = fullBoardDisplayPosition(
             side,
             animatedMove.from,
-            layout,
+            geometry,
           );
-          const to = fullBoardDisplayPosition(side, animatedMove.to, layout);
+          const to = fullBoardDisplayPosition(side, animatedMove.to, geometry);
           return {
             "--slide-to-row": to.row,
             "--slide-to-col": to.column,
@@ -373,22 +386,22 @@ export function FullBoard({
         rows={cellRows}
         className="full-board"
         announcement={announcement}
-        onActivate={(position: GridPosition) =>
+        onActivate={(gridPosition: GridPosition) =>
           onActivate?.({
-            column: columns[position.column],
-            row: rows[position.row],
+            column: columns[gridPosition.column],
+            row: rows[gridPosition.row],
           })
         }
       />
-      {slideStyle && slidingPiece && (
+      {slideStyle && slidingToken && (
         <div
           className="full-board__slide-piece"
           style={slideStyle}
           aria-hidden="true"
         >
           <PieceIcon
-            type={slidingPiece.pieceType}
-            side={slidingPiece.side}
+            art={slidingToken.art}
+            side={slidingToken.side}
             className="full-board__slide-piece-icon"
           />
         </div>
@@ -398,8 +411,8 @@ export function FullBoard({
 }
 
 interface FullBoardCellProps {
-  readonly piece: PlacedPiece | undefined;
-  readonly lake: boolean;
+  readonly token: BoardToken | undefined;
+  readonly impassable: boolean;
   readonly selected: boolean;
   /** A legal (plain-move) destination for the currently selected piece (amber fill, no border). */
   readonly destination: boolean;
@@ -420,15 +433,15 @@ interface FullBoardCellProps {
 }
 
 function FullBoardCell({
-  piece,
-  lake,
+  token,
+  impassable,
   selected,
   destination,
   attack,
   lastMove,
 }: FullBoardCellProps) {
   const classNames = ["full-board__square"];
-  if (lake) {
+  if (impassable) {
     classNames.push("full-board__square--lake");
   }
   if (selected) {
@@ -445,7 +458,7 @@ function FullBoardCell({
   return (
     <div className={classNames.join(" ")}>
       <div className="full-board__square-inner">
-        {lake && (
+        {impassable && (
           <svg
             viewBox="0 0 64 64"
             className="full-board__lake-icon"
@@ -454,10 +467,10 @@ function FullBoardCell({
             <use href={`#${LAKE_SYMBOL_ID}`} />
           </svg>
         )}
-        {piece && (
+        {token && (
           <PieceIcon
-            type={piece.pieceType}
-            side={piece.side}
+            art={token.art}
+            side={token.side}
             className="full-board__piece-icon"
           />
         )}

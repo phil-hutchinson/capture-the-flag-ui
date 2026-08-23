@@ -9,27 +9,20 @@
 //
 // Terrain (the p-lake symbol) is not a piece type, so it is not drawn by
 // PieceIcon; consumers reference it directly via `LAKE_SYMBOL_ID`.
+//
+// Story 00000036, Step 10: `PieceIcon` takes a `PieceArt` value (a major plus
+// a glyph, see `./pieceArt.ts`) rather than a major-2 `PieceTypeId`, and
+// imports nothing from `src/rules/` - two ruleset majors are live in this
+// app, and a component keyed off one major's rule types could never draw the
+// other's pieces. Callers holding a major-2 `PieceTypeId` go through
+// `src/board/pieceArtByType.ts`'s adapter first.
 
-import { PIECE_CATALOG, type PieceTypeId } from "../rules/primary/v2/pieces.ts";
-import type { Side } from "../rules/primary/v2/board.ts";
+import {
+  pieceArtSpriteId,
+  type PieceArt,
+  type PieceArtSide,
+} from "./pieceArt.ts";
 import pieceSpriteSheet from "./pieceSprites.svg?raw";
-
-/**
- * Symbol id (in pieceSprites.svg) for each piece type. `masterOfArms` (the
- * rename of `lordMarshal`) and `footSoldier` (the rename of `infantry`) keep
- * their 1.1 sprites; the retired ids' sprites (`p-skirmisher`, `p-archer`,
- * `p-sapper`, `p-assassin`) stay in the sprite sheet, unreferenced here.
- */
-const SYMBOL_ID_BY_PIECE_TYPE: Readonly<Record<PieceTypeId, string>> = {
-  masterOfArms: "p-marshal",
-  champion: "p-champion",
-  knight: "p-knight",
-  halberdier: "p-halberdier",
-  footSoldier: "p-infantry",
-  militia: "p-militia",
-  tower: "p-tower",
-  flag: "p-flag",
-};
 
 /** Symbol id (in pieceSprites.svg) for the lake terrain sprite. */
 export const LAKE_SYMBOL_ID = "p-lake";
@@ -52,19 +45,19 @@ export function PieceSpriteDefs() {
 }
 
 /** CSS color for a side, applied to a piece symbol via `color` (`currentColor`). */
-function sideColor(side: Side): string {
+function sideColor(side: PieceArtSide): string {
   return side === "white" ? "var(--side-a)" : "var(--side-b)";
 }
 
 export interface PieceIconProps {
-  readonly type: PieceTypeId;
-  readonly side: Side;
+  readonly art: PieceArt;
+  readonly side: PieceArtSide;
   readonly className?: string;
 }
 
 /**
- * Renders one piece's symbol, colored for the given side, with the piece's
- * one-character rank code (the position-block symbol: `1`-`6`, `T`, `F`)
+ * Renders one piece's symbol, colored for the given side, with the piece
+ * art's own glyph (`1`-`6`, `T`, `F` at major 2; `1`-`5`, `F` at major 3)
  * pinned in the top-left corner as a quick rank reminder. The corner numeral
  * is separate overlay markup, not part of the `<symbol>`, so it is drawn here
  * alongside the `<use>`; `currentColor` makes it track the side color set on
@@ -72,8 +65,8 @@ export interface PieceIconProps {
  * text in the prototype sample sheet `.local/ctf-tile-prototype.svg` — note
  * the sibling `.md` quotes stale values (32px/Georgia).
  */
-export function PieceIcon({ type, side, className }: PieceIconProps) {
-  const symbolId = SYMBOL_ID_BY_PIECE_TYPE[type];
+export function PieceIcon({ art, side, className }: PieceIconProps) {
+  const symbolId = pieceArtSpriteId(art);
   return (
     <svg
       viewBox="0 0 64 64"
@@ -91,7 +84,7 @@ export function PieceIcon({ type, side, className }: PieceIconProps) {
         textAnchor="end"
         fill="currentColor"
       >
-        {PIECE_CATALOG[type].symbol}
+        {art.glyph}
       </text>
     </svg>
   );
